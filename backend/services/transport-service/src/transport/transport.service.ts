@@ -1,0 +1,197 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { ProductService } from '../product/product.service';
+
+interface Stop {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  demand: number; // in units/kg
+}
+
+@Injectable()
+export class TransportService {
+  constructor(private productService: ProductService) {}
+
+  // 1. Internal optimization: Suggest warehouse zone and location
+  async suggestZonePlacement(sku: string): Promise<any> {
+    const product = await this.productService.findOneBySku(sku);
+    if (!product) {
+      throw new NotFoundException(`Product with SKU ${sku} not found`);
+    }
+
+    let zone = 'DRY';
+    let suggestedLocation = 'dry-row-1';
+    let instructions = 'Store at room temperature in a dry, ventilated area.';
+
+    if (product.storageType === 'COLD') {
+      zone = 'COLD';
+      suggestedLocation = `cold-shelf-${Math.floor(Math.random() * 5) + 1}`;
+      instructions = `Maintain temperature between ${product.minTemp || 0}°C and ${product.maxTemp || 4}°C. Keep humidity under ${product.maxHumidity || 80}%.`;
+    } else if (product.storageType === 'FROZEN') {
+      zone = 'FROZEN';
+      suggestedLocation = `frozen-bin-${Math.floor(Math.random() * 5) + 1}`;
+      instructions = `Keep frozen below ${product.maxTemp || -18}°C. Ensure no moisture exposure.`;
+    }
+
+    return {
+      sku,
+      productName: product.name,
+      recommendedZone: zone,
+      suggestedLocation,
+      environmentalRequirements: {
+        minTemp: product.minTemp,
+        maxTemp: product.maxTemp,
+        maxHumidity: product.maxHumidity,
+      },
+      instructions,
+    };
+  }
+
+  // 2. Inbound dock scheduling: returns optimized slots avoiding overlaps
+  getInboundSchedule(): any[] {
+    // Mock incoming bookings
+    const bookings = [
+      { id: '1', supplier: 'Dalat Organic Farms', time: '08:00', durationMin: 60, status: 'Scheduled', dock: 1 },
+      { id: '2', supplier: 'Vissan Meat JSC', time: '08:30', durationMin: 90, status: 'Scheduled', dock: 1 }, // Conflict on Dock 1!
+      { id: '3', supplier: 'Masan Consumer', time: '10:00', durationMin: 45, status: 'Scheduled', dock: 2 },
+      { id: '4', supplier: 'CP Poultry Vietnam', time: '10:30', durationMin: 60, status: 'Scheduled', dock: 2 }, // Overlap on Dock 2
+    ];
+
+    // Simple conflict resolution logic: if booking overlaps, push it forward or shift to next dock
+    const resolved = [];
+    const dockAvailability = { 1: 8 * 60, 2: 8 * 60 }; // minutes from 00:00
+
+    for (const b of bookings) {
+      const [hours, minutes] = b.time.split(':').map(Number);
+      let requestedStart = hours * 60 + minutes;
+
+      // Check current availability for this dock
+      if (requestedStart < dockAvailability[b.dock]) {
+        // Shift start time to clear the conflict
+        requestedStart = dockAvailability[b.dock];
+      }
+
+      const end = requestedStart + b.durationMin;
+      dockAvailability[b.dock] = end;
+
+      const formatTime = (min: number) => {
+        const h = Math.floor(min / 60).toString().padStart(2, '0');
+        const m = (min % 60).toString().padStart(2, '0');
+        return `${h}:${m}`;
+      };
+
+      resolved.push({
+        ...b,
+        originalTime: b.time,
+        optimizedTime: formatTime(requestedStart),
+        endTime: formatTime(end),
+        conflictResolved: requestedStart !== hours * 60 + minutes,
+      });
+    }
+
+    return resolved;
+  }
+
+  // 3. Outbound grouping: group order lots by supermarket sections
+  groupOutboundLots(lots: any[]): any {
+    const grouped = {
+      DairySection: [],
+      MeatSection: [],
+      ProduceSection: [],
+      DryGoodsSection: [],
+      Unknown: [],
+    };
+
+    for (const lot of lots) {
+      const category = lot.category?.toLowerCase() || '';
+      if (category.includes('dairy') || category.includes('milk')) {
+        grouped.DairySection.push(lot);
+      } else if (category.includes('meat') || category.includes('sea') || category.includes('poultry')) {
+        grouped.MeatSection.push(lot);
+      } else if (category.includes('produce') || category.includes('veg') || category.includes('fruit')) {
+        grouped.ProduceSection.push(lot);
+      } else if (category.includes('dry') || category.includes('noodle') || category.includes('canned')) {
+        grouped.DryGoodsSection.push(lot);
+      } else {
+        grouped.Unknown.push(lot);
+      }
+    }
+
+    return grouped;
+  }
+
+  // 4. Delivery routing: VRP (Vehicle Routing Problem) Nearest-Neighbor solver
+  // Depot at Go Vap Supermarket (10.8286, 106.6802) HCMC
+  solveVrp(stops: Stop[], truckCapacity = 200): any {
+    const depot = { id: 'depot', name: 'SFWMS Depot (HCMC Central)', lat: 10.8286, lng: 106.6802, demand: 0 };
+    
+    // Calculates Euclidean distance as standard proxy for routing
+    const getDistance = (p1: { lat: number; lng: number }, p2: { lat: number; lng: number }) => {
+      const dx = p1.lat - p2.lat;
+      const dy = p1.lng - p2.lng;
+      return Math.sqrt(dx * dx + dy * dy) * 111.32; // Approx km
+    };
+
+    let unvisited = [...stops];
+    const routes = [];
+    let currentRouteIndex = 1;
+
+    while (unvisited.length > 0) {
+      const route = {
+        routeId: `Route-${currentRouteIndex++}`,
+        stops: [depot],
+        totalDistance: 0,
+        totalDemand: 0,
+      };
+
+      let currentPoint = depot;
+      let capacityRemaining = truckCapacity;
+
+      while (unvisited.length > 0) {
+        // Find nearest stop that fits capacity
+        let nearestStopIndex = -1;
+        let minDistance = Infinity;
+
+        for (let i = 0; i < unvisited.length; i++) {
+          const stop = unvisited[i];
+          if (stop.demand <= capacityRemaining) {
+            const dist = getDistance(currentPoint, stop);
+            if (dist < minDistance) {
+              minDistance = dist;
+              nearestStopIndex = i;
+            }
+          }
+        }
+
+        // If no stop fits in this truck, return to depot and start a new route
+        if (nearestStopIndex === -1) {
+          break;
+        }
+
+        const nextStop = unvisited[nearestStopIndex];
+        route.stops.push(nextStop);
+        route.totalDistance += minDistance;
+        route.totalDemand += nextStop.demand;
+        capacityRemaining -= nextStop.demand;
+
+        // Move to the next point
+        currentPoint = nextStop;
+        unvisited.splice(nearestStopIndex, 1);
+      }
+
+      // Return to depot
+      route.totalDistance += getDistance(currentPoint, depot);
+      route.stops.push(depot);
+      routes.push(route);
+    }
+
+    return {
+      depot,
+      totalRoutes: routes.length,
+      truckCapacity,
+      routes,
+      totalDistance: Math.round(routes.reduce((sum, r) => sum + r.totalDistance, 0) * 100) / 100,
+    };
+  }
+}

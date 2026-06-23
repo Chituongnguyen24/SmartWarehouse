@@ -1,0 +1,31 @@
+{
+  "name": "sfwms-monorepo",
+  "version": "1.0.0",
+  "description": "FreshKeep - Smart Food Warehouse Management System (SFWMS)",
+  "private": true,
+  "workspaces": [
+    "backend/services/*",
+    "frontend/web-dashboard",
+    "simulators"
+  ],
+  "scripts": {
+    "infra:up": "docker-compose up -d",
+    "infra:down": "docker-compose down",
+    "infra:logs": "docker-compose logs -f",
+    "core:start": "npm run start:dev -w backend/services/core-service",
+    "iot:start": "npm run start:dev -w backend/services/iot-service",
+    "ai:start": "npm run start:dev -w backend/services/ai-service",
+    "notification:start": "npm run start:dev -w backend/services/notification-service",
+    "warehouse:start": "npm run start:dev -w backend/services/warehouse-service",
+    "inbound:start": "npm run start:dev -w backend/services/inbound-service",
+    "outbound:start": "npm run start:dev -w backend/services/outbound-service",
+    "report:start": "npm run start:dev -w backend/services/report-service",
+    "simulator:start": "npm run start -w simulators",
+    "backend:all": "concurrently \"npm run core:start\" \"npm run iot:start\" \"npm run ai:start\" \"npm run notification:start\" \"npm run warehouse:start\" \"npm run inbound:start\" \"npm run outbound:start\" \"npm run report:start\"",
+    "install:all": "npm install && npm run install:services",
+    "install:services": "cd backend/services/core-service && npm install && cd ../iot-service && npm install && cd ../ai-service && npm install && cd ../notification-service && npm install && cd ../warehouse-service && npm install && cd ../inbound-service && npm install && cd ../outbound-service && npm install && cd ../report-service && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

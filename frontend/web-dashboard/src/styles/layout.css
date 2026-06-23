@@ -1,0 +1,261 @@
+/* Main Layout */
+.app-container {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 260px;
+  background-color: var(--color-primary-900);
+  color: var(--color-white);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow-y: auto;
+  transition: width var(--transition-normal);
+}
+
+.sidebar-header {
+  padding: var(--spacing-6);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.brand-icon {
+  width: 32px;
+  height: 32px;
+  background-color: var(--color-primary-500);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-white);
+}
+
+.brand-info h1 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.brand-info p {
+  font-size: 0.75rem;
+  color: var(--color-primary-100);
+  opacity: 0.8;
+}
+
+.nav-section {
+  padding: var(--spacing-4);
+}
+
+.nav-section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--color-primary-100);
+  opacity: 0.6;
+  margin-bottom: var(--spacing-2);
+  padding-left: var(--spacing-3);
+  letter-spacing: 0.05em;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3);
+  border-radius: var(--radius-md);
+  color: var(--color-primary-50);
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all var(--transition-fast);
+  margin-bottom: var(--spacing-1);
+  position: relative;
+}
+
+.nav-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.nav-item.active {
+  background-color: var(--color-primary-600);
+  color: var(--color-white);
+}
+
+.nav-badge {
+  position: absolute;
+  right: var(--spacing-3);
+  background-color: var(--color-danger-500);
+  color: white;
+  font-size: 0.65rem;
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+}
+
+/* Sidebar Footer (IoT Status) */
+.sidebar-footer {
+  margin-top: auto;
+  padding: var(--spacing-4);
+}
+
+.iot-status-card {
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: var(--spacing-3);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  background-color: var(--color-primary-500);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--color-primary-500);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.iot-status-text {
+  font-size: 0.75rem;
+  color: var(--color-primary-100);
+  line-height: 1.2;
+}
+
+.iot-status-text strong {
+  display: block;
+  color: white;
+  font-weight: 600;
+}
+
+/* Main Content Area */
+.main-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Header */
+.top-header {
+  height: 72px;
+  background-color: var(--color-white);
+  border-bottom: 1px solid var(--color-neutral-200);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--spacing-8);
+  flex-shrink: 0;
+}
+
+.page-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-neutral-900);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-4);
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  background-color: var(--color-neutral-100);
+  border-radius: var(--radius-full);
+  padding: var(--spacing-2) var(--spacing-4);
+  width: 300px;
+}
+
+.search-bar input {
+  border: none;
+  background: none;
+  outline: none;
+  margin-left: var(--spacing-2);
+  width: 100%;
+  font-size: 0.875rem;
+  font-family: inherit;
+}
+
+.icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-neutral-600);
+  transition: background-color var(--transition-fast);
+  position: relative;
+}
+
+.icon-btn:hover {
+  background-color: var(--color-neutral-100);
+}
+
+.notification-badge {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  background-color: var(--color-danger-500);
+  border-radius: 50%;
+  border: 2px solid var(--color-white);
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  margin-left: var(--spacing-2);
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  background-color: var(--color-primary-600);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.user-role {
+  font-size: 0.75rem;
+  color: var(--color-neutral-500);
+}
+
+/* Page Content Container */
+.page-content {
+  flex: 1;
+  padding: var(--spacing-8);
+  overflow-y: auto;
+}

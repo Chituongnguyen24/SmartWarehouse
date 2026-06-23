@@ -1,0 +1,14 @@
+{
+  "name": "simulators",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "ts-node iot-simulator.ts"
+  },
+  "dependencies": {
+    "mqtt": "^5.3.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3",
+    "@types/node": "^20.11.0"
+  }
+}
