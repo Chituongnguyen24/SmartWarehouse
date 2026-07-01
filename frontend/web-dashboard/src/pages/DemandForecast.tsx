@@ -1,5 +1,5 @@
 import React from 'react';
-import { Target, TrendingUp, ShoppingCart, Percent, BrainCircuit } from 'lucide-react';
+import { Target, TrendingUp, TrendingDown, ShoppingCart, Percent, BrainCircuit } from 'lucide-react';
 import { LineChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ComposedChart } from 'recharts';
 
 const mockDemandData = [

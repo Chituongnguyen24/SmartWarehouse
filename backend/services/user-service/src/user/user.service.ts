@@ -14,10 +14,11 @@ export class UserService implements OnModuleInit {
   async onModuleInit() {
     // Auto-seed default accounts
     const emailList = [
-      { email: 'admin@sfwms.vn', name: 'Super Admin', role: UserRole.ADMIN },
-      { email: 'manager@sfwms.vn', name: 'Warehouse Manager', role: UserRole.WAREHOUSE_MANAGER },
-      { email: 'staff@sfwms.vn', name: 'Warehouse Staff', role: UserRole.WAREHOUSE_STAFF },
-      { email: 'sales@sfwms.vn', name: 'Sales Representative', role: UserRole.SALES_STAFF },
+      { email: 'admin@sfwms.vn', name: 'Nguyễn Chi Tường', role: UserRole.ADMIN },
+      { email: 'manager@sfwms.vn', name: 'Trần Văn Bình', role: UserRole.WAREHOUSE_MANAGER },
+      { email: 'staff@sfwms.vn', name: 'Lê Thị Hoa', role: UserRole.WAREHOUSE_STAFF },
+      { email: 'sales@sfwms.vn', name: 'Phạm Minh Đức', role: UserRole.SALES_STAFF },
+      { email: 'driver@sfwms.vn', name: 'Võ Thanh Tùng', role: UserRole.DRIVER },
     ];
 
     for (const item of emailList) {
@@ -58,4 +59,9 @@ export class UserService implements OnModuleInit {
       select: ['id', 'name', 'email', 'role', 'createdAt'],
     });
   }
+
+  async remove(id: string): Promise<void> {
+    await this.userRepository.delete(id);
+  }
 }
+

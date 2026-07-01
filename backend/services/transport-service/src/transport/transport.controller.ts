@@ -3,7 +3,7 @@ import { TransportService } from './transport.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { UserRole } from '../user/user.entity';
+import { UserRole } from '../../../../../shared/constants/enums';
 import { ApiBearerAuth, ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 
 @ApiTags('transport')

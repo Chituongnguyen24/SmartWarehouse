@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, NotFoundException, BadRequestException } from '@nestjs/core';
+import { Injectable, OnModuleInit, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Lot, LotStatus } from './entities/lot.entity';
@@ -213,7 +213,7 @@ export class InventoryService implements OnModuleInit {
     return updatedLot;
   }
 
-  async getSmartFefoSuggestions(sku: string, requiredQty: number): Promise<any[]> {
+  async getSmartFefoSuggestions(sku: string, requiredQty: number): Promise<any> {
     const product = await this.productService.findOneBySku(sku);
     if (!product) {
       throw new NotFoundException(`Product with SKU ${sku} not found`);

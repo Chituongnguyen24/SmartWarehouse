@@ -1,17 +1,61 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InboundOrder } from './inbound-order.entity';
 import { InboundOrderItem } from './inbound-order-item.entity';
+import * as amqp from 'amqp-connection-manager';
 
 @Injectable()
-export class InboundOrderService {
+export class InboundOrderService implements OnModuleInit, OnModuleDestroy {
+  private rmqConnection: any;
+  private rmqChannel: any;
+
   constructor(
     @InjectRepository(InboundOrder)
     private orderRepository: Repository<InboundOrder>,
     @InjectRepository(InboundOrderItem)
     private itemRepository: Repository<InboundOrderItem>,
   ) {}
+
+  onModuleInit() {
+    const rabbitUrl = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
+    this.rmqConnection = amqp.connect([rabbitUrl]);
+    this.rmqChannel = this.rmqConnection.createChannel({
+      json: true,
+      setup: (channel) => {
+        return channel.assertExchange('inbound.events', 'topic', { durable: true });
+      },
+    });
+  }
+
+  onModuleDestroy() {
+    if (this.rmqConnection) {
+      this.rmqConnection.close();
+    }
+  }
+
+  private async getAuthToken(): Promise<string> {
+    try {
+      const response = await fetch('http://localhost:3012/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'admin@sfwms.vn',
+          password: 'password123',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Login failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.access_token;
+    } catch (err) {
+      console.error('[INBOUND SERVICE] Authentication failed with user-service:', err.message);
+      throw err;
+    }
+  }
 
   // Generate order code: IB-YYYYMMDD-NNN
   private async generateOrderCode(): Promise<string> {
@@ -172,8 +216,64 @@ export class InboundOrderService {
     order.status = 'COMPLETED';
     const completed = await this.orderRepository.save(order);
 
-    // TODO: Publish inbound.completed event to RabbitMQ
-    console.log(`[INBOUND] Order ${order.orderCode} COMPLETED. Publishing event...`);
+    console.log(`[INBOUND] Order ${order.orderCode} COMPLETED. Importing lots to inventory...`);
+
+    // Call Inventory Service to import lots
+    try {
+      const token = await this.getAuthToken();
+      for (const item of order.items) {
+        if (item.status !== 'STORED') continue;
+
+        const lotPayload = {
+          lotCode: item.lotCode,
+          sku: item.sku,
+          supplierId: order.supplierId,
+          expiryDate: item.expiryDate.toISOString(),
+          quantity: item.receivedQuantity,
+          zone: item.assignedZone,
+          location: item.assignedSlotId,
+        };
+
+        const res = await fetch('http://localhost:3011/inventory/lots/import', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(lotPayload),
+        });
+
+        if (!res.ok) {
+          console.error(`[INBOUND SERVICE] Failed to import lot ${item.lotCode} to inventory: ${res.statusText}`);
+        } else {
+          console.log(`[INBOUND SERVICE] Successfully imported lot ${item.lotCode} to inventory`);
+        }
+      }
+    } catch (err) {
+      console.error('[INBOUND SERVICE] Error importing lots to inventory:', err.message);
+    }
+
+    // Publish inbound.completed event to RabbitMQ
+    try {
+      const eventPayload = {
+        orderId: completed.id,
+        orderCode: completed.orderCode,
+        supplierId: completed.supplierId,
+        supplierName: completed.supplierName,
+        completedAt: new Date().toISOString(),
+        items: completed.items.map(i => ({
+          sku: i.sku,
+          lotCode: i.lotCode,
+          quantity: i.receivedQuantity,
+          zone: i.assignedZone,
+          slotId: i.assignedSlotId,
+        })),
+      };
+      await this.rmqChannel.publish('inbound.events', 'inbound.completed', eventPayload);
+      console.log(`[INBOUND] Event inbound.completed published to RabbitMQ`);
+    } catch (err) {
+      console.error('[INBOUND SERVICE] Failed to publish RabbitMQ event:', err.message);
+    }
 
     return completed;
   }

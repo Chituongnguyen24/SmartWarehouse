@@ -12,7 +12,10 @@
     "infra:up": "docker-compose up -d",
     "infra:down": "docker-compose down",
     "infra:logs": "docker-compose logs -f",
-    "core:start": "npm run start:dev -w backend/services/core-service",
+    "product:start": "npm run start:dev -w backend/services/product-service",
+    "inventory:start": "npm run start:dev -w backend/services/inventory-service",
+    "user:start": "npm run start:dev -w backend/services/user-service",
+    "transport:start": "npm run start:dev -w backend/services/transport-service",
     "iot:start": "npm run start:dev -w backend/services/iot-service",
     "ai:start": "npm run start:dev -w backend/services/ai-service",
     "notification:start": "npm run start:dev -w backend/services/notification-service",
@@ -21,11 +24,19 @@
     "outbound:start": "npm run start:dev -w backend/services/outbound-service",
     "report:start": "npm run start:dev -w backend/services/report-service",
     "simulator:start": "npm run start -w simulators",
-    "backend:all": "concurrently \"npm run core:start\" \"npm run iot:start\" \"npm run ai:start\" \"npm run notification:start\" \"npm run warehouse:start\" \"npm run inbound:start\" \"npm run outbound:start\" \"npm run report:start\"",
-    "install:all": "npm install && npm run install:services",
-    "install:services": "cd backend/services/core-service && npm install && cd ../iot-service && npm install && cd ../ai-service && npm install && cd ../notification-service && npm install && cd ../warehouse-service && npm install && cd ../inbound-service && npm install && cd ../outbound-service && npm install && cd ../report-service && npm install"
+    "backend:all": "concurrently \"npm run product:start\" \"npm run inventory:start\" \"npm run user:start\" \"npm run transport:start\" \"npm run iot:start\" \"npm run ai:start\" \"npm run notification:start\" \"npm run warehouse:start\" \"npm run inbound:start\" \"npm run outbound:start\" \"npm run report:start\"",
+    "install:all": "npm install --legacy-peer-deps"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/passport-jwt": "^4.0.1",
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "@nestjs/jwt": "^11.0.2",
+    "@nestjs/passport": "^11.0.5",
+    "bcrypt": "^6.0.0",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1"
   }
 }

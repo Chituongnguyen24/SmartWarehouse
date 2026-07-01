@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, NotFoundException } from '@nestjs/common';
 import Redis from 'ioredis';
 
 @Injectable()
@@ -50,7 +50,7 @@ export class AiService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      const response = await fetch('http://localhost:3001/auth/login', {
+      const response = await fetch('http://localhost:3012/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -78,7 +78,7 @@ export class AiService implements OnModuleInit, OnModuleDestroy {
     const token = await this.getAuthToken();
 
     // Fetch active lots
-    const response = await fetch('http://localhost:3001/inventory/lots', {
+    const response = await fetch('http://localhost:3011/inventory/lots', {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -116,7 +116,7 @@ export class AiService implements OnModuleInit, OnModuleDestroy {
 
       if (newRisk !== lot.riskScore || newStatus !== lot.status) {
         // Update via Core Service API
-        const updateRes = await fetch(`http://localhost:3001/inventory/lots/${lot.id}/risk`, {
+        const updateRes = await fetch(`http://localhost:3011/inventory/lots/${lot.id}/risk`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -160,7 +160,7 @@ export class AiService implements OnModuleInit, OnModuleDestroy {
     const token = await this.getAuthToken();
 
     // Fetch stock movements
-    const response = await fetch('http://localhost:3001/inventory/movements', {
+    const response = await fetch('http://localhost:3011/inventory/movements', {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -171,7 +171,7 @@ export class AiService implements OnModuleInit, OnModuleDestroy {
     const movements: any[] = await response.json();
     
     // Fetch product details
-    const productRes = await fetch(`http://localhost:3001/products`, {
+    const productRes = await fetch(`http://localhost:3010/products`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const products: any[] = await productRes.json();
@@ -183,7 +183,7 @@ export class AiService implements OnModuleInit, OnModuleDestroy {
 
     // Filter OUT movements for this SKU
     // (We associate lot movement logs back to product SKUs)
-    const lotsRes = await fetch('http://localhost:3001/inventory/lots', {
+    const lotsRes = await fetch('http://localhost:3011/inventory/lots', {
       headers: { Authorization: `Bearer ${token}` },
     });
     const lots: any[] = await lotsRes.json();

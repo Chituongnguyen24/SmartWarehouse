@@ -7,30 +7,32 @@ import { ConfigService } from '@nestjs/config';
  */
 @Injectable()
 export class ReportService {
-  private coreServiceUrl: string;
+  private productServiceUrl: string;
+  private inventoryServiceUrl: string;
 
   constructor(private config: ConfigService) {
-    this.coreServiceUrl = config.get<string>('CORE_SERVICE_URL', 'http://localhost:3001');
+    this.productServiceUrl = config.get<string>('PRODUCT_SERVICE_URL', 'http://localhost:3010');
+    this.inventoryServiceUrl = config.get<string>('INVENTORY_SERVICE_URL', 'http://localhost:3011');
   }
 
-  // ─── Helper: Fetch data from core service ───
-  private async fetchFromCore(path: string, token?: string): Promise<any> {
+  // ─── Helper: Fetch data from a service ───
+  private async fetchFromService(serviceUrl: string, path: string, token?: string): Promise<any> {
     const headers: any = { 'Content-Type': 'application/json' };
     if (token) headers.Authorization = `Bearer ${token}`;
 
-    const res = await fetch(`${this.coreServiceUrl}${path}`, { headers });
-    if (!res.ok) throw new Error(`Failed to fetch ${path}: ${res.status}`);
+    const res = await fetch(`${serviceUrl}${path}`, { headers });
+    if (!res.ok) throw new Error(`Failed to fetch ${path} from ${serviceUrl}: ${res.status}`);
     return res.json();
   }
 
   // ─── Báo cáo nhập xuất tồn ───
   async getInventorySummaryReport(token?: string): Promise<any> {
     const [products, lots, movements] = await Promise.all([
-      this.fetchFromCore('/products', token),
-      this.fetchFromCore('/inventory/lots', token),
-      this.fetchFromCore('/inventory/movements', token),
+      this.fetchFromService(this.productServiceUrl, '/products', token),
+      this.fetchFromService(this.inventoryServiceUrl, '/inventory/lots', token),
+      this.fetchFromService(this.inventoryServiceUrl, '/inventory/movements', token),
     ]);
-
+    
     const summary = products.map((product: any) => {
       const productLots = lots.filter((l: any) => l.productId === product.id);
       const totalStock = productLots.reduce((sum: number, l: any) => sum + l.remainingQty, 0);
@@ -69,7 +71,7 @@ export class ReportService {
 
   // ─── Báo cáo hàng sắp hết hạn ───
   async getExpiryReport(days: number = 7, token?: string): Promise<any> {
-    const expiryAlerts = await this.fetchFromCore(`/inventory/expiry-alert?days=${days}`, token);
+    const expiryAlerts = await this.fetchFromService(this.inventoryServiceUrl, `/inventory/expiry-alert?days=${days}`, token);
 
     return {
       reportType: 'EXPIRY_ALERT',
@@ -96,8 +98,8 @@ export class ReportService {
   // ─── Báo cáo hiệu suất kho ───
   async getWarehousePerformanceReport(token?: string): Promise<any> {
     const [lots, movements] = await Promise.all([
-      this.fetchFromCore('/inventory/lots', token),
-      this.fetchFromCore('/inventory/movements', token),
+      this.fetchFromService(this.inventoryServiceUrl, '/inventory/lots', token),
+      this.fetchFromService(this.inventoryServiceUrl, '/inventory/movements', token),
     ]);
 
     const totalLots = lots.length;

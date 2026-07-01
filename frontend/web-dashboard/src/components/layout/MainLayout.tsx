@@ -14,6 +14,8 @@ const getPageTitle = (pathname: string) => {
     case '/demand-forecast': return 'Dự báo nhu cầu';
     case '/transport': return 'Tối ưu vận chuyển';
     case '/reports': return 'Báo cáo & Phân tích';
+    case '/profile': return 'Thông tin tài khoản';
+    case '/users': return 'Quản lý người dùng';
     default: return 'Tổng quan';
   }
 };

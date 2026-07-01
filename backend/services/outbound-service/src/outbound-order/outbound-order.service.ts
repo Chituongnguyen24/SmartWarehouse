@@ -1,17 +1,61 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OutboundOrder } from './outbound-order.entity';
 import { OutboundOrderItem } from './outbound-order-item.entity';
+import * as amqp from 'amqp-connection-manager';
 
 @Injectable()
-export class OutboundOrderService {
+export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
+  private rmqConnection: any;
+  private rmqChannel: any;
+
   constructor(
     @InjectRepository(OutboundOrder)
     private orderRepository: Repository<OutboundOrder>,
     @InjectRepository(OutboundOrderItem)
     private itemRepository: Repository<OutboundOrderItem>,
   ) {}
+
+  onModuleInit() {
+    const rabbitUrl = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
+    this.rmqConnection = amqp.connect([rabbitUrl]);
+    this.rmqChannel = this.rmqConnection.createChannel({
+      json: true,
+      setup: (channel) => {
+        return channel.assertExchange('outbound.events', 'topic', { durable: true });
+      },
+    });
+  }
+
+  onModuleDestroy() {
+    if (this.rmqConnection) {
+      this.rmqConnection.close();
+    }
+  }
+
+  private async getAuthToken(): Promise<string> {
+    try {
+      const response = await fetch('http://localhost:3012/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'admin@sfwms.vn',
+          password: 'password123',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Login failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.access_token;
+    } catch (err) {
+      console.error('[OUTBOUND SERVICE] Authentication failed with user-service:', err.message);
+      throw err;
+    }
+  }
 
   private async generateOrderCode(): Promise<string> {
     const today = new Date();
@@ -144,9 +188,60 @@ export class OutboundOrderService {
 
     const confirmed = await this.orderRepository.save(order);
 
-    // TODO: Publish outbound.confirmed event to RabbitMQ
-    // TODO: Call inventory service to deduct stock
-    console.log(`[OUTBOUND] Order ${order.orderCode} CONFIRMED. Publishing event...`);
+    console.log(`[OUTBOUND] Order ${order.orderCode} CONFIRMED. Deducting inventory stock...`);
+
+    // Call Inventory Service to deduct stock
+    try {
+      const token = await this.getAuthToken();
+      for (const item of order.items) {
+        if (!item.lotId || item.pickedQuantity <= 0) continue;
+
+        const deductPayload = {
+          lotId: item.lotId,
+          quantity: item.pickedQuantity,
+          reason: `EXPORT_OUTBOUND_ORDER_${order.orderCode}`,
+        };
+
+        const res = await fetch('http://localhost:3011/inventory/lots/export', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(deductPayload),
+        });
+
+        if (!res.ok) {
+          console.error(`[OUTBOUND SERVICE] Failed to deduct stock for lot ${item.lotCode} (${item.lotId}): ${res.statusText}`);
+        } else {
+          console.log(`[OUTBOUND SERVICE] Successfully deducted ${item.pickedQuantity} from lot ${item.lotCode}`);
+        }
+      }
+    } catch (err) {
+      console.error('[OUTBOUND SERVICE] Error calling inventory stock deduction:', err.message);
+    }
+
+    // Publish outbound.confirmed event to RabbitMQ
+    try {
+      const eventPayload = {
+        orderId: confirmed.id,
+        orderCode: confirmed.orderCode,
+        confirmedBy: confirmed.confirmedBy,
+        confirmedAt: confirmed.confirmedAt.toISOString(),
+        destination: confirmed.destination,
+        items: confirmed.items.map(i => ({
+          sku: i.sku,
+          lotId: i.lotId,
+          lotCode: i.lotCode,
+          quantity: i.pickedQuantity,
+          slotId: i.slotId,
+        })),
+      };
+      await this.rmqChannel.publish('outbound.events', 'outbound.confirmed', eventPayload);
+      console.log(`[OUTBOUND] Event outbound.confirmed published to RabbitMQ`);
+    } catch (err) {
+      console.error('[OUTBOUND SERVICE] Failed to publish RabbitMQ event:', err.message);
+    }
 
     return confirmed;
   }

@@ -1,10 +1,11 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
 export enum UserRole {
-  WAREHOUSE_STAFF = 'WAREHOUSE_STAFF',
-  WAREHOUSE_MANAGER = 'WAREHOUSE_MANAGER',
-  SALES_STAFF = 'SALES_STAFF',
   ADMIN = 'ADMIN',
+  WAREHOUSE_MANAGER = 'WAREHOUSE_MANAGER',
+  WAREHOUSE_STAFF = 'WAREHOUSE_STAFF',
+  SALES_STAFF = 'SALES_STAFF',
+  DRIVER = 'DRIVER',
 }
 
 @Entity('users')

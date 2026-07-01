@@ -5,6 +5,7 @@ import { InventoryModule } from './inventory/inventory.module';
 import { Lot } from './inventory/entities/lot.entity';
 import { Supplier } from './inventory/entities/supplier.entity';
 import { StockMovement } from './inventory/entities/stock-movement.entity';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { StockMovement } from './inventory/entities/stock-movement.entity';
       }),
     }),
     InventoryModule,
+    AuthModule,
   ],
 })
 export class AppModule {}

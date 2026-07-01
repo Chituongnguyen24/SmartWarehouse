@@ -1,11 +1,19 @@
 import React from 'react';
 import { Search, Bell } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useAuth, ROLE_LABELS } from '../../contexts/AuthContext';
 
 interface HeaderProps {
   title: string;
 }
 
 const Header: React.FC<HeaderProps> = ({ title }) => {
+  const { user } = useAuth();
+
+  const initials = user?.name
+    ? user.name.split(' ').map(w => w.charAt(0)).slice(-2).join('')
+    : 'U';
+
   return (
     <header className="top-header">
       <div className="page-title">{title}</div>
@@ -21,13 +29,13 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
           <span className="notification-badge"></span>
         </button>
         
-        <div className="user-profile">
-          <div className="avatar">NT</div>
+        <Link to="/profile" className="user-profile" style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
+          <div className="avatar">{initials}</div>
           <div className="user-info">
-            <span className="user-name">Chi Tường</span>
-            <span className="user-role">Quản lý</span>
+            <span className="user-name">{user?.name || 'User'}</span>
+            <span className="user-role">{user ? ROLE_LABELS[user.role] : ''}</span>
           </div>
-        </div>
+        </Link>
       </div>
     </header>
   );

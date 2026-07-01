@@ -1,5 +1,5 @@
 :root {
-  /* Colors - Primary (Emerald/Green) */
+  /* Colors - Primary (Emerald/Green) – Default: Admin */
   --color-primary-900: #064e3b; /* Sidebar bg */
   --color-primary-800: #065f46;
   --color-primary-700: #047857;
@@ -60,4 +60,56 @@
   /* Transitions */
   --transition-fast: 150ms ease-in-out;
   --transition-normal: 250ms ease-in-out;
+}
+
+/* ═══════════════════════════════════════════════
+   Theme: Teal – Warehouse Manager  
+   ═══════════════════════════════════════════════ */
+body.theme-teal {
+  --color-primary-900: #042f2e;
+  --color-primary-800: #0d4f4c;
+  --color-primary-700: #0f766e;
+  --color-primary-600: #0d9488;
+  --color-primary-500: #14b8a6;
+  --color-primary-100: #ccfbf1;
+  --color-primary-50: #f0fdfa;
+}
+
+/* ═══════════════════════════════════════════════
+   Theme: Ocean Blue – Warehouse Staff  
+   ═══════════════════════════════════════════════ */
+body.theme-blue {
+  --color-primary-900: #0c1b33;
+  --color-primary-800: #122a52;
+  --color-primary-700: #0070cc;
+  --color-primary-600: #0091ea;
+  --color-primary-500: #00b0ff;
+  --color-primary-100: #e1f5fe;
+  --color-primary-50: #f1fbfd;
+}
+
+/* ═══════════════════════════════════════════════
+   Theme: Amber – Sales Staff  
+   ═══════════════════════════════════════════════ */
+body.theme-amber {
+  --color-primary-900: #451a03;
+  --color-primary-800: #6b3410;
+  --color-primary-700: #b45309;
+  --color-primary-600: #d97706;
+  --color-primary-500: #f59e0b;
+  --color-primary-100: #fef3c7;
+  --color-primary-50: #fffbeb;
+}
+
+/* ═══════════════════════════════════════════════
+   Theme: Violet – Driver  
+   ═══════════════════════════════════════════════ */
+body.theme-violet {
+  --color-primary-900: #1e1145;
+  --color-primary-800: #2e1a6b;
+  --color-primary-700: #6d28d9;
+  --color-primary-600: #7c3aed;
+  --color-primary-500: #8b5cf6;
+  --color-primary-100: #ede9fe;
+  --color-primary-50: #f5f3ff;
 }

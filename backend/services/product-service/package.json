@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "build": "nest build",
-    "start": "nest start",
-    "start:dev": "nest start --watch",
-    "start:prod": "node dist/main"
+    "start": "node dist/backend/services/product-service/src/main",
+    "start:dev": "ts-node src/main.ts",
+    "start:prod": "node dist/backend/services/product-service/src/main"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",

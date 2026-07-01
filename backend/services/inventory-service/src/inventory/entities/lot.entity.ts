@@ -20,10 +20,10 @@ export class Lot {
   @Column({ name: 'supplier_id' })
   supplierId: string;
 
-  @Column({ name: 'import_date', type: 'datetime' })
+  @Column({ name: 'import_date', type: 'timestamp' })
   importDate: Date;
 
-  @Column({ name: 'expiry_date', type: 'datetime' })
+  @Column({ name: 'expiry_date', type: 'timestamp' })
   expiryDate: Date;
 
   @Column({ type: 'int' })
