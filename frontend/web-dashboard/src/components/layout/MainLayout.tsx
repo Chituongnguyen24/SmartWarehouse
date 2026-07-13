@@ -1,4 +1,3 @@
-import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
@@ -10,7 +9,8 @@ const getPageTitle = (pathname: string) => {
     case '/inventory': return 'Kho & lô hàng';
     case '/iot': return 'Giám sát IoT';
     case '/ai-alerts': return 'Cảnh báo AI';
-    case '/fefo': return 'Xuất kho FEFO';
+    case '/inbound': return 'Quản lý Nhập kho';
+    case '/outbound': return 'Quản lý Xuất kho & FEFO';
     case '/demand-forecast': return 'Dự báo nhu cầu';
     case '/transport': return 'Tối ưu vận chuyển';
     case '/reports': return 'Báo cáo & Phân tích';

@@ -1,6 +1,9 @@
 import { Shelf } from '../shelf/shelf.entity';
+import { Warehouse } from '../warehouse/warehouse.entity';
 export declare class Zone {
     id: string;
+    warehouseId: string;
+    warehouse: Warehouse;
     code: string;
     name: string;
     type: string;

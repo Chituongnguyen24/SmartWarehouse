@@ -74,6 +74,10 @@ let OutboundOrderService = class OutboundOrderService {
             requestedBy: dto.requestedBy,
             requesterName: dto.requesterName,
             destination: dto.destination,
+            warehouseId: dto.warehouseId,
+            warehouseCode: dto.warehouseCode,
+            latitude: dto.latitude,
+            longitude: dto.longitude,
             totalItems: dto.items.length,
             totalQuantity: dto.items.reduce((sum, i) => sum + i.requestedQuantity, 0),
             notes: dto.notes,
@@ -89,6 +93,101 @@ let OutboundOrderService = class OutboundOrderService {
             }));
         }
         return this.findOne(savedOrder.id);
+    }
+    async calculateNearestWarehouse(dto) {
+        let warehouses = [];
+        try {
+            const res = await fetch('http://localhost:3005/warehouses');
+            if (res.ok) {
+                warehouses = await res.json();
+            }
+            else {
+                throw new Error(`Failed to fetch warehouses: ${res.statusText}`);
+            }
+        }
+        catch (err) {
+            console.error('[OUTBOUND SERVICE] Error fetching warehouses:', err.message);
+            warehouses = [
+                { id: '11111111-1111-1111-1111-111111111111', code: 'WH-001', name: 'Kho Hàng Quận 12 (HCM North)', latitude: 10.8671, longitude: 106.6713, address: '12 Tô Ký, Quận 12' },
+                { id: '22222222-2222-2222-2222-222222222222', code: 'WH-002', name: 'Kho Hàng Thủ Đức (HCM East)', latitude: 10.8494, longitude: 106.7725, address: '1 Võ Văn Ngân, Thủ Đức' },
+                { id: '33333333-3333-3333-3333-333333333333', code: 'WH-003', name: 'Kho Hàng Bình Chánh (HCM West)', latitude: 10.6868, longitude: 106.5932, address: 'Tỉnh lộ 10, Bình Chánh' },
+                { id: '44444444-4444-4444-4444-444444444444', code: 'WH-004', name: 'Kho Hàng Quận 7 (HCM South)', latitude: 10.7324, longitude: 106.7214, address: '1025 Nguyễn Văn Linh, Quận 7' },
+            ];
+        }
+        let warehouseStock = {};
+        try {
+            const skus = dto.items.map(item => item.sku).join(',');
+            const token = await this.getAuthToken();
+            const res = await fetch(`http://localhost:3011/inventory/warehouse-stock?skus=${skus}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                warehouseStock = await res.json();
+            }
+        }
+        catch (err) {
+            console.error('[OUTBOUND SERVICE] Error fetching warehouse stock:', err.message);
+        }
+        const getHaversineDistance = (lat1, lon1, lat2, lon2) => {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) *
+                    Math.cos(lat2 * Math.PI / 180) *
+                    Math.sin(dLon / 2) *
+                    Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        };
+        const candidates = warehouses.map(wh => {
+            const distance = getHaversineDistance(dto.latitude, dto.longitude, wh.latitude, wh.longitude);
+            let fulfilledItems = 0;
+            const itemDetails = dto.items.map(item => {
+                const stockInWh = (warehouseStock[wh.code] && warehouseStock[wh.code][item.sku]) || 0;
+                const fulfilled = Math.min(stockInWh, item.requestedQuantity);
+                if (fulfilled >= item.requestedQuantity) {
+                    fulfilledItems++;
+                }
+                return {
+                    sku: item.sku,
+                    requestedQty: item.requestedQuantity,
+                    availableQty: stockInWh,
+                    fulfillmentPercent: item.requestedQuantity > 0 ? Math.round((fulfilled / item.requestedQuantity) * 100) : 100,
+                };
+            });
+            const fulfillmentRate = dto.items.length > 0 ? Math.round((fulfilledItems / dto.items.length) * 100) : 100;
+            return {
+                warehouse: {
+                    id: wh.id,
+                    code: wh.code,
+                    name: wh.name,
+                    address: wh.address,
+                    latitude: wh.latitude,
+                    longitude: wh.longitude,
+                },
+                distanceKm: Math.round(distance * 100) / 100,
+                fulfillmentRate,
+                items: itemDetails,
+            };
+        });
+        candidates.sort((a, b) => {
+            if (b.fulfillmentRate !== a.fulfillmentRate) {
+                return b.fulfillmentRate - a.fulfillmentRate;
+            }
+            return a.distanceKm - b.distanceKm;
+        });
+        const rankedCandidates = candidates.map((cand, index) => ({
+            ...cand,
+            isRecommended: index === 0,
+        }));
+        return {
+            destination: {
+                latitude: dto.latitude,
+                longitude: dto.longitude,
+            },
+            warehouses: rankedCandidates,
+        };
     }
     async findAll(status) {
         const where = status ? { status } : {};

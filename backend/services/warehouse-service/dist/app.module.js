@@ -13,9 +13,11 @@ const config_1 = require("@nestjs/config");
 const zone_module_1 = require("./zone/zone.module");
 const shelf_module_1 = require("./shelf/shelf.module");
 const storage_slot_module_1 = require("./storage-slot/storage-slot.module");
+const warehouse_module_1 = require("./warehouse/warehouse.module");
 const zone_entity_1 = require("./zone/zone.entity");
 const shelf_entity_1 = require("./shelf/shelf.entity");
 const storage_slot_entity_1 = require("./storage-slot/storage-slot.entity");
+const warehouse_entity_1 = require("./warehouse/warehouse.entity");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -33,10 +35,11 @@ exports.AppModule = AppModule = __decorate([
                     username: config.get('DB_USER', 'postgres'),
                     password: config.get('DB_PASSWORD', 'postgres'),
                     database: config.get('DB_NAME', 'sfwms_warehouse'),
-                    entities: [zone_entity_1.Zone, shelf_entity_1.Shelf, storage_slot_entity_1.StorageSlot],
+                    entities: [zone_entity_1.Zone, shelf_entity_1.Shelf, storage_slot_entity_1.StorageSlot, warehouse_entity_1.Warehouse],
                     synchronize: true,
                 }),
             }),
+            warehouse_module_1.WarehouseModule,
             zone_module_1.ZoneModule,
             shelf_module_1.ShelfModule,
             storage_slot_module_1.StorageSlotModule,

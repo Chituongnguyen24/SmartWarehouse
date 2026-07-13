@@ -14,6 +14,8 @@ export declare class Lot {
     remainingQty: number;
     zone: string;
     location: string;
+    warehouseId: string;
+    warehouseCode: string;
     riskScore: number;
     status: LotStatus;
     createdBy: string;

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Package, AlertCircle, Plus, Edit, Trash2, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-const API_BASE = 'http://localhost:3004';
+const API_BASE = 'http://localhost:3010';
 
 interface Product {
   id: string;

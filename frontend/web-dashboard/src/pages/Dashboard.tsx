@@ -1,32 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Package, Boxes, ShieldAlert, TrendingDown, ArrowDownToLine, ArrowUpFromLine, AlertTriangle, Thermometer, Truck } from 'lucide-react';
-import { 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend
-} from 'recharts';
+import { useState, useEffect } from 'react';
+import { Package, Boxes, ShieldAlert, ArrowDownToLine, ArrowUpFromLine, Thermometer } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { Link } from 'react-router-dom';
-
-const mockTrendData = [
-  { name: 'T1', nhap: 4000, xuat: 2400, ton: 5000 },
-  { name: 'T2', nhap: 3000, xuat: 1398, ton: 4000 },
-  { name: 'T3', nhap: 2000, xuat: 3800, ton: 6000 },
-  { name: 'T4', nhap: 2780, xuat: 3908, ton: 5500 },
-  { name: 'T5', nhap: 1890, xuat: 4800, ton: 4500 },
-  { name: 'T6', nhap: 2390, xuat: 3800, ton: 6500 },
-  { name: 'T7', nhap: 3490, xuat: 4300, ton: 7000 },
-];
-
-const mockCategoryData = [
-  { name: 'Rau củ quả', value: 28, color: '#10b981' },
-  { name: 'Thịt cá', value: 22, color: '#3b82f6' },
-  { name: 'Đông lạnh', value: 18, color: '#f59e0b' },
-  { name: 'Sữa & đồ uống', value: 17, color: '#8b5cf6' },
-  { name: 'Đồ khô', value: 15, color: '#ef4444' },
-];
+import { Link, useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const { token, user } = useAuth();
+  const navigate = useNavigate();
   
   // Real stats
   const [totalProducts, setTotalProducts] = useState(0);
@@ -35,20 +14,32 @@ const Dashboard = () => {
   const [urgentFefo, setUrgentFefo] = useState<any[]>([]);
 
   useEffect(() => {
+    if (user) {
+      if (user.role === 'WAREHOUSE_STAFF') {
+        navigate('/inbound', { replace: true });
+        return;
+      } else if (user.role === 'SALES_STAFF') {
+        navigate('/inventory', { replace: true });
+        return;
+      } else if (user.role === 'DRIVER') {
+        navigate('/transport', { replace: true });
+        return;
+      }
+    }
     fetchDashboardData();
-  }, []);
+  }, [user]);
 
   const fetchDashboardData = async () => {
     try {
       // Fetch Products
-      const resProducts = await fetch('http://localhost:3004/products', { headers: { 'Authorization': `Bearer ${token}` }});
+      const resProducts = await fetch('http://localhost:3010/products', { headers: { 'Authorization': `Bearer ${token}` }});
       if (resProducts.ok) {
         const products = await resProducts.json();
         setTotalProducts(products.length);
       }
 
       // Fetch Lots
-      const resLots = await fetch('http://localhost:3008/inventory/lots', { headers: { 'Authorization': `Bearer ${token}` }});
+      const resLots = await fetch('http://localhost:3011/inventory/lots', { headers: { 'Authorization': `Bearer ${token}` }});
       let lots = [];
       if (resLots.ok) {
         lots = await resLots.json();
@@ -100,7 +91,7 @@ const Dashboard = () => {
           <Link to="/inventory" className="btn btn-outline" style={{ textDecoration: 'none' }}>
             <ArrowDownToLine size={16} /> Quản lý Nhập/Xuất
           </Link>
-          <Link to="/fefo" className="btn btn-primary" style={{ textDecoration: 'none' }}>
+          <Link to="/outbound" className="btn btn-primary" style={{ textDecoration: 'none' }}>
             <ArrowUpFromLine size={16} /> Phiếu FEFO
           </Link>
         </div>
@@ -153,7 +144,7 @@ const Dashboard = () => {
               <h3 className="font-semibold" style={{ fontSize: '1rem' }}>Ưu tiên xuất kho khẩn (FEFO thông minh)</h3>
               <p className="text-muted" style={{ fontSize: '0.75rem' }}>Các lô hàng có rủi ro cao hoặc sắp hết hạn cần xuất ngay</p>
             </div>
-            <Link to="/fefo" className="text-primary font-semibold" style={{ fontSize: '0.875rem', textDecoration: 'none' }}>Xem tất cả →</Link>
+            <Link to="/outbound" className="text-primary font-semibold" style={{ fontSize: '0.875rem', textDecoration: 'none' }}>Xem tất cả →</Link>
           </div>
           
           <div style={{ padding: '0 var(--spacing-5) var(--spacing-5)' }}>

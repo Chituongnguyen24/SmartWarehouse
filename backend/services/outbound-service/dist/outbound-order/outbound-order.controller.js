@@ -23,6 +23,9 @@ let OutboundOrderController = class OutboundOrderController {
     create(body) {
         return this.service.create(body);
     }
+    calculateNearest(body) {
+        return this.service.calculateNearestWarehouse(body);
+    }
     findAll(status) {
         return this.service.findAll(status);
     }
@@ -54,6 +57,14 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], OutboundOrderController.prototype, "create", null);
+__decorate([
+    (0, common_1.Post)('calculate-nearest'),
+    (0, swagger_1.ApiOperation)({ summary: 'Tính toán và chọn kho hàng gần nhất dựa trên tọa độ và tồn kho' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], OutboundOrderController.prototype, "calculateNearest", null);
 __decorate([
     (0, common_1.Get)(),
     (0, swagger_1.ApiOperation)({ summary: 'Lấy danh sách đơn xuất kho' }),

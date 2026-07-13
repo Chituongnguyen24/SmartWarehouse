@@ -17,16 +17,28 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const zone_entity_1 = require("./zone.entity");
+const warehouse_entity_1 = require("../warehouse/warehouse.entity");
 let ZoneService = class ZoneService {
-    constructor(zoneRepository) {
+    constructor(zoneRepository, warehouseRepository) {
         this.zoneRepository = zoneRepository;
+        this.warehouseRepository = warehouseRepository;
     }
     async onModuleInit() {
+        let warehouses = [];
+        for (let attempt = 0; attempt < 10; attempt++) {
+            warehouses = await this.warehouseRepository.find();
+            if (warehouses.length > 0)
+                break;
+            await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+        if (warehouses.length === 0) {
+            console.warn('[ZONE SERVICE] No warehouses found during seeding.');
+            return;
+        }
         const defaultZones = [
             {
-                code: 'COLD',
-                name: 'Kho lạnh',
                 type: 'COLD',
+                name: 'Kho lạnh',
                 description: 'Rau củ, sữa, thực phẩm tươi sống cần duy trì nhiệt độ thấp (0-4°C)',
                 minTemp: 0,
                 maxTemp: 4,
@@ -36,9 +48,8 @@ let ZoneService = class ZoneService {
                 currentOccupancy: 864,
             },
             {
-                code: 'FROZEN',
-                name: 'Kho đông lạnh',
                 type: 'FROZEN',
+                name: 'Kho đông lạnh',
                 description: 'Thịt, cá, hải sản đông lạnh và các sản phẩm yêu cầu nhiệt độ âm (-22 đến -16°C)',
                 minTemp: -22,
                 maxTemp: -16,
@@ -48,9 +59,8 @@ let ZoneService = class ZoneService {
                 currentOccupancy: 712,
             },
             {
-                code: 'DRY',
-                name: 'Kho khô',
                 type: 'DRY',
+                name: 'Kho khô',
                 description: 'Đồ hộp, mì gói, nước uống, gia vị và các mặt hàng không yêu cầu điều kiện bảo quản đặc biệt (18-28°C)',
                 minTemp: 18,
                 maxTemp: 28,
@@ -60,11 +70,19 @@ let ZoneService = class ZoneService {
                 currentOccupancy: 1320,
             },
         ];
-        for (const zoneData of defaultZones) {
-            const exists = await this.zoneRepository.findOneBy({ code: zoneData.code });
-            if (!exists) {
-                await this.zoneRepository.save(this.zoneRepository.create(zoneData));
-                console.log(`Seeded zone: ${zoneData.name} (${zoneData.code})`);
+        for (const wh of warehouses) {
+            for (const zoneData of defaultZones) {
+                const zoneCode = `${wh.code}_${zoneData.type}`;
+                const exists = await this.zoneRepository.findOneBy({ code: zoneCode });
+                if (!exists) {
+                    await this.zoneRepository.save(this.zoneRepository.create({
+                        ...zoneData,
+                        code: zoneCode,
+                        warehouseId: wh.id,
+                        name: `${zoneData.name} - ${wh.name}`,
+                    }));
+                    console.log(`[ZONE SERVICE] Seeded zone: ${zoneData.name} (${zoneCode}) for warehouse ${wh.code}`);
+                }
             }
         }
     }
@@ -78,7 +96,13 @@ let ZoneService = class ZoneService {
         return zone;
     }
     async findByCode(code) {
-        const zone = await this.zoneRepository.findOne({ where: { code }, relations: ['shelves'] });
+        let zone = await this.zoneRepository.findOne({ where: { code }, relations: ['shelves'] });
+        if (!zone) {
+            zone = await this.zoneRepository.createQueryBuilder('zone')
+                .leftJoinAndSelect('zone.shelves', 'shelves')
+                .where('zone.code LIKE :pattern', { pattern: `%_${code}` })
+                .getOne();
+        }
         if (!zone)
             throw new common_1.NotFoundException(`Zone with code ${code} not found`);
         return zone;
@@ -115,6 +139,8 @@ exports.ZoneService = ZoneService;
 exports.ZoneService = ZoneService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(zone_entity_1.Zone)),
-    __metadata("design:paramtypes", [typeorm_2.Repository])
+    __param(1, (0, typeorm_1.InjectRepository)(warehouse_entity_1.Warehouse)),
+    __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository])
 ], ZoneService);
 //# sourceMappingURL=zone.service.js.map

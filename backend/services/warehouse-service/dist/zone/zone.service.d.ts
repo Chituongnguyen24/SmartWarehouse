@@ -1,9 +1,11 @@
 import { OnModuleInit } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { Zone } from './zone.entity';
+import { Warehouse } from '../warehouse/warehouse.entity';
 export declare class ZoneService implements OnModuleInit {
     private zoneRepository;
-    constructor(zoneRepository: Repository<Zone>);
+    private warehouseRepository;
+    constructor(zoneRepository: Repository<Zone>, warehouseRepository: Repository<Warehouse>);
     onModuleInit(): Promise<void>;
     findAll(): Promise<Zone[]>;
     findOne(id: string): Promise<Zone>;

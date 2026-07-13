@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Zone = void 0;
 const typeorm_1 = require("typeorm");
 const shelf_entity_1 = require("../shelf/shelf.entity");
+const warehouse_entity_1 = require("../warehouse/warehouse.entity");
 let Zone = class Zone {
 };
 exports.Zone = Zone;
@@ -19,6 +20,15 @@ __decorate([
     (0, typeorm_1.PrimaryGeneratedColumn)('uuid'),
     __metadata("design:type", String)
 ], Zone.prototype, "id", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'warehouse_id', nullable: true }),
+    __metadata("design:type", String)
+], Zone.prototype, "warehouseId", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => warehouse_entity_1.Warehouse, (warehouse) => warehouse.zones, { onDelete: 'SET NULL', nullable: true }),
+    (0, typeorm_1.JoinColumn)({ name: 'warehouse_id' }),
+    __metadata("design:type", warehouse_entity_1.Warehouse)
+], Zone.prototype, "warehouse", void 0);
 __decorate([
     (0, typeorm_1.Column)({ unique: true }),
     __metadata("design:type", String)

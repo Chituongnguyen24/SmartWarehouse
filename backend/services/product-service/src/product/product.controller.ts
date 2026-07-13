@@ -26,14 +26,14 @@ export class ProductController {
   }
 
   @Post()
-  @Roles(UserRole.WAREHOUSE_MANAGER, UserRole.ADMIN)
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Create new product SKU' })
   create(@Body() body: any) {
     return this.productService.create(body);
   }
 
   @Put(':id')
-  @Roles(UserRole.WAREHOUSE_MANAGER, UserRole.ADMIN)
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Update product properties' })
   update(@Param('id') id: string, @Body() body: any) {
     return this.productService.update(id, body);

@@ -48,6 +48,22 @@ __decorate([
     __metadata("design:type", Number)
 ], OutboundOrder.prototype, "totalQuantity", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ name: 'warehouse_id', nullable: true }),
+    __metadata("design:type", String)
+], OutboundOrder.prototype, "warehouseId", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'warehouse_code', nullable: true }),
+    __metadata("design:type", String)
+], OutboundOrder.prototype, "warehouseCode", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'float', nullable: true }),
+    __metadata("design:type", Number)
+], OutboundOrder.prototype, "latitude", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'float', nullable: true }),
+    __metadata("design:type", Number)
+], OutboundOrder.prototype, "longitude", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'text', nullable: true }),
     __metadata("design:type", String)
 ], OutboundOrder.prototype, "notes", void 0);

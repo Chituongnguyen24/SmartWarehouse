@@ -12,12 +12,13 @@ const typeorm_1 = require("@nestjs/typeorm");
 const zone_entity_1 = require("./zone.entity");
 const zone_service_1 = require("./zone.service");
 const zone_controller_1 = require("./zone.controller");
+const warehouse_entity_1 = require("../warehouse/warehouse.entity");
 let ZoneModule = class ZoneModule {
 };
 exports.ZoneModule = ZoneModule;
 exports.ZoneModule = ZoneModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([zone_entity_1.Zone])],
+        imports: [typeorm_1.TypeOrmModule.forFeature([zone_entity_1.Zone, warehouse_entity_1.Warehouse])],
         providers: [zone_service_1.ZoneService],
         controllers: [zone_controller_1.ZoneController],
         exports: [zone_service_1.ZoneService],

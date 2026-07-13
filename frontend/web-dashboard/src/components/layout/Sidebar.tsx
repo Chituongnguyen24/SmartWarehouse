@@ -7,11 +7,13 @@ import {
   Wifi, 
   AlertTriangle, 
   ArrowUpRight, 
+  ArrowDownLeft,
   TrendingUp, 
   Truck, 
   Layers, 
   BarChart3, 
   Users,
+  Settings,
   Leaf,
   LogOut
 } from 'lucide-react';
@@ -29,20 +31,25 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   // VẬN HÀNH
-  { path: '/', label: 'Tổng quan', icon: <LayoutDashboard size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF'] },
-  { path: '/products', label: 'Sản phẩm & SKU', icon: <Package size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF'] },
-  { path: '/inventory', label: 'Kho & lô hàng', icon: <Boxes size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF'] },
+  { path: '/', label: 'Tổng quan', icon: <LayoutDashboard size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
+  { path: '/products', label: 'Sản phẩm & SKU', icon: <Package size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN'] },
+  { path: '/inbound', label: 'Nhập kho (Inbound)', icon: <ArrowDownLeft size={18} />, section: 'VẬN HÀNH', allowedRoles: ['WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF'] },
+  { path: '/outbound', label: 'Xuất kho (Outbound)', icon: <ArrowUpRight size={18} />, section: 'VẬN HÀNH', allowedRoles: ['WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF'] },
+  { path: '/inventory', label: 'Kho & lô hàng', icon: <Boxes size={18} />, section: 'VẬN HÀNH', allowedRoles: ['WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF'] },
+  
   // GIÁM SÁT & AI
-  { path: '/iot', label: 'Giám sát IoT', icon: <Wifi size={18} />, section: 'GIÁM SÁT & AI', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
-  { path: '/ai-alerts', label: 'Cảnh báo AI', icon: <AlertTriangle size={18} />, section: 'GIÁM SÁT & AI', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'], badge: '7' },
-  { path: '/fefo', label: 'Xuất kho FEFO', icon: <ArrowUpRight size={18} />, section: 'GIÁM SÁT & AI', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF'] },
+  { path: '/iot', label: 'Giám sát IoT', icon: <Wifi size={18} />, section: 'GIÁM SÁT & AI', allowedRoles: ['ADMIN'] },
+  { path: '/ai-alerts', label: 'Cảnh báo AI', icon: <AlertTriangle size={18} />, section: 'GIÁM SÁT & AI', allowedRoles: ['WAREHOUSE_MANAGER'] },
+  
   // TỐI ƯU
-  { path: '/demand-forecast', label: 'Dự báo nhu cầu', icon: <TrendingUp size={18} />, section: 'TỐI ƯU', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'SALES_STAFF'] },
-  { path: '/transport', label: 'Tối ưu vận chuyển', icon: <Truck size={18} />, section: 'TỐI ƯU', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'DRIVER'] },
-  { path: '/shelf', label: 'Sắp xếp kệ', icon: <Layers size={18} />, section: 'TỐI ƯU', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
+  { path: '/demand-forecast', label: 'Dự báo nhu cầu', icon: <TrendingUp size={18} />, section: 'TỐI ƯU', allowedRoles: ['SALES_STAFF'] },
+  { path: '/transport', label: 'Tối ưu vận chuyển', icon: <Truck size={18} />, section: 'TỐI ƯU', allowedRoles: ['DRIVER'] },
+  { path: '/shelf', label: 'Sắp xếp kệ', icon: <Layers size={18} />, section: 'TỐI ƯU', allowedRoles: ['ADMIN', 'WAREHOUSE_STAFF'] },
+  
   // HỆ THỐNG
-  { path: '/reports', label: 'Báo cáo', icon: <BarChart3 size={18} />, section: 'HỆ THỐNG', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'SALES_STAFF'] },
+  { path: '/reports', label: 'Báo cáo', icon: <BarChart3 size={18} />, section: 'HỆ THỐNG', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
   { path: '/users', label: 'Người dùng', icon: <Users size={18} />, section: 'HỆ THỐNG', allowedRoles: ['ADMIN'] },
+  { path: '/settings', label: 'Cấu hình hệ thống', icon: <Settings size={18} />, section: 'HỆ THỐNG', allowedRoles: ['ADMIN'] },
 ];
 
 const Sidebar = () => {

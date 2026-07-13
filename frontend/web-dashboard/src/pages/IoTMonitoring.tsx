@@ -1,4 +1,3 @@
-import React from 'react';
 import { Wifi, Radio, AlertTriangle, WifiOff } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 

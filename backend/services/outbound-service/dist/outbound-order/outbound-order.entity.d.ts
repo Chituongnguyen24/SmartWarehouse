@@ -8,6 +8,10 @@ export declare class OutboundOrder {
     destination: string;
     totalItems: number;
     totalQuantity: number;
+    warehouseId: string;
+    warehouseCode: string;
+    latitude: number;
+    longitude: number;
     notes: string;
     confirmedBy: string;
     confirmedAt: Date;

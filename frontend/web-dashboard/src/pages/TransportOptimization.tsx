@@ -1,4 +1,3 @@
-import React from 'react';
 import { Truck, Route, ArrowUpRight, TrendingDown, Clock, MapPin, CheckCircle2 } from 'lucide-react';
 
 const TransportOptimization = () => {

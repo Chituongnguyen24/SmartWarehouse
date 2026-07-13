@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, Thermometer, Wind, Zap, BoxSelect, AlertTriangle, Search, X } from 'lucide-react';
+import { Layers, Thermometer, Wind, Zap, AlertTriangle, Search, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 // Types from API

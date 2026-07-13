@@ -16,6 +16,10 @@ export declare class OutboundOrderService implements OnModuleInit, OnModuleDestr
         requestedBy: string;
         requesterName?: string;
         destination?: string;
+        warehouseId?: string;
+        warehouseCode?: string;
+        latitude?: number;
+        longitude?: number;
         items: Array<{
             sku: string;
             productName: string;
@@ -23,6 +27,14 @@ export declare class OutboundOrderService implements OnModuleInit, OnModuleDestr
         }>;
         notes?: string;
     }): Promise<OutboundOrder>;
+    calculateNearestWarehouse(dto: {
+        latitude: number;
+        longitude: number;
+        items: Array<{
+            sku: string;
+            requestedQuantity: number;
+        }>;
+    }): Promise<any>;
     findAll(status?: string): Promise<OutboundOrder[]>;
     findOne(id: string): Promise<OutboundOrder>;
     applyFefoSuggestions(orderId: string, suggestions: Array<{

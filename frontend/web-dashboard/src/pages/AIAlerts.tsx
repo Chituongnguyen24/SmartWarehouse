@@ -1,5 +1,4 @@
-import React from 'react';
-import { ShieldAlert, Clock, BrainCircuit, Activity, AlertTriangle, Snowflake } from 'lucide-react';
+import { ShieldAlert, Clock, BrainCircuit, Activity } from 'lucide-react';
 
 const AIAlerts = () => {
   return (

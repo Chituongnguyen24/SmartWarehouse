@@ -13,6 +13,12 @@ export class OutboundOrderController {
     return this.service.create(body);
   }
 
+  @Post('calculate-nearest')
+  @ApiOperation({ summary: 'Tính toán và chọn kho hàng gần nhất dựa trên tọa độ và tồn kho' })
+  calculateNearest(@Body() body: { latitude: number; longitude: number; items: any[] }) {
+    return this.service.calculateNearestWarehouse(body);
+  }
+
   @Get()
   @ApiOperation({ summary: 'Lấy danh sách đơn xuất kho' })
   @ApiQuery({ name: 'status', required: false })
