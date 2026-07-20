@@ -6,12 +6,16 @@
   "workspaces": [
     "backend/services/*",
     "frontend/web-dashboard",
+    "frontend/customer-app",
+    "frontend/driver-app",
     "simulators"
   ],
   "scripts": {
     "infra:up": "docker-compose up -d",
     "infra:down": "docker-compose down",
     "infra:logs": "docker-compose logs -f",
+    "customer:start": "npm run start -w frontend/customer-app",
+    "driver:start": "npm run start -w frontend/driver-app",
     "product:start": "npm run start:dev -w backend/services/product-service",
     "inventory:start": "npm run start:dev -w backend/services/inventory-service",
     "user:start": "npm run start:dev -w backend/services/user-service",

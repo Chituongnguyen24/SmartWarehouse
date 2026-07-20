@@ -10,6 +10,7 @@ import IoTMonitoring from './pages/IoTMonitoring';
 import AIAlerts from './pages/AIAlerts';
 import InboundOrder from './pages/InboundOrder';
 import OutboundOrder from './pages/OutboundOrder';
+import WarehouseDispatch from './pages/WarehouseDispatch';
 import DemandForecast from './pages/DemandForecast';
 import TransportOptimization from './pages/TransportOptimization';
 import Reports from './pages/Reports';
@@ -48,7 +49,7 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="inventory" element={
-              <ProtectedRoute allowedRoles={['WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF']}>
+              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF']}>
                 <Inventory />
               </ProtectedRoute>
             } />
@@ -63,13 +64,18 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="inbound" element={
-              <ProtectedRoute allowedRoles={['WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF']}>
+              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF']}>
                 <InboundOrder />
               </ProtectedRoute>
             } />
             <Route path="outbound" element={
-              <ProtectedRoute allowedRoles={['WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF']}>
+              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF']}>
                 <OutboundOrder />
+              </ProtectedRoute>
+            } />
+            <Route path="dispatch" element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF']}>
+                <WarehouseDispatch />
               </ProtectedRoute>
             } />
             <Route path="demand-forecast" element={

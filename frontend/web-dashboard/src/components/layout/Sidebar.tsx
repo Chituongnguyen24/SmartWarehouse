@@ -15,7 +15,8 @@ import {
   Users,
   Settings,
   Leaf,
-  LogOut
+  LogOut,
+  Send
 } from 'lucide-react';
 import { useAuth, ROLE_LABELS } from '../../contexts/AuthContext';
 import type { UserRole } from '../../contexts/AuthContext';
@@ -32,10 +33,11 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   // VẬN HÀNH
   { path: '/', label: 'Tổng quan', icon: <LayoutDashboard size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
+  { path: '/dispatch', label: 'Tiếp nhận & Phân phối đơn', icon: <Send size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF'] },
   { path: '/products', label: 'Sản phẩm & SKU', icon: <Package size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN'] },
-  { path: '/inbound', label: 'Nhập kho (Inbound)', icon: <ArrowDownLeft size={18} />, section: 'VẬN HÀNH', allowedRoles: ['WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF'] },
-  { path: '/outbound', label: 'Xuất kho (Outbound)', icon: <ArrowUpRight size={18} />, section: 'VẬN HÀNH', allowedRoles: ['WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF'] },
-  { path: '/inventory', label: 'Kho & lô hàng', icon: <Boxes size={18} />, section: 'VẬN HÀNH', allowedRoles: ['WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF'] },
+  { path: '/inbound', label: 'Nhập kho (Inbound)', icon: <ArrowDownLeft size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF'] },
+  { path: '/outbound', label: 'Xuất kho (Outbound)', icon: <ArrowUpRight size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF'] },
+  { path: '/inventory', label: 'Kho & lô hàng', icon: <Boxes size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF'] },
   
   // GIÁM SÁT & AI
   { path: '/iot', label: 'Giám sát IoT', icon: <Wifi size={18} />, section: 'GIÁM SÁT & AI', allowedRoles: ['ADMIN'] },
