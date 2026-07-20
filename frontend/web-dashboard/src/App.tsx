@@ -11,6 +11,8 @@ import AIAlerts from './pages/AIAlerts';
 import InboundOrder from './pages/InboundOrder';
 import OutboundOrder from './pages/OutboundOrder';
 import WarehouseDispatch from './pages/WarehouseDispatch';
+import SalesManagement from './pages/SalesManagement';
+import AdminControlCenter from './pages/AdminControlCenter';
 import DemandForecast from './pages/DemandForecast';
 import TransportOptimization from './pages/TransportOptimization';
 import Reports from './pages/Reports';
@@ -76,6 +78,16 @@ function App() {
             <Route path="dispatch" element={
               <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF']}>
                 <WarehouseDispatch />
+              </ProtectedRoute>
+            } />
+            <Route path="sales" element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SALES_STAFF', 'WAREHOUSE_MANAGER']}>
+                <SalesManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="admin" element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <AdminControlCenter />
               </ProtectedRoute>
             } />
             <Route path="demand-forecast" element={
