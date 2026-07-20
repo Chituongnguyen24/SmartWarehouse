@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════
- * FreshKeep (SFWMS) - Event Constants
+ * CityMart (SFWMS) - Event Constants
  * Defines all RabbitMQ event names used across services
  * ═══════════════════════════════════════════════════════
  */

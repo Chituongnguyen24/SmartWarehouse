@@ -62,7 +62,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onBack, onOrderS
       setIsSubmitting(false);
       Alert.alert(
         '🎉 Đặt hàng thành công!',
-        `Mã đơn hàng của bạn là #${order.id}. Hệ thống FreshKeep đang tự động phân bổ soạn hàng theo tiêu chuẩn FEFO!`,
+        `Mã đơn hàng của bạn là #${order.id}. Hệ thống CityMart đang tự động phân bổ soạn hàng theo tiêu chuẩn FEFO!`,
         [
           {
             text: 'Theo dõi đơn hàng',

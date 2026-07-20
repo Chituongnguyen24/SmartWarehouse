@@ -9,7 +9,7 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
   const config = new DocumentBuilder()
-    .setTitle('FreshKeep - Inventory Service')
+    .setTitle('CityMart - Inventory Service')
     .setDescription('Quản lý tồn kho, lô hàng')
     .setVersion('1.0')
     .addBearerAuth()

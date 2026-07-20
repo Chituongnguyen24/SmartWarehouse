@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "FreshKeep Driver",
-    "slug": "freshkeep-driver-app",
+    "name": "CityMart Driver",
+    "slug": "citymart-driver-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",

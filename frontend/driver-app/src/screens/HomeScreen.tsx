@@ -60,7 +60,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
         </View>
 
         <Text style={styles.vrpSubText}>
-          Xuất phát từ **Kho FreshKeep Q.5** ➔ {inTransitTasks.length + assignedTasks.length} điểm giao tận nhà
+          Xuất phát từ **Kho CityMart Q.5** ➔ {inTransitTasks.length + assignedTasks.length} điểm giao tận nhà
         </Text>
       </View>
 

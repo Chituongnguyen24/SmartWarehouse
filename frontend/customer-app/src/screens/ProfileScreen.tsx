@@ -54,7 +54,7 @@ export const ProfileScreen: React.FC = () => {
         {/* Member Points Banner */}
         <View style={styles.pointsCard}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.pointsTitle}>Điểm tích lũy FreshKeep Mart</Text>
+            <Text style={styles.pointsTitle}>Điểm tích lũy CityMart</Text>
             <Text style={styles.pointsVal}>{user.points.toLocaleString()} điểm</Text>
             <Text style={styles.pointsSub}>Đổi điểm lấy mã giảm giá cho đơn tiếp theo</Text>
           </View>

@@ -82,7 +82,7 @@ const LoginPage: React.FC = () => {
             <Leaf size={40} color="#fff" />
           </div>
           <h1 style={{ color: '#fff', fontSize: '2.5rem', fontWeight: 700, marginBottom: '0.75rem' }}>
-            FreshKeep
+            CityMart
           </h1>
           <p style={{ color: '#94a3b8', fontSize: '1.1rem', lineHeight: 1.6 }}>
             Hệ thống quản lý kho thực phẩm thông minh

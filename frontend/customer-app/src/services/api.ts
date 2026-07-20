@@ -36,7 +36,7 @@ export async function fetchProductsApi(): Promise<Product[]> {
         discountPercent: item.discountPercent || 20,
         origin: item.origin || 'Việt Nam',
         preservation: item.preservation || 'Kho lạnh (0-4°C)',
-        description: item.description || 'Thực phẩm tươi sạch đạt chuẩn kiểm duyệt chất lượng FreshKeep.',
+        description: item.description || 'Thực phẩm tươi sạch đạt chuẩn kiểm duyệt chất lượng CityMart.',
         stock: item.stock ? Number(item.stock) : 100,
       }));
     }
@@ -116,7 +116,7 @@ export async function createOrderApi(params: {
       {
         status: 'PENDING',
         time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-        note: 'Đơn hàng đã ghi nhận thành công vào hệ thống Kho FreshKeep.',
+        note: 'Đơn hàng đã ghi nhận thành công vào hệ thống Kho CityMart.',
       },
     ],
   };
@@ -162,7 +162,7 @@ export async function fetchOrdersApi(): Promise<Order[]> {
           deliverySlot: MOCK_DELIVERY_SLOTS[0],
           address: {
             id: 'addr1',
-            name: item.customerName || 'Khách hàng FreshKeep',
+            name: item.customerName || 'Khách hàng CityMart',
             phone: item.customerPhone || '0908 123 456',
             fullAddress: item.destination || '227 Nguyễn Văn Cừ, Q.5',
             isDefault: true,

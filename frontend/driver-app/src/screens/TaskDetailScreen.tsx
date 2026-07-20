@@ -43,7 +43,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task, onBack
   };
 
   const handleSMS = () => {
-    Linking.openURL(`sms:${task.customerPhone.replace(/\s+/g, '')}?body=Chào chị/anh ${task.customerName}, tài xế FreshKeep đang giao thực phẩm tươi sạch đến địa chỉ ${task.deliveryAddress}.`);
+    Linking.openURL(`sms:${task.customerPhone.replace(/\s+/g, '')}?body=Chào chị/anh ${task.customerName}, tài xế CityMart đang giao thực phẩm tươi sạch đến địa chỉ ${task.deliveryAddress}.`);
   };
 
   const handleOpenMap = () => {
@@ -77,7 +77,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task, onBack
           <View style={styles.routeTimeline}>
             <View style={styles.routePoint}>
               <View style={[styles.pointDot, { backgroundColor: COLORS.primary }]} />
-              <Text style={styles.pointLabel}>Điểm xuất phát: <Text style={styles.bold}>Kho FreshKeep Q.5</Text></Text>
+              <Text style={styles.pointLabel}>Điểm xuất phát: <Text style={styles.bold}>Kho CityMart Q.5</Text></Text>
             </View>
             <View style={styles.routeLine} />
             <View style={styles.routePoint}>

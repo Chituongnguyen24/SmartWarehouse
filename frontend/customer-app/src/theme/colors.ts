@@ -1,11 +1,11 @@
 export const COLORS = {
-  // Main FreshKeep Brand Palette
+  // Main CityMart Brand Palette
   primary: '#008848',        // Green Header & Primary Buttons
   primaryDark: '#006837',    // Dark Green Accent / Active State
   primaryLight: '#E6F4ED',   // Light Green Card / Badge BG
-  accent: '#FFB800',         // FreshKeep Yellow (Flash Sale, Badges, Stars)
+  accent: '#FFB800',         // CityMart Yellow (Flash Sale, Badges, Stars)
   accentDark: '#E0A200',
-  discount: '#E53935',       // FreshKeep Red (Discount tags, Prices)
+  discount: '#E53935',       // CityMart Red (Discount tags, Prices)
   discountLight: '#FFEBEE',
 
   // Neutral Colors

@@ -70,12 +70,12 @@ const MOCK_SERVICES: ServiceHealth[] = [
 ];
 
 const MOCK_SYSTEM_USERS: SystemUser[] = [
-  { id: 'u1', username: 'admin', name: 'Nguyễn Văn Tường (Admin)', email: 'admin@freshkeep.vn', role: 'ADMIN', status: 'ACTIVE', lastLogin: '2026-07-20 18:25' },
-  { id: 'u2', username: 'manager_kho', name: 'Trần Thị Thanh (Quản lý Kho)', email: 'manager@freshkeep.vn', role: 'WAREHOUSE_MANAGER', status: 'ACTIVE', lastLogin: '2026-07-20 17:40' },
-  { id: 'u3', username: 'staff_kho1', name: 'Lê Văn Nam (NV Kho)', email: 'staff1@freshkeep.vn', role: 'WAREHOUSE_STAFF', status: 'ACTIVE', lastLogin: '2026-07-20 16:15' },
-  { id: 'u4', username: 'sales_staff1', name: 'Phạm Bảo An (Sales)', email: 'sales1@freshkeep.vn', role: 'SALES_STAFF', status: 'ACTIVE', lastLogin: '2026-07-20 18:10' },
-  { id: 'u5', username: 'driver_hung', name: 'Nguyễn Văn Hùng (Tài xế)', email: 'driver1@freshkeep.vn', role: 'DRIVER', status: 'ACTIVE', lastLogin: '2026-07-20 18:05' },
-  { id: 'u6', username: 'staff_test_lock', name: 'Vũ Quốc Khánh (NV Cũ)', email: 'khanh@freshkeep.vn', role: 'WAREHOUSE_STAFF', status: 'LOCKED', lastLogin: '2026-07-10 09:00' },
+  { id: 'u1', username: 'admin', name: 'Nguyễn Văn Tường (Admin)', email: 'admin@citymart.vn', role: 'ADMIN', status: 'ACTIVE', lastLogin: '2026-07-20 18:25' },
+  { id: 'u2', username: 'manager_kho', name: 'Trần Thị Thanh (Quản lý Kho)', email: 'manager@citymart.vn', role: 'WAREHOUSE_MANAGER', status: 'ACTIVE', lastLogin: '2026-07-20 17:40' },
+  { id: 'u3', username: 'staff_kho1', name: 'Lê Văn Nam (NV Kho)', email: 'staff1@citymart.vn', role: 'WAREHOUSE_STAFF', status: 'ACTIVE', lastLogin: '2026-07-20 16:15' },
+  { id: 'u4', username: 'sales_staff1', name: 'Phạm Bảo An (Sales)', email: 'sales1@citymart.vn', role: 'SALES_STAFF', status: 'ACTIVE', lastLogin: '2026-07-20 18:10' },
+  { id: 'u5', username: 'driver_hung', name: 'Nguyễn Văn Hùng (Tài xế)', email: 'driver1@citymart.vn', role: 'DRIVER', status: 'ACTIVE', lastLogin: '2026-07-20 18:05' },
+  { id: 'u6', username: 'staff_test_lock', name: 'Vũ Quốc Khánh (NV Cũ)', email: 'khanh@citymart.vn', role: 'WAREHOUSE_STAFF', status: 'LOCKED', lastLogin: '2026-07-10 09:00' },
 ];
 
 const MOCK_AUDIT_LOGS: AuditLogItem[] = [
@@ -243,7 +243,7 @@ export const AdminControlCenter = () => {
       {activeTab === 'SERVICES' && (
         <div style={{ background: 'var(--color-surface)', borderRadius: 12, padding: '1.25rem', border: '1px solid var(--color-border)' }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Server size={18} color="#008848" /> Trạng Thái Hoạt Động 11 Microservices (FreshKeep Backend)
+            <Server size={18} color="#008848" /> Trạng Thái Hoạt Động 11 Microservices (CityMart Backend)
           </h3>
 
           <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>

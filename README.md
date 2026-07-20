@@ -1,6 +1,6 @@
-# FreshKeep - Smart Food Warehouse Management System
+# CityMart - Smart Food Warehouse Management System
 
-Dự án Hệ thống quản lý kho thực phẩm thông minh FreshKeep được xây dựng với kiến trúc Microservices và React Frontend hiện đại.
+Dự án Hệ thống quản lý kho thực phẩm thông minh CityMart được xây dựng với kiến trúc Microservices và React Frontend hiện đại.
 
 ## Cấu trúc thư mục
 

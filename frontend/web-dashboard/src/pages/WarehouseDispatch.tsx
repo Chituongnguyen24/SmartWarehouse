@@ -729,7 +729,7 @@ export const WarehouseDispatch = () => {
 
                   <div style={{ backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0', padding: 14, borderRadius: 8, marginBottom: '1.25rem' }}>
                     <div style={{ fontWeight: 800, color: '#166534', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <ShieldCheck size={18} /> Quy trình Kiểm duyệt Chất lượng QC Thực phẩm FreshKeep
+                      <ShieldCheck size={18} /> Quy trình Kiểm duyệt Chất lượng QC Thực phẩm CityMart
                     </div>
                     <div style={{ fontSize: '0.85rem', color: '#15803D' }}>
                       • Đảm bảo thực phẩm tươi sống được đóng thùng xốp chuyên dụng.<br />
@@ -892,7 +892,7 @@ export const WarehouseDispatch = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #008848', paddingBottom: 12, marginBottom: 16 }}>
               <div>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#008848' }}>PHIẾU BÀN GIAO & XUẤT KHO THỰC PHẨM</h2>
-                <div style={{ fontSize: '0.8rem', color: '#666' }}>Hệ thống kho thông minh FreshKeep (SFWMS)</div>
+                <div style={{ fontSize: '0.8rem', color: '#666' }}>Hệ thống kho thông minh CityMart (SFWMS)</div>
               </div>
               <button onClick={() => setShowManifestModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
                 <X size={24} color="#666" />

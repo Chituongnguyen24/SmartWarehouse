@@ -84,7 +84,7 @@ const Sidebar = () => {
           <Leaf size={20} />
         </div>
         <div className="brand-info">
-          <h1>FreshKeep</h1>
+          <h1>CityMart</h1>
           <p>Kho thực phẩm thông minh</p>
         </div>
       </div>

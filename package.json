@@ -1,7 +1,7 @@
 {
   "name": "sfwms-monorepo",
   "version": "1.0.0",
-  "description": "FreshKeep - Smart Food Warehouse Management System (SFWMS)",
+  "description": "CityMart - Smart Food Warehouse Management System (SFWMS)",
   "private": true,
   "workspaces": [
     "backend/services/*",

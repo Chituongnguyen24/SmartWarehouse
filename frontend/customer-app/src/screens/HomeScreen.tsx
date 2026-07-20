@@ -128,7 +128,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <View style={styles.guaranteeBanner}>
           <ShieldCheck size={28} color={COLORS.primary} />
           <View style={styles.guaranteeTextContainer}>
-            <Text style={styles.guaranteeTitle}>Cam kết Thực Phẩm Tươi Sạch FreshKeep</Text>
+            <Text style={styles.guaranteeTitle}>Cam kết Thực Phẩm Tươi Sạch CityMart</Text>
             <Text style={styles.guaranteeDesc}>
               100% Thực phẩm tươi sạch • Soạn hàng chuẩn FEFO • Giao đúng hẹn 2h
             </Text>

@@ -181,9 +181,9 @@ export const MOCK_DELIVERY_SLOTS: DeliverySlot[] = [
 ];
 
 export const MOCK_VOUCHERS: Voucher[] = [
-  { code: 'FRESHKEEPFREESHIP', title: 'Miễn phí vận chuyển 15K', discountAmount: 15000, minOrderValue: 149000 },
-  { code: 'FRESHKEEP30K', title: 'Giảm 30.000đ cho đơn thực phẩm tươi', discountAmount: 30000, minOrderValue: 299000 },
-  { code: 'FRESHKEEP10', title: 'Giảm 10% tối đa 20.000đ', discountAmount: 20000, minOrderValue: 100000 },
+  { code: 'CITYMARTFREESHIP', title: 'Miễn phí vận chuyển 15K', discountAmount: 15000, minOrderValue: 149000 },
+  { code: 'CITYMART30K', title: 'Giảm 30.000đ cho đơn thực phẩm tươi', discountAmount: 30000, minOrderValue: 299000 },
+  { code: 'CITYMART10', title: 'Giảm 10% tối đa 20.000đ', discountAmount: 20000, minOrderValue: 100000 },
 ];
 
 export const MOCK_ADDRESSES: Address[] = [
@@ -221,7 +221,7 @@ export const MOCK_ORDERS: Order[] = [
     status: 'PICKING',
     statusHistory: [
       { status: 'PENDING', time: '15:30', note: 'Đơn hàng đã đặt thành công' },
-      { status: 'PICKING', time: '15:35', note: 'Nhân viên kho FreshKeep đang lấy hàng theo chuẩn FEFO' },
+      { status: 'PICKING', time: '15:35', note: 'Nhân viên kho CityMart đang lấy hàng theo chuẩn FEFO' },
     ]
   },
   {

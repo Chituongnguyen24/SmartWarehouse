@@ -102,7 +102,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({
             >
               <View style={styles.voucherLeft}>
                 <Ticket size={20} color={COLORS.primary} />
-                <Text style={styles.voucherLabel}>Mã giảm giá FreshKeep</Text>
+                <Text style={styles.voucherLabel}>Mã giảm giá CityMart</Text>
               </View>
 
               <View style={styles.voucherRight}>
@@ -168,7 +168,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({
       <Modal visible={showVoucherModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Chọn Mã Giảm Giá FreshKeep</Text>
+            <Text style={styles.modalTitle}>Chọn Mã Giảm Giá CityMart</Text>
             <ScrollView style={{ maxHeight: 300 }}>
               {MOCK_VOUCHERS.map(v => (
                 <TouchableOpacity

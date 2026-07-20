@@ -27,7 +27,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     id: 'usr_1001',
     name: 'Nguyễn Văn Tường',
     phone: '0908 123 456',
-    email: 'tuong.nguyen@freshkeep.vn',
+    email: 'tuong.nguyen@citymart.vn',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&q=80',
     memberTier: 'VÀNG',
     points: 1250,

@@ -80,7 +80,7 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ onNavigateToShop }) 
         <View style={styles.emptyBox}>
           <Package size={54} color={COLORS.textMuted} />
           <Text style={styles.emptyTitle}>Chưa có đơn hàng nào</Text>
-          <Text style={styles.emptySub}>Thực phẩm tươi ngon đang chờ bạn trong gian hàng FreshKeep!</Text>
+          <Text style={styles.emptySub}>Thực phẩm tươi ngon đang chờ bạn trong gian hàng CityMart!</Text>
           <TouchableOpacity style={styles.shopBtn} onPress={onNavigateToShop}>
             <Text style={styles.shopBtnText}>Mua Sắm Ngay</Text>
           </TouchableOpacity>
@@ -130,7 +130,7 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ onNavigateToShop }) 
                 {/* Status Timeline Progress */}
                 {isExpanded && order.statusHistory && (
                   <View style={styles.timelineBox}>
-                    <Text style={styles.timelineTitle}>Tiến trình đơn hàng (FreshKeep FEFO)</Text>
+                    <Text style={styles.timelineTitle}>Tiến trình đơn hàng (CityMart FEFO)</Text>
                     {order.statusHistory.map((hist, hIdx) => (
                       <View key={hIdx} style={styles.timelineRow}>
                         <View style={styles.timelineDotLine}>

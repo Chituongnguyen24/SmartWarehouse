@@ -9,7 +9,7 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
   const config = new DocumentBuilder()
-    .setTitle('FreshKeep - Product Service')
+    .setTitle('CityMart - Product Service')
     .setDescription('Quản lý thông tin sản phẩm, danh mục hàng hóa và yêu cầu bảo quản.')
     .setVersion('1.0')
     .addBearerAuth()

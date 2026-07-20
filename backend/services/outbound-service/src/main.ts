@@ -9,7 +9,7 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
   const config = new DocumentBuilder()
-    .setTitle('FreshKeep - Outbound Service')
+    .setTitle('CityMart - Outbound Service')
     .setDescription('Quản lý quy trình xuất kho: yêu cầu xuất, FEFO ranking, xác nhận xuất kho.')
     .setVersion('1.0')
     .addBearerAuth()

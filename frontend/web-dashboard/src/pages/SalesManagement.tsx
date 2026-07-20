@@ -434,7 +434,7 @@ export const SalesManagement = () => {
           {/* Left Product Catalog Selector */}
           <div style={{ background: 'var(--color-surface)', borderRadius: 12, padding: '1.25rem', border: '1px solid var(--color-border)' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <ShoppingBag size={20} color="#008848" /> Chọn Thực Phẩm Từ Kho FreshKeep (Tồn Kho Thực Tế)
+              <ShoppingBag size={20} color="#008848" /> Chọn Thực Phẩm Từ Kho CityMart (Tồn Kho Thực Tế)
             </h3>
 
             {/* Product Grid */}

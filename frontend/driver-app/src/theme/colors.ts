@@ -2,7 +2,7 @@ export const COLORS = {
   // Main Driver Dark Theme Palette
   headerBg: '#0F172A',       // Dark Slate / Navy Blue Header
   headerBgLight: '#1E293B',  // Lighter Slate
-  primary: '#008848',        // FreshKeep Green (Primary Success/Finish)
+  primary: '#008848',        // CityMart Green (Primary Success/Finish)
   primaryDark: '#006837',
 
   // Route & Navigation Accent
