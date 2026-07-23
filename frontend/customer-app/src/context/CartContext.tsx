@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
 import { Product } from '../types/product';
 import { CartItem, DeliverySlot, Voucher, Order, Address, PaymentMethod } from '../types/cart';
-import { MOCK_DELIVERY_SLOTS, MOCK_PRODUCTS, MOCK_ORDERS } from '../data/mockData';
+import { MOCK_DELIVERY_SLOTS } from '../data/mockData';
 import { fetchProductsApi, createOrderApi, fetchOrdersApi } from '../services/api';
 
 interface CartContextType {
@@ -30,18 +30,14 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    { product: MOCK_PRODUCTS[0], quantity: 2, selected: true },
-    { product: MOCK_PRODUCTS[2], quantity: 1, selected: true },
-    { product: MOCK_PRODUCTS[5], quantity: 1, selected: true },
-  ]);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<DeliverySlot>(MOCK_DELIVERY_SLOTS[0]);
-  const [ordersList, setOrdersList] = useState<Order[]>(MOCK_ORDERS);
+  const [ordersList, setOrdersList] = useState<Order[]>([]);
 
   // Load Real Data on Mount
   useEffect(() => {

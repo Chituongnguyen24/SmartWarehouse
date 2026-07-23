@@ -19,6 +19,7 @@ export class UserService implements OnModuleInit {
       { email: 'staff@sfwms.vn', name: 'Lê Thị Hoa', role: UserRole.WAREHOUSE_STAFF },
       { email: 'sales@sfwms.vn', name: 'Phạm Minh Đức', role: UserRole.SALES_STAFF },
       { email: 'driver@sfwms.vn', name: 'Võ Thanh Tùng', role: UserRole.DRIVER },
+      { email: 'customer@sfwms.vn', name: 'Khách hàng Test', role: UserRole.CUSTOMER },
     ];
 
     for (const item of emailList) {

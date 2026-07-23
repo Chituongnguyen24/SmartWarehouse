@@ -54,11 +54,10 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onBack, onOrderS
 
   const formatPrice = (val: number) => val.toLocaleString('vi-VN') + 'đ';
 
-  const handleConfirmOrder = () => {
+  const handleConfirmOrder = async () => {
     setIsSubmitting(true);
-
-    setTimeout(() => {
-      const order = placeOrder(paymentMethod, selectedAddress);
+    try {
+      const order = await placeOrder(paymentMethod, selectedAddress);
       setIsSubmitting(false);
       Alert.alert(
         '🎉 Đặt hàng thành công!',
@@ -70,7 +69,10 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onBack, onOrderS
           },
         ]
       );
-    }, 600);
+    } catch (error) {
+      setIsSubmitting(false);
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi đặt hàng, vui lòng thử lại.');
+    }
   };
 
   return (

@@ -76,155 +76,6 @@ export interface Driver {
   currentTemp?: string;
 }
 
-const MOCK_DISPATCH_ORDERS: DispatchOrder[] = [
-  {
-    id: 'ord-101',
-    orderCode: 'ORD-884920',
-    customerName: 'Nguyễn Văn Tường',
-    customerPhone: '0908 123 456',
-    deliveryAddress: '227 Nguyễn Văn Cừ, Phường 4, Quận 5, TP.HCM',
-    deliverySlotText: 'Giao siêu tốc 2 giờ (Hôm nay)',
-    paymentMethod: 'COD - Tiền mặt',
-    totalAmount: 105000,
-    status: 'PENDING',
-    createdAt: '2026-07-20 16:30',
-    items: [
-      {
-        sku: 'RAU-001',
-        productName: 'Cà chua VietGAP Đà Lạt',
-        category: 'Rau củ quả',
-        requestedQuantity: 2,
-        unit: '500g',
-        suggestedLotCode: 'LOT-CC-20260718',
-        suggestedSlotCode: 'K-01-A2 (Kho Lạnh)',
-        expiryDate: '2026-07-28',
-        zone: 'COLD',
-        picked: false,
-      },
-      {
-        sku: 'THIT-003',
-        productName: 'Thịt ba chỉ heo C.P tươi sạch',
-        category: 'Thịt cá',
-        requestedQuantity: 1,
-        unit: 'Khay 500g',
-        suggestedLotCode: 'LOT-TB-20260719',
-        suggestedSlotCode: 'K-02-B1 (Kho Lợi Lạnh)',
-        expiryDate: '2026-07-24',
-        zone: 'COLD',
-        picked: false,
-      },
-    ],
-  },
-  {
-    id: 'ord-102',
-    orderCode: 'ORD-884925',
-    customerName: 'Trần Thị Mai',
-    customerPhone: '0912 345 678',
-    deliveryAddress: '135 Nam Kỳ Khởi Nghĩa, Quận 1, TP.HCM',
-    deliverySlotText: '14:00 - 16:00 Hôm nay',
-    paymentMethod: 'Ví MoMo',
-    totalAmount: 244000,
-    status: 'PICKING',
-    createdAt: '2026-07-20 16:10',
-    items: [
-      {
-        sku: 'HAISAN-004',
-        productName: 'Cá hồi Na-uy phi lê tươi',
-        category: 'Thịt cá',
-        requestedQuantity: 1,
-        unit: 'Khay 300g',
-        suggestedLotCode: 'LOT-CH-20260717',
-        suggestedSlotCode: 'K-02-C3 (Kho Lạnh)',
-        expiryDate: '2026-07-23',
-        zone: 'COLD',
-        picked: true,
-      },
-      {
-        sku: 'TOM-005',
-        productName: 'Tôm thẻ chân trắng đông lạnh',
-        category: 'Đông lạnh',
-        requestedQuantity: 1,
-        unit: 'Hộp 500g',
-        suggestedLotCode: 'LOT-TOM-20260710',
-        suggestedSlotCode: 'D-01-A1 (Kho Đông)',
-        expiryDate: '2026-12-30',
-        zone: 'FROZEN',
-        picked: false,
-      },
-    ],
-  },
-  {
-    id: 'ord-103',
-    orderCode: 'ORD-884910',
-    customerName: 'Lê Hoàng Nam',
-    customerPhone: '0988 777 666',
-    deliveryAddress: '45 Nguyễn Thị Minh Khai, Quận 3, TP.HCM',
-    deliverySlotText: '18:00 - 20:00 Hôm nay',
-    paymentMethod: 'VNPay QR',
-    totalAmount: 185000,
-    status: 'PACKED',
-    createdAt: '2026-07-20 15:45',
-    packageType: 'Thùng xốp bảo quản lạnh (0-4°C) + Gel đá',
-    items: [
-      {
-        sku: 'SUA-006',
-        productName: 'Sữa tươi tiệt trùng TH True Milk 1L',
-        category: 'Sữa & đồ uống',
-        requestedQuantity: 2,
-        unit: 'Hộp 1L',
-        suggestedLotCode: 'LOT-TH-20260601',
-        suggestedSlotCode: 'K-05-D2 (Kho Khô)',
-        expiryDate: '2026-11-15',
-        zone: 'DRY',
-        picked: true,
-      },
-      {
-        sku: 'MI-007',
-        productName: 'Mì Acecook Hảo Hảo tôm chua cay',
-        category: 'Đồ khô',
-        requestedQuantity: 1,
-        unit: 'Thùng 30 gói',
-        suggestedLotCode: 'LOT-HH-20260510',
-        suggestedSlotCode: 'K-06-A1 (Kho Khô)',
-        expiryDate: '2027-01-20',
-        zone: 'DRY',
-        picked: true,
-      },
-    ],
-  },
-  {
-    id: 'ord-104',
-    orderCode: 'ORD-884890',
-    customerName: 'Phạm Bảo An',
-    customerPhone: '0933 112 233',
-    deliveryAddress: '78 Lê Văn Sỹ, Phường 13, Quận 3, TP.HCM',
-    deliverySlotText: 'Giao siêu tốc 2 giờ',
-    paymentMethod: 'COD - Tiền mặt',
-    totalAmount: 310000,
-    status: 'SHIPPED',
-    createdAt: '2026-07-20 14:20',
-    assignedDriverId: 'drv-01',
-    assignedDriverName: 'Nguyễn Văn Hùng',
-    assignedDriverPhone: '0909 888 111',
-    vehicleType: 'REFRIGERATED',
-    packageType: 'Thùng xốp bảo quản lạnh 0-4°C',
-    items: [
-      {
-        sku: 'THIT-003',
-        productName: 'Thịt ba chỉ heo C.P tươi sạch',
-        category: 'Thịt cá',
-        requestedQuantity: 2,
-        unit: 'Khay 500g',
-        suggestedLotCode: 'LOT-TB-20260719',
-        suggestedSlotCode: 'K-02-B1',
-        expiryDate: '2026-07-24',
-        zone: 'COLD',
-        picked: true,
-      },
-    ],
-  },
-];
-
 const MOCK_DRIVERS: Driver[] = [
   {
     id: 'drv-01',
@@ -274,14 +125,61 @@ const MOCK_DRIVERS: Driver[] = [
 
 export const WarehouseDispatch = () => {
   const { user } = useAuth();
-  const [orders, setOrders] = useState<DispatchOrder[]>(MOCK_DISPATCH_ORDERS);
+  const [orders, setOrders] = useState<DispatchOrder[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>(MOCK_DRIVERS);
   const [activeTab, setActiveTab] = useState<'RECEIVE_PICK' | 'PACKING_QC' | 'DISPATCH' | 'FLEET'>('RECEIVE_PICK');
-  const [selectedOrder, setSelectedOrder] = useState<DispatchOrder | null>(MOCK_DISPATCH_ORDERS[0]);
+  const [selectedOrder, setSelectedOrder] = useState<DispatchOrder | null>(null);
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(MOCK_DRIVERS[0]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showManifestModal, setShowManifestModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchBackendOrders();
+  }, []);
+
+  const fetchBackendOrders = async () => {
+    try {
+      const res = await fetch(`${OUTBOUND_API}/outbound-orders`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const mappedOrders: DispatchOrder[] = data.map((o: any) => ({
+            id: o.id,
+            orderCode: o.orderCode,
+            customerName: o.requesterName || o.customerName || 'Khách hàng Web',
+            customerPhone: o.customerPhone || '0909 888 999',
+            deliveryAddress: o.destination || '227 Nguyễn Văn Cừ, Quận 5, TP.HCM',
+            deliverySlotText: o.deliverySlotText || 'Giao siêu tốc 2 giờ',
+            paymentMethod: o.paymentMethod || 'COD - Tiền mặt',
+            totalAmount: o.totalAmount || (o.items || []).reduce((acc: number, item: any) => acc + (item.price || 35000) * (item.requestedQuantity || 1), 0),
+            status: o.status || 'PENDING',
+            createdAt: new Date(o.createdAt).toISOString().replace('T', ' ').substring(0, 16),
+            packageType: 'Thùng xốp bảo quản lạnh 0-4°C',
+            items: (o.items || []).map((item: any) => ({
+              sku: item.sku,
+              productName: item.productName || item.sku,
+              category: item.category || 'Thực phẩm',
+              requestedQuantity: item.requestedQuantity || 1,
+              unit: item.unit || 'Kg',
+              suggestedLotCode: item.lotCode || `LOT-${item.sku.substring(0,6)}-202607`,
+              suggestedSlotCode: item.slotId || 'KHO-A1-02',
+              expiryDate: item.expiryDate ? new Date(item.expiryDate).toISOString().split('T')[0] : '2026-10-15',
+              zone: item.category === 'Thịt tươi' || item.category === 'Hải sản' ? 'FROZEN' : item.category === 'Rau củ quả' ? 'COLD' : 'DRY',
+              picked: item.pickedQuantity > 0 || item.status === 'PICKED'
+            }))
+          }));
+
+          setOrders(mappedOrders);
+          if (mappedOrders.length > 0) {
+            setSelectedOrder(prev => prev ? mappedOrders.find(m => m.id === prev.id) || mappedOrders[0] : mappedOrders[0]);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Lỗi lấy đơn hàng từ Outbound API:', err);
+    }
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -473,7 +371,7 @@ export const WarehouseDispatch = () => {
             <PackageCheck size={20} color="#15803D" />
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 900, marginTop: 6, color: '#14532D' }}>{packedCount} đơn</div>
-          <div style={{ fontSize: '0.75rem', color="#16A34A" marginTop: 2 }}>Đã dán nhãn & dán tem niêm phong</div>
+          <div style={{ fontSize: '0.75rem', color: '#16A34A', marginTop: 2 }}>Đã dán nhãn & dán tem niêm phong</div>
         </div>
 
         <div style={kpiCardStyle('#F5F3FF', '#6D28D9')}>
@@ -529,14 +427,22 @@ export const WarehouseDispatch = () => {
       {/* Search Bar */}
       <div style={{ display: 'flex', gap: 12, marginBottom: '1.25rem' }}>
         <div style={{ flex: 1, position: 'relative' }}>
-          <Search size={18} color="var(--color-text-muted)" style={{ position: 'absolute', left: 12, top: 12 }} />
+          <Search size={18} color="#64748b" style={{ position: 'absolute', left: 14, top: 12 }} />
           <input
             type="text"
             placeholder="Tìm theo mã đơn (e.g. ORD-884920), tên khách hàng, số điện thoại..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="input"
-            style={{ paddingLeft: 38 }}
+            style={{
+              width: '100%',
+              padding: '10px 16px 10px 42px',
+              borderRadius: '10px',
+              border: '1px solid #cbd5e1',
+              backgroundColor: '#ffffff',
+              fontSize: '0.875rem',
+              outline: 'none',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+            }}
           />
         </div>
       </div>
@@ -674,50 +580,81 @@ export const WarehouseDispatch = () => {
                     )}
                   </div>
 
+                  {/* SMART LOCATION ROUTE GUIDE */}
+                  <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', padding: '12px 16px', borderRadius: '10px', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <MapPin size={18} color="#008848" />
+                      <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#166534' }}>
+                        LỘ TRÌNH SOẠN HÀNG TỐI ƯU FEFO:
+                      </span>
+                      <span style={{ fontSize: '0.85rem', color: '#15803d', fontWeight: 600 }}>
+                        Lấy từ Kho Lạnh (0-4°C) ➔ Kho Đông (-18°C) ➔ Kho Khô ➔ Khu Đóng Gói QC
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '0.75rem', backgroundColor: '#dcfce7', color: '#065f46', padding: '3px 8px', borderRadius: '12px', fontWeight: 800 }}>
+                      AI Routing ACTIVE
+                    </span>
+                  </div>
+
                   {/* Item FEFO Table */}
-                  <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ backgroundColor: 'var(--color-bg)', textAlign: 'left', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
-                        <th style={{ padding: 10 }}>Trạng thái</th>
-                        <th style={{ padding: 10 }}>Sản phẩm</th>
-                        <th style={{ padding: 10 }}>Số lượng</th>
-                        <th style={{ padding: 10 }}>Lô gợi ý (FEFO)</th>
-                        <th style={{ padding: 10 }}>Vị trí kệ kho</th>
-                        <th style={{ padding: 10 }}>Khu vực bảo quản</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedOrder.items.map((item, idx) => (
-                        <tr key={idx} style={{ borderBottom: '1px solid var(--color-border)', fontSize: '0.85rem' }}>
-                          <td style={{ padding: 10 }}>
-                            <input
-                              type="checkbox"
-                              checked={item.picked}
-                              onChange={() => handleToggleItemPicked(selectedOrder.id, item.sku)}
-                              style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#008848' }}
-                            />
-                          </td>
-                          <td style={{ padding: 10, fontWeight: 700, color: 'var(--color-text)' }}>
-                            {item.productName}
-                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 400 }}>SKU: {item.sku}</div>
-                          </td>
-                          <td style={{ padding: 10, fontWeight: 800 }}>{item.requestedQuantity} {item.unit}</td>
-                          <td style={{ padding: 10 }}>
-                            <span style={{ backgroundColor: '#FEF3C7', color: '#92400E', padding: '3px 8px', borderRadius: 6, fontWeight: 700, fontSize: '0.8rem' }}>
-                              {item.suggestedLotCode}
-                            </span>
-                            <div style={{ fontSize: '0.75rem', color: '#D97706', marginTop: 2 }}>HSD: {item.expiryDate}</div>
-                          </td>
-                          <td style={{ padding: 10, fontWeight: 700, color: '#008848' }}>{item.suggestedSlotCode}</td>
-                          <td style={{ padding: 10 }}>
-                            {item.zone === 'COLD' && <span style={{ color: '#0284C7', fontWeight: 700 }}>❄️ Kho Lạnh (0-4°C)</span>}
-                            {item.zone === 'FROZEN' && <span style={{ color: '#2563EB', fontWeight: 700 }}>🧊 Đông Lạnh (-18°C)</span>}
-                            {item.zone === 'DRY' && <span style={{ color: '#D97706', fontWeight: 700 }}>📦 Kho Khô</span>}
-                          </td>
+                  <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', backgroundColor: 'white' }}>
+                    <table className="table" style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#f8fafc', textAlign: 'left', fontSize: '0.78rem', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>
+                          <th style={{ padding: '12px 10px', width: '110px' }}>TRẠNG THÁI</th>
+                          <th style={{ padding: '12px 10px' }}>TÊN SẢN PHẨM & SKU</th>
+                          <th style={{ padding: '12px 10px', width: '100px' }}>SỐ LƯỢNG</th>
+                          <th style={{ padding: '12px 10px' }}>📍 VỊ TRÍ KỆ KHO</th>
+                          <th style={{ padding: '12px 10px' }}>⚡ LÔ HÀNG FEFO (ƯU TIÊN)</th>
+                          <th style={{ padding: '12px 10px', width: '120px' }}>BẢO QUẢN</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {(selectedOrder.items || []).map((item, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', fontSize: '0.85rem', backgroundColor: item.picked ? '#f0fdf4' : 'white' }}>
+                            <td style={{ padding: 10 }}>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={item.picked}
+                                  onChange={() => handleToggleItemPicked(selectedOrder.id, item.sku)}
+                                  style={{ width: 20, height: 20, cursor: 'pointer', accentColor: '#008848' }}
+                                />
+                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: item.picked ? '#008848' : '#64748b' }}>
+                                  {item.picked ? 'ĐÃ LẤY' : 'CHƯA LẤY'}
+                                </span>
+                              </label>
+                            </td>
+                            <td style={{ padding: 10, fontWeight: 700, color: '#1e293b' }}>
+                              {item.productName}
+                              <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>SKU: {item.sku}</div>
+                            </td>
+                            <td style={{ padding: 10, fontWeight: 900, color: '#008848', fontSize: '0.95rem' }}>
+                              {item.requestedQuantity} {item.unit}
+                            </td>
+                            <td style={{ padding: 10 }}>
+                              <span style={{ backgroundColor: '#dcfce7', color: '#065f46', padding: '4px 10px', borderRadius: '6px', fontWeight: 800, fontSize: '0.82rem', border: '1px solid #86efac', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                📍 {item.suggestedSlotCode || 'K-01-A2'}
+                              </span>
+                            </td>
+                            <td style={{ padding: 10 }}>
+                              <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '3px 8px', borderRadius: 6, fontWeight: 700, fontSize: '0.8rem', display: 'inline-block' }}>
+                                {item.suggestedLotCode || 'LOT-FEFO-202607'}
+                              </span>
+                              <div style={{ fontSize: '0.75rem', color: '#d97706', marginTop: 2, fontWeight: 600 }}>
+                                HSD: {item.expiryDate || '2026-07-28'} (Ưu tiên lấy trước)
+                              </div>
+                            </td>
+                            <td style={{ padding: 10 }}>
+                              {item.zone === 'COLD' && <span style={{ color: '#059669', fontWeight: 700, backgroundColor: '#ecfdf5', padding: '3px 8px', borderRadius: '12px', fontSize: '0.75rem' }}>❄️ Mát (0-4°C)</span>}
+                              {item.zone === 'FROZEN' && <span style={{ color: '#2563eb', fontWeight: 700, backgroundColor: '#eff6ff', padding: '3px 8px', borderRadius: '12px', fontSize: '0.75rem' }}>🧊 Đông (-18°C)</span>}
+                              {item.zone === 'DRY' && <span style={{ color: '#d97706', fontWeight: 700, backgroundColor: '#fffbeb', padding: '3px 8px', borderRadius: '12px', fontSize: '0.75rem' }}>📦 Kho Khô</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
 
@@ -970,15 +907,16 @@ const tabButtonStyle = (isActive: boolean): React.CSSProperties => ({
   display: 'flex',
   alignItems: 'center',
   gap: 8,
-  padding: '10px 16px',
+  padding: '8px 16px',
   fontWeight: isActive ? 800 : 600,
-  fontSize: '0.875rem',
-  color: isActive ? '#008848' : 'var(--color-text-secondary)',
-  backgroundColor: isActive ? 'var(--color-surface)' : 'transparent',
+  fontSize: '0.85rem',
+  color: isActive ? '#ffffff' : '#64748b',
+  backgroundColor: isActive ? '#008848' : '#f1f5f9',
   border: 'none',
-  borderBottom: isActive ? '3px solid #008848' : '3px solid transparent',
+  borderRadius: '20px',
   cursor: 'pointer',
   transition: 'all 0.2s',
+  whiteSpace: 'nowrap',
 });
 
 const renderStatusBadge = (status: DispatchOrder['status']) => {

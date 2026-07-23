@@ -16,8 +16,8 @@ export class OutboundOrder {
   @Column({ type: 'varchar', default: 'PENDING' })
   status: string; // PENDING | PICKING | PACKED | SHIPPED | CONFIRMED | CANCELLED
 
-  @Column({ name: 'requested_by' })
-  requestedBy: string; // User ID of sales staff
+  @Column({ name: 'requested_by', nullable: true })
+  requestedBy: string; // User ID or Customer ID
 
   @Column({ name: 'requester_name', nullable: true })
   requesterName: string;

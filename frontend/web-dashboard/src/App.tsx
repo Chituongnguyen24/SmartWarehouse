@@ -20,7 +20,13 @@ import UserProfile from './pages/UserProfile';
 import Users from './pages/Users';
 import ShelfArrangement from './pages/ShelfArrangement';
 import Settings from './pages/Settings';
-
+import CustomerLayout from './components/layout/CustomerLayout';
+import CustomerStorefront from './pages/CustomerStorefront';
+import CustomerCart from './pages/CustomerCart';
+import CustomerOrders from './pages/CustomerOrders';
+import CustomerProductDetail from './pages/CustomerProductDetail';
+import CustomerProfile from './pages/CustomerProfile';
+import { WebCartProvider } from './contexts/WebCartContext';
 import './styles/global.css';
 import './styles/layout.css';
 import './styles/components.css';
@@ -34,9 +40,9 @@ function App() {
           {/* Public route */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Protected routes */}
+          {/* Protected routes for Admin/Staff */}
           <Route path="/" element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF', 'DRIVER']}>
               <MainLayout />
             </ProtectedRoute>
           }>
@@ -121,6 +127,21 @@ function App() {
                 <Settings />
               </ProtectedRoute>
             } />
+          </Route>
+
+          {/* Protected routes for Customer */}
+          <Route path="/" element={
+            <ProtectedRoute allowedRoles={['CUSTOMER']}>
+              <WebCartProvider>
+                <CustomerLayout />
+              </WebCartProvider>
+            </ProtectedRoute>
+          }>
+            <Route path="store" element={<CustomerStorefront />} />
+            <Route path="product/:id" element={<CustomerProductDetail />} />
+            <Route path="cart" element={<CustomerCart />} />
+            <Route path="my-orders" element={<CustomerOrders />} />
+            <Route path="my-profile" element={<CustomerProfile />} />
           </Route>
         </Routes>
       </BrowserRouter>

@@ -1,6 +1,6 @@
 import { Product } from '../types/product';
 import { Order, CartItem, Address, PaymentMethod, DeliverySlot } from '../types/cart';
-import { MOCK_PRODUCTS, MOCK_ORDERS, MOCK_DELIVERY_SLOTS } from '../data/mockData';
+import { MOCK_DELIVERY_SLOTS } from '../data/mockData';
 
 const PRODUCT_API_URL = 'http://localhost:3010/products';
 const OUTBOUND_API_URL = 'http://localhost:3007/outbound-orders';
@@ -45,7 +45,7 @@ export async function fetchProductsApi(): Promise<Product[]> {
   }
 
   // Graceful Fallback
-  return MOCK_PRODUCTS;
+  return [];
 }
 
 /**
@@ -66,6 +66,8 @@ export async function createOrderApi(params: {
 
   const payload = {
     orderCode: generatedId,
+    requestedBy: 'customer-mobile-id',
+    requesterName: params.address.name,
     customerName: params.address.name,
     customerPhone: params.address.phone,
     destination: params.address.fullAddress,
@@ -183,7 +185,7 @@ export async function fetchOrdersApi(): Promise<Order[]> {
     console.warn('[API] Could not fetch real orders from Outbound Service. Using local orders:', error);
   }
 
-  return MOCK_ORDERS;
+  return [];
 }
 
 function mapCategory(cat: string): any {

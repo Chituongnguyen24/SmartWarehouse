@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform, StatusBar } from 'react-native';
 import { ProductCard } from '../components/ProductCard';
-import { MOCK_PRODUCTS, MOCK_CATEGORIES } from '../data/mockData';
 import { CategoryType, Product } from '../types/product';
 import { COLORS } from '../theme/colors';
 import { useCart } from '../context/CartContext';

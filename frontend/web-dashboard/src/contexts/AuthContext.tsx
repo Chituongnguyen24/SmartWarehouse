@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-export type UserRole = 'ADMIN' | 'WAREHOUSE_MANAGER' | 'WAREHOUSE_STAFF' | 'SALES_STAFF' | 'DRIVER';
+export type UserRole = 'ADMIN' | 'WAREHOUSE_MANAGER' | 'WAREHOUSE_STAFF' | 'SALES_STAFF' | 'DRIVER' | 'CUSTOMER';
 
 export interface AuthUser {
   id: string;
@@ -25,6 +25,7 @@ const ROLE_THEME_MAP: Record<UserRole, string> = {
   WAREHOUSE_STAFF: 'theme-blue',
   SALES_STAFF: 'theme-amber',
   DRIVER: 'theme-violet',
+  CUSTOMER: 'theme-rose',
 };
 
 function applyTheme(role: UserRole) {
@@ -42,6 +43,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   WAREHOUSE_STAFF: 'Nhân viên kho',
   SALES_STAFF: 'Nhân viên bán hàng',
   DRIVER: 'Tài xế',
+  CUSTOMER: 'Khách hàng',
 };
 
 export const ROLE_COLORS: Record<UserRole, string> = {
@@ -50,6 +52,7 @@ export const ROLE_COLORS: Record<UserRole, string> = {
   WAREHOUSE_STAFF: '#00b0ff',
   SALES_STAFF: '#f59e0b',
   DRIVER: '#8b5cf6',
+  CUSTOMER: '#f43f5e',
 };
 
 const API_BASE = 'http://localhost:3012';

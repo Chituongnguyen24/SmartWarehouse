@@ -10,10 +10,11 @@ const DEMO_ACCOUNTS: { email: string; password: string; name: string; role: User
   { email: 'staff@sfwms.vn', password: 'password123', name: 'Lê Thị Hoa', role: 'WAREHOUSE_STAFF' },
   { email: 'sales@sfwms.vn', password: 'password123', name: 'Phạm Minh Đức', role: 'SALES_STAFF' },
   { email: 'driver@sfwms.vn', password: 'password123', name: 'Võ Thanh Tùng', role: 'DRIVER' },
+  { email: 'customer@sfwms.vn', password: 'password123', name: 'Khách hàng Test', role: 'CUSTOMER' },
 ];
 
 const LoginPage: React.FC = () => {
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -21,6 +22,9 @@ const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   if (isAuthenticated) {
+    if (user?.role === 'CUSTOMER') {
+      return <Navigate to="/store" replace />;
+    }
     return <Navigate to="/" replace />;
   }
 

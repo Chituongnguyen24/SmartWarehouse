@@ -108,13 +108,15 @@ const Sidebar = () => {
       ))}
 
       <div className="sidebar-footer">
-        <div className="iot-status-card">
-          <div className="status-dot"></div>
-          <div className="iot-status-text">
-            <strong>12 cảm biến IoT</strong>
-            đang truyền dữ liệu
+        {currentRole !== 'SALES_STAFF' && currentRole !== 'CUSTOMER' && (
+          <div className="iot-status-card">
+            <div className="status-dot"></div>
+            <div className="iot-status-text">
+              <strong>12 cảm biến IoT</strong>
+              đang truyền dữ liệu
+            </div>
           </div>
-        </div>
+        )}
 
         {/* User info & Logout */}
         <div style={{

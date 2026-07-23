@@ -22,7 +22,7 @@ import {
   ShieldCheck,
   Search,
 } from 'lucide-react';
-import { useAuth, ROLE_LABELS, UserRole } from '../contexts/AuthContext';
+import { useAuth, ROLE_LABELS, type UserRole } from '../contexts/AuthContext';
 
 export interface ServiceHealth {
   name: string;

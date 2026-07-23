@@ -5,6 +5,8 @@ import Header from './Header';
 const getPageTitle = (pathname: string) => {
   switch (pathname) {
     case '/': return 'Tổng quan';
+    case '/dispatch': return 'Tiếp nhận & Phân phối đơn (Dispatch Hub)';
+    case '/sales': return 'Quản lý Bán hàng & Chat Hỗ trợ';
     case '/products': return 'Sản phẩm & SKU';
     case '/inventory': return 'Kho & lô hàng';
     case '/iot': return 'Giám sát IoT';
@@ -16,7 +18,7 @@ const getPageTitle = (pathname: string) => {
     case '/reports': return 'Báo cáo & Phân tích';
     case '/profile': return 'Thông tin tài khoản';
     case '/users': return 'Quản lý người dùng';
-    default: return 'Tổng quan';
+    default: return 'Tiếp nhận & Phân phối đơn';
   }
 };
 

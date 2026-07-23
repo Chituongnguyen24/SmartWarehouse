@@ -13,7 +13,6 @@ import { HeaderBar } from '../components/HeaderBar';
 import { BannerSlider } from '../components/BannerSlider';
 import { CategoryGrid } from '../components/CategoryGrid';
 import { ProductCard } from '../components/ProductCard';
-import { MOCK_PRODUCTS } from '../data/mockData';
 import { Product, CategoryType } from '../types/product';
 import { COLORS } from '../theme/colors';
 import { useCart } from '../context/CartContext';
