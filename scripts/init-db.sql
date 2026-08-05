@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════
--- FreshKeep (SFWMS) - Database initialization script
+-- CityMart (SFWMS) - Database initialization script
 -- Creates one database per microservice (Database per Service)
 -- ═══════════════════════════════════════════════════════
 

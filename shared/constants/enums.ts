@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════
- * FreshKeep (SFWMS) - Shared Enums
+ * CityMart (SFWMS) - Shared Enums
  * Common enums used across all microservices
  * ═══════════════════════════════════════════════════════
  */

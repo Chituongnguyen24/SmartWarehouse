@@ -11,7 +11,7 @@ async function bootstrap() {
 
   // Swagger API Documentation
   const config = new DocumentBuilder()
-    .setTitle('FreshKeep - Warehouse Service')
+    .setTitle('CityMart - Warehouse Service')
     .setDescription('Quản lý cấu trúc vật lý kho: zone, kệ hàng, ô chứa hàng (storage slot).')
     .setVersion('1.0')
     .addBearerAuth()

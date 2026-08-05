@@ -6,12 +6,12 @@ export class ExcelExportService {
   // ─── Xuất báo cáo tồn kho dạng Excel ───
   async generateInventoryExcel(report: any): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'FreshKeep SFWMS';
+    workbook.creator = 'CityMart SFWMS';
     workbook.created = new Date();
 
     const sheet = workbook.addWorksheet('Báo cáo tồn kho', {
       headerFooter: {
-        firstHeader: 'FreshKeep - Báo cáo nhập xuất tồn kho',
+        firstHeader: 'CityMart - Báo cáo nhập xuất tồn kho',
       },
     });
 
@@ -81,7 +81,7 @@ export class ExcelExportService {
   // ─── Xuất báo cáo hàng sắp hết hạn ───
   async generateExpiryExcel(report: any): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'FreshKeep SFWMS';
+    workbook.creator = 'CityMart SFWMS';
 
     const sheet = workbook.addWorksheet('Hàng sắp hết hạn');
 

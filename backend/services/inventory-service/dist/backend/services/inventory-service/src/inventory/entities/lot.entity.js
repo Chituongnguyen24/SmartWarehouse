@@ -61,6 +61,14 @@ __decorate([
     __metadata("design:type", String)
 ], Lot.prototype, "location", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ name: 'warehouse_id', nullable: true }),
+    __metadata("design:type", String)
+], Lot.prototype, "warehouseId", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'warehouse_code', nullable: true }),
+    __metadata("design:type", String)
+], Lot.prototype, "warehouseCode", void 0);
+__decorate([
     (0, typeorm_1.Column)({ name: 'risk_score', type: 'float', default: 0 }),
     __metadata("design:type", Number)
 ], Lot.prototype, "riskScore", void 0);

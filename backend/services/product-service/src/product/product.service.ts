@@ -1,7 +1,8 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Product, StorageType } from './product.entity';
+import { Product } from './product.entity';
+import { LARGE_SEED_PRODUCTS } from './product.seed-data';
 
 @Injectable()
 export class ProductService implements OnModuleInit {
@@ -11,53 +12,23 @@ export class ProductService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    // Auto-seed default products
-    const seedProducts = [
-      {
-        sku: 'MILK-DALAT-1L',
-        name: 'Dalat Milk Fresh Milk 1L',
-        category: 'Dairy',
-        storageType: StorageType.COLD,
-        minTemp: 0,
-        maxTemp: 4,
-        maxHumidity: 80,
-        unit: 'box',
-      },
-      {
-        sku: 'BEEF-STEAK-US',
-        name: 'US Beef Ribeye Steak 500g',
-        category: 'Meat & Seafood',
-        storageType: StorageType.FROZEN,
-        minTemp: -25,
-        maxTemp: -18,
-        maxHumidity: 65,
-        unit: 'pack',
-      },
-      {
-        sku: 'NOODLE-HAOHAO',
-        name: 'Hao Hao Sour & Spicy Shrimp Noodles',
-        category: 'Dry Goods',
-        storageType: StorageType.DRY,
-        minTemp: 15,
-        maxTemp: 35,
-        maxHumidity: 70,
-        unit: 'box',
-      },
-      {
-        sku: 'TOMATO-DALAT',
-        name: 'Dalat Organic Tomatoes 1kg',
-        category: 'Produce',
-        storageType: StorageType.COLD,
-        minTemp: 4,
-        maxTemp: 10,
-        maxHumidity: 90,
-        unit: 'pack',
-      },
-    ];
+    // Delete legacy initial mock items
+    try {
+      await this.productRepository.createQueryBuilder()
+        .delete()
+        .where("category IN (:...cats)", { cats: ['Dairy', 'Meat & Seafood', 'Dry Goods', 'Produce'] })
+        .execute();
+    } catch (e) {
+      console.log('No legacy categories to delete');
+    }
 
-    for (const item of seedProducts) {
+    // Auto-seed large default supermarket dataset
+    for (const item of LARGE_SEED_PRODUCTS) {
       const exists = await this.productRepository.findOneBy({ sku: item.sku });
-      if (!exists) {
+      if (exists) {
+        // Update existing record with new e-commerce fields
+        await this.productRepository.save({ ...exists, ...item });
+      } else {
         const prod = this.productRepository.create(item);
         await this.productRepository.save(prod);
         console.log(`Seeded product SKU: ${item.sku}`);

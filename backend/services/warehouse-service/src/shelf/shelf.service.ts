@@ -33,17 +33,22 @@ export class ShelfService implements OnModuleInit {
     };
 
     for (const zone of zones) {
-      const seeds = shelfSeeds[zone.code];
+      const zoneType = zone.code.includes('_') ? zone.code.split('_')[1] : zone.code;
+      const seeds = shelfSeeds[zoneType];
       if (!seeds) continue;
 
+      const prefix = zone.code.includes('_') ? zone.code.split('_')[0] : '';
+
       for (const seed of seeds) {
-        const exists = await this.shelfRepository.findOneBy({ code: seed.code });
+        const uniqueShelfCode = prefix ? `${prefix}_${seed.code}` : seed.code;
+        const exists = await this.shelfRepository.findOneBy({ code: uniqueShelfCode });
         if (!exists) {
           await this.shelfRepository.save(this.shelfRepository.create({
             ...seed,
+            code: uniqueShelfCode,
             zoneId: zone.id,
           }));
-          console.log(`Seeded shelf: ${seed.code} in zone ${zone.code}`);
+          console.log(`[SHELF SERVICE] Seeded shelf: ${uniqueShelfCode} in zone ${zone.code}`);
         }
       }
     }

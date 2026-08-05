@@ -6,6 +6,7 @@ export enum UserRole {
   WAREHOUSE_STAFF = 'WAREHOUSE_STAFF',
   SALES_STAFF = 'SALES_STAFF',
   DRIVER = 'DRIVER',
+  CUSTOMER = 'CUSTOMER',
 }
 
 @Entity('users')
@@ -27,6 +28,9 @@ export class User {
     default: UserRole.WAREHOUSE_STAFF,
   })
   role: UserRole;
+
+  @Column({ nullable: true })
+  phone: string;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

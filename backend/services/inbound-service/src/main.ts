@@ -9,7 +9,7 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
   const config = new DocumentBuilder()
-    .setTitle('FreshKeep - Inbound Service')
+    .setTitle('CityMart - Inbound Service')
     .setDescription('Quản lý quy trình nhập kho: tiếp nhận đơn, kiểm tra chất lượng, tạo batch, phân bổ vị trí.')
     .setVersion('1.0')
     .addBearerAuth()

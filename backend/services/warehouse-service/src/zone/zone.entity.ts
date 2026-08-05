@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { Shelf } from '../shelf/shelf.entity';
+import { Warehouse } from '../warehouse/warehouse.entity';
 
 /**
  * Zone Entity — Khu vực kho (Kho lạnh, Kho đông lạnh, Kho khô)
@@ -8,6 +9,13 @@ import { Shelf } from '../shelf/shelf.entity';
 export class Zone {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ name: 'warehouse_id', nullable: true })
+  warehouseId: string;
+
+  @ManyToOne(() => Warehouse, (warehouse) => warehouse.zones, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'warehouse_id' })
+  warehouse: Warehouse;
 
   @Column({ unique: true })
   code: string; // COLD, FROZEN, DRY

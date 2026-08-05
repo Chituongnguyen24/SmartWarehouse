@@ -7,7 +7,8 @@ export declare class InventoryController {
     getLots(): Promise<import("./entities/lot.entity").Lot[]>;
     importLot(body: any, req: any): Promise<import("./entities/lot.entity").Lot>;
     exportStock(body: any, req: any): Promise<import("./entities/lot.entity").Lot>;
-    getFefoSuggestions(sku: string, quantity: string): Promise<any>;
+    getFefoSuggestions(sku: string, quantity: string, warehouseId?: string): Promise<any>;
+    getWarehouseStock(skus: string): Promise<any>;
     getMovements(): Promise<import("./entities/stock-movement.entity").StockMovement[]>;
     getExpiryAlert(days: string): Promise<any[]>;
     updateLotRisk(id: string, body: {

@@ -27,6 +27,8 @@ export declare class InventoryService implements OnModuleInit {
         riskScore?: number;
         status?: LotStatus;
         createdBy: string;
+        warehouseId?: string;
+        warehouseCode?: string;
     }): Promise<Lot>;
     exportStock(dto: {
         lotId: string;
@@ -34,7 +36,8 @@ export declare class InventoryService implements OnModuleInit {
         reason: string;
         performedBy: string;
     }): Promise<Lot>;
-    getSmartFefoSuggestions(sku: string, requiredQty: number): Promise<any>;
+    getSmartFefoSuggestions(sku: string, requiredQty: number, warehouseId?: string): Promise<any>;
+    getWarehouseStock(skus: string[]): Promise<any>;
     getMovementsReport(): Promise<StockMovement[]>;
     getExpiryAlertReport(days: number): Promise<any[]>;
     updateLotRisk(id: string, riskScore: number, status: LotStatus): Promise<Lot>;

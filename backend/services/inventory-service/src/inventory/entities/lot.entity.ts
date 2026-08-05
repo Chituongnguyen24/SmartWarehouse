@@ -38,6 +38,12 @@ export class Lot {
   @Column()
   location: string; // E.g., shelf-A1, shelf-B2
 
+  @Column({ name: 'warehouse_id', nullable: true })
+  warehouseId: string;
+
+  @Column({ name: 'warehouse_code', nullable: true })
+  warehouseCode: string;
+
   @Column({ name: 'risk_score', type: 'float', default: 0 })
   riskScore: number; // 0-100
 

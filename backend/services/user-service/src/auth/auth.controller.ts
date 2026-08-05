@@ -1,12 +1,16 @@
-import { Controller, Post, Body, Get, UseGuards, Request, HttpCode, HttpStatus, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Put, Body, Get, UseGuards, Request, HttpCode, HttpStatus, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { UserService } from '../user/user.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { ApiBearerAuth, ApiTags, ApiOperation, ApiBody } from '@nestjs/swagger';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private userService: UserService,
+  ) {}
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
@@ -34,6 +38,29 @@ export class AuthController {
   @Get('profile')
   @ApiOperation({ summary: 'Get current user profile' })
   getProfile(@Request() req) {
-    return req.user;
+    const { passwordHash, ...result } = req.user;
+    return result;
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Put('profile')
+  @ApiOperation({ summary: 'Update current user profile' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', example: 'Nguyễn Văn A' },
+        email: { type: 'string', example: 'customer@sfwms.vn' },
+        phone: { type: 'string', example: '0909888999' },
+        password: { type: 'string', example: 'newpassword123' },
+      },
+    },
+  })
+  async updateProfile(@Request() req, @Body() body: any) {
+    const userId = req.user.id;
+    const updatedUser = await this.userService.update(userId, body);
+    const { passwordHash, ...result } = updatedUser;
+    return result;
   }
 }

@@ -56,14 +56,27 @@ export class InventoryController {
   @ApiOperation({ summary: 'Get smart FEFO extraction suggestions for a product' })
   @ApiQuery({ name: 'sku', type: String, example: 'MILK-DALAT-1L' })
   @ApiQuery({ name: 'quantity', type: Number, example: 50 })
+  @ApiQuery({ name: 'warehouseId', type: String, required: false, example: 'WH-001' })
   getFefoSuggestions(
     @Query('sku') sku: string,
     @Query('quantity') quantity: string,
+    @Query('warehouseId') warehouseId?: string,
   ) {
     if (!sku || !quantity) {
       throw new BadRequestException('sku and quantity parameters are required');
     }
-    return this.inventoryService.getSmartFefoSuggestions(sku, parseInt(quantity));
+    return this.inventoryService.getSmartFefoSuggestions(sku, parseInt(quantity), warehouseId);
+  }
+
+  @Get('warehouse-stock')
+  @ApiOperation({ summary: 'Get available stock of products grouped by warehouse' })
+  @ApiQuery({ name: 'skus', type: String, example: 'MILK-DALAT-1L,NOODLE-HAOHAO' })
+  getWarehouseStock(@Query('skus') skus: string) {
+    if (!skus) {
+      throw new BadRequestException('skus parameter is required (comma-separated)');
+    }
+    const skuList = skus.split(',').map(s => s.trim());
+    return this.inventoryService.getWarehouseStock(skuList);
   }
 
   @Get('movements')

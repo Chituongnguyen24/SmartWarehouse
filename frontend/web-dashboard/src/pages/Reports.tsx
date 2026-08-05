@@ -1,4 +1,3 @@
-import React from 'react';
 import { Download, Boxes, TrendingDown, Percent, FileText, ArrowUpRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 

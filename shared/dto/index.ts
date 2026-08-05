@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════
- * FreshKeep (SFWMS) - Shared DTOs
+ * CityMart (SFWMS) - Shared DTOs
  * Common interfaces used for inter-service communication
  * ═══════════════════════════════════════════════════════
  */

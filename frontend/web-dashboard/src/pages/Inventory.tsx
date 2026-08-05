@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Boxes, Clock, PackageCheck, MapPin, Plus, Minus, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-const API_BASE = 'http://localhost:3008'; // inventory-service
+const API_BASE = 'http://localhost:3011'; // inventory-service
 
 interface Lot {
   id: string;

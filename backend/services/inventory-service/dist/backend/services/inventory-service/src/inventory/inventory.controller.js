@@ -45,11 +45,18 @@ let InventoryController = class InventoryController {
             performedBy: req.user.id,
         });
     }
-    getFefoSuggestions(sku, quantity) {
+    getFefoSuggestions(sku, quantity, warehouseId) {
         if (!sku || !quantity) {
             throw new common_1.BadRequestException('sku and quantity parameters are required');
         }
-        return this.inventoryService.getSmartFefoSuggestions(sku, parseInt(quantity));
+        return this.inventoryService.getSmartFefoSuggestions(sku, parseInt(quantity), warehouseId);
+    }
+    getWarehouseStock(skus) {
+        if (!skus) {
+            throw new common_1.BadRequestException('skus parameter is required (comma-separated)');
+        }
+        const skuList = skus.split(',').map(s => s.trim());
+        return this.inventoryService.getWarehouseStock(skuList);
     }
     getMovements() {
         return this.inventoryService.getMovementsReport();
@@ -111,12 +118,23 @@ __decorate([
     (0, swagger_1.ApiOperation)({ summary: 'Get smart FEFO extraction suggestions for a product' }),
     (0, swagger_1.ApiQuery)({ name: 'sku', type: String, example: 'MILK-DALAT-1L' }),
     (0, swagger_1.ApiQuery)({ name: 'quantity', type: Number, example: 50 }),
+    (0, swagger_1.ApiQuery)({ name: 'warehouseId', type: String, required: false, example: 'WH-001' }),
     __param(0, (0, common_1.Query)('sku')),
     __param(1, (0, common_1.Query)('quantity')),
+    __param(2, (0, common_1.Query)('warehouseId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", void 0)
 ], InventoryController.prototype, "getFefoSuggestions", null);
+__decorate([
+    (0, common_1.Get)('warehouse-stock'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get available stock of products grouped by warehouse' }),
+    (0, swagger_1.ApiQuery)({ name: 'skus', type: String, example: 'MILK-DALAT-1L,NOODLE-HAOHAO' }),
+    __param(0, (0, common_1.Query)('skus')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], InventoryController.prototype, "getWarehouseStock", null);
 __decorate([
     (0, common_1.Get)('movements'),
     (0, swagger_1.ApiOperation)({ summary: 'Get audit logs of all stock movements' }),

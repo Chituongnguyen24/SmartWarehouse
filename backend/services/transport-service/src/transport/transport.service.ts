@@ -121,77 +121,194 @@ export class TransportService {
     return grouped;
   }
 
-  // 4. Delivery routing: VRP (Vehicle Routing Problem) Nearest-Neighbor solver
+  // 4. Delivery routing: VRP (Vehicle Routing Problem) Clarke-Wright Savings solver
   // Depot at Go Vap Supermarket (10.8286, 106.6802) HCMC
-  solveVrp(stops: Stop[], truckCapacity = 200): any {
-    const depot = { id: 'depot', name: 'SFWMS Depot (HCMC Central)', lat: 10.8286, lng: 106.6802, demand: 0 };
+  solveVrp(stops: Stop[], defaultCapacity = 200, driversList?: any[]): any {
+    const depot = { id: 'depot', name: 'Depot Trung Tâm CityMart (Gò Vấp)', lat: 10.8286, lng: 106.6802, demand: 0 };
     
-    // Calculates Euclidean distance as standard proxy for routing
+    // Calculates Haversine distance between 2 coordinates (km)
     const getDistance = (p1: { lat: number; lng: number }, p2: { lat: number; lng: number }) => {
-      const dx = p1.lat - p2.lat;
-      const dy = p1.lng - p2.lng;
-      return Math.sqrt(dx * dx + dy * dy) * 111.32; // Approx km
+      const R = 6371; // Earth radius in km
+      const dLat = (p2.lat - p1.lat) * Math.PI / 180;
+      const dLng = (p2.lng - p1.lng) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(p1.lat * Math.PI / 180) * Math.cos(p2.lat * Math.PI / 180) *
+                Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
     };
 
-    let unvisited = [...stops];
-    const routes = [];
-    let currentRouteIndex = 1;
+    // Filter valid stops
+    const validStops = stops.filter(s => s.demand > 0);
+    if (validStops.length === 0) {
+      return { depot, totalRoutes: 0, routes: [], totalDistance: 0 };
+    }
 
-    while (unvisited.length > 0) {
-      const route = {
-        routeId: `Route-${currentRouteIndex++}`,
-        stops: [depot],
-        totalDistance: 0,
-        totalDemand: 0,
+    // Initialize routes: each stop has its own route [stop] (depot is implicit at start/end)
+    let routes: Array<Stop[]> = validStops.map(stop => [stop]);
+
+    // Calculate savings for all pairs (i, j)
+    const savings: Array<{ i: string; j: string; saving: number }> = [];
+    for (let i = 0; i < validStops.length; i++) {
+      for (let j = i + 1; j < validStops.length; j++) {
+        const stopI = validStops[i];
+        const stopJ = validStops[j];
+        const distDepotI = getDistance(depot, stopI);
+        const distDepotJ = getDistance(depot, stopJ);
+        const distIJ = getDistance(stopI, stopJ);
+        const saving = distDepotI + distDepotJ - distIJ;
+        savings.push({ i: stopI.id, j: stopJ.id, saving });
+      }
+    }
+
+    // Sort savings in descending order
+    savings.sort((a, b) => b.saving - a.saving);
+
+    // Merge routes based on Clarke-Wright Savings
+    for (const s of savings) {
+      // Find routes containing i and j
+      let routeIndexA = -1;
+      let routeIndexB = -1;
+
+      for (let rIdx = 0; rIdx < routes.length; rIdx++) {
+        const route = routes[rIdx];
+        if (route.some(stop => stop.id === s.i)) routeIndexA = rIdx;
+        if (route.some(stop => stop.id === s.j)) routeIndexB = rIdx;
+      }
+
+      // If they are on different routes
+      if (routeIndexA !== -1 && routeIndexB !== -1 && routeIndexA !== routeIndexB) {
+        const routeA = routes[routeIndexA];
+        const routeB = routes[routeIndexB];
+
+        // Check if stops are at endpoints of their respective routes
+        const firstA = routeA[0].id;
+        const lastA = routeA[routeA.length - 1].id;
+        const firstB = routeB[0].id;
+        const lastB = routeB[routeB.length - 1].id;
+
+        const isEndpointA = (firstA === s.i || lastA === s.i);
+        const isEndpointB = (firstB === s.j || lastB === s.j);
+
+        if (isEndpointA && isEndpointB) {
+          // Check capacity constraint
+          const totalDemandA = routeA.reduce((sum, st) => sum + st.demand, 0);
+          const totalDemandB = routeB.reduce((sum, st) => sum + st.demand, 0);
+          const combinedDemand = totalDemandA + totalDemandB;
+
+          if (combinedDemand <= defaultCapacity) {
+            // Merge routes in correct order
+            let mergedRoute: Stop[] = [];
+            if (lastA === s.i && firstB === s.j) {
+              mergedRoute = [...routeA, ...routeB];
+            } else if (firstA === s.i && lastB === s.j) {
+              mergedRoute = [...routeB, ...routeA];
+            } else if (firstA === s.i && firstB === s.j) {
+              mergedRoute = [...[...routeA].reverse(), ...routeB];
+            } else if (lastA === s.i && lastB === s.j) {
+              mergedRoute = [...routeA, ...[...routeB].reverse()];
+            }
+
+            // Remove old routes and insert merged route
+            routes = routes.filter((_, idx) => idx !== routeIndexA && idx !== routeIndexB);
+            routes.push(mergedRoute);
+          }
+        }
+      }
+    }
+
+    // Format output routes
+    const outputRoutes = routes.map((routeStops, idx) => {
+      // Calculate total demand
+      const totalDemand = routeStops.reduce((sum, st) => sum + st.demand, 0);
+      
+      // Calculate total distance (depot -> stops... -> depot)
+      let totalDistance = 0;
+      let prevPoint = depot;
+      for (const stop of routeStops) {
+        totalDistance += getDistance(prevPoint, stop);
+        prevPoint = stop;
+      }
+      totalDistance += getDistance(prevPoint, depot);
+
+      return {
+        routeId: `Route-${idx + 1}`,
+        stops: [depot, ...routeStops, depot],
+        totalDistance: Math.round(totalDistance * 100) / 100,
+        totalDemand,
+        assignedDriver: null as any
       };
+    });
 
-      let currentPoint = depot;
-      let capacityRemaining = truckCapacity;
+    // Match drivers to routes if list is provided
+    if (driversList && Array.isArray(driversList) && driversList.length > 0) {
+      // Sort routes by demand descending
+      const sortedRoutes = [...outputRoutes].sort((a, b) => b.totalDemand - a.totalDemand);
+      const availableDrivers = [...driversList].map(d => ({ ...d, isAssigned: false }));
 
-      while (unvisited.length > 0) {
-        // Find nearest stop that fits capacity
-        let nearestStopIndex = -1;
-        let minDistance = Infinity;
+      for (const route of sortedRoutes) {
+        // Determine required vehicle type
+        let requiredType: 'REFRIGERATED' | 'FROZEN' | 'NORMAL' = 'NORMAL';
+        const routeStopsOnly = route.stops.filter(s => s.id !== 'depot');
+        
+        if (routeStopsOnly.some(s => s.requiredVehicleType === 'FROZEN')) {
+          requiredType = 'FROZEN';
+        } else if (routeStopsOnly.some(s => s.requiredVehicleType === 'REFRIGERATED')) {
+          requiredType = 'REFRIGERATED';
+        }
 
-        for (let i = 0; i < unvisited.length; i++) {
-          const stop = unvisited[i];
-          if (stop.demand <= capacityRemaining) {
-            const dist = getDistance(currentPoint, stop);
-            if (dist < minDistance) {
-              minDistance = dist;
-              nearestStopIndex = i;
+        // Find best driver: satisfies capacity and vehicle type, is not assigned, is available
+        // vehicle compatibility:
+        // - FROZEN route requires FROZEN truck
+        // - REFRIGERATED route requires REFRIGERATED or FROZEN truck
+        // - NORMAL route can use any truck
+        let bestDriverIdx = -1;
+        let minCapacityDifference = Infinity;
+
+        for (let dIdx = 0; dIdx < availableDrivers.length; dIdx++) {
+          const drv = availableDrivers[dIdx];
+          if (drv.isAssigned || drv.status === 'MAINTENANCE') continue;
+          if (drv.capacityKg < route.totalDemand) continue;
+
+          // Check vehicle type compatibility
+          let isCompatible = false;
+          if (requiredType === 'FROZEN') {
+            isCompatible = drv.vehicleType === 'FROZEN';
+          } else if (requiredType === 'REFRIGERATED') {
+            isCompatible = drv.vehicleType === 'REFRIGERATED' || drv.vehicleType === 'FROZEN';
+          } else {
+            isCompatible = true; // NORMAL route fits all
+          }
+
+          if (isCompatible) {
+            const diff = drv.capacityKg - route.totalDemand;
+            if (diff < minCapacityDifference) {
+              minCapacityDifference = diff;
+              bestDriverIdx = dIdx;
             }
           }
         }
 
-        // If no stop fits in this truck, return to depot and start a new route
-        if (nearestStopIndex === -1) {
-          break;
+        if (bestDriverIdx !== -1) {
+          availableDrivers[bestDriverIdx].isAssigned = true;
+          route.assignedDriver = {
+            id: availableDrivers[bestDriverIdx].id,
+            name: availableDrivers[bestDriverIdx].name,
+            phone: availableDrivers[bestDriverIdx].phone,
+            licensePlate: availableDrivers[bestDriverIdx].licensePlate,
+            vehicleType: availableDrivers[bestDriverIdx].vehicleType,
+            capacityKg: availableDrivers[bestDriverIdx].capacityKg
+          };
         }
-
-        const nextStop = unvisited[nearestStopIndex];
-        route.stops.push(nextStop);
-        route.totalDistance += minDistance;
-        route.totalDemand += nextStop.demand;
-        capacityRemaining -= nextStop.demand;
-
-        // Move to the next point
-        currentPoint = nextStop;
-        unvisited.splice(nearestStopIndex, 1);
       }
-
-      // Return to depot
-      route.totalDistance += getDistance(currentPoint, depot);
-      route.stops.push(depot);
-      routes.push(route);
     }
 
     return {
       depot,
-      totalRoutes: routes.length,
-      truckCapacity,
-      routes,
-      totalDistance: Math.round(routes.reduce((sum, r) => sum + r.totalDistance, 0) * 100) / 100,
+      totalRoutes: outputRoutes.length,
+      truckCapacity: defaultCapacity,
+      routes: outputRoutes,
+      totalDistance: Math.round(outputRoutes.reduce((sum, r) => sum + r.totalDistance, 0) * 100) / 100,
     };
   }
 }

@@ -16,8 +16,8 @@ export class OutboundOrder {
   @Column({ type: 'varchar', default: 'PENDING' })
   status: string; // PENDING | PICKING | PACKED | SHIPPED | CONFIRMED | CANCELLED
 
-  @Column({ name: 'requested_by' })
-  requestedBy: string; // User ID of sales staff
+  @Column({ name: 'requested_by', nullable: true })
+  requestedBy: string; // User ID or Customer ID
 
   @Column({ name: 'requester_name', nullable: true })
   requesterName: string;
@@ -30,6 +30,18 @@ export class OutboundOrder {
 
   @Column({ name: 'total_quantity', type: 'int', default: 0 })
   totalQuantity: number;
+
+  @Column({ name: 'warehouse_id', nullable: true })
+  warehouseId: string;
+
+  @Column({ name: 'warehouse_code', nullable: true })
+  warehouseCode: string;
+
+  @Column({ type: 'float', nullable: true })
+  latitude: number;
+
+  @Column({ type: 'float', nullable: true })
+  longitude: number;
 
   @Column({ type: 'text', nullable: true })
   notes: string;

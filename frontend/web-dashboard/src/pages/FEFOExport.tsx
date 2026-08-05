@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowUpRight, Zap, ListOrdered, Layers, TrendingDown, RefreshCcw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-const API_BASE = 'http://localhost:3008'; // inventory-service
-const PRODUCT_API = 'http://localhost:3004'; // product-service
+const API_BASE = 'http://localhost:3011'; // inventory-service
+const PRODUCT_API = 'http://localhost:3010'; // product-service
 
 interface Lot {
   id: string;
@@ -22,7 +22,7 @@ interface Lot {
 }
 
 const FEFOExport = () => {
-  const { token, user } = useAuth();
+  const { token } = useAuth();
   const [fefoList, setFefoList] = useState<Lot[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -47,7 +47,7 @@ const FEFOExport = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const products = await resProducts.json();
-      const productMap = new Map(products.map((p: any) => [p.id, p]));
+      const productMap = new Map<string, any>(products.map((p: any) => [p.id, p]));
 
       // 3. Map tên sản phẩm và Tính điểm ưu tiên xuất
       // FEFO Score = (RiskScore * 0.6) + (Proximity to Expiry * 0.4)
@@ -137,7 +137,7 @@ const FEFOExport = () => {
             <div className="card-icon primary" style={{ backgroundColor: 'var(--color-danger-100)', color: 'var(--color-danger-600)' }}><Zap size={18} /></div>
           </div>
           <div className="card-value text-danger">{urgentLots}</div>
-          <div className="card-desc">điểm FEFO >= 80</div>
+          <div className="card-desc">điểm FEFO &gt;= 80</div>
         </div>
         
         <div className="card">

@@ -24,7 +24,7 @@ const UserProfile = () => {
   const [fullName, setFullName] = useState(user?.name || '');
   const [phone, setPhone] = useState('+84 987 654 321');
   const [bio, setBio] = useState(
-    'Tham gia vận hành hệ thống kho thông minh FreshKeep. Chịu trách nhiệm giám sát chuỗi cung ứng lạnh, tối ưu hóa quy trình nhập xuất và vận dụng phân tích AI dự báo.'
+    'Tham gia vận hành hệ thống kho thông minh CityMart. Chịu trách nhiệm giám sát chuỗi cung ứng lạnh, tối ưu hóa quy trình nhập xuất và vận dụng phân tích AI dự báo.'
   );
   const [isSaved, setIsSaved] = useState(false);
 
