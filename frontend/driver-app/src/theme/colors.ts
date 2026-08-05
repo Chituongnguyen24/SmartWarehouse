@@ -28,4 +28,7 @@ export const COLORS = {
   textSecondary: '#475569',
   textMuted: '#94A3B8',
   textWhite: '#FFFFFF',
+
+  // Accent Colors
+  accent: '#F59E0B',
 };

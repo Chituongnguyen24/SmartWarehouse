@@ -4,14 +4,13 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   SafeAreaView,
   Platform,
   StatusBar,
 } from 'react-native';
 import { useDriverTask } from '../context/DriverTaskContext';
 import { COLORS } from '../theme/colors';
-import { Wallet, Award, CheckCircle2, TrendingUp, ChevronRight } from 'lucide-react-native';
+import { Wallet, Award, CheckCircle2 } from 'lucide-react-native';
 
 export const EarningsScreen: React.FC = () => {
   const { driverProfile, deliveredTasks } = useDriverTask();
@@ -21,48 +20,59 @@ export const EarningsScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeContainer}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Ví Thu Nhập & Hiệu Suất Tài Xế</Text>
+        <Text style={styles.headerTitle}>Ví Thu Nhập & Hiệu Suất</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Wallet Main Card */}
+        {/* Wallet Main Card (Modern slate gradient design) */}
         <View style={styles.walletCard}>
           <View style={styles.walletHeader}>
-            <Wallet size={20} color={COLORS.accent} />
-            <Text style={styles.walletTitle}>Tổng Thu Nhập Hôm Nay</Text>
+            <View style={styles.walletIconBox}>
+              <Wallet size={18} color={COLORS.accent} />
+            </View>
+            <Text style={styles.walletTitle}>TỔNG THU NHẬP HÔM NAY</Text>
           </View>
           <Text style={styles.walletAmount}>{formatPrice(driverProfile.totalEarningsToday)}</Text>
-          <Text style={styles.walletSub}>Tự động quyết toán vào Ví tài khoản 22:00 hàng ngày</Text>
+          <View style={styles.divider} />
+          <Text style={styles.walletSub}>✨ Quyết toán tự động về tài khoản liên kết lúc 22:00 hàng ngày.</Text>
         </View>
 
         {/* Performance Stats Cards Grid */}
         <View style={styles.statsGrid}>
           <View style={styles.statBox}>
-            <CheckCircle2 size={22} color={COLORS.primary} />
+            <View style={[styles.statIconBox, { backgroundColor: COLORS.successLight }]}>
+              <CheckCircle2 size={18} color={COLORS.primary} />
+            </View>
             <Text style={styles.statVal}>{driverProfile.completedTasksToday} đơn</Text>
-            <Text style={styles.statLabel}>Đã giao hôm nay</Text>
+            <Text style={styles.statLabel}>Đã giao thành công</Text>
           </View>
 
           <View style={styles.statBox}>
-            <Award size={22} color={COLORS.routeBlue} />
+            <View style={[styles.statIconBox, { backgroundColor: COLORS.routeBlueLight }]}>
+              <Award size={18} color={COLORS.routeBlue} />
+            </View>
             <Text style={styles.statVal}>100%</Text>
-            <Text style={styles.statLabel}>Giao đúng giờ 2h</Text>
+            <Text style={styles.statLabel}>Đúng giờ quy định</Text>
           </View>
         </View>
 
         {/* Delivered History List */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Lịch sử đơn đã hoàn tất ({deliveredTasks.length})</Text>
+          <Text style={styles.cardTitle}>Lịch sử giao hàng ({deliveredTasks.length})</Text>
 
-          {deliveredTasks.map(t => (
-            <View key={t.id} style={styles.historyRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.historyCode}>#{t.orderCode} - {t.customerName}</Text>
-                <Text style={styles.historyTime}>Giao lúc: {t.deliveredAt || '15:20 Hôm nay'}</Text>
+          {deliveredTasks.length === 0 ? (
+            <Text style={styles.emptyText}>Chưa có đơn hàng nào được giao hôm nay.</Text>
+          ) : (
+            deliveredTasks.map(t => (
+              <View key={t.id} style={styles.historyRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.historyCode}>#{t.orderCode} - {t.customerName}</Text>
+                  <Text style={styles.historyTime}>Hoàn thành: {t.deliveredAt || 'Hôm nay'}</Text>
+                </View>
+                <Text style={styles.historyFee}>+35.000đ</Text>
               </View>
-              <Text style={styles.historyFee}>+35.000đ</Text>
-            </View>
-          ))}
+            ))
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -76,90 +86,135 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
-    height: 50,
+    height: 52,
     backgroundColor: COLORS.headerBg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '900',
     color: COLORS.surface,
   },
   scrollContent: {
-    padding: 12,
+    padding: 16,
     paddingBottom: 24,
   },
   walletCard: {
-    backgroundColor: COLORS.headerBg,
-    borderRadius: 14,
-    padding: 18,
-    marginBottom: 12,
+    backgroundColor: COLORS.headerBgLight,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 4,
   },
   walletHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 10,
+  },
+  walletIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   walletTitle: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 12,
-    fontWeight: '700',
-    marginLeft: 6,
+    color: 'rgba(255, 255, 255, 0.65)',
+    fontSize: 10,
+    fontWeight: '800',
+    marginLeft: 8,
+    letterSpacing: 0.5,
   },
   walletAmount: {
     color: COLORS.accent,
-    fontSize: 32,
-    fontWeight: '900',
+    fontSize: 34,
+    fontWeight: '950',
     marginVertical: 4,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginVertical: 12,
   },
   walletSub: {
     color: COLORS.textMuted,
-    fontSize: 10,
+    fontSize: 11,
+    fontWeight: '600',
+    lineHeight: 14,
   },
   statsGrid: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 12,
+    gap: 12,
+    marginBottom: 14,
   },
   statBox: {
     flex: 1,
     backgroundColor: COLORS.surface,
-    padding: 14,
-    borderRadius: 10,
+    padding: 16,
+    borderRadius: 16,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  statIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
   },
   statVal: {
     fontSize: 18,
     fontWeight: '900',
     color: COLORS.textPrimary,
-    marginTop: 6,
+    marginTop: 4,
   },
   statLabel: {
     fontSize: 11,
     color: COLORS.textMuted,
     marginTop: 2,
+    fontWeight: '600',
   },
   card: {
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
   },
   cardTitle: {
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '850',
     color: COLORS.textPrimary,
-    marginBottom: 10,
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderColor: COLORS.border,
+    paddingBottom: 6,
   },
   historyRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderColor: COLORS.border,
   },
@@ -177,5 +232,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
     color: COLORS.primary,
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: COLORS.textMuted,
+    paddingVertical: 20,
+    fontSize: 12,
   },
 });

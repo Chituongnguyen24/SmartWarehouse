@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { MapPin, Phone, Clock, Navigation, CheckCircle2, AlertCircle } from 'lucide-react-native';
+import { MapPin, Phone, Navigation } from 'lucide-react-native';
 import { DeliveryTask } from '../types/driver';
 import { COLORS } from '../theme/colors';
 
@@ -15,7 +15,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   task,
   onPress,
   onCallCustomer,
-  onStartDelivery,
 }) => {
   const formatPrice = (amount: number) => amount.toLocaleString('vi-VN') + 'đ';
 
@@ -45,15 +44,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       {/* Customer Info */}
       <View style={styles.customerRow}>
         <Text style={styles.customerName}>{task.customerName}</Text>
-        <TouchableOpacity style={styles.callBtn} onPress={onCallCustomer}>
-          <Phone size={14} color={COLORS.primary} />
+        <TouchableOpacity style={styles.callBtn} onPress={onCallCustomer} activeOpacity={0.7}>
+          <Phone size={12} color={COLORS.primary} style={{ marginRight: 3 }} />
           <Text style={styles.callText}>Gọi ngay</Text>
         </TouchableOpacity>
       </View>
 
       {/* Address */}
       <View style={styles.addressRow}>
-        <MapPin size={16} color={COLORS.primary} style={styles.iconFix} />
+        <View style={styles.pinWrapper}>
+          <MapPin size={14} color={COLORS.primary} />
+        </View>
         <Text style={styles.addressText} numberOfLines={2}>
           {task.deliveryAddress}
         </Text>
@@ -62,7 +63,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       {/* Items Summary & Package Note */}
       <View style={styles.packageTagRow}>
         <Text style={styles.packageTagText}>📦 {task.packageType}</Text>
-        <Text style={styles.timeSlotTag}>{task.timeSlotText}</Text>
+        <View style={styles.timeTag}>
+          <Text style={styles.timeSlotTag}>{task.timeSlotText}</Text>
+        </View>
       </View>
 
       {/* Footer Meta Row */}
@@ -86,58 +89,58 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowRadius: 10,
+    elevation: 3,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   seqBadge: {
-    backgroundColor: COLORS.routeBlue,
+    backgroundColor: COLORS.primary,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 6,
   },
   seqText: {
     color: COLORS.surface,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
   },
   orderCode: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: COLORS.textSecondary,
   },
   statusBadge: {
     backgroundColor: COLORS.background,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 6,
   },
   statusText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
   },
   customerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   customerName: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '900',
     color: COLORS.textPrimary,
   },
   callBtn: {
@@ -145,29 +148,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.successLight,
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 14,
+    paddingVertical: 5,
+    borderRadius: 20,
   },
   callText: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '800',
     color: COLORS.primary,
-    marginLeft: 4,
   },
   addressRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  iconFix: {
+  pinWrapper: {
     marginTop: 2,
     marginRight: 6,
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    backgroundColor: COLORS.successLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   addressText: {
     flex: 1,
     fontSize: 12,
     color: COLORS.textSecondary,
     lineHeight: 16,
+    fontWeight: '500',
   },
   packageTagRow: {
     flexDirection: 'row',
@@ -175,8 +184,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: COLORS.background,
     padding: 8,
-    borderRadius: 6,
-    marginBottom: 8,
+    borderRadius: 8,
+    marginBottom: 10,
   },
   packageTagText: {
     fontSize: 11,
@@ -185,8 +194,14 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 4,
   },
+  timeTag: {
+    backgroundColor: COLORS.successLight,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
   timeSlotTag: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
     color: COLORS.primary,
   },
@@ -196,7 +211,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderTopWidth: 1,
     borderColor: COLORS.border,
-    paddingTop: 8,
+    paddingTop: 10,
   },
   metaBox: {
     flexDirection: 'row',

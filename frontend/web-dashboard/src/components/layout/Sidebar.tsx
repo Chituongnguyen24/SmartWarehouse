@@ -33,27 +33,9 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   // VẬN HÀNH
-  { path: '/', label: 'Tổng quan', icon: <LayoutDashboard size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
-  { path: '/dispatch', label: 'Tiếp nhận & Phân phối đơn', icon: <Send size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF'] },
-  { path: '/sales', label: 'Quản lý Kinh doanh', icon: <TrendingUp size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'SALES_STAFF', 'WAREHOUSE_MANAGER'] },
-  { path: '/products', label: 'Sản phẩm & SKU', icon: <Package size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN'] },
-  { path: '/inbound', label: 'Nhập kho (Inbound)', icon: <ArrowDownLeft size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF'] },
-  { path: '/outbound', label: 'Xuất kho (Outbound)', icon: <ArrowUpRight size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF'] },
-  { path: '/inventory', label: 'Kho & lô hàng', icon: <Boxes size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF'] },
-  
-  // GIÁM SÁT & AI
-  { path: '/ai-alerts', label: 'Cảnh báo AI', icon: <AlertTriangle size={18} />, section: 'GIÁM SÁT & AI', allowedRoles: ['WAREHOUSE_MANAGER'] },
-  
-  // TỐI ƯU
-  { path: '/demand-forecast', label: 'Dự báo nhu cầu', icon: <TrendingUp size={18} />, section: 'TỐI ƯU', allowedRoles: ['SALES_STAFF'] },
-  { path: '/transport', label: 'Tối ưu vận chuyển', icon: <Truck size={18} />, section: 'TỐI ƯU', allowedRoles: ['DRIVER'] },
-  { path: '/shelf', label: 'Sắp xếp kệ', icon: <Layers size={18} />, section: 'TỐI ƯU', allowedRoles: ['ADMIN', 'WAREHOUSE_STAFF'] },
-  
-  // HỆ THỐNG
-  { path: '/admin', label: 'Trung tâm Quản trị (Admin)', icon: <Shield size={18} />, section: 'HỆ THỐNG', allowedRoles: ['ADMIN'] },
-  { path: '/reports', label: 'Báo cáo', icon: <BarChart3 size={18} />, section: 'HỆ THỐNG', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
-  { path: '/users', label: 'Người dùng', icon: <Users size={18} />, section: 'HỆ THỐNG', allowedRoles: ['ADMIN'] },
-  { path: '/settings', label: 'Cấu hình hệ thống', icon: <Settings size={18} />, section: 'HỆ THỐNG', allowedRoles: ['ADMIN'] },
+  { path: '/', label: 'Quản lý Kho hàng', icon: <Boxes size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF'] },
+  { path: '/staff', label: 'Nhân viên Trực kho', icon: <Users size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
+  { path: '/orders', label: 'Điều phối Đơn hàng', icon: <Send size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF'] },
 ];
 
 const Sidebar = () => {
@@ -61,8 +43,19 @@ const Sidebar = () => {
   const navigate = useNavigate();
   const currentRole = user?.role || 'ADMIN';
 
-  // Filter items by role
-  const visibleItems = menuItems.filter(item => item.allowedRoles.includes(currentRole));
+  // Filter items by role and customize them dynamically
+  const visibleItems = menuItems
+    .filter(item => item.allowedRoles.includes(currentRole))
+    .map(item => {
+      if (currentRole === 'DRIVER' && item.path === '/transport') {
+        return {
+          ...item,
+          label: 'Đơn hàng của tôi',
+          section: 'TÀI XẾ'
+        };
+      }
+      return item;
+    });
 
   // Group by section
   const sections = visibleItems.reduce<Record<string, MenuItem[]>>((acc, item) => {
