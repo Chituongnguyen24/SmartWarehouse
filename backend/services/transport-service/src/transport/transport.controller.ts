@@ -39,10 +39,10 @@ export class TransportController {
   @Post('vrp-solve')
   @Roles(UserRole.WAREHOUSE_MANAGER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Solve Vehicle Routing Problem (VRP) for customer multi-stop deliveries' })
-  solveVrp(@Body() body: { stops: any[]; capacity?: number }) {
+  solveVrp(@Body() body: { stops: any[]; capacity?: number; drivers?: any[] }) {
     if (!body.stops || !Array.isArray(body.stops)) {
       throw new BadRequestException('stops array is required');
     }
-    return this.transportService.solveVrp(body.stops, body.capacity || 200);
+    return this.transportService.solveVrp(body.stops, body.capacity || 200, body.drivers);
   }
 }

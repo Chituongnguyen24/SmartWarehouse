@@ -96,7 +96,7 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="transport" element={
-              <ProtectedRoute allowedRoles={['DRIVER']}>
+              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'DRIVER']}>
                 <TransportOptimization />
               </ProtectedRoute>
             } />

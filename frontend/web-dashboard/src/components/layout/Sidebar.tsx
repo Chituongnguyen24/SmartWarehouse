@@ -46,7 +46,7 @@ const menuItems: MenuItem[] = [
   
   // TỐI ƯU
   { path: '/demand-forecast', label: 'Dự báo nhu cầu', icon: <TrendingUp size={18} />, section: 'TỐI ƯU', allowedRoles: ['SALES_STAFF'] },
-  { path: '/transport', label: 'Tối ưu vận chuyển', icon: <Truck size={18} />, section: 'TỐI ƯU', allowedRoles: ['DRIVER'] },
+  { path: '/transport', label: 'Tối ưu vận chuyển', icon: <Truck size={18} />, section: 'TỐI ƯU', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'DRIVER'] },
   { path: '/shelf', label: 'Sắp xếp kệ', icon: <Layers size={18} />, section: 'TỐI ƯU', allowedRoles: ['ADMIN', 'WAREHOUSE_STAFF'] },
   
   // HỆ THỐNG
@@ -61,8 +61,19 @@ const Sidebar = () => {
   const navigate = useNavigate();
   const currentRole = user?.role || 'ADMIN';
 
-  // Filter items by role
-  const visibleItems = menuItems.filter(item => item.allowedRoles.includes(currentRole));
+  // Filter items by role and customize them dynamically
+  const visibleItems = menuItems
+    .filter(item => item.allowedRoles.includes(currentRole))
+    .map(item => {
+      if (currentRole === 'DRIVER' && item.path === '/transport') {
+        return {
+          ...item,
+          label: 'Đơn hàng của tôi',
+          section: 'TÀI XẾ'
+        };
+      }
+      return item;
+    });
 
   // Group by section
   const sections = visibleItems.reduce<Record<string, MenuItem[]>>((acc, item) => {

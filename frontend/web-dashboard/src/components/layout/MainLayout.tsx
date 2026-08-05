@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import { useAuth } from '../../contexts/AuthContext';
 
 const getPageTitle = (pathname: string) => {
   switch (pathname) {
@@ -23,7 +24,12 @@ const getPageTitle = (pathname: string) => {
 
 const MainLayout = () => {
   const location = useLocation();
-  const title = getPageTitle(location.pathname);
+  const { user } = useAuth();
+  let title = getPageTitle(location.pathname);
+
+  if (user?.role === 'DRIVER' && location.pathname === '/transport') {
+    title = 'Đơn hàng của tôi';
+  }
 
   return (
     <div className="app-container">
