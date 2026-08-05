@@ -45,6 +45,22 @@ export class WarehouseService implements OnModuleInit {
         longitude: 106.7214,
         isActive: true,
       },
+      {
+        code: 'WH-005',
+        name: 'Kho Hàng Bình Thạnh (HCM Center-East)',
+        address: '150 Điện Biên Phủ, Phường 25, Bình Thạnh, TP. Hồ Chí Minh',
+        latitude: 10.8016,
+        longitude: 106.7135,
+        isActive: true,
+      },
+      {
+        code: 'WH-006',
+        name: 'Kho Hàng Gò Vấp (HCM Northwest)',
+        address: '350 Quang Trung, Phường 10, Gò Vấp, TP. Hồ Chí Minh',
+        latitude: 10.8252,
+        longitude: 106.6631,
+        isActive: true,
+      },
     ];
 
     for (const wh of defaultWarehouses) {

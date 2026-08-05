@@ -55,6 +55,20 @@ export class UserService implements OnModuleInit {
     return this.userRepository.save(user);
   }
 
+  async update(id: string, updateDto: { name?: string; email?: string; phone?: string; password?: string }): Promise<User> {
+    const user = await this.findOneById(id);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    if (updateDto.name !== undefined) user.name = updateDto.name;
+    if (updateDto.email !== undefined) user.email = updateDto.email;
+    if (updateDto.phone !== undefined) user.phone = updateDto.phone;
+    if (updateDto.password !== undefined && updateDto.password !== '') {
+      user.passwordHash = await bcrypt.hash(updateDto.password, 10);
+    }
+    return this.userRepository.save(user);
+  }
+
   async findAll(): Promise<User[]> {
     return this.userRepository.find({
       select: ['id', 'name', 'email', 'role', 'createdAt'],

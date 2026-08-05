@@ -135,6 +135,8 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
         { id: '22222222-2222-2222-2222-222222222222', code: 'WH-002', name: 'Kho Hàng Thủ Đức (HCM East)', latitude: 10.8494, longitude: 106.7725, address: '1 Võ Văn Ngân, Thủ Đức' },
         { id: '33333333-3333-3333-3333-333333333333', code: 'WH-003', name: 'Kho Hàng Bình Chánh (HCM West)', latitude: 10.6868, longitude: 106.5932, address: 'Tỉnh lộ 10, Bình Chánh' },
         { id: '44444444-4444-4444-4444-444444444444', code: 'WH-004', name: 'Kho Hàng Quận 7 (HCM South)', latitude: 10.7324, longitude: 106.7214, address: '1025 Nguyễn Văn Linh, Quận 7' },
+        { id: '55555555-5555-5555-5555-555555555555', code: 'WH-005', name: 'Kho Hàng Bình Thạnh (HCM Center-East)', latitude: 10.8016, longitude: 106.7135, address: '150 Điện Biên Phủ, Bình Thạnh' },
+        { id: '66666666-6666-6666-6666-666666666666', code: 'WH-006', name: 'Kho Hàng Gò Vấp (HCM Northwest)', latitude: 10.8252, longitude: 106.6631, address: '350 Quang Trung, Gò Vấp' },
       ];
     }
 

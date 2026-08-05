@@ -42,7 +42,6 @@ const menuItems: MenuItem[] = [
   { path: '/inventory', label: 'Kho & lô hàng', icon: <Boxes size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF'] },
   
   // GIÁM SÁT & AI
-  { path: '/iot', label: 'Giám sát IoT', icon: <Wifi size={18} />, section: 'GIÁM SÁT & AI', allowedRoles: ['ADMIN'] },
   { path: '/ai-alerts', label: 'Cảnh báo AI', icon: <AlertTriangle size={18} />, section: 'GIÁM SÁT & AI', allowedRoles: ['WAREHOUSE_MANAGER'] },
   
   // TỐI ƯU
@@ -108,15 +107,6 @@ const Sidebar = () => {
       ))}
 
       <div className="sidebar-footer">
-        {currentRole !== 'SALES_STAFF' && currentRole !== 'CUSTOMER' && (
-          <div className="iot-status-card">
-            <div className="status-dot"></div>
-            <div className="iot-status-text">
-              <strong>12 cảm biến IoT</strong>
-              đang truyền dữ liệu
-            </div>
-          </div>
-        )}
 
         {/* User info & Logout */}
         <div style={{

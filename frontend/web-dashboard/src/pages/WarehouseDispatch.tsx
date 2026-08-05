@@ -811,7 +811,7 @@ export const WarehouseDispatch = () => {
                   🚘 Biển số xe: <strong>{drv.licensePlate}</strong>
                 </div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: 4 }}>
-                  🌡️ Cảm biến nhiệt thùng xe: <strong style={{ color: '#008848' }}>{drv.currentTemp}</strong>
+                  🌡️ Nhiệt độ thùng xe: <strong style={{ color: '#008848' }}>{drv.currentTemp}</strong>
                 </div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
                   📦 Số đơn phụ trách: <strong>{drv.assignedOrdersCount} đơn</strong>

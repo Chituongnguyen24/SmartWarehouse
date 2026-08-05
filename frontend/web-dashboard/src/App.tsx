@@ -6,7 +6,6 @@ import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import Inventory from './pages/Inventory';
-import IoTMonitoring from './pages/IoTMonitoring';
 import AIAlerts from './pages/AIAlerts';
 import InboundOrder from './pages/InboundOrder';
 import OutboundOrder from './pages/OutboundOrder';
@@ -59,11 +58,6 @@ function App() {
             <Route path="inventory" element={
               <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF']}>
                 <Inventory />
-              </ProtectedRoute>
-            } />
-            <Route path="iot" element={
-              <ProtectedRoute allowedRoles={['ADMIN']}>
-                <IoTMonitoring />
               </ProtectedRoute>
             } />
             <Route path="ai-alerts" element={
