@@ -137,6 +137,16 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
         { id: '44444444-4444-4444-4444-444444444444', code: 'WH-004', name: 'Kho Hàng Quận 7 (HCM South)', latitude: 10.7324, longitude: 106.7214, address: '1025 Nguyễn Văn Linh, Quận 7' },
         { id: '55555555-5555-5555-5555-555555555555', code: 'WH-005', name: 'Kho Hàng Bình Thạnh (HCM Center-East)', latitude: 10.8016, longitude: 106.7135, address: '150 Điện Biên Phủ, Bình Thạnh' },
         { id: '66666666-6666-6666-6666-666666666666', code: 'WH-006', name: 'Kho Hàng Gò Vấp (HCM Northwest)', latitude: 10.8252, longitude: 106.6631, address: '350 Quang Trung, Gò Vấp' },
+        { id: '77777777-7777-7777-7777-777777777777', code: 'WH-007', name: 'Kho Hàng Quận 1 (HCM Center)', latitude: 10.7769, longitude: 106.7009, address: '85 Lê Lợi, Quận 1' },
+        { id: '88888888-8888-8888-8888-888888888888', code: 'WH-008', name: 'Kho Hàng Quận 5 (HCM South-West)', latitude: 10.7574, longitude: 106.6635, address: '105 An Dương Vương, Quận 5' },
+        { id: '99999999-9999-9999-9999-999999999999', code: 'WH-009', name: 'Kho Hàng Tân Bình (HCM West-Center)', latitude: 10.7938, longitude: 106.6509, address: '20 Trường Chinh, Tân Bình' },
+        { id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', code: 'WH-010', name: 'Kho Hàng Bình Tân (HCM Deep-West)', latitude: 10.7492, longitude: 106.6025, address: '88 Kinh Dương Vương, Bình Tân' },
+        { id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', code: 'WH-011', name: 'Kho Hàng Hóc Môn (HCM Far-North)', latitude: 10.8833, longitude: 106.5931, address: '14 Nguyễn Ảnh Thủ, Hóc Môn' },
+        { id: 'cccccccc-cccc-cccc-cccc-cccccccccccc', code: 'WH-012', name: 'Kho Hàng Nhà Bè (HCM Far-South)', latitude: 10.6953, longitude: 106.7231, address: '500 Huỳnh Tấn Phát, Nhà Bè' },
+        { id: 'dddddddd-dddd-dddd-dddd-dddddddddddd', code: 'WH-013', name: 'Kho Hàng Phú Nhuận (HCM Mid-Center)', latitude: 10.7992, longitude: 106.6803, address: '18 Phan Xích Long, Phú Nhuận' },
+        { id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', code: 'WH-014', name: 'Kho Hàng Quận 8 (HCM South-West-Line)', latitude: 10.7239, longitude: 106.6342, address: '1020 Phạm Thế Hiển, Quận 8' },
+        { id: 'ffffffff-ffff-ffff-ffff-ffffffffffff', code: 'WH-015', name: 'Kho Hàng Củ Chi (HCM Northwest-Zone)', latitude: 10.9625, longitude: 106.4981, address: '450 Quốc lộ 22, Củ Chi' },
+        { id: '00000000-0000-0000-0000-000000000000', code: 'WH-016', name: 'Kho Hàng Quận 10 (HCM Center-West)', latitude: 10.7719, longitude: 106.6669, address: '123 Đường 3 Tháng 2, Quận 10' },
       ];
     }
 

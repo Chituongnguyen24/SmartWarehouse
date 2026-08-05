@@ -5,11 +5,13 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const getPageTitle = (pathname: string) => {
   switch (pathname) {
-    case '/': return 'Tổng quan';
+    case '/': return 'Quản lý Kho hàng';
     case '/dispatch': return 'Tiếp nhận & Phân phối đơn (Dispatch Hub)';
     case '/sales': return 'Quản lý Bán hàng & Chat Hỗ trợ';
     case '/products': return 'Sản phẩm & SKU';
-    case '/inventory': return 'Kho & lô hàng';
+    case '/inventory': return 'Quản lý Kho hàng';
+    case '/staff': return 'Nhân viên Trực kho';
+    case '/orders': return 'Điều phối Đơn hàng theo Kho';
     case '/ai-alerts': return 'Cảnh báo AI';
     case '/inbound': return 'Quản lý Nhập kho';
     case '/outbound': return 'Quản lý Xuất kho & FEFO';
