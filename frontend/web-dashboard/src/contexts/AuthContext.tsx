@@ -7,6 +7,7 @@ export interface AuthUser {
   name: string;
   email: string;
   role: UserRole;
+  phone?: string;
 }
 
 interface AuthContextType {
@@ -15,6 +16,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  updateProfile: (data: { name?: string; email?: string; phone?: string; password?: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -96,6 +98,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       name: data.user.name,
       email: data.user.email,
       role: data.user.role as UserRole,
+      phone: data.user.phone,
     };
 
     setToken(data.access_token);
@@ -104,6 +107,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('auth-user', JSON.stringify(authUser));
     applyTheme(authUser.role);
   }, []);
+
+  const updateProfile = useCallback(async (data: { name?: string; email?: string; phone?: string; password?: string }) => {
+    const savedToken = localStorage.getItem('auth-token') || token;
+    if (!savedToken) {
+      throw new Error('Not authenticated');
+    }
+    const res = await fetch(`${API_BASE}/auth/profile`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${savedToken}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Cập nhật thông tin thất bại');
+    }
+
+    const updatedUser = await res.json();
+    const authUser: AuthUser = {
+      id: updatedUser.id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      role: updatedUser.role as UserRole,
+      phone: updatedUser.phone,
+    };
+
+    setUser(authUser);
+    localStorage.setItem('auth-user', JSON.stringify(authUser));
+  }, [token]);
 
   const logout = useCallback(() => {
     setToken(null);
@@ -115,7 +150,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, isAuthenticated: !!user, login, logout }}>
+    <AuthContext.Provider value={{ user, token, isAuthenticated: !!user, login, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

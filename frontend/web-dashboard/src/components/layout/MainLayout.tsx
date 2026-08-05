@@ -9,7 +9,6 @@ const getPageTitle = (pathname: string) => {
     case '/sales': return 'Quản lý Bán hàng & Chat Hỗ trợ';
     case '/products': return 'Sản phẩm & SKU';
     case '/inventory': return 'Kho & lô hàng';
-    case '/iot': return 'Giám sát IoT';
     case '/ai-alerts': return 'Cảnh báo AI';
     case '/inbound': return 'Quản lý Nhập kho';
     case '/outbound': return 'Quản lý Xuất kho & FEFO';

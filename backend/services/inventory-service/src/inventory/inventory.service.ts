@@ -93,6 +93,18 @@ export class InventoryService implements OnModuleInit {
       { warehouseCode: 'WH-004', sku: 'NOODLE-HAOHAO', quantity: 600, lotCode: 'LOT-NOODLE-WH4', zone: 'DRY', location: 'dry-shelf-A3', daysOffset: 120, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-004', sku: 'BEEF-STEAK-US', quantity: 100, lotCode: 'LOT-BEEF-WH4', zone: 'FROZEN', location: 'frozen-shelf-A3', daysOffset: 60, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-004', sku: 'TOMATO-DALAT', quantity: 120, lotCode: 'LOT-TOMATO-WH4', zone: 'COLD', location: 'cold-shelf-A3', daysOffset: 7, riskScore: 0, status: LotStatus.NORMAL },
+
+      // WH-005 (HCM Center-East - Binh Thạnh)
+      { warehouseCode: 'WH-005', sku: 'MILK-DALAT-1L', quantity: 120, lotCode: 'LOT-MILK-WH5', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 6, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-005', sku: 'NOODLE-HAOHAO', quantity: 450, lotCode: 'LOT-NOODLE-WH5', zone: 'DRY', location: 'dry-shelf-A1', daysOffset: 50, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-005', sku: 'BEEF-STEAK-US', quantity: 40, lotCode: 'LOT-BEEF-WH5', zone: 'FROZEN', location: 'frozen-shelf-A1', daysOffset: 25, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-005', sku: 'TOMATO-DALAT', quantity: 70, lotCode: 'LOT-TOMATO-WH5', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 5, riskScore: 0, status: LotStatus.NORMAL },
+
+      // WH-006 (HCM Northwest - Go Vap)
+      { warehouseCode: 'WH-006', sku: 'MILK-DALAT-1L', quantity: 90, lotCode: 'LOT-MILK-WH6', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 4, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-006', sku: 'NOODLE-HAOHAO', quantity: 250, lotCode: 'LOT-NOODLE-WH6', zone: 'DRY', location: 'dry-shelf-A1', daysOffset: 35, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-006', sku: 'BEEF-STEAK-US', quantity: 60, lotCode: 'LOT-BEEF-WH6', zone: 'FROZEN', location: 'frozen-shelf-A1', daysOffset: 15, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-006', sku: 'TOMATO-DALAT', quantity: 50, lotCode: 'LOT-TOMATO-WH6', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 3, riskScore: 0, status: LotStatus.NORMAL },
     ];
 
     for (const lotData of seedWarehouseLots) {

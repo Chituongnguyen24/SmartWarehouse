@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useWebCart, type CustomerAddress } from '../contexts/WebCartContext';
 
 const CustomerProfile: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
   const { addresses, addAddress, setSelectedAddress, selectedAddress } = useWebCart();
   const navigate = useNavigate();
 
@@ -14,6 +14,22 @@ const CustomerProfile: React.FC = () => {
   const [newPhone, setNewPhone] = useState('');
   const [newAddressText, setNewAddressText] = useState('');
   const [isDefault, setIsDefault] = useState(false);
+
+  // Edit Mode States
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(user?.name || '');
+  const [editEmail, setEditEmail] = useState(user?.email || '');
+  const [editPhone, setEditPhone] = useState(user?.phone || '');
+  const [editPassword, setEditPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (user) {
+      setEditName(user.name);
+      setEditEmail(user.email);
+      setEditPhone(user.phone || '');
+    }
+  }, [user]);
 
   const handleAddAddress = (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +48,30 @@ const CustomerProfile: React.FC = () => {
     setNewAddressText('');
     setIsDefault(false);
     setShowAddModal(false);
+  };
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editName || !editEmail) {
+      alert('Tên và Email không được để trống!');
+      return;
+    }
+    setLoading(true);
+    try {
+      await updateProfile({
+        name: editName,
+        email: editEmail,
+        phone: editPhone,
+        password: editPassword || undefined,
+      });
+      alert('Cập nhật thông tin cá nhân thành công!');
+      setIsEditing(false);
+      setEditPassword('');
+    } catch (err: any) {
+      alert(err.message || 'Có lỗi xảy ra khi cập nhật thông tin!');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -56,43 +96,138 @@ const CustomerProfile: React.FC = () => {
               {user?.name ? user.name.charAt(0).toUpperCase() : 'C'}
             </div>
 
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1e293b', margin: '0 0 4px 0' }}>
-              {user?.name || 'Khách hàng CityMart'}
-            </h3>
-            <div style={{
-              display: 'inline-block', backgroundColor: '#f0fdf4', color: '#10b981',
-              padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700,
-              marginBottom: '1.5rem'
-            }}>
-              Thành viên Vàng CityMart
-            </div>
+            {!isEditing ? (
+              <>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1e293b', margin: '0 0 4px 0' }}>
+                  {user?.name || 'Khách hàng CityMart'}
+                </h3>
+                <div style={{
+                  display: 'inline-block', backgroundColor: '#f0fdf4', color: '#10b981',
+                  padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700,
+                  marginBottom: '1.5rem'
+                }}>
+                  Thành viên Vàng CityMart
+                </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left', borderTop: '1px solid #f1f5f9', paddingTop: '1.25rem', fontSize: '0.9rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
-                <Mail size={18} color="#10b981" />
-                <span>{user?.email || 'customer@sfwms.vn'}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
-                <Phone size={18} color="#10b981" />
-                <span>0909 888 999</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
-                <ShieldCheck size={18} color="#10b981" />
-                <span>Tài khoản đã xác thực</span>
-              </div>
-            </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left', borderTop: '1px solid #f1f5f9', paddingTop: '1.25rem', fontSize: '0.9rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
+                    <Mail size={18} color="#10b981" />
+                    <span style={{ wordBreak: 'break-all' }}>{user?.email || 'customer@sfwms.vn'}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
+                    <Phone size={18} color="#10b981" />
+                    <span>{user?.phone || 'Chưa cập nhật SĐT'}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
+                    <ShieldCheck size={18} color="#10b981" />
+                    <span>Tài khoản đã xác thực</span>
+                  </div>
+                </div>
 
-            <button
-              onClick={() => { logout(); navigate('/login'); }}
-              style={{
-                marginTop: '1.5rem', width: '100%', padding: '12px', borderRadius: '8px',
-                backgroundColor: '#fef2f2', color: '#ef4444', border: '1px solid #fee2e2',
-                fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', gap: '8px'
-              }}
-            >
-              <LogOut size={18} /> Đăng xuất
-            </button>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  style={{
+                    marginTop: '1.5rem', width: '100%', padding: '12px', borderRadius: '8px',
+                    backgroundColor: '#f0fdf4', color: '#10b981', border: '1px solid #dcfce7',
+                    fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', gap: '8px'
+                  }}
+                >
+                  Chỉnh sửa thông tin
+                </button>
+
+                <button
+                  onClick={() => { logout(); navigate('/login'); }}
+                  style={{
+                    marginTop: '0.75rem', width: '100%', padding: '12px', borderRadius: '8px',
+                    backgroundColor: '#fef2f2', color: '#ef4444', border: '1px solid #fee2e2',
+                    fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', gap: '8px'
+                  }}
+                >
+                  <LogOut size={18} /> Đăng xuất
+                </button>
+              </>
+            ) : (
+              <form onSubmit={handleUpdateProfile} style={{ textAlign: 'left' }}>
+                <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1e293b', marginBottom: '1.25rem', textAlign: 'center' }}>
+                  Cập nhật thông tin
+                </h4>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>Họ và tên</label>
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={e => setEditName(e.target.value)}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>Số điện thoại</label>
+                    <input
+                      type="tel"
+                      value={editPhone}
+                      placeholder="Chưa cập nhật SĐT"
+                      onChange={e => setEditPhone(e.target.value)}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>Email</label>
+                    <input
+                      type="email"
+                      value={editEmail}
+                      onChange={e => setEditEmail(e.target.value)}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>Mật khẩu mới (bỏ trống nếu không đổi)</label>
+                    <input
+                      type="password"
+                      placeholder="Mật khẩu mới"
+                      value={editPassword}
+                      onChange={e => setEditPassword(e.target.value)}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', marginTop: '1.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditing(false);
+                      setEditName(user?.name || '');
+                      setEditEmail(user?.email || '');
+                      setEditPhone(user?.phone || '');
+                      setEditPassword('');
+                    }}
+                    style={{
+                      flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1',
+                      backgroundColor: 'white', color: '#475569', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer'
+                    }}
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    style={{
+                      flex: 1, padding: '10px', borderRadius: '6px', border: 'none',
+                      backgroundColor: '#10b981', color: 'white', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer',
+                      opacity: loading ? 0.7 : 1
+                    }}
+                  >
+                    {loading ? 'Đang lưu...' : 'Lưu'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
 
           {/* LOYALTY CARD */}

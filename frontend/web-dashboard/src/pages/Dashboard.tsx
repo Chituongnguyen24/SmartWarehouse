@@ -80,114 +80,149 @@ const Dashboard = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-6)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Header Section */}
-      <div className="flex items-center justify-between">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', padding: '1.25rem 1.5rem', borderRadius: '16px', border: '1px solid #f1f5f9', boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.04)' }}>
         <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.25rem' }}>Tổng quan vận hành</h2>
-          <p className="text-muted" style={{ fontSize: '0.875rem' }}>Xin chào {user?.email}, dưới đây là tổng quan tồn kho thời gian thực.</p>
+          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1e293b', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            📊 Tổng Quan Vận Hành
+          </h2>
+          <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>
+            Xin chào <strong style={{ color: '#0f766e' }}>{user?.email}</strong>, dưới đây là thống kê tồn kho của CityMart thời gian thực.
+          </p>
         </div>
-        <div className="flex items-center" style={{ gap: 'var(--spacing-3)' }}>
-          <Link to="/inventory" className="btn btn-outline" style={{ textDecoration: 'none' }}>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <Link to="/inventory" className="btn btn-outline" style={{ textDecoration: 'none', borderRadius: '10px', fontWeight: 600, padding: '10px 16px', fontSize: '0.85rem', border: '1px solid #cbd5e1', color: '#475569', display: 'inline-flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s', backgroundColor: 'transparent', cursor: 'pointer' }}>
             <ArrowDownToLine size={16} /> Quản lý Nhập/Xuất
           </Link>
-          <Link to="/outbound" className="btn btn-primary" style={{ textDecoration: 'none' }}>
+          <Link to="/outbound" className="btn btn-primary" style={{ textDecoration: 'none', borderRadius: '10px', fontWeight: 600, padding: '10px 16px', fontSize: '0.85rem', backgroundColor: '#0f766e', color: '#ffffff', display: 'inline-flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(15,118,110,0.25)', cursor: 'pointer' }}>
             <ArrowUpFromLine size={16} /> Phiếu FEFO
           </Link>
         </div>
       </div>
 
       {/* KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--spacing-4)' }}>
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title">Tổng SKU (Danh mục)</div>
-            <div className="card-icon primary"><Package size={18} /></div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.25rem' }}>
+        {/* Card 1 */}
+        <div style={kpiCardStyle('#f0fdfa', '#0d9488', '0 4px 20px -2px rgba(13,148,136,0.06)')}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0f766e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tổng SKU (Danh mục)</span>
+            <div style={iconWrapperStyle('#ccfbf1', '#0d9488')}><Package size={18} /></div>
           </div>
-          <div className="card-value">{totalProducts}</div>
-          <div className="card-desc">sản phẩm trong hệ thống</div>
-        </div>
-        
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title">Lô hàng đang lưu trữ</div>
-            <div className="card-icon primary"><Boxes size={18} /></div>
-          </div>
-          <div className="card-value">{totalLots}</div>
-          <div className="card-desc">lô hàng tồn kho</div>
+          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#0f172a', lineHeight: '1.2' }}>{totalProducts}</div>
+          <div style={{ fontSize: '0.75rem', color: '#0f766e', fontWeight: 500, marginTop: '6px' }}>sản phẩm trong hệ thống</div>
         </div>
 
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title">Cảnh báo đang mở</div>
-            <div className="card-icon danger"><ShieldAlert size={18} /></div>
+        {/* Card 2 */}
+        <div style={kpiCardStyle('#eff6ff', '#2563eb', '0 4px 20px -2px rgba(37,99,235,0.06)')}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Lô hàng đang lưu trữ</span>
+            <div style={iconWrapperStyle('#dbeafe', '#2563eb')}><Boxes size={18} /></div>
           </div>
-          <div className="card-value text-danger">{alertCount}</div>
-          <div className="card-desc">cần xử lý gấp (HSD/Hư hỏng)</div>
+          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#0f172a', lineHeight: '1.2' }}>{totalLots}</div>
+          <div style={{ fontSize: '0.75rem', color: '#1e40af', fontWeight: 500, marginTop: '6px' }}>lô hàng tồn kho</div>
         </div>
 
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title">Khu vực lưu trữ</div>
-            <div className="card-icon primary"><Thermometer size={18} /></div>
+        {/* Card 3 */}
+        <div style={kpiCardStyle(alertCount > 0 ? '#fef2f2' : '#f9fafb', alertCount > 0 ? '#dc2626' : '#4b5563', alertCount > 0 ? '0 4px 20px -2px rgba(220,38,38,0.08)' : 'none')}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: alertCount > 0 ? '#b91c1c' : '#4b5563', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cảnh báo đang mở</span>
+            <div style={iconWrapperStyle(alertCount > 0 ? '#fee2e2' : '#f3f4f6', alertCount > 0 ? '#dc2626' : '#4b5563')}><ShieldAlert size={18} /></div>
           </div>
-          <div className="card-value">3</div>
-          <div className="card-desc">Kho Mát - Đông Lạnh - Khô</div>
+          <div style={{ fontSize: '2rem', fontWeight: 900, color: alertCount > 0 ? '#dc2626' : '#0f172a', lineHeight: '1.2' }}>{alertCount}</div>
+          <div style={{ fontSize: '0.75rem', color: alertCount > 0 ? '#b91c1c' : '#4b5563', fontWeight: 500, marginTop: '6px' }}>cần xử lý gấp (HSD/Hư hỏng)</div>
+        </div>
+
+        {/* Card 4 */}
+        <div style={kpiCardStyle('#faf5ff', '#7c3aed', '0 4px 20px -2px rgba(124,58,237,0.06)')}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#6d28d9', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Khu vực lưu trữ</span>
+            <div style={iconWrapperStyle('#f3e8ff', '#7c3aed')}><Thermometer size={18} /></div>
+          </div>
+          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#0f172a', lineHeight: '1.2' }}>3</div>
+          <div style={{ fontSize: '0.75rem', color: '#6d28d9', fontWeight: 500, marginTop: '6px' }}>Kho Mát - Đông Lạnh - Khô</div>
         </div>
       </div>
 
-      {/* Action lists */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 'var(--spacing-4)' }}>
-        <div className="card" style={{ padding: '0' }}>
-          <div className="flex items-center justify-between" style={{ padding: 'var(--spacing-5) var(--spacing-5) var(--spacing-4)' }}>
+      {/* Grid Layout for urgent lists & timeline */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem' }}>
+        {/* FEFO priorities */}
+        <div style={{ background: '#ffffff', borderRadius: '16px', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid #f1f5f9' }}>
             <div>
-              <h3 className="font-semibold" style={{ fontSize: '1rem' }}>Ưu tiên xuất kho khẩn (FEFO thông minh)</h3>
-              <p className="text-muted" style={{ fontSize: '0.75rem' }}>Các lô hàng có rủi ro cao hoặc sắp hết hạn cần xuất ngay</p>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1e293b' }}>⚠️ Ưu tiên xuất kho khẩn (FEFO thông minh)</h3>
+              <p style={{ color: '#64748b', fontSize: '0.75rem', marginTop: '2px' }}>Các lô hàng có rủi ro cao hoặc sắp hết hạn cần ưu tiên xuất kho trước</p>
             </div>
-            <Link to="/outbound" className="text-primary font-semibold" style={{ fontSize: '0.875rem', textDecoration: 'none' }}>Xem tất cả →</Link>
+            <Link to="/outbound" style={{ color: '#0f766e', fontWeight: 700, fontSize: '0.85rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>Xem tất cả →</Link>
           </div>
           
-          <div style={{ padding: '0 var(--spacing-5) var(--spacing-5)' }}>
+          <div style={{ padding: '1.25rem 1.5rem' }}>
             {urgentFefo.length === 0 ? (
-              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Kho đang an toàn, không có lô hàng nào sắp hết hạn.</div>
+              <div style={{ padding: '3rem 1.5rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.9rem' }}>Kho đang an toàn, không có lô hàng nào cần xuất gấp.</div>
             ) : (
-              urgentFefo.map((item, i) => (
-                <div key={i} className="flex items-center" style={{ padding: 'var(--spacing-3)', border: '1px solid var(--color-danger-100)', borderRadius: 'var(--radius-md)', marginBottom: '0.5rem', backgroundColor: item.fefoScore >= 80 ? '#fef2f2' : '#fffbeb' }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', backgroundColor: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', color: item.fefoScore >= 80 ? 'var(--color-danger-500)' : 'var(--color-warning-500)', fontWeight: 600, marginRight: '1rem' }}>
-                    #{i+1}
-                  </div>
-                  <div>
-                    <div className="font-semibold flex items-center" style={{ gap: '0.5rem', fontSize: '0.875rem' }}>
-                      {item.lotCode} <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>{item.zone}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {urgentFefo.map((item, i) => {
+                  const isCritical = item.fefoScore >= 80;
+                  return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', border: `1px solid ${isCritical ? '#fee2e2' : '#fef3c7'}`, borderRadius: '12px', backgroundColor: isCritical ? '#fff5f5' : '#fffbeb', gap: '16px' }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: isCritical ? '#fecaca' : '#fde68a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isCritical ? '#991b1b' : '#854d0e', fontWeight: 800, fontSize: '0.9rem', flexShrink: 0 }}>
+                        #{i+1}
+                      </div>
+                      
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                          <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.lotCode}
+                          </span>
+                          <span style={{ fontSize: '0.7rem', fontWeight: 700, backgroundColor: item.zone === 'FROZEN' ? '#eff6ff' : item.zone === 'COLD' ? '#ecfdf5' : '#fffbeb', color: item.zone === 'FROZEN' ? '#2563eb' : item.zone === 'COLD' ? '#059669' : '#d97706', padding: '2px 8px', borderRadius: '20px', border: `1px solid ${item.zone === 'FROZEN' ? '#bfdbfe' : item.zone === 'COLD' ? '#a7f3d0' : '#fde68a'}` }}>
+                            {item.zone === 'FROZEN' ? '🧊 Đông (-18°C)' : item.zone === 'COLD' ? '❄️ Mát (0-4°C)' : '📦 Kho Khô'}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '16px', color: '#64748b', fontSize: '0.8rem' }}>
+                          <span>Tồn: <strong style={{ color: '#334155' }}>{item.remainingQty} Kg</strong></span>
+                          <span>Vị trí: <strong style={{ color: '#334155' }}>{item.location}</strong></span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 800, color: isCritical ? '#b91c1c' : '#b45309', backgroundColor: isCritical ? '#fee2e2' : '#fef3c7', padding: '4px 10px', borderRadius: '20px' }}>
+                          Còn {item.daysLeft} ngày
+                        </span>
+                        <div style={{ textAlign: 'right', minWidth: '85px' }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 900, color: isCritical ? '#dc2626' : '#d97706' }}>{item.fefoScore} điểm</div>
+                          <div style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 500 }}>Chỉ số FEFO</div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-muted" style={{ fontSize: '0.75rem' }}>Tồn: {item.remainingQty} - Vị trí: {item.location} - Còn {item.daysLeft} ngày</div>
-                  </div>
-                  <div style={{ marginLeft: 'auto' }}>
-                    <span className={`badge ${item.fefoScore >= 80 ? 'badge-danger' : 'badge-warning'}`}>{item.fefoScore} điểm FEFO</span>
-                  </div>
-                </div>
-              ))
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
 
-        <div className="card">
-          <div className="card-header">
-            <h3 className="font-semibold" style={{ fontSize: '1rem' }}>Hoạt động hệ thống</h3>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {/* Timeline Activities */}
+        <div style={{ background: '#ffffff', borderRadius: '16px', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9', padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column' }}>
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1e293b', marginBottom: '1.25rem' }}>🔄 Hoạt động hệ thống</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', position: 'relative', paddingLeft: '20px' }}>
+            {/* Vertical Line */}
+            <div style={{ position: 'absolute', left: '7px', top: '10px', bottom: '10px', width: '2px', backgroundColor: '#f1f5f9' }}></div>
+
             {[
-              { icon: <ArrowUpFromLine size={16}/>, color: 'primary', text: 'Quản lý FEFO đã được kích hoạt' },
-              { icon: <Thermometer size={16}/>, color: 'success', text: 'Cảm biến kho lạnh hoạt động ổn định' },
-              { icon: <Boxes size={16}/>, color: 'success', text: 'Sơ đồ kho đã được cập nhật' },
+              { icon: <ArrowUpFromLine size={12}/>, color: '#0f766e', bgColor: '#ccfbf1', text: 'Quản lý FEFO đã được kích hoạt', desc: 'Hệ thống đề xuất xuất hàng tự động hoạt động tốt' },
+              { icon: <Thermometer size={12}/>, color: '#16a34a', bgColor: '#dcfce7', text: 'Nhiệt độ kho lạnh hoạt động ổn định', desc: 'Không phát hiện biến động nhiệt độ bất thường' },
+              { icon: <Boxes size={12}/>, color: '#2563eb', bgColor: '#dbeafe', text: 'Sơ đồ kho đã được cập nhật', desc: 'Đồng bộ hóa vị trí sơ đồ lưu trữ kệ và slot' },
             ].map((activity, i) => (
-              <div key={i} className="flex" style={{ gap: '0.75rem' }}>
-                <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: `var(--color-${activity.color}-50)`, color: `var(--color-${activity.color}-600)`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div key={i} style={{ display: 'flex', gap: '14px', marginBottom: i === 2 ? '0' : '20px', position: 'relative' }}>
+                {/* Dot Indicator */}
+                <div style={{ position: 'absolute', left: '-20px', top: '4px', width: '16px', height: '16px', borderRadius: '50%', backgroundColor: activity.bgColor, display: 'flex', alignItems: 'center', justifyContent: 'center', color: activity.color, zIndex: 1, boxShadow: '0 0 0 4px #ffffff' }}>
                   {activity.icon}
                 </div>
+                
                 <div>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{activity.text}</div>
-                  <div className="text-muted" style={{ fontSize: '0.75rem' }}>Hôm nay</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>{activity.text}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>{activity.desc}</div>
+                  <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 600, marginTop: '4px' }}>Hôm nay • Realtime</div>
                 </div>
               </div>
             ))}
@@ -197,5 +232,30 @@ const Dashboard = () => {
     </div>
   );
 };
+
+// Inline Helper Styles
+const kpiCardStyle = (bgColor: string, borderColor: string, shadow: string): React.CSSProperties => ({
+  backgroundColor: bgColor,
+  borderRadius: '16px',
+  padding: '1.25rem',
+  border: '1px solid #f1f5f9',
+  borderTop: `4px solid ${borderColor}`,
+  boxShadow: shadow || '0 4px 20px -2px rgba(0,0,0,0.03)',
+  display: 'flex',
+  flexDirection: 'column',
+  transition: 'all 0.2s ease-in-out',
+});
+
+const iconWrapperStyle = (bgColor: string, color: string): React.CSSProperties => ({
+  width: '32px',
+  height: '32px',
+  borderRadius: '8px',
+  backgroundColor: bgColor,
+  color: color,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexShrink: 0,
+});
 
 export default Dashboard;
