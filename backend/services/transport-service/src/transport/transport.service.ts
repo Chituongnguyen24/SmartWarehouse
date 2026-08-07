@@ -7,6 +7,7 @@ interface Stop {
   lat: number;
   lng: number;
   demand: number; // in units/kg
+  requiredVehicleType?: 'REFRIGERATED' | 'FROZEN' | 'NORMAL';
 }
 
 @Injectable()
@@ -124,7 +125,7 @@ export class TransportService {
   // 4. Delivery routing: VRP (Vehicle Routing Problem) Clarke-Wright Savings solver
   // Depot at Go Vap Supermarket (10.8286, 106.6802) HCMC
   solveVrp(stops: Stop[], defaultCapacity = 200, driversList?: any[]): any {
-    const depot = { id: 'depot', name: 'Depot Trung Tâm CityMart (Gò Vấp)', lat: 10.8286, lng: 106.6802, demand: 0 };
+    const depot: Stop = { id: 'depot', name: 'Depot Trung Tâm CityMart (Gò Vấp)', lat: 10.8286, lng: 106.6802, demand: 0 };
     
     // Calculates Haversine distance between 2 coordinates (km)
     const getDistance = (p1: { lat: number; lng: number }, p2: { lat: number; lng: number }) => {

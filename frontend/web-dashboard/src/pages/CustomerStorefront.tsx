@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, Star, Zap, Search } from 'lucide-react';
+import { ShoppingCart, Star, Zap, Search, Plus, Minus } from 'lucide-react';
 import { useWebCart, type Product } from '../contexts/WebCartContext';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -10,7 +10,7 @@ const CustomerStorefront: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Tất cả');
-  const { addToCart } = useWebCart();
+  const { cartItems, addToCart, updateQuantity } = useWebCart();
   const { token } = useAuth();
 
   useEffect(() => {
@@ -191,7 +191,7 @@ const CustomerStorefront: React.FC = () => {
                   <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Đã bán {product.soldCount}</span>
                 </div>
 
-                <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+                <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
                     <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#10b981' }}>
                       {formatPrice(product.price)}
@@ -204,27 +204,54 @@ const CustomerStorefront: React.FC = () => {
                     )}
                   </div>
                   
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      addToCart(product);
-                    }}
-                    style={{
-                      backgroundColor: '#10b981',
-                      border: 'none',
-                      borderRadius: '8px',
-                      width: '36px',
-                      height: '36px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.2s'
-                    }}
-                    title="Thêm vào giỏ"
-                  >
-                    <ShoppingCart size={18} color="white" />
-                  </button>
+                  {(() => {
+                    const cartItem = cartItems.find(item => item.product.id === product.id);
+                    const quantityInCart = cartItem ? cartItem.quantity : 0;
+                    
+                    return (
+                      <div 
+                        style={{ display: 'flex', alignItems: 'center', border: '1px solid #10b981', borderRadius: '8px', overflow: 'hidden', height: '34px' }} 
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={() => {
+                            if (quantityInCart > 0) {
+                              updateQuantity(product.id, -1);
+                            }
+                          }}
+                          disabled={quantityInCart === 0}
+                          style={{ 
+                            background: '#f0fdf4', 
+                            border: 'none', 
+                            padding: '0 12px', 
+                            height: '100%', 
+                            cursor: quantityInCart === 0 ? 'not-allowed' : 'pointer', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            color: quantityInCart === 0 ? '#cbd5e1' : '#10b981', 
+                            fontWeight: 800 
+                          }}
+                        >
+                          <Minus size={14} />
+                        </button>
+                        <span style={{ padding: '0 12px', fontWeight: 800, fontSize: '0.95rem', color: quantityInCart === 0 ? '#64748b' : '#10b981', minWidth: '16px', textAlign: 'center' }}>
+                          {quantityInCart}
+                        </span>
+                        <button
+                          onClick={() => {
+                            if (quantityInCart === 0) {
+                              addToCart(product, 1);
+                            } else {
+                              updateQuantity(product.id, 1);
+                            }
+                          }}
+                          style={{ background: '#f0fdf4', border: 'none', padding: '0 12px', height: '100%', cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#10b981', fontWeight: 800 }}
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

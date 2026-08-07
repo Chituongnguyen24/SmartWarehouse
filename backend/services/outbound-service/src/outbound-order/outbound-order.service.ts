@@ -82,16 +82,66 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
   }): Promise<OutboundOrder> {
     const orderCode = await this.generateOrderCode();
 
+    // 1. Phân tích địa chỉ khách hàng để lấy tọa độ mock (geocoding) nếu chưa truyền
+    let lat = dto.latitude;
+    let lng = dto.longitude;
+    
+    if (!lat || !lng) {
+      const dest = (dto.destination || '').toLowerCase();
+      if (dest.includes('quận 12') || dest.includes('q12')) { lat = 10.8671; lng = 106.6713; }
+      else if (dest.includes('thủ đức') || dest.includes('quận 9') || dest.includes('q9') || dest.includes('quận 2') || dest.includes('q2') || dest.includes('võ văn ngân')) { lat = 10.8494; lng = 106.7725; }
+      else if (dest.includes('bình chánh')) { lat = 10.6868; lng = 106.5932; }
+      else if (dest.includes('quận 7') || dest.includes('q7') || dest.includes('nguyễn văn linh')) { lat = 10.7324; lng = 106.7214; }
+      else if (dest.includes('bình thạnh') || dest.includes('điện biên phủ')) { lat = 10.8016; lng = 106.7135; }
+      else if (dest.includes('gò vấp') || dest.includes('quang trung')) { lat = 10.8252; lng = 106.6631; }
+      else if (dest.includes('quận 1') || dest.includes('q1') || dest.includes('lê lợi')) { lat = 10.7769; lng = 106.7009; }
+      else if (dest.includes('quận 5') || dest.includes('q5') || dest.includes('nguyễn văn cừ') || dest.includes('an dương vương')) { lat = 10.7574; lng = 106.6635; }
+      else if (dest.includes('tân bình') || dest.includes('trường chinh')) { lat = 10.7938; lng = 106.6509; }
+      else if (dest.includes('bình tân') || dest.includes('kinh dương vương')) { lat = 10.7492; lng = 106.6025; }
+      else if (dest.includes('hóc môn') || dest.includes('nguyễn ảnh thủ')) { lat = 10.8833; lng = 106.5931; }
+      else if (dest.includes('nhà bè') || dest.includes('huỳnh tấn phát')) { lat = 10.6953; lng = 106.7231; }
+      else if (dest.includes('phú nhuận') || dest.includes('phan xích long')) { lat = 10.7992; lng = 106.6803; }
+      else if (dest.includes('quận 8') || dest.includes('q8') || dest.includes('phạm thế hiển')) { lat = 10.7239; lng = 106.6342; }
+      else if (dest.includes('củ chi')) { lat = 10.9625; lng = 106.4981; }
+      else if (dest.includes('quận 10') || dest.includes('q10') || dest.includes('3 tháng 2')) { lat = 10.7719; lng = 106.6669; }
+      else { lat = 10.7574; lng = 106.6635; } // Nguyễn Văn Cừ mặc định
+    }
+
+    // 2. Tự động tính toán kho hàng gần nhất và ĐỦ hàng
+    let finalWarehouseId = dto.warehouseId;
+    let finalWarehouseCode = dto.warehouseCode;
+
+    if (!finalWarehouseCode) {
+      try {
+        const calcResult = await this.calculateNearestWarehouse({
+          latitude: lat,
+          longitude: lng,
+          items: dto.items.map(i => ({ sku: i.sku, requestedQuantity: i.requestedQuantity })),
+        });
+        
+        const recommended = calcResult.warehouses.find((w: any) => w.isRecommended);
+        if (recommended) {
+          finalWarehouseId = recommended.warehouse.id;
+          finalWarehouseCode = recommended.warehouse.code;
+          console.log(`[OUTBOUND AUTO-ROUTING] Order ${orderCode} routed to ${finalWarehouseCode} (${recommended.distanceKm} km away, fulfillment: ${recommended.fulfillmentRate}%)`);
+        }
+      } catch (err) {
+        console.error('[OUTBOUND AUTO-ROUTING] Error calculating nearest warehouse, fallback to WH-001:', err.message);
+        finalWarehouseCode = 'WH-001';
+        finalWarehouseId = '11111111-1111-1111-1111-111111111111';
+      }
+    }
+
     const order = this.orderRepository.create({
       orderCode,
       status: 'PENDING',
       requestedBy: dto.requestedBy,
       requesterName: dto.requesterName,
       destination: dto.destination,
-      warehouseId: dto.warehouseId,
-      warehouseCode: dto.warehouseCode,
-      latitude: dto.latitude,
-      longitude: dto.longitude,
+      warehouseId: finalWarehouseId,
+      warehouseCode: finalWarehouseCode,
+      latitude: lat,
+      longitude: lng,
       totalItems: dto.items.length,
       totalQuantity: dto.items.reduce((sum, i) => sum + i.requestedQuantity, 0),
       notes: dto.notes,

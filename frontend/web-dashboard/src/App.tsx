@@ -37,6 +37,9 @@ const DashboardIndex = () => {
   if (user?.role === 'DRIVER') {
     return <Navigate to="/transport" replace />;
   }
+  if (user?.role === 'WAREHOUSE_STAFF') {
+    return <Navigate to="/orders" replace />;
+  }
   return <Inventory />;
 };
 
