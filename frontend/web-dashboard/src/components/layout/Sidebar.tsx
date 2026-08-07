@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Package, 
@@ -17,7 +17,11 @@ import {
   Leaf,
   LogOut,
   Send,
-  Shield
+  Shield,
+  Inbox,
+  Clock,
+  Search,
+  Grid3X3
 } from 'lucide-react';
 import { useAuth, ROLE_LABELS } from '../../contexts/AuthContext';
 import type { UserRole } from '../../contexts/AuthContext';
@@ -32,30 +36,28 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  // VẬN HÀNH
-  { path: '/', label: 'Quản lý Kho hàng', icon: <Boxes size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF'] },
-  { path: '/staff', label: 'Nhân viên Trực kho', icon: <Users size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
-  { path: '/orders', label: 'Điều phối Đơn hàng', icon: <Send size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF'] },
+  // QUẢN LÝ KHO (ADMIN + WAREHOUSE_MANAGER)
+  { path: '/', label: 'Quản lý Kho hàng', icon: <Boxes size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
+  { path: '/staff', label: 'Nhân viên Trực kho', icon: <Users size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
+  { path: '/orders', label: 'Điều phối Đơn hàng', icon: <Send size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
+
+  // NHÂN VIÊN KHO - các tab chức năng chi tiết
+  { path: '/orders?tab=packing', label: 'Đơn hàng chờ đóng gói', icon: <Boxes size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
+  { path: '/orders?tab=map', label: 'Vị trí sản phẩm (Sơ đồ)', icon: <Grid3X3 size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
+  { path: '/orders?tab=delivery', label: 'Bàn giao cho tài xế', icon: <Truck size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
+
+  // TÀI XẾ
+  { path: '/transport', label: 'Tối ưu vận chuyển', icon: <Truck size={18} />, section: 'TÀI XẾ', allowedRoles: ['DRIVER'] },
 ];
 
 const Sidebar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const currentRole = user?.role || 'ADMIN';
 
-  // Filter items by role and customize them dynamically
-  const visibleItems = menuItems
-    .filter(item => item.allowedRoles.includes(currentRole))
-    .map(item => {
-      if (currentRole === 'DRIVER' && item.path === '/transport') {
-        return {
-          ...item,
-          label: 'Đơn hàng của tôi',
-          section: 'TÀI XẾ'
-        };
-      }
-      return item;
-    });
+  // Filter items by role — each role sees only its own section
+  const visibleItems = menuItems.filter(item => item.allowedRoles.includes(currentRole));
 
   // Group by section
   const sections = visibleItems.reduce<Record<string, MenuItem[]>>((acc, item) => {
@@ -67,6 +69,17 @@ const Sidebar = () => {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const isItemActive = (itemPath: string) => {
+    if (itemPath.includes('?')) {
+      const url = new URL(itemPath, window.location.origin);
+      const itemTab = url.searchParams.get('tab');
+      const currentParams = new URLSearchParams(location.search);
+      const currentTab = currentParams.get('tab') || 'tasks';
+      return location.pathname === url.pathname && currentTab === itemTab;
+    }
+    return location.pathname === itemPath;
   };
 
   return (
@@ -88,8 +101,7 @@ const Sidebar = () => {
             <NavLink
               key={item.path}
               to={item.path}
-              end={item.path === '/'}
-              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+              className={() => `nav-item ${isItemActive(item.path) ? 'active' : ''}`}
             >
               {item.icon}
               <span>{item.label}</span>
