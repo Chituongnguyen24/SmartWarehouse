@@ -18,60 +18,69 @@ export class Product {
   unit: string;
 }
 
-const mockProducts: Product[] = [
-  {
-    id: '11111111-1111-1111-1111-111111111111',
-    sku: 'MILK-DALAT-1L',
-    name: 'Dalat Milk Fresh Milk 1L',
-    category: 'Dairy',
-    storageType: StorageType.COLD,
-    minTemp: 0,
-    maxTemp: 4,
-    maxHumidity: 80,
-    unit: 'box',
-  },
-  {
-    id: '22222222-2222-2222-2222-222222222222',
-    sku: 'BEEF-STEAK-US',
-    name: 'US Beef Ribeye Steak 500g',
-    category: 'Meat & Seafood',
-    storageType: StorageType.FROZEN,
-    minTemp: -25,
-    maxTemp: -18,
-    maxHumidity: 65,
-    unit: 'pack',
-  },
-  {
-    id: '33333333-3333-3333-3333-333333333333',
-    sku: 'NOODLE-HAOHAO',
-    name: 'Hao Hao Sour & Spicy Shrimp Noodles',
-    category: 'Dry Goods',
-    storageType: StorageType.DRY,
-    minTemp: 15,
-    maxTemp: 35,
-    maxHumidity: 70,
-    unit: 'box',
-  },
-  {
-    id: '44444444-4444-4444-4444-444444444444',
-    sku: 'TOMATO-DALAT',
-    name: 'Dalat Organic Tomatoes 1kg',
-    category: 'Produce',
-    storageType: StorageType.COLD,
-    minTemp: 4,
-    maxTemp: 10,
-    maxHumidity: 90,
-    unit: 'pack',
-  },
-];
-
 @Injectable()
 export class ProductService {
+  private async getAuthToken(): Promise<string> {
+    try {
+      const response = await fetch('http://localhost:3012/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'admin@sfwms.vn',
+          password: 'password123',
+        }),
+      });
+      if (!response.ok) throw new Error(`Auth failed with status ${response.status}`);
+      const data = await response.json();
+      return data.access_token;
+    } catch (err) {
+      console.error('[INVENTORY PRODUCT SERVICE] Authentication failed:', err.message);
+      return '';
+    }
+  }
+
   async findOneBySku(sku: string): Promise<Product | null> {
-    return mockProducts.find(p => p.sku === sku) || null;
+    try {
+      const token = await this.getAuthToken();
+      const res = await fetch(`http://localhost:3010/products/sku/${sku}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.error(`[INVENTORY PRODUCT SERVICE] Failed to fetch product by SKU ${sku}:`, e.message);
+    }
+
+    // Fallback: guess category and storage type from SKU prefixes
+    const category = sku.startsWith('VEG-') || sku.startsWith('FRUIT-') ? 'Produce'
+                   : sku.startsWith('MEAT-') || sku.startsWith('SEAFOOD-') ? 'Meat & Seafood'
+                   : 'Dry Goods';
+    const storageType = sku.startsWith('MEAT-') || sku.startsWith('SEAFOOD-') ? StorageType.FROZEN
+                      : sku.startsWith('VEG-') || sku.startsWith('FRUIT-') || sku.startsWith('MILK-') ? StorageType.COLD
+                      : StorageType.DRY;
+    return {
+      id: sku,
+      sku,
+      name: sku.replace(/-/g, ' '),
+      category,
+      storageType,
+      unit: 'Cái',
+    };
   }
 
   async findOne(id: string): Promise<Product | null> {
-    return mockProducts.find(p => p.id === id) || null;
+    try {
+      const token = await this.getAuthToken();
+      const res = await fetch(`http://localhost:3010/products/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.error(`[INVENTORY PRODUCT SERVICE] Failed to fetch product by ID ${id}:`, e.message);
+    }
+    return this.findOneBySku(id);
   }
 }
