@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
+import { Address } from './address.entity';
 
 export enum UserRole {
   ADMIN = 'ADMIN',
@@ -17,11 +18,20 @@ export class User {
   @Column()
   name: string;
 
-  @Column({ unique: true })
+  @Column({ unique: true, nullable: true })
   email: string;
 
-  @Column({ name: 'password_hash' })
+  @Column({ name: 'password_hash', nullable: true })
   passwordHash: string;
+
+  @Column({ name: 'firebase_uid', unique: true, nullable: true })
+  firebaseUid: string;
+
+  @Column({ default: 0 })
+  points: number;
+
+  @Column({ default: 'Thành viên mới' })
+  tier: string;
 
   @Column({
     type: 'varchar',
@@ -32,6 +42,15 @@ export class User {
   @Column({ nullable: true })
   phone: string;
 
+  @Column({ nullable: true })
+  gender: string;
+
+  @Column({ type: 'date', nullable: true })
+  dob: Date;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
+
+  @OneToMany(() => Address, address => address.user)
+  addresses: Address[];
 }

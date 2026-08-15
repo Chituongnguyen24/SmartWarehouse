@@ -1,11 +1,13 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './components/layout/MainLayout';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import Inventory from './pages/Inventory';
+import StaffManagement from './pages/StaffManagement';
+import OrderDispatch from './pages/OrderDispatch';
 import AIAlerts from './pages/AIAlerts';
 import InboundOrder from './pages/InboundOrder';
 import OutboundOrder from './pages/OutboundOrder';
@@ -26,10 +28,23 @@ import CustomerOrders from './pages/CustomerOrders';
 import CustomerProductDetail from './pages/CustomerProductDetail';
 import CustomerProfile from './pages/CustomerProfile';
 import { WebCartProvider } from './contexts/WebCartContext';
+import InboundOrders from './pages/InboundOrders';
+import OutboundOrders from './pages/OutboundOrders';
+import FEFOExport from './pages/FEFOExport';
 import './styles/global.css';
 import './styles/layout.css';
 import './styles/components.css';
 
+const DashboardIndex = () => {
+  const { user } = useAuth();
+  if (user?.role === 'DRIVER') {
+    return <Navigate to="/transport" replace />;
+  }
+  if (user?.role === 'WAREHOUSE_STAFF') {
+    return <Navigate to="/orders" replace />;
+  }
+  return <Inventory />;
+};
 
 function App() {
   return (
@@ -46,8 +61,8 @@ function App() {
             </ProtectedRoute>
           }>
             <Route index element={
-              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER']}>
-                <Dashboard />
+              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF']}>
+                <DashboardIndex />
               </ProtectedRoute>
             } />
             <Route path="products" element={
@@ -56,8 +71,18 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="inventory" element={
-              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF']}>
+              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF']}>
                 <Inventory />
+              </ProtectedRoute>
+            } />
+            <Route path="staff" element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER']}>
+                <StaffManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="orders" element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF']}>
+                <OrderDispatch />
               </ProtectedRoute>
             } />
             <Route path="ai-alerts" element={
@@ -65,14 +90,19 @@ function App() {
                 <AIAlerts />
               </ProtectedRoute>
             } />
+            <Route path="fefo" element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF']}>
+                <FEFOExport />
+              </ProtectedRoute>
+            } />
             <Route path="inbound" element={
               <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF']}>
-                <InboundOrder />
+                <InboundOrders />
               </ProtectedRoute>
             } />
             <Route path="outbound" element={
               <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF']}>
-                <OutboundOrder />
+                <OutboundOrders />
               </ProtectedRoute>
             } />
             <Route path="dispatch" element={

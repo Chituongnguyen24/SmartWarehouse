@@ -32,4 +32,9 @@ export class AuthService {
       },
     };
   }
+
+  async firebaseLogin(firebaseUid: string, phone: string, name: string, address?: string, lat?: number, lng?: number) {
+    const user = await this.userService.onboardCustomer(firebaseUid, phone, name, address, lat, lng);
+    return this.login(user);
+  }
 }

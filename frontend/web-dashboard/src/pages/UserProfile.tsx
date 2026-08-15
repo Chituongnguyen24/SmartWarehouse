@@ -144,14 +144,16 @@ const UserProfile = () => {
             >
               <Activity size={16} style={{ marginRight: '0.5rem' }} /> Nhật ký hoạt động
             </button>
-            <button 
-              type="button"
-              className={`btn ${activeTab === 'security' ? 'btn-primary' : 'btn-outline'}`}
-              onClick={() => setActiveTab('security')}
-              style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
-            >
-              <Key size={16} style={{ marginRight: '0.5rem' }} /> Phân quyền hệ thống
-            </button>
+            {currentRole !== 'WAREHOUSE_STAFF' && currentRole !== 'DRIVER' && (
+              <button 
+                type="button"
+                className={`btn ${activeTab === 'security' ? 'btn-primary' : 'btn-outline'}`}
+                onClick={() => setActiveTab('security')}
+                style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
+              >
+                <Key size={16} style={{ marginRight: '0.5rem' }} /> Phân quyền hệ thống
+              </button>
+            )}
           </div>
 
           {/* Tab Content */}

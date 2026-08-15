@@ -8,7 +8,10 @@ export default function Footer() {
       <div className="container mx-auto px-4 max-w-6xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
         
         <div className="flex flex-col">
-          <h3 className="text-lg font-bold mb-5 text-primary">Về C.T Mart</h3>
+          <div className="flex items-center gap-2 mb-5">
+            <img src="/logos/logo_icon.png" alt="C.T Mart Icon" className="w-8 h-8 object-contain" />
+            <h3 className="text-lg font-bold text-primary">Về C.T Mart</h3>
+          </div>
           <ul className="flex flex-col gap-3">
             <li><Link href="/ve-chung-toi" className="text-muted-foreground hover:text-primary transition-colors">Giới thiệu C.T Mart</Link></li>
             <li><Link href="/he-thong" className="text-muted-foreground hover:text-primary transition-colors">Hệ thống siêu thị</Link></li>

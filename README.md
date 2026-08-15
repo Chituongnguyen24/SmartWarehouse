@@ -8,18 +8,18 @@ Dự án Hệ thống quản lý kho thực phẩm thông minh CityMart được
 d:/KLTN/
 ├── docker-compose.yml          # Cấu hình hạ tầng (Postgres, Redis, RabbitMQ, InfluxDB, MinIO, Mosquitto)
 ├── package.json                # Root package.json quản lý toàn bộ workspace
-├── backend/services/           # Các microservices (NestJS, FastAPI)
-│   ├── product-service         # (Port 3010) Quản lý sản phẩm
-│   ├── inventory-service       # (Port 3011) Quản lý tồn kho
-│   ├── user-service            # (Port 3012) Quản lý người dùng, Auth
-│   ├── transport-service       # (Port 3013) Tối ưu vận chuyển VRP
-│   ├── warehouse-service       # (Port 3005) Quản lý vị trí, kệ, ô chứa
-│   ├── inbound-service         # (Port 3006) Nhập kho & QC
-│   ├── outbound-service        # (Port 3007) Xuất kho & FEFO
-│   ├── report-service          # (Port 3008) Báo cáo, xuất PDF/Excel
-│   ├── iot-service             # (Port 3002) Thu thập dữ liệu cảm biến
-│   ├── ai-service              # (Port 3003) Cảnh báo hư hỏng (Python/FastAPI)
-│   └── notification-service    # (Port 3004) Gửi thông báo WebSocket
+├── backend/services/           # Các microservices
+│   ├── auth-service            # Đăng nhập, phân quyền
+│   ├── user-service            # Khách hàng, nhân viên, shipper
+│   ├── product-service         # Quản lý sản phẩm
+│   ├── inventory-service       # Tồn kho thời gian thực
+│   ├── order-service           # Tạo và quản lý đơn hàng
+│   ├── picking-service         # Sinh danh sách lấy hàng + tối ưu đường đi
+│   ├── packing-service         # Đóng gói đơn hàng
+│   ├── delivery-service        # Phân công shipper
+│   ├── tracking-service        # Theo dõi trạng thái giao hàng
+│   ├── notification-service    # Email, SMS, Push
+│   └── report-service          # Dashboard, thống kê
 └── frontend/web-dashboard/     # Giao diện người dùng (React, Vite) - Port 5173
 ```
 
@@ -50,7 +50,7 @@ Trong một terminal mới (tại `d:\KLTN`), chạy lệnh để khởi động
 ```bash
 npm run backend:all
 ```
-*(Nếu muốn chạy riêng lẻ, có thể sử dụng ví dụ: `npm run core:start`, `npm run warehouse:start`...)*
+*(Nếu muốn chạy riêng lẻ, có thể sử dụng ví dụ: `npm run auth:start`, `npm run order:start`...)*
 
 ### Bước 4: Khởi chạy Frontend Web Dashboard
 Mở thêm một terminal mới, chuyển hướng vào thư mục frontend và khởi chạy giao diện:
