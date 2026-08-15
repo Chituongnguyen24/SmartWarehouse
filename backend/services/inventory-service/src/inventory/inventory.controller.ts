@@ -56,7 +56,7 @@ export class InventoryController {
   @ApiOperation({ summary: 'Get smart FEFO extraction suggestions for a product' })
   @ApiQuery({ name: 'sku', type: String, example: 'MILK-DALAT-1L' })
   @ApiQuery({ name: 'quantity', type: Number, example: 50 })
-  @ApiQuery({ name: 'warehouseId', type: String, required: false, example: 'WH-001' })
+  @ApiQuery({ name: 'warehouseId', type: String, required: false, example: 'Q12' })
   getFefoSuggestions(
     @Query('sku') sku: string,
     @Query('quantity') quantity: string,

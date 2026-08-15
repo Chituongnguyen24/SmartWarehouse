@@ -37,6 +37,12 @@ export class ProductController {
     return this.productService.findOne(id);
   }
 
+  @Get('sku/:sku')
+  @ApiOperation({ summary: 'Get product by SKU' })
+  findOneBySku(@Param('sku') sku: string) {
+    return this.productService.findOneBySku(sku);
+  }
+
   @Post()
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
