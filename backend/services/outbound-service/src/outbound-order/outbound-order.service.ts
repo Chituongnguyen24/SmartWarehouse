@@ -82,16 +82,66 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
   }): Promise<OutboundOrder> {
     const orderCode = await this.generateOrderCode();
 
+    // 1. Phân tích địa chỉ khách hàng để lấy tọa độ mock (geocoding) nếu chưa truyền
+    let lat = dto.latitude;
+    let lng = dto.longitude;
+    
+    if (!lat || !lng) {
+      const dest = (dto.destination || '').toLowerCase();
+      if (dest.includes('quận 12') || dest.includes('q12')) { lat = 10.8671; lng = 106.6713; }
+      else if (dest.includes('thủ đức') || dest.includes('quận 9') || dest.includes('q9') || dest.includes('quận 2') || dest.includes('q2') || dest.includes('võ văn ngân')) { lat = 10.8494; lng = 106.7725; }
+      else if (dest.includes('bình chánh')) { lat = 10.6868; lng = 106.5932; }
+      else if (dest.includes('quận 7') || dest.includes('q7') || dest.includes('nguyễn văn linh')) { lat = 10.7324; lng = 106.7214; }
+      else if (dest.includes('bình thạnh') || dest.includes('điện biên phủ')) { lat = 10.8016; lng = 106.7135; }
+      else if (dest.includes('gò vấp') || dest.includes('quang trung')) { lat = 10.8252; lng = 106.6631; }
+      else if (dest.includes('quận 1') || dest.includes('q1') || dest.includes('lê lợi')) { lat = 10.7769; lng = 106.7009; }
+      else if (dest.includes('quận 5') || dest.includes('q5') || dest.includes('nguyễn văn cừ') || dest.includes('an dương vương')) { lat = 10.7574; lng = 106.6635; }
+      else if (dest.includes('tân bình') || dest.includes('trường chinh')) { lat = 10.7938; lng = 106.6509; }
+      else if (dest.includes('bình tân') || dest.includes('kinh dương vương')) { lat = 10.7492; lng = 106.6025; }
+      else if (dest.includes('hóc môn') || dest.includes('nguyễn ảnh thủ')) { lat = 10.8833; lng = 106.5931; }
+      else if (dest.includes('nhà bè') || dest.includes('huỳnh tấn phát')) { lat = 10.6953; lng = 106.7231; }
+      else if (dest.includes('phú nhuận') || dest.includes('phan xích long')) { lat = 10.7992; lng = 106.6803; }
+      else if (dest.includes('quận 8') || dest.includes('q8') || dest.includes('phạm thế hiển')) { lat = 10.7239; lng = 106.6342; }
+      else if (dest.includes('củ chi')) { lat = 10.9625; lng = 106.4981; }
+      else if (dest.includes('quận 10') || dest.includes('q10') || dest.includes('3 tháng 2')) { lat = 10.7719; lng = 106.6669; }
+      else { lat = 10.7574; lng = 106.6635; } // Nguyễn Văn Cừ mặc định
+    }
+
+    // 2. Tự động tính toán kho hàng gần nhất và ĐỦ hàng
+    let finalWarehouseId = dto.warehouseId;
+    let finalWarehouseCode = dto.warehouseCode;
+
+    if (!finalWarehouseCode) {
+      try {
+        const calcResult = await this.calculateNearestWarehouse({
+          latitude: lat,
+          longitude: lng,
+          items: dto.items.map(i => ({ sku: i.sku, requestedQuantity: i.requestedQuantity })),
+        });
+        
+        const recommended = calcResult.warehouses.find((w: any) => w.isRecommended);
+        if (recommended) {
+          finalWarehouseId = recommended.warehouse.id;
+          finalWarehouseCode = recommended.warehouse.code;
+          console.log(`[OUTBOUND AUTO-ROUTING] Order ${orderCode} routed to ${finalWarehouseCode} (${recommended.distanceKm} km away, fulfillment: ${recommended.fulfillmentRate}%)`);
+        }
+      } catch (err) {
+        console.error('[OUTBOUND AUTO-ROUTING] Error calculating nearest warehouse, fallback to WH-001:', err.message);
+        finalWarehouseCode = 'WH-001';
+        finalWarehouseId = '11111111-1111-1111-1111-111111111111';
+      }
+    }
+
     const order = this.orderRepository.create({
       orderCode,
       status: 'PENDING',
       requestedBy: dto.requestedBy,
       requesterName: dto.requesterName,
       destination: dto.destination,
-      warehouseId: dto.warehouseId,
-      warehouseCode: dto.warehouseCode,
-      latitude: dto.latitude,
-      longitude: dto.longitude,
+      warehouseId: finalWarehouseId,
+      warehouseCode: finalWarehouseCode,
+      latitude: lat,
+      longitude: lng,
       totalItems: dto.items.length,
       totalQuantity: dto.items.reduce((sum, i) => sum + i.requestedQuantity, 0),
       notes: dto.notes,
@@ -137,6 +187,16 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
         { id: '44444444-4444-4444-4444-444444444444', code: 'WH-004', name: 'Kho Hàng Quận 7 (HCM South)', latitude: 10.7324, longitude: 106.7214, address: '1025 Nguyễn Văn Linh, Quận 7' },
         { id: '55555555-5555-5555-5555-555555555555', code: 'WH-005', name: 'Kho Hàng Bình Thạnh (HCM Center-East)', latitude: 10.8016, longitude: 106.7135, address: '150 Điện Biên Phủ, Bình Thạnh' },
         { id: '66666666-6666-6666-6666-666666666666', code: 'WH-006', name: 'Kho Hàng Gò Vấp (HCM Northwest)', latitude: 10.8252, longitude: 106.6631, address: '350 Quang Trung, Gò Vấp' },
+        { id: '77777777-7777-7777-7777-777777777777', code: 'WH-007', name: 'Kho Hàng Quận 1 (HCM Center)', latitude: 10.7769, longitude: 106.7009, address: '85 Lê Lợi, Quận 1' },
+        { id: '88888888-8888-8888-8888-888888888888', code: 'WH-008', name: 'Kho Hàng Quận 5 (HCM South-West)', latitude: 10.7574, longitude: 106.6635, address: '105 An Dương Vương, Quận 5' },
+        { id: '99999999-9999-9999-9999-999999999999', code: 'WH-009', name: 'Kho Hàng Tân Bình (HCM West-Center)', latitude: 10.7938, longitude: 106.6509, address: '20 Trường Chinh, Tân Bình' },
+        { id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', code: 'WH-010', name: 'Kho Hàng Bình Tân (HCM Deep-West)', latitude: 10.7492, longitude: 106.6025, address: '88 Kinh Dương Vương, Bình Tân' },
+        { id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', code: 'WH-011', name: 'Kho Hàng Hóc Môn (HCM Far-North)', latitude: 10.8833, longitude: 106.5931, address: '14 Nguyễn Ảnh Thủ, Hóc Môn' },
+        { id: 'cccccccc-cccc-cccc-cccc-cccccccccccc', code: 'WH-012', name: 'Kho Hàng Nhà Bè (HCM Far-South)', latitude: 10.6953, longitude: 106.7231, address: '500 Huỳnh Tấn Phát, Nhà Bè' },
+        { id: 'dddddddd-dddd-dddd-dddd-dddddddddddd', code: 'WH-013', name: 'Kho Hàng Phú Nhuận (HCM Mid-Center)', latitude: 10.7992, longitude: 106.6803, address: '18 Phan Xích Long, Phú Nhuận' },
+        { id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', code: 'WH-014', name: 'Kho Hàng Quận 8 (HCM South-West-Line)', latitude: 10.7239, longitude: 106.6342, address: '1020 Phạm Thế Hiển, Quận 8' },
+        { id: 'ffffffff-ffff-ffff-ffff-ffffffffffff', code: 'WH-015', name: 'Kho Hàng Củ Chi (HCM Northwest-Zone)', latitude: 10.9625, longitude: 106.4981, address: '450 Quốc lộ 22, Củ Chi' },
+        { id: '00000000-0000-0000-0000-000000000000', code: 'WH-016', name: 'Kho Hàng Quận 10 (HCM Center-West)', latitude: 10.7719, longitude: 106.6669, address: '123 Đường 3 Tháng 2, Quận 10' },
       ];
     }
 

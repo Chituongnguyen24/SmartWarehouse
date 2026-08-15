@@ -9,7 +9,7 @@ import { ColdChainScreen } from './src/screens/ColdChainScreen';
 import { EarningsScreen } from './src/screens/EarningsScreen';
 import { COLORS } from './src/theme/colors';
 import { DeliveryTask } from './src/types/driver';
-import { Navigation, Thermometer, Wallet, Truck } from 'lucide-react-native';
+import { Navigation, Thermometer, Wallet } from 'lucide-react-native';
 
 type ActiveTab = 'ROUTE' | 'COLD_CHAIN' | 'EARNINGS';
 
@@ -63,10 +63,10 @@ const DriverMainAppContent: React.FC = () => {
               onPress={() => setCurrentTab('ROUTE')}
               activeOpacity={0.8}
             >
-              <View style={{ position: 'relative' }}>
+              <View style={[styles.iconWrapper, currentTab === 'ROUTE' && styles.iconWrapperActive]}>
                 <Navigation
-                  size={22}
-                  color={currentTab === 'ROUTE' ? COLORS.routeBlue : COLORS.textMuted}
+                  size={20}
+                  color={currentTab === 'ROUTE' ? COLORS.primary : COLORS.textMuted}
                 />
                 {totalActiveTasks > 0 && (
                   <View style={styles.badge}>
@@ -89,10 +89,12 @@ const DriverMainAppContent: React.FC = () => {
               onPress={() => setCurrentTab('COLD_CHAIN')}
               activeOpacity={0.8}
             >
-              <Thermometer
-                size={22}
-                color={currentTab === 'COLD_CHAIN' ? COLORS.routeBlue : COLORS.textMuted}
-              />
+              <View style={[styles.iconWrapper, currentTab === 'COLD_CHAIN' && styles.iconWrapperActive]}>
+                <Thermometer
+                  size={20}
+                  color={currentTab === 'COLD_CHAIN' ? COLORS.primary : COLORS.textMuted}
+                />
+              </View>
               <Text
                 style={[
                   styles.tabLabel,
@@ -108,10 +110,12 @@ const DriverMainAppContent: React.FC = () => {
               onPress={() => setCurrentTab('EARNINGS')}
               activeOpacity={0.8}
             >
-              <Wallet
-                size={22}
-                color={currentTab === 'EARNINGS' ? COLORS.routeBlue : COLORS.textMuted}
-              />
+              <View style={[styles.iconWrapper, currentTab === 'EARNINGS' && styles.iconWrapperActive]}>
+                <Wallet
+                  size={20}
+                  color={currentTab === 'EARNINGS' ? COLORS.primary : COLORS.textMuted}
+                />
+              </View>
               <Text
                 style={[
                   styles.tabLabel,
@@ -147,35 +151,45 @@ const styles = StyleSheet.create({
   bottomNavContainer: {
     backgroundColor: COLORS.headerBg,
     borderTopWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   tabBar: {
     flexDirection: 'row',
-    height: 54,
+    height: 60,
     alignItems: 'center',
     justifyContent: 'space-around',
     backgroundColor: COLORS.headerBg,
+    paddingBottom: 4,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  iconWrapper: {
+    paddingHorizontal: 16,
     paddingVertical: 4,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
+  iconWrapperActive: {
+    backgroundColor: 'rgba(0, 136, 72, 0.15)',
   },
   tabLabel: {
     fontSize: 10,
     fontWeight: '600',
     color: COLORS.textMuted,
-    marginTop: 3,
   },
   tabLabelActive: {
-    color: COLORS.surface,
+    color: COLORS.primary,
     fontWeight: '800',
   },
   badge: {
     position: 'absolute',
     top: -4,
-    right: -10,
+    right: -8,
     backgroundColor: COLORS.danger,
     minWidth: 16,
     height: 16,

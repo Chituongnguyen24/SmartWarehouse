@@ -13,14 +13,14 @@ import { TaskCard } from '../components/TaskCard';
 import { useDriverTask } from '../context/DriverTaskContext';
 import { COLORS } from '../theme/colors';
 import { DeliveryTask } from '../types/driver';
-import { Map, Navigation, CheckCircle2, Clock, Zap, MapPin } from 'lucide-react-native';
+import { Navigation, CheckCircle2 } from 'lucide-react-native';
 
 interface HomeScreenProps {
   onSelectTask: (task: DeliveryTask) => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
-  const { tasks, assignedTasks, inTransitTasks, deliveredTasks, driverProfile } = useDriverTask();
+  const { tasks, assignedTasks, inTransitTasks, deliveredTasks } = useDriverTask();
   const [activeTab, setActiveTab] = useState<'ACTIVE' | 'PENDING' | 'DONE'>('ACTIVE');
 
   const handleCallCustomer = (phone: string, name: string) => {
@@ -51,7 +51,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
       <View style={styles.vrpBanner}>
         <View style={styles.vrpTitleRow}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Navigation size={18} color={COLORS.routeBlue} />
+            <View style={styles.vrpIconBox}>
+              <Navigation size={16} color={COLORS.routeBlue} />
+            </View>
             <Text style={styles.vrpTitleText}>Tuyến Đường Tối Ưu VRP</Text>
           </View>
           <View style={styles.vrpBadge}>
@@ -60,15 +62,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
         </View>
 
         <Text style={styles.vrpSubText}>
-          Xuất phát từ **Kho CityMart Q.5** ➔ {inTransitTasks.length + assignedTasks.length} điểm giao tận nhà
+          Xuất phát từ <Text style={styles.boldText}>Kho CityMart Q.5</Text> ➔ Phân bổ <Text style={styles.boldText}>{inTransitTasks.length + assignedTasks.length} điểm dừng</Text>
         </Text>
       </View>
 
-      {/* TABS */}
+      {/* TABS (PILL STYLE) */}
       <View style={styles.tabsContainer}>
         <TouchableOpacity
           style={[styles.tabBtn, activeTab === 'ACTIVE' && styles.tabBtnActive]}
           onPress={() => setActiveTab('ACTIVE')}
+          activeOpacity={0.8}
         >
           <Text style={[styles.tabText, activeTab === 'ACTIVE' && styles.tabTextActive]}>
             Đang Giao ({inTransitTasks.length})
@@ -78,6 +81,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
         <TouchableOpacity
           style={[styles.tabBtn, activeTab === 'PENDING' && styles.tabBtnActive]}
           onPress={() => setActiveTab('PENDING')}
+          activeOpacity={0.8}
         >
           <Text style={[styles.tabText, activeTab === 'PENDING' && styles.tabTextActive]}>
             Chờ Nhận ({assignedTasks.length})
@@ -87,6 +91,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
         <TouchableOpacity
           style={[styles.tabBtn, activeTab === 'DONE' && styles.tabBtnActive]}
           onPress={() => setActiveTab('DONE')}
+          activeOpacity={0.8}
         >
           <Text style={[styles.tabText, activeTab === 'DONE' && styles.tabTextActive]}>
             Đã Giao ({deliveredTasks.length})
@@ -123,75 +128,102 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   vrpBanner: {
-    backgroundColor: COLORS.surface,
-    marginHorizontal: 12,
-    marginTop: 10,
-    marginBottom: 8,
-    padding: 12,
-    borderRadius: 10,
+    backgroundColor: COLORS.routeBlueLight,
+    marginHorizontal: 16,
+    marginTop: 14,
+    marginBottom: 10,
+    padding: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(37, 99, 235, 0.2)',
+    borderColor: 'rgba(37, 99, 235, 0.15)',
+    shadowColor: COLORS.routeBlue,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  vrpIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   vrpTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   vrpTitleText: {
     fontSize: 14,
     fontWeight: '800',
-    color: COLORS.textPrimary,
-    marginLeft: 6,
+    color: COLORS.routeBlue,
+    marginLeft: 8,
   },
   vrpBadge: {
-    backgroundColor: COLORS.routeBlueLight,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    backgroundColor: COLORS.routeBlue,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   vrpBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: COLORS.routeBlue,
+    color: COLORS.surface,
   },
   vrpSubText: {
-    fontSize: 11,
+    fontSize: 12,
     color: COLORS.textSecondary,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  boldText: {
+    fontWeight: '800',
+    color: COLORS.textPrimary,
   },
   tabsContainer: {
     flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderColor: COLORS.border,
+    backgroundColor: 'rgba(226, 232, 240, 0.4)',
+    marginHorizontal: 16,
+    padding: 4,
+    borderRadius: 12,
+    marginBottom: 6,
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 8,
     alignItems: 'center',
+    borderRadius: 10,
   },
   tabBtnActive: {
-    borderBottomWidth: 3,
-    borderColor: COLORS.routeBlue,
+    backgroundColor: COLORS.surface,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
   },
   tabText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.textMuted,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
   },
   tabTextActive: {
-    color: COLORS.routeBlue,
+    color: COLORS.primary,
     fontWeight: '800',
   },
   scrollContent: {
-    padding: 12,
+    padding: 16,
+    paddingTop: 8,
     paddingBottom: 24,
   },
   emptyContainer: {
     padding: 40,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 20,
   },
   emptyTitle: {
     fontSize: 15,
@@ -203,5 +235,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textMuted,
     marginTop: 4,
+    textAlign: 'center',
   },
 });

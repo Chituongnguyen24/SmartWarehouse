@@ -1,235 +1,262 @@
 import React, { useState, useEffect } from 'react';
-import { Boxes, Clock, PackageCheck, MapPin, Plus, Minus, X, View, List, Box as BoxIcon } from 'lucide-react';
+import { Boxes, MapPin, Plus, Edit2, Trash2, RefreshCw, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import ThreeDWarehouse from '../components/ThreeDWarehouse';
 
-const API_BASE = 'http://localhost:3011'; // inventory-service
+const WAREHOUSE_API = 'http://localhost:3005'; // warehouse-service
 
-interface Lot {
+interface Warehouse {
   id: string;
-  lotCode: string;
-  productId: string;
-  supplierId: string;
-  importDate: string;
-  expiryDate: string;
-  quantity: number;
-  remainingQty: number;
-  zone: string;
-  location: string;
-  riskScore: number;
-  status: string;
+  code: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  isActive: boolean;
 }
 
 const Inventory = () => {
-  const { token, user } = useAuth();
-  const [lots, setLots] = useState<Lot[]>([]);
+  const { token } = useAuth();
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [loading, setLoading] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [viewMode, setViewMode] = useState<'list' | '3d'>('list');
+  const [showWhModal, setShowWhModal] = useState(false);
+  const [editingWh, setEditingWh] = useState<Warehouse | null>(null);
 
-  // Form states
-  const [importForm, setImportForm] = useState({
-    lotCode: '', sku: '', supplierId: '11111111-1111-1111-1111-111111111111', expiryDate: '',
-    quantity: 0, zone: 'COLD', location: ''
+  // Warehouse form state
+  const [whForm, setWhForm] = useState({
+    code: '',
+    name: '',
+    address: '',
+    latitude: 10.8,
+    longitude: 106.6,
+    isActive: true
   });
-  const [exportForm, setExportForm] = useState({
-    lotCode: '', quantity: 0, reason: 'Xuất hàng bán'
-  });
-
-  const canManage = user?.role === 'ADMIN' || user?.role === 'WAREHOUSE_MANAGER' || user?.role === 'WAREHOUSE_STAFF';
 
   useEffect(() => {
-    fetchLots();
+    fetchWarehouses();
   }, []);
 
-  const fetchLots = async () => {
+  const fetchWarehouses = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/inventory/lots`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetch(`${WAREHOUSE_API}/warehouses`);
       if (res.ok) {
         const data = await res.json();
-        setLots(data);
+        setWarehouses(data);
       }
     } catch (error) {
-      console.error('Failed to fetch lots:', error);
+      console.error('Failed to fetch warehouses:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleImport = async (e: React.FormEvent) => {
+  // CREATE / UPDATE WAREHOUSE
+  const handleSaveWarehouse = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!whForm.code || !whForm.name || !whForm.address) {
+      alert('Vui lòng điền đầy đủ mã kho, tên kho và địa chỉ!');
+      return;
+    }
+
     try {
-      const res = await fetch(`${API_BASE}/inventory/lots/import`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(importForm)
+      const url = editingWh
+        ? `${WAREHOUSE_API}/warehouses/${editingWh.id}`
+        : `${WAREHOUSE_API}/warehouses`;
+      const method = editingWh ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(whForm)
       });
+
       if (res.ok) {
-        setShowImportModal(false);
-        fetchLots();
+        setShowWhModal(false);
+        setEditingWh(null);
+        setWhForm({ code: '', name: '', address: '', latitude: 10.8, longitude: 106.6, isActive: true });
+        fetchWarehouses();
       } else {
         const err = await res.json();
-        alert(`Lỗi: ${err.message || 'Không thể nhập kho'}`);
+        alert(`Lỗi: ${err.message || 'Không thể lưu kho hàng'}`);
       }
     } catch (error) {
-      console.error('Failed to import:', error);
+      console.error('Failed to save warehouse:', error);
     }
   };
 
-  const handleExport = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // DELETE WAREHOUSE
+  const handleDeleteWarehouse = async (id: string) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa kho hàng này khỏi hệ thống?')) return;
     try {
-      const res = await fetch(`${API_BASE}/inventory/lots/export`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ ...exportForm, referenceType: 'MANUAL_ADJUST' })
+      const res = await fetch(`${WAREHOUSE_API}/warehouses/${id}`, {
+        method: 'DELETE'
       });
       if (res.ok) {
-        setShowExportModal(false);
-        fetchLots();
+        fetchWarehouses();
       } else {
-        const err = await res.json();
-        alert(`Lỗi: ${err.message || 'Không thể xuất kho'}`);
+        alert('Không thể xóa kho hàng');
       }
     } catch (error) {
-      console.error('Failed to export:', error);
+      console.error('Failed to delete warehouse:', error);
     }
   };
 
-  // Tính toán KPI
-  const totalLots = lots.length;
-  const expiringLots = lots.filter(l => l.status === 'AT_RISK' || l.status === 'EXPIRED').length;
-  const totalUnits = lots.reduce((sum, l) => sum + l.remainingQty, 0);
+  // TOGGLE ACTIVE STATUS
+  const handleToggleActive = async (wh: Warehouse) => {
+    try {
+      const res = await fetch(`${WAREHOUSE_API}/warehouses/${wh.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...wh, isActive: !wh.isActive })
+      });
+      if (res.ok) {
+        fetchWarehouses();
+      }
+    } catch (error) {
+      console.error('Failed to toggle warehouse active status:', error);
+    }
+  };
+
+  const handleEditClick = (wh: Warehouse) => {
+    setEditingWh(wh);
+    setWhForm({
+      code: wh.code,
+      name: wh.name,
+      address: wh.address,
+      latitude: wh.latitude,
+      longitude: wh.longitude,
+      isActive: wh.isActive
+    });
+    setShowWhModal(true);
+  };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-6)' }}>
-      <div className="flex items-center justify-between">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', background: '#f8fafc', padding: '1.5rem', minHeight: '100vh' }}>
+      
+      {/* Title Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', padding: '1.25rem 1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.04)' }}>
         <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.25rem' }}>Kho hàng & Lô hàng</h2>
-          <p className="text-muted" style={{ fontSize: '0.875rem' }}>Theo dõi lô hàng theo vị trí lưu trữ, ngày nhập, hạn sử dụng và tình trạng bảo quản.</p>
+          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            🏢 Quản Lý Danh Sách Kho Hàng
+          </h2>
+          <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>
+            Thiết lập danh sách các kho hàng vệ tinh, vị trí định vị địa lý GPS và trạng thái hoạt động trên toàn TP.HCM.
+          </p>
         </div>
-        <div className="flex items-center" style={{ gap: 'var(--spacing-3)' }}>
-          {canManage && (
-            <>
-              <button className="btn btn-outline" onClick={() => setShowExportModal(true)}>
-                <Minus size={16} style={{ marginRight: 4 }} /> Xuất kho (Export)
-              </button>
-              <button className="btn btn-primary" onClick={() => setShowImportModal(true)}>
-                <Plus size={16} style={{ marginRight: 4 }} /> Nhập kho (Import)
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--spacing-4)' }}>
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title">Tổng lô hàng</div>
-            <div className="card-icon primary"><Boxes size={18} /></div>
-          </div>
-          <div className="card-value">{totalLots}</div>
-          <div className="card-desc">đang lưu trữ</div>
-        </div>
-        
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title">Cảnh báo HSD</div>
-            <div className="card-icon warning" style={{ backgroundColor: 'var(--color-warning-100)', color: 'var(--color-warning-500)' }}><Clock size={18} /></div>
-          </div>
-          <div className="card-value">{expiringLots}</div>
-          <div className="card-desc">cần xử lý gấp</div>
-        </div>
-
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title">Tổng đơn vị hàng</div>
-            <div className="card-icon primary"><PackageCheck size={18} /></div>
-          </div>
-          <div className="card-value">{totalUnits}</div>
-          <div className="card-desc">số lượng hiện tại</div>
-        </div>
-
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title">Khu vực kho</div>
-            <div className="card-icon primary"><MapPin size={18} /></div>
-          </div>
-          <div className="card-value">3</div>
-          <div className="card-desc">Lạnh - Đông - Khô</div>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between mt-4 mb-2">
-        <h3 className="font-semibold text-lg">Danh sách chi tiết</h3>
-        <div style={{ display: 'flex', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
-          <button 
-            onClick={() => setViewMode('list')}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: viewMode === 'list' ? 'var(--primary)' : 'transparent', color: viewMode === 'list' ? '#fff' : 'var(--text-muted)', border: 'none', cursor: 'pointer', fontWeight: 500 }}
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button
+            onClick={fetchWarehouses}
+            className="btn btn-outline"
+            style={{ borderRadius: '10px', fontWeight: 600, padding: '10px 16px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid #cbd5e1', cursor: 'pointer', backgroundColor: '#fff' }}
           >
-            <List size={16} /> Dạng Bảng
+            <RefreshCw size={16} /> Làm mới
           </button>
-          <button 
-            onClick={() => setViewMode('3d')}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: viewMode === '3d' ? 'var(--primary)' : 'transparent', color: viewMode === '3d' ? '#fff' : 'var(--text-muted)', border: 'none', cursor: 'pointer', fontWeight: 500 }}
+          <button
+            onClick={() => {
+              setEditingWh(null);
+              setWhForm({ code: '', name: '', address: '', latitude: 10.8282, longitude: 106.6802, isActive: true });
+              setShowWhModal(true);
+            }}
+            className="btn btn-primary"
+            style={{ borderRadius: '10px', fontWeight: 600, padding: '10px 16px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#0f766e', color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(15,118,110,0.25)' }}
           >
-            <BoxIcon size={16} /> Sa Bàn 3D VR
+            <Plus size={16} /> Thêm kho hàng mới
           </button>
         </div>
       </div>
 
-      {viewMode === '3d' ? (
-        <ThreeDWarehouse lots={lots} />
-      ) : (
-        <div className="card" style={{ padding: '0' }}>
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Mã Lô Hàng</th>
-                  <th>Sản Phẩm (SKU)</th>
-                  <th>Khu Vực</th>
-                  <th>Vị Trí (Slot)</th>
-                  <th>Số Lượng Còn</th>
-                  <th>Hạn Sử Dụng</th>
-                  <th>Trạng Thái</th>
-                  <th>Rủi Ro</th>
-                </tr>
-              </thead>
-              <tbody>
+      {/* Warehouses Table Grid */}
+      <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #cbd5e1', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.03)', overflow: 'hidden' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ fontSize: '0.98rem', fontWeight: 800, color: '#1e293b' }}>
+            📋 Danh sách các kho ({warehouses.length} kho)
+          </h3>
+        </div>
+        <div className="table-container" style={{ margin: '0' }}>
+          <table className="table" style={{ fontSize: '0.85rem' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f8fafc' }}>
+                <th>Mã Kho</th>
+                <th>Tên Kho Hàng</th>
+                <th>Địa Chỉ Đăng Ký</th>
+                <th>Tọa Độ Vị Trí (Lat, Lng)</th>
+                <th>Trạng Thái</th>
+                <th style={{ textAlign: 'center' }}>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
               {loading ? (
-                <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem' }}>Đang tải dữ liệu...</td></tr>
-              ) : lots.length === 0 ? (
-                <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem' }}>Chưa có lô hàng nào trong kho.</td></tr>
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem' }}>Đang tải danh sách kho hàng...</td></tr>
+              ) : warehouses.length === 0 ? (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>Chưa có kho hàng nào được đăng ký trong hệ thống.</td></tr>
               ) : (
-                lots.map((l) => (
-                  <tr key={l.id}>
-                    <td className="font-semibold">{l.lotCode}</td>
-                    <td className="text-muted">{l.productId}</td>
-                    <td>
-                      <span className="badge badge-neutral" style={{
-                        backgroundColor: l.zone === 'COLD' ? '#e0f2fe' : l.zone === 'FROZEN' ? '#cffafe' : '#fef3c7',
-                        color: l.zone === 'COLD' ? '#0369a1' : l.zone === 'FROZEN' ? '#0891b2' : '#d97706',
-                        border: 'none'
-                      }}>
-                        {l.zone}
+                warehouses.map((wh) => (
+                  <tr key={wh.id}>
+                    <td className="font-semibold" style={{ color: '#0f766e' }}>{wh.code}</td>
+                    <td className="font-medium" style={{ color: '#1e293b' }}>{wh.name}</td>
+                    <td style={{ color: '#475569' }}>
+                      <span style={{ display: 'flex', alignItems: 'start', gap: '4px' }}>
+                        <MapPin size={14} style={{ color: '#0f766e', flexShrink: 0, marginTop: '2px' }} />
+                        {wh.address}
                       </span>
                     </td>
-                    <td className="font-medium">{l.location}</td>
-                    <td><span style={{ fontWeight: 600, color: 'var(--primary)' }}>{l.remainingQty}</span> / {l.quantity}</td>
-                    <td>{new Date(l.expiryDate).toLocaleDateString('vi-VN')}</td>
+                    <td style={{ color: '#64748b' }}>{wh.latitude.toFixed(4)}, {wh.longitude.toFixed(4)}</td>
                     <td>
-                      <span className={`badge badge-${l.status === 'NORMAL' ? 'success' : l.status === 'AT_RISK' ? 'warning' : 'danger'}`}>
-                        {l.status}
-                      </span>
+                      <button
+                        onClick={() => handleToggleActive(wh)}
+                        style={{
+                          border: 'none',
+                          background: 'none',
+                          cursor: 'pointer',
+                          padding: '2px 8px',
+                          borderRadius: '20px',
+                          backgroundColor: wh.isActive ? '#ecfdf5' : '#fef2f2',
+                          color: wh.isActive ? '#065f46' : '#991b1b',
+                          fontSize: '0.68rem',
+                          fontWeight: 800
+                        }}
+                      >
+                        {wh.isActive ? '🟢 Đang hoạt động' : '🔴 Tạm dừng'}
+                      </button>
                     </td>
                     <td>
-                      <div className="progress-bar-bg" style={{ height: '6px', width: '60px', marginTop: '6px' }}>
-                        <div className={`progress-bar-fill ${l.riskScore > 70 ? 'danger' : l.riskScore > 30 ? 'warning' : 'success'}`} style={{ width: `${l.riskScore}%` }}></div>
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                        <button
+                          onClick={() => handleEditClick(wh)}
+                          style={{
+                            border: '1px solid #cbd5e1',
+                            backgroundColor: '#fff',
+                            color: '#475569',
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer'
+                          }}
+                          title="Sửa kho"
+                        >
+                          <Edit2 size={12} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteWarehouse(wh.id)}
+                          style={{
+                            border: '1px solid #fee2e2',
+                            backgroundColor: '#fff',
+                            color: '#ef4444',
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer'
+                          }}
+                          title="Xóa kho"
+                        >
+                          <Trash2 size={12} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -239,91 +266,63 @@ const Inventory = () => {
           </table>
         </div>
       </div>
-      )}
 
-      {/* Modal Import */}
-      {showImportModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="card" style={{ width: '500px', maxWidth: '90%', padding: '1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Nhập Lô Hàng Mới</h3>
-              <button onClick={() => setShowImportModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
+      {/* Modal Add/Edit Warehouse */}
+      {showWhModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="card" style={{ width: '480px', maxWidth: '90%', padding: '1.5rem', borderRadius: '16px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.25rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#1e293b' }}>
+                {editingWh ? 'Cập Nhật Kho Hàng' : 'Đăng Ký Kho Hàng Mới'}
+              </h3>
+              <button onClick={() => setShowWhModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}><X size={20} /></button>
             </div>
             
-            <form onSubmit={handleImport} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', fontWeight: 500 }}>Mã Lô (Lot Code)</label>
-                  <input required type="text" placeholder="VD: LOT-001" value={importForm.lotCode} onChange={e => setImportForm({...importForm, lotCode: e.target.value})} style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)' }} />
-                </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', fontWeight: 500 }}>Mã Sản Phẩm (SKU)</label>
-                  <input required type="text" placeholder="VD: MILK-DALAT-1L" value={importForm.sku} onChange={e => setImportForm({...importForm, sku: e.target.value})} style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)' }} />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', fontWeight: 500 }}>Số lượng</label>
-                  <input required type="number" min="1" value={importForm.quantity || ''} onChange={e => setImportForm({...importForm, quantity: parseInt(e.target.value)})} style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)' }} />
-                </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', fontWeight: 500 }}>Hạn sử dụng</label>
-                  <input required type="date" value={importForm.expiryDate} onChange={e => setImportForm({...importForm, expiryDate: e.target.value})} style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)' }} />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', fontWeight: 500 }}>Khu vực kho</label>
-                  <select value={importForm.zone} onChange={e => setImportForm({...importForm, zone: e.target.value})} style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)' }}>
-                    <option value="COLD">Kho Mát</option>
-                    <option value="FROZEN">Kho Đông Lạnh</option>
-                    <option value="DRY">Kho Khô</option>
-                  </select>
-                </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', fontWeight: 500 }}>Vị trí (Location/Slot)</label>
-                  <input required type="text" placeholder="VD: CL-A1-01" value={importForm.location} onChange={e => setImportForm({...importForm, location: e.target.value})} style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)' }} />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-                <button type="button" onClick={() => setShowImportModal(false)} style={{ padding: '0.5rem 1rem', borderRadius: '4px', border: '1px solid var(--border)', backgroundColor: 'transparent', cursor: 'pointer' }}>Huỷ</button>
-                <button type="submit" className="btn btn-primary" style={{ border: 'none', cursor: 'pointer' }}>Tạo Phiếu Nhập</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Export */}
-      {showExportModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="card" style={{ width: '400px', maxWidth: '90%', padding: '1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Xuất Kho (Trừ Tồn)</h3>
-              <button onClick={() => setShowExportModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
-            </div>
-            
-            <form onSubmit={handleExport} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <label style={{ fontSize: '0.875rem', fontWeight: 500 }}>Mã Lô Hàng (Lot Code)</label>
-                <select required value={exportForm.lotCode} onChange={e => setExportForm({...exportForm, lotCode: e.target.value})} style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)' }}>
-                  <option value="">-- Chọn lô hàng cần xuất --</option>
-                  {lots.filter(l => l.remainingQty > 0).map(l => (
-                    <option key={l.id} value={l.lotCode}>{l.lotCode} (Tồn: {l.remainingQty})</option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <label style={{ fontSize: '0.875rem', fontWeight: 500 }}>Số lượng xuất</label>
-                <input required type="number" min="1" value={exportForm.quantity || ''} onChange={e => setExportForm({...exportForm, quantity: parseInt(e.target.value)})} style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)' }} />
-              </div>
+            <form onSubmit={handleSaveWarehouse} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-                <button type="button" onClick={() => setShowExportModal(false)} style={{ padding: '0.5rem 1rem', borderRadius: '4px', border: '1px solid var(--border)', backgroundColor: 'transparent', cursor: 'pointer' }}>Huỷ</button>
-                <button type="submit" className="btn btn-primary" style={{ border: 'none', cursor: 'pointer' }}>Tiến hành Xuất</button>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#475569' }}>Mã kho (Warehouse Code) *</label>
+                  <input
+                    required
+                    disabled={!!editingWh}
+                    type="text"
+                    placeholder="VD: WH-017"
+                    value={whForm.code}
+                    onChange={e => setWhForm({...whForm, code: e.target.value})}
+                    style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', backgroundColor: editingWh ? '#f1f5f9' : '#fff' }}
+                  />
+                </div>
+                <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#475569' }}>Tên kho hàng *</label>
+                  <input required type="text" placeholder="VD: Kho Hàng Bình Tân" value={whForm.name} onChange={e => setWhForm({...whForm, name: e.target.value})} style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#475569' }}>Địa chỉ kho hàng *</label>
+                <input required type="text" placeholder="Số nhà, tên đường, Phường, Quận, TP.HCM" value={whForm.address} onChange={e => setWhForm({...whForm, address: e.target.value})} style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }} />
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#475569' }}>Vĩ độ (Latitude) *</label>
+                  <input required type="number" step="0.000001" placeholder="VD: 10.7719" value={whForm.latitude} onChange={e => setWhForm({...whForm, latitude: parseFloat(e.target.value) || 0})} style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }} />
+                </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#475569' }}>Kinh độ (Longitude) *</label>
+                  <input required type="number" step="0.000001" placeholder="VD: 106.6669" value={whForm.longitude} onChange={e => setWhForm({...whForm, longitude: parseFloat(e.target.value) || 0})} style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                <input type="checkbox" id="isActiveWh" checked={whForm.isActive} onChange={e => setWhForm({...whForm, isActive: e.target.checked})} style={{ cursor: 'pointer' }} />
+                <label htmlFor="isActiveWh" style={{ fontSize: '0.82rem', fontWeight: 700, color: '#334155', cursor: 'pointer' }}>Kích hoạt hoạt động lập tức</label>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '14px', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>
+                <button type="button" onClick={() => setShowWhModal(false)} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: 'transparent', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700 }}>Huỷ</button>
+                <button type="submit" className="btn btn-primary" style={{ border: 'none', cursor: 'pointer', borderRadius: '8px', padding: '8px 16px', fontSize: '0.82rem', fontWeight: 700, backgroundColor: '#0f766e', color: '#fff' }}>Lưu thông tin</button>
               </div>
             </form>
           </div>
