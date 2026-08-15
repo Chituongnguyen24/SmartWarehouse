@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import { AuthInitializer } from "@/components/auth/AuthInitializer";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 
@@ -20,9 +21,11 @@ export default function RootLayout({
   return (
     <html lang="vi" className={cn("font-sans", geist.variable)}>
       <body>
-        <Header />
-        <main>{children}</main>
-        <Footer />
+        <AuthInitializer>
+          <Header />
+          <main className="overflow-x-hidden">{children}</main>
+          <Footer />
+        </AuthInitializer>
       </body>
     </html>
   );

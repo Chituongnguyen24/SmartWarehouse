@@ -61,6 +61,46 @@ __decorate([
     __metadata("design:type", String)
 ], Product.prototype, "unit", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'float', default: 25000 }),
+    __metadata("design:type", Number)
+], Product.prototype, "price", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'image_url', type: 'text', nullable: true }),
+    __metadata("design:type", String)
+], Product.prototype, "imageUrl", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'text', nullable: true }),
+    __metadata("design:type", String)
+], Product.prototype, "description", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], Product.prototype, "origin", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], Product.prototype, "preservation", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'is_flash_sale', default: false }),
+    __metadata("design:type", Boolean)
+], Product.prototype, "isFlashSale", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'discount_percent', default: 0 }),
+    __metadata("design:type", Number)
+], Product.prototype, "discountPercent", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'float', default: 4.8 }),
+    __metadata("design:type", Number)
+], Product.prototype, "rating", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'sold_count', default: 0 }),
+    __metadata("design:type", Number)
+], Product.prototype, "soldCount", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ default: 100 }),
+    __metadata("design:type", Number)
+], Product.prototype, "stock", void 0);
+__decorate([
     (0, typeorm_1.CreateDateColumn)({ name: 'created_at' }),
     __metadata("design:type", Date)
 ], Product.prototype, "createdAt", void 0);

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, Param, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, HttpCode, HttpStatus, Req } from '@nestjs/common';
 import { UserService } from './user.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -7,13 +7,52 @@ import { UserRole } from './user.entity';
 import { ApiBearerAuth, ApiTags, ApiOperation, ApiBody } from '@nestjs/swagger';
 
 @ApiTags('users')
-@ApiBearerAuth()
 @Controller('users')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class UserController {
   constructor(private userService: UserService) {}
 
+  @Post('onboard')
+  @ApiOperation({ summary: 'Onboard a new customer from Firebase Phone Auth' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        firebaseUid: { type: 'string' },
+        phone: { type: 'string' },
+        name: { type: 'string' },
+      },
+      required: ['firebaseUid', 'phone', 'name'],
+    },
+  })
+  async onboardCustomer(@Body() body: { firebaseUid: string; phone: string; name: string }) {
+    return this.userService.onboardCustomer(body.firebaseUid, body.phone, body.name);
+  }
+
+  @Put('profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update current user profile (name, gender, dob, address)' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        gender: { type: 'string' },
+        dob: { type: 'string', format: 'date' },
+        addressStr: { type: 'string' },
+        lat: { type: 'number' },
+        lng: { type: 'number' },
+      }
+    }
+  })
+  async updateProfile(@Req() req: any, @Body() body: any) {
+    const userId = req.user.id;
+    return this.userService.updateProfile(userId, body);
+  }
+
   @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
   @Roles(UserRole.ADMIN, UserRole.WAREHOUSE_MANAGER)
   @ApiOperation({ summary: 'List all users (Admin & Manager only)' })
   findAll() {
@@ -21,6 +60,8 @@ export class UserController {
   }
 
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new user (Admin only)' })
@@ -41,6 +82,8 @@ export class UserController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete a user by ID (Admin only)' })

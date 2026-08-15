@@ -1,5 +1,9 @@
+"use client";
+
 import { ShoppingCart, Star, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { useCartStore } from '@/lib/store';
 
 interface ProductCardProps {
   id: string;
@@ -11,9 +15,12 @@ interface ProductCardProps {
   rating?: number;
   soldCount?: number;
   totalStock?: number;
+  slug?: string;
+  unit?: string;
 }
 
 export default function ProductCard({ 
+  id,
   name, 
   price, 
   oldPrice, 
@@ -21,29 +28,48 @@ export default function ProductCard({
   imageUrl,
   rating = 4.5,
   soldCount = 0,
-  totalStock = 100
+  totalStock = 100,
+  slug,
+  unit = 'Sản phẩm'
 }: ProductCardProps) {
   const formatPrice = (p: number) => {
     return p.toLocaleString('vi-VN') + ' đ';
   };
 
   const soldPercentage = Math.min(Math.max((soldCount / totalStock) * 100, 0), 100);
-  const isFlashSale = discount && soldCount > 0;
+  const isFlashSale = discount !== undefined && discount > 0 && soldCount > 0;
+  const productUrl = `/san-pham/${slug || id}`;
+  
+  const addToCart = useCartStore(state => state.addToCart);
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault(); // prevent triggering the link wrapping the card if any
+    addToCart({
+      productId: id,
+      name,
+      price,
+      oldPrice,
+      quantity: 1,
+      image: imageUrl,
+      variant: null
+    });
+    // Add visual feedback here if needed (toast)
+  };
 
   return (
-    <div className="bg-white border border-border rounded-xl p-4 transition-all duration-300 relative flex flex-col h-full hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:-translate-y-1 hover:border-primary group">
+    <div className="bg-white border border-border rounded-xl p-3 md:p-4 transition-all duration-300 relative flex flex-col h-full hover:shadow-lg hover:-translate-y-1 hover:border-primary group">
       
       {/* Badges */}
       <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
-        {discount && (
-          <span className="bg-secondary text-white text-xs font-bold px-2.5 py-1 rounded-md shadow-sm">
+        {discount !== undefined && discount > 0 && (
+          <span className="bg-secondary text-white text-xs font-bold px-2.5 py-1 rounded-md shadow-sm pointer-events-none">
             Giảm {discount}%
           </span>
         )}
       </div>
 
       {/* Image with Quick View */}
-      <div className="relative w-full aspect-square mb-4 overflow-hidden rounded-lg bg-gray-50">
+      <Link href={productUrl} className="relative w-full aspect-square mb-4 overflow-hidden rounded-lg bg-gray-50 block">
         <img 
           src={imageUrl} 
           alt={name} 
@@ -52,17 +78,23 @@ export default function ProductCard({
         
         {/* Quick View Button (Shows on hover) */}
         <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-          <button className="bg-white/90 text-primary p-2 rounded-full shadow-lg translate-y-4 group-hover:translate-y-0 transition-all duration-300 hover:bg-primary hover:text-white">
+          <button 
+            className="bg-white/90 text-primary p-2 rounded-full shadow-lg translate-y-4 group-hover:translate-y-0 transition-all duration-300 hover:bg-primary hover:text-white"
+            onClick={(e) => e.preventDefault()}
+          >
             <Eye size={20} />
           </button>
         </div>
-      </div>
+      </Link>
 
       {/* Info */}
       <div className="flex flex-col flex-1">
-        <h4 className="text-sm font-medium mb-1.5 text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors" title={name}>
-          {name}
-        </h4>
+        <Link href={productUrl}>
+          <h4 className="text-sm font-medium mb-1.5 text-foreground leading-snug group-hover:text-primary transition-colors" title={name}>
+            {name}
+          </h4>
+        </Link>
+        <div className="text-[10px] text-muted-foreground mb-1">Đơn vị tính: {unit}</div>
         
         {/* Rating */}
         <div className="flex items-center gap-1 mb-2">
@@ -100,7 +132,11 @@ export default function ProductCard({
         )}
 
         {/* Add to Cart */}
-        <Button variant="outline" className={`w-full font-semibold transition-all duration-300 ${isFlashSale ? '' : 'mt-auto'} border-primary text-primary hover:bg-primary hover:text-white group-hover:bg-primary group-hover:text-white group-hover:shadow-md`}>
+        <Button 
+          onClick={handleAddToCart}
+          variant="outline" 
+          className={`w-full font-semibold transition-all duration-300 ${isFlashSale ? '' : 'mt-auto'} border-primary text-primary hover:bg-primary hover:text-white group-hover:bg-primary group-hover:text-white group-hover:shadow-md rounded-md`}
+        >
           <ShoppingCart size={18} className="mr-2" />
           Thêm vào giỏ
         </Button>

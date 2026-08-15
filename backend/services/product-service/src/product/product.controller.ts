@@ -1,22 +1,34 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../../../../../shared/constants/enums';
-import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 
 @ApiTags('products')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('products')
 export class ProductController {
   constructor(private productService: ProductService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all products' })
-  findAll() {
-    return this.productService.findAll();
+  @ApiOperation({ summary: 'Get all products with pagination and filters' })
+  @ApiQuery({ name: 'keyword', required: false })
+  @ApiQuery({ name: 'category', required: false })
+  @ApiQuery({ name: 'isFlashSale', required: false, type: Boolean })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  findAll(
+    @Query('keyword') keyword?: string,
+    @Query('category') category?: string,
+    @Query('isFlashSale') isFlashSale?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const isFlashSaleBool = isFlashSale === 'true' ? true : isFlashSale === 'false' ? false : undefined;
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 20;
+    return this.productService.findAll(keyword, category, isFlashSaleBool, pageNum, limitNum);
   }
 
   @Get(':id')
@@ -32,6 +44,8 @@ export class ProductController {
   }
 
   @Post()
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Create new product SKU' })
   create(@Body() body: any) {
@@ -39,6 +53,8 @@ export class ProductController {
   }
 
   @Put(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Update product properties' })
   update(@Param('id') id: string, @Body() body: any) {
@@ -46,6 +62,8 @@ export class ProductController {
   }
 
   @Delete(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Delete product SKU (Admin only)' })
   delete(@Param('id') id: string) {

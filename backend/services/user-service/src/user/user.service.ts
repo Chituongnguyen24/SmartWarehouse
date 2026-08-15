@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserRole } from './user.entity';
+import { Address } from './address.entity';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -9,6 +10,8 @@ export class UserService implements OnModuleInit {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(Address)
+    private addressRepository: Repository<Address>,
   ) {}
 
   async onModuleInit() {
@@ -77,6 +80,63 @@ export class UserService implements OnModuleInit {
 
   async remove(id: string): Promise<void> {
     await this.userRepository.delete(id);
+  }
+
+  async onboardCustomer(firebaseUid: string, phone: string, name: string, addressStr?: string, lat?: number, lng?: number): Promise<User> {
+    let user = await this.userRepository.findOneBy({ firebaseUid });
+    let isNewUser = false;
+    if (!user) {
+      isNewUser = true;
+      user = this.userRepository.create({
+        firebaseUid,
+        phone,
+        name,
+        role: UserRole.CUSTOMER,
+        points: 0,
+        tier: 'Thành viên mới',
+      });
+    } else {
+      user.name = name;
+      user.phone = phone;
+    }
+    const savedUser = await this.userRepository.save(user);
+
+    if (isNewUser && addressStr) {
+      const address = this.addressRepository.create({
+        userId: savedUser.id,
+        streetAddress: addressStr,
+        latitude: lat,
+        longitude: lng,
+        isDefault: true,
+      });
+      await this.addressRepository.save(address);
+    }
+
+    return savedUser;
+  }
+
+  async updateProfile(userId: string, data: { name?: string; gender?: string; dob?: Date; addressStr?: string; lat?: number; lng?: number }): Promise<User> {
+    const user = await this.userRepository.findOneBy({ id: userId });
+    if (!user) throw new Error('User not found');
+
+    if (data.name) user.name = data.name;
+    if (data.gender) user.gender = data.gender;
+    if (data.dob) user.dob = data.dob;
+
+    await this.userRepository.save(user);
+
+    if (data.addressStr) {
+      let address = await this.addressRepository.findOneBy({ userId, isDefault: true });
+      if (!address) {
+        address = this.addressRepository.create({ userId, isDefault: true });
+      }
+      address.streetAddress = data.addressStr;
+      if (data.lat !== undefined) address.latitude = data.lat;
+      if (data.lng !== undefined) address.longitude = data.lng;
+      await this.addressRepository.save(address);
+    }
+
+    return user;
   }
 }
 
