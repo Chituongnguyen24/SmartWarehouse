@@ -43,7 +43,38 @@ const DashboardIndex = () => {
   return <Inventory />;
 };
 
+import { useEffect } from 'react';
+
 function App() {
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('warehouse-staff-assignments');
+      if (saved) {
+        const assignments = JSON.parse(saved);
+        let changed = false;
+        const mappings: Record<string, string> = {
+          "WH-001": "Q12", "WH-002": "TD", "WH-003": "BC", "WH-004": "Q7",
+          "WH-005": "BThanh", "WH-006": "GV", "WH-007": "Q1", "WH-008": "Q5",
+          "WH-009": "TB", "WH-010": "BTan", "WH-011": "HM", "WH-012": "NB",
+          "WH-013": "PN", "WH-014": "Q8", "WH-015": "CC", "WH-016": "Q10"
+        };
+        for (const userId in assignments) {
+          const oldCode = assignments[userId];
+          if (mappings[oldCode]) {
+            assignments[userId] = mappings[oldCode];
+            changed = true;
+          }
+        }
+        if (changed) {
+          localStorage.setItem('warehouse-staff-assignments', JSON.stringify(assignments));
+          console.log('[LOCAL STORAGE MIGRATION] Migrated warehouse codes in staff assignments');
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
   return (
     <AuthProvider>
       <BrowserRouter>
