@@ -33,12 +33,37 @@ export class AuthController {
     return this.authService.login(user);
   }
 
+  @Post('firebase-login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Authenticate via Firebase and return JWT' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        firebaseUid: { type: 'string' },
+        phone: { type: 'string' },
+        name: { type: 'string' },
+        address: { type: 'string' },
+        lat: { type: 'number' },
+        lng: { type: 'number' },
+      },
+      required: ['firebaseUid', 'phone', 'name'],
+    },
+  })
+  async firebaseLogin(@Body() body: { firebaseUid: string; phone: string; name: string; address?: string; lat?: number; lng?: number }) {
+    return this.authService.firebaseLogin(body.firebaseUid, body.phone, body.name, body.address, body.lat, body.lng);
+  }
+
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  @Get('profile')
-  @ApiOperation({ summary: 'Get current user profile' })
-  getProfile(@Request() req) {
-    const { passwordHash, ...result } = req.user;
+  @Get('me')
+  @ApiOperation({ summary: 'Get current user profile (using sub from JWT)' })
+  async getMe(@Request() req) {
+    const user = await this.userService.findOneById(req.user.sub || req.user.id);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    const { passwordHash, ...result } = user;
     return result;
   }
 

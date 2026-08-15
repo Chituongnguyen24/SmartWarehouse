@@ -17,7 +17,9 @@ import {
   Leaf,
   LogOut,
   Send,
-  Shield
+  Shield,
+  ArrowDownToLine,
+  ArrowUpFromLine
 } from 'lucide-react';
 import { useAuth, ROLE_LABELS } from '../../contexts/AuthContext';
 import type { UserRole } from '../../contexts/AuthContext';
@@ -37,10 +39,9 @@ const menuItems: MenuItem[] = [
   { path: '/dispatch', label: 'Tiếp nhận & Phân phối đơn', icon: <Send size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF'] },
   { path: '/sales', label: 'Quản lý Kinh doanh', icon: <TrendingUp size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'SALES_STAFF', 'WAREHOUSE_MANAGER'] },
   { path: '/products', label: 'Sản phẩm & SKU', icon: <Package size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN'] },
-  { path: '/inbound', label: 'Nhập kho (Inbound)', icon: <ArrowDownLeft size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF'] },
-  { path: '/outbound', label: 'Xuất kho (Outbound)', icon: <ArrowUpRight size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF'] },
+  { path: '/inbound', label: 'Nhập kho (Inbound)', icon: <ArrowDownToLine size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF'] },
+  { path: '/outbound', label: 'Xuất kho (Outbound)', icon: <ArrowUpFromLine size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF'] },
   { path: '/inventory', label: 'Kho & lô hàng', icon: <Boxes size={18} />, section: 'VẬN HÀNH', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF'] },
-  
   // GIÁM SÁT & AI
   { path: '/ai-alerts', label: 'Cảnh báo AI', icon: <AlertTriangle size={18} />, section: 'GIÁM SÁT & AI', allowedRoles: ['WAREHOUSE_MANAGER'] },
   
@@ -48,7 +49,6 @@ const menuItems: MenuItem[] = [
   { path: '/demand-forecast', label: 'Dự báo nhu cầu', icon: <TrendingUp size={18} />, section: 'TỐI ƯU', allowedRoles: ['SALES_STAFF'] },
   { path: '/transport', label: 'Tối ưu vận chuyển', icon: <Truck size={18} />, section: 'TỐI ƯU', allowedRoles: ['DRIVER'] },
   { path: '/shelf', label: 'Sắp xếp kệ', icon: <Layers size={18} />, section: 'TỐI ƯU', allowedRoles: ['ADMIN', 'WAREHOUSE_STAFF'] },
-  
   // HỆ THỐNG
   { path: '/admin', label: 'Trung tâm Quản trị (Admin)', icon: <Shield size={18} />, section: 'HỆ THỐNG', allowedRoles: ['ADMIN'] },
   { path: '/reports', label: 'Báo cáo', icon: <BarChart3 size={18} />, section: 'HỆ THỐNG', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },

@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "build": "nest build",
-    "start": "nest start",
-    "start:dev": "nest start --watch",
-    "start:prod": "node dist/main"
+    "start": "node dist/backend/services/inbound-service/src/main",
+    "start:dev": "ts-node src/main.ts",
+    "start:prod": "node dist/backend/services/inbound-service/src/main"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",
@@ -20,8 +20,6 @@
     "pg": "^8.11.3",
     "class-validator": "^0.14.0",
     "class-transformer": "^0.5.1",
-    "amqplib": "^0.10.3",
-    "amqp-connection-manager": "^4.1.14",
     "reflect-metadata": "^0.2.1",
     "rxjs": "^7.8.1"
   },

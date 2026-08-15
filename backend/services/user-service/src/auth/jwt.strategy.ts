@@ -18,7 +18,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    const user = await this.userService.findOneByEmail(payload.email);
+    // payload.sub contains the user ID
+    const user = await this.userService.findOneById(payload.sub);
     if (!user) {
       throw new UnauthorizedException('Token is invalid or user no longer exists');
     }

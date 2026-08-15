@@ -26,6 +26,9 @@ import CustomerOrders from './pages/CustomerOrders';
 import CustomerProductDetail from './pages/CustomerProductDetail';
 import CustomerProfile from './pages/CustomerProfile';
 import { WebCartProvider } from './contexts/WebCartContext';
+import InboundOrders from './pages/InboundOrders';
+import OutboundOrders from './pages/OutboundOrders';
+import FEFOExport from './pages/FEFOExport';
 import './styles/global.css';
 import './styles/layout.css';
 import './styles/components.css';
@@ -65,14 +68,19 @@ function App() {
                 <AIAlerts />
               </ProtectedRoute>
             } />
+            <Route path="fefo" element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF']}>
+                <FEFOExport />
+              </ProtectedRoute>
+            } />
             <Route path="inbound" element={
               <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF']}>
-                <InboundOrder />
+                <InboundOrders />
               </ProtectedRoute>
             } />
             <Route path="outbound" element={
               <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF']}>
-                <OutboundOrder />
+                <OutboundOrders />
               </ProtectedRoute>
             } />
             <Route path="dispatch" element={

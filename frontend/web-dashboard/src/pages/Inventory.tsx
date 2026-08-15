@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Boxes, Clock, PackageCheck, MapPin, Plus, Minus, X } from 'lucide-react';
+import { Boxes, Clock, PackageCheck, MapPin, Plus, Minus, X, View, List, Box as BoxIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import ThreeDWarehouse from '../components/ThreeDWarehouse';
 
 const API_BASE = 'http://localhost:3011'; // inventory-service
 
@@ -25,10 +26,11 @@ const Inventory = () => {
   const [loading, setLoading] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | '3d'>('list');
 
   // Form states
   const [importForm, setImportForm] = useState({
-    lotCode: '', productId: '', supplierId: 'SUP-01', expiryDate: '',
+    lotCode: '', sku: '', supplierId: '11111111-1111-1111-1111-111111111111', expiryDate: '',
     quantity: 0, zone: 'COLD', location: ''
   });
   const [exportForm, setExportForm] = useState({
@@ -162,22 +164,43 @@ const Inventory = () => {
         </div>
       </div>
 
-      <div className="card" style={{ padding: '0' }}>
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Mã Lô Hàng</th>
-                <th>Sản Phẩm (ID)</th>
-                <th>Khu Vực</th>
-                <th>Vị Trí (Slot)</th>
-                <th>Số Lượng Còn</th>
-                <th>Hạn Sử Dụng</th>
-                <th>Trạng Thái</th>
-                <th>Rủi Ro</th>
-              </tr>
-            </thead>
-            <tbody>
+      <div className="flex items-center justify-between mt-4 mb-2">
+        <h3 className="font-semibold text-lg">Danh sách chi tiết</h3>
+        <div style={{ display: 'flex', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
+          <button 
+            onClick={() => setViewMode('list')}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: viewMode === 'list' ? 'var(--primary)' : 'transparent', color: viewMode === 'list' ? '#fff' : 'var(--text-muted)', border: 'none', cursor: 'pointer', fontWeight: 500 }}
+          >
+            <List size={16} /> Dạng Bảng
+          </button>
+          <button 
+            onClick={() => setViewMode('3d')}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: viewMode === '3d' ? 'var(--primary)' : 'transparent', color: viewMode === '3d' ? '#fff' : 'var(--text-muted)', border: 'none', cursor: 'pointer', fontWeight: 500 }}
+          >
+            <BoxIcon size={16} /> Sa Bàn 3D VR
+          </button>
+        </div>
+      </div>
+
+      {viewMode === '3d' ? (
+        <ThreeDWarehouse lots={lots} />
+      ) : (
+        <div className="card" style={{ padding: '0' }}>
+          <div className="table-container">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Mã Lô Hàng</th>
+                  <th>Sản Phẩm (SKU)</th>
+                  <th>Khu Vực</th>
+                  <th>Vị Trí (Slot)</th>
+                  <th>Số Lượng Còn</th>
+                  <th>Hạn Sử Dụng</th>
+                  <th>Trạng Thái</th>
+                  <th>Rủi Ro</th>
+                </tr>
+              </thead>
+              <tbody>
               {loading ? (
                 <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem' }}>Đang tải dữ liệu...</td></tr>
               ) : lots.length === 0 ? (
@@ -216,6 +239,7 @@ const Inventory = () => {
           </table>
         </div>
       </div>
+      )}
 
       {/* Modal Import */}
       {showImportModal && (
@@ -233,8 +257,8 @@ const Inventory = () => {
                   <input required type="text" placeholder="VD: LOT-001" value={importForm.lotCode} onChange={e => setImportForm({...importForm, lotCode: e.target.value})} style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)' }} />
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', fontWeight: 500 }}>Mã Sản Phẩm (Product ID)</label>
-                  <input required type="text" placeholder="UUID của sản phẩm" value={importForm.productId} onChange={e => setImportForm({...importForm, productId: e.target.value})} style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)' }} />
+                  <label style={{ fontSize: '0.875rem', fontWeight: 500 }}>Mã Sản Phẩm (SKU)</label>
+                  <input required type="text" placeholder="VD: MILK-DALAT-1L" value={importForm.sku} onChange={e => setImportForm({...importForm, sku: e.target.value})} style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)' }} />
                 </div>
               </div>
 
