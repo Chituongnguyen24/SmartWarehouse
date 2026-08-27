@@ -9,7 +9,7 @@ async function bootstrap() {
     app.enableCors();
     app.useGlobalPipes(new common_1.ValidationPipe({ transform: true, whitelist: true }));
     const config = new swagger_1.DocumentBuilder()
-        .setTitle('CityMart - Product Service')
+        .setTitle('FreshKeep - Product Service')
         .setDescription('Quản lý thông tin sản phẩm, danh mục hàng hóa và yêu cầu bảo quản.')
         .setVersion('1.0')
         .addBearerAuth()

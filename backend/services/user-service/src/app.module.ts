@@ -3,8 +3,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
+import { AuditLogModule } from './audit-log/audit-log.module';
+import { SystemSettingsModule } from './system-settings/system-settings.module';
 import { User } from './user/user.entity';
-import { Address } from './user/address.entity';
+import { AuditLog } from './audit-log/audit-log.entity';
+import { SystemSetting } from './system-settings/system-setting.entity';
 
 @Module({
   imports: [
@@ -19,12 +22,14 @@ import { Address } from './user/address.entity';
         username: config.get<string>('DB_USER', 'postgres'),
         password: config.get<string>('DB_PASSWORD', 'postgres'),
         database: config.get<string>('DB_NAME', 'sfwms_auth'),
-        entities: [User, Address],
+        entities: [User, AuditLog, SystemSetting],
         synchronize: true,
       }),
     }),
     UserModule,
     AuthModule,
+    AuditLogModule,
+    SystemSettingsModule,
   ],
 })
 export class AppModule {}

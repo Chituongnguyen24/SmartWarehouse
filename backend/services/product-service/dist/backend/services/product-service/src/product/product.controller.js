@@ -24,9 +24,8 @@ let ProductController = class ProductController {
     constructor(productService) {
         this.productService = productService;
     }
-    findAll(keyword, category, isFlashSale, page, limit) {
-        const isFlashSaleBool = isFlashSale === 'true' ? true : isFlashSale === 'false' ? false : undefined;
-        return this.productService.findAll(keyword, category, isFlashSaleBool, page, limit);
+    findAll() {
+        return this.productService.findAll();
     }
     findOne(id) {
         return this.productService.findOne(id);
@@ -44,19 +43,9 @@ let ProductController = class ProductController {
 exports.ProductController = ProductController;
 __decorate([
     (0, common_1.Get)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Get all products with pagination and filters' }),
-    (0, swagger_1.ApiQuery)({ name: 'keyword', required: false }),
-    (0, swagger_1.ApiQuery)({ name: 'category', required: false }),
-    (0, swagger_1.ApiQuery)({ name: 'isFlashSale', required: false, type: Boolean }),
-    (0, swagger_1.ApiQuery)({ name: 'page', required: false, type: Number }),
-    (0, swagger_1.ApiQuery)({ name: 'limit', required: false, type: Number }),
-    __param(0, (0, common_1.Query)('keyword')),
-    __param(1, (0, common_1.Query)('category')),
-    __param(2, (0, common_1.Query)('isFlashSale')),
-    __param(3, (0, common_1.Query)('page')),
-    __param(4, (0, common_1.Query)('limit')),
+    (0, swagger_1.ApiOperation)({ summary: 'Get all products' }),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, Number, Number]),
+    __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], ProductController.prototype, "findAll", null);
 __decorate([
@@ -69,9 +58,7 @@ __decorate([
 ], ProductController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Post)(),
-    (0, swagger_1.ApiBearerAuth)(),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.ADMIN),
+    (0, roles_decorator_1.Roles)(enums_1.UserRole.WAREHOUSE_MANAGER, enums_1.UserRole.ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Create new product SKU' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -80,9 +67,7 @@ __decorate([
 ], ProductController.prototype, "create", null);
 __decorate([
     (0, common_1.Put)(':id'),
-    (0, swagger_1.ApiBearerAuth)(),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.ADMIN),
+    (0, roles_decorator_1.Roles)(enums_1.UserRole.WAREHOUSE_MANAGER, enums_1.UserRole.ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Update product properties' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
@@ -92,8 +77,6 @@ __decorate([
 ], ProductController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, swagger_1.ApiBearerAuth)(),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)(enums_1.UserRole.ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Delete product SKU (Admin only)' }),
     __param(0, (0, common_1.Param)('id')),
@@ -103,6 +86,8 @@ __decorate([
 ], ProductController.prototype, "delete", null);
 exports.ProductController = ProductController = __decorate([
     (0, swagger_1.ApiTags)('products'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, common_1.Controller)('products'),
     __metadata("design:paramtypes", [product_service_1.ProductService])
 ], ProductController);

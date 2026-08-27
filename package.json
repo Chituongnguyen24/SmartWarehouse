@@ -8,7 +8,6 @@
     "frontend/web-dashboard",
     "frontend/customer-app",
     "frontend/driver-app",
-    "frontend/customer-web",
     "simulators"
   ],
   "scripts": {
@@ -17,20 +16,19 @@
     "infra:logs": "docker-compose logs -f",
     "customer:start": "npm run start -w frontend/customer-app",
     "driver:start": "npm run start -w frontend/driver-app",
-    "auth:start": "npm run start:dev -w backend/services/auth-service",
-    "user:start": "npm run start:dev -w backend/services/user-service",
     "product:start": "npm run start:dev -w backend/services/product-service",
     "inventory:start": "npm run start:dev -w backend/services/inventory-service",
-    "order:start": "npm run start:dev -w backend/services/order-service",
-    "picking:start": "npm run start:dev -w backend/services/picking-service",
-    "packing:start": "npm run start:dev -w backend/services/packing-service",
-    "delivery:start": "npm run start:dev -w backend/services/delivery-service",
-    "tracking:start": "npm run start:dev -w backend/services/tracking-service",
+    "user:start": "npm run start:dev -w backend/services/user-service",
+    "transport:start": "npm run start:dev -w backend/services/transport-service",
+    "iot:start": "npm run start:dev -w backend/services/iot-service",
+    "ai:start": "npm run start:dev -w backend/services/ai-service",
     "notification:start": "npm run start:dev -w backend/services/notification-service",
+    "warehouse:start": "npm run start:dev -w backend/services/warehouse-service",
+    "inbound:start": "npm run start:dev -w backend/services/inbound-service",
+    "outbound:start": "npm run start:dev -w backend/services/outbound-service",
     "report:start": "npm run start:dev -w backend/services/report-service",
     "simulator:start": "npm run start -w simulators",
-    "customer-web:start": "npm run dev -w frontend/customer-web",
-    "backend:all": "concurrently \"npm run auth:start\" \"npm run user:start\" \"npm run product:start\" \"npm run inventory:start\" \"npm run order:start\" \"npm run picking:start\" \"npm run packing:start\" \"npm run delivery:start\" \"npm run tracking:start\" \"npm run notification:start\" \"npm run report:start\"",
+    "backend:all": "concurrently \"npm run product:start\" \"npm run inventory:start\" \"npm run user:start\" \"npm run transport:start\" \"npm run iot:start\" \"npm run ai:start\" \"npm run notification:start\" \"npm run warehouse:start\" \"npm run inbound:start\" \"npm run outbound:start\" \"npm run report:start\"",
     "install:all": "npm install --legacy-peer-deps"
   },
   "devDependencies": {
@@ -43,6 +41,7 @@
     "@nestjs/passport": "^11.0.5",
     "bcrypt": "^6.0.0",
     "passport": "^0.7.0",
-    "passport-jwt": "^4.0.1"
+    "passport-jwt": "^4.0.1",
+    "pg": "^8.23.0"
   }
 }

@@ -21,6 +21,9 @@ import UserProfile from './pages/UserProfile';
 import Users from './pages/Users';
 import ShelfArrangement from './pages/ShelfArrangement';
 import Settings from './pages/Settings';
+import CategoryManagement from './pages/CategoryManagement';
+import SupplierManagement from './pages/SupplierManagement';
+import AuditLog from './pages/AuditLog';
 import CustomerLayout from './components/layout/CustomerLayout';
 import CustomerStorefront from './pages/CustomerStorefront';
 import CustomerCart from './pages/CustomerCart';
@@ -28,9 +31,6 @@ import CustomerOrders from './pages/CustomerOrders';
 import CustomerProductDetail from './pages/CustomerProductDetail';
 import CustomerProfile from './pages/CustomerProfile';
 import { WebCartProvider } from './contexts/WebCartContext';
-import InboundOrders from './pages/InboundOrders';
-import OutboundOrders from './pages/OutboundOrders';
-import FEFOExport from './pages/FEFOExport';
 import './styles/global.css';
 import './styles/layout.css';
 import './styles/components.css';
@@ -46,38 +46,7 @@ const DashboardIndex = () => {
   return <Inventory />;
 };
 
-import { useEffect } from 'react';
-
 function App() {
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('warehouse-staff-assignments');
-      if (saved) {
-        const assignments = JSON.parse(saved);
-        let changed = false;
-        const mappings: Record<string, string> = {
-          "WH-001": "Q12", "WH-002": "TD", "WH-003": "BC", "WH-004": "Q7",
-          "WH-005": "BThanh", "WH-006": "GV", "WH-007": "Q1", "WH-008": "Q5",
-          "WH-009": "TB", "WH-010": "BTan", "WH-011": "HM", "WH-012": "NB",
-          "WH-013": "PN", "WH-014": "Q8", "WH-015": "CC", "WH-016": "Q10"
-        };
-        for (const userId in assignments) {
-          const oldCode = assignments[userId];
-          if (mappings[oldCode]) {
-            assignments[userId] = mappings[oldCode];
-            changed = true;
-          }
-        }
-        if (changed) {
-          localStorage.setItem('warehouse-staff-assignments', JSON.stringify(assignments));
-          console.log('[LOCAL STORAGE MIGRATION] Migrated warehouse codes in staff assignments');
-        }
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }, []);
-
   return (
     <AuthProvider>
       <BrowserRouter>
@@ -121,19 +90,14 @@ function App() {
                 <AIAlerts />
               </ProtectedRoute>
             } />
-            <Route path="fefo" element={
-              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF']}>
-                <FEFOExport />
-              </ProtectedRoute>
-            } />
             <Route path="inbound" element={
               <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF']}>
-                <InboundOrders />
+                <InboundOrder />
               </ProtectedRoute>
             } />
             <Route path="outbound" element={
               <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF']}>
-                <OutboundOrders />
+                <OutboundOrder />
               </ProtectedRoute>
             } />
             <Route path="dispatch" element={
@@ -180,6 +144,21 @@ function App() {
             <Route path="settings" element={
               <ProtectedRoute allowedRoles={['ADMIN']}>
                 <Settings />
+              </ProtectedRoute>
+            } />
+            <Route path="categories" element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <CategoryManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="suppliers" element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <SupplierManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="audit-log" element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <AuditLog />
               </ProtectedRoute>
             } />
           </Route>

@@ -17,54 +17,64 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const product_entity_1 = require("./product.entity");
-const product_seed_data_1 = require("./product.seed-data");
 let ProductService = class ProductService {
     constructor(productRepository) {
         this.productRepository = productRepository;
     }
     async onModuleInit() {
-        try {
-            await this.productRepository.createQueryBuilder()
-                .delete()
-                .where("category IN (:...cats)", { cats: ['Dairy', 'Meat & Seafood', 'Dry Goods', 'Produce'] })
-                .execute();
-        }
-        catch (e) {
-            console.log('No legacy categories to delete');
-        }
-        for (const item of product_seed_data_1.LARGE_SEED_PRODUCTS) {
+        const seedProducts = [
+            {
+                sku: 'MILK-DALAT-1L',
+                name: 'Dalat Milk Fresh Milk 1L',
+                category: 'Dairy',
+                storageType: product_entity_1.StorageType.COLD,
+                minTemp: 0,
+                maxTemp: 4,
+                maxHumidity: 80,
+                unit: 'box',
+            },
+            {
+                sku: 'BEEF-STEAK-US',
+                name: 'US Beef Ribeye Steak 500g',
+                category: 'Meat & Seafood',
+                storageType: product_entity_1.StorageType.FROZEN,
+                minTemp: -25,
+                maxTemp: -18,
+                maxHumidity: 65,
+                unit: 'pack',
+            },
+            {
+                sku: 'NOODLE-HAOHAO',
+                name: 'Hao Hao Sour & Spicy Shrimp Noodles',
+                category: 'Dry Goods',
+                storageType: product_entity_1.StorageType.DRY,
+                minTemp: 15,
+                maxTemp: 35,
+                maxHumidity: 70,
+                unit: 'box',
+            },
+            {
+                sku: 'TOMATO-DALAT',
+                name: 'Dalat Organic Tomatoes 1kg',
+                category: 'Produce',
+                storageType: product_entity_1.StorageType.COLD,
+                minTemp: 4,
+                maxTemp: 10,
+                maxHumidity: 90,
+                unit: 'pack',
+            },
+        ];
+        for (const item of seedProducts) {
             const exists = await this.productRepository.findOneBy({ sku: item.sku });
-            if (exists) {
-                await this.productRepository.save({ ...exists, ...item });
-            }
-            else {
+            if (!exists) {
                 const prod = this.productRepository.create(item);
                 await this.productRepository.save(prod);
                 console.log(`Seeded product SKU: ${item.sku}`);
             }
         }
     }
-    async findAll(keyword, category, isFlashSale, page = 1, limit = 20) {
-        const queryBuilder = this.productRepository.createQueryBuilder('product');
-        if (keyword) {
-            queryBuilder.andWhere('product.name ILIKE :keyword', { keyword: `%${keyword}%` });
-        }
-        if (category) {
-            queryBuilder.andWhere('product.category = :category', { category });
-        }
-        if (isFlashSale !== undefined) {
-            queryBuilder.andWhere('product.isFlashSale = :isFlashSale', { isFlashSale });
-        }
-        const skip = (page - 1) * limit;
-        queryBuilder.skip(skip).take(limit);
-        queryBuilder.orderBy('product.soldCount', 'DESC');
-        const [items, total] = await queryBuilder.getManyAndCount();
-        return {
-            items,
-            total,
-            page: Number(page),
-            totalPages: Math.ceil(total / limit)
-        };
+    async findAll() {
+        return this.productRepository.find();
     }
     async findOne(id) {
         return this.productRepository.findOneBy({ id });

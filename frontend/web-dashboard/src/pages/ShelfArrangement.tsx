@@ -33,6 +33,10 @@ const ShelfArrangement: React.FC = () => {
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [assignForm, setAssignForm] = useState({ lotId: '', lotCode: '', productSku: '', weightKg: 0 });
 
+  // New states for 2D Map
+  const [viewMode, setViewMode] = useState<'CAPACITY' | 'TEMPERATURE'>('CAPACITY');
+  const [searchQuery, setSearchQuery] = useState('');
+
   const canManage = user?.role === 'ADMIN' || user?.role === 'WAREHOUSE_MANAGER' || user?.role === 'WAREHOUSE_STAFF';
 
   const fetchShelves = async (zone: string) => {
@@ -146,7 +150,7 @@ const ShelfArrangement: React.FC = () => {
       </div>
 
       {/* Zone Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
         {(Object.keys(zoneInfo) as Array<keyof typeof zoneInfo>).map(zoneKey => (
           <button
             key={zoneKey}
@@ -172,25 +176,63 @@ const ShelfArrangement: React.FC = () => {
         ))}
       </div>
 
+      {/* TOOLBAR: Search & View Mode */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ position: 'relative', width: '300px' }}>
+          <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          <input 
+            type="text" 
+            placeholder="Tìm kiếm mã lô, SKU hoặc vị trí..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ width: '100%', padding: '0.6rem 1rem 0.6rem 2.5rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.875rem' }}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem', backgroundColor: 'var(--bg-light)', padding: '0.25rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+          <button 
+            onClick={() => setViewMode('CAPACITY')}
+            style={{ padding: '0.5rem 1rem', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 500, backgroundColor: viewMode === 'CAPACITY' ? '#fff' : 'transparent', boxShadow: viewMode === 'CAPACITY' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', color: viewMode === 'CAPACITY' ? 'var(--text)' : 'var(--text-muted)' }}
+          >
+            Sức chứa (Capacity)
+          </button>
+          <button 
+            onClick={() => setViewMode('TEMPERATURE')}
+            style={{ padding: '0.5rem 1rem', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 500, backgroundColor: viewMode === 'TEMPERATURE' ? '#fff' : 'transparent', boxShadow: viewMode === 'TEMPERATURE' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', color: viewMode === 'TEMPERATURE' ? 'var(--text)' : 'var(--text-muted)' }}
+          >
+            Bản đồ nhiệt (Heatmap)
+          </button>
+        </div>
+      </div>
+
       {/* Legend & Stats */}
       <div className="card" style={{ padding: 'var(--spacing-4)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.825rem' }}>
-            <div style={{ width: 16, height: 16, border: '2px solid #10b981', borderRadius: 4, backgroundColor: 'rgba(16, 185, 129, 0.1)' }}></div>
-            <span>Trống (EMPTY)</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.825rem' }}>
-            <div style={{ width: 16, height: 16, border: '1px solid #3b82f6', borderRadius: 4, backgroundColor: 'rgba(59, 130, 246, 0.4)' }}></div>
-            <span>Đang lưu trữ (OCCUPIED)</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.825rem' }}>
-            <div style={{ width: 16, height: 16, border: '1px solid #2563eb', borderRadius: 4, backgroundColor: '#2563eb' }}></div>
-            <span>Đầy (FULL)</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.825rem' }}>
-            <div style={{ width: 16, height: 16, border: '1px solid #f59e0b', borderRadius: 4, backgroundColor: 'rgba(245, 158, 11, 0.2)', backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(245, 158, 11, 0.5) 3px, rgba(245, 158, 11, 0.5) 6px)' }}></div>
-            <span>Bảo trì (MAINTENANCE)</span>
-          </div>
+          {viewMode === 'CAPACITY' ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.825rem' }}>
+                <div style={{ width: 16, height: 16, border: '2px solid #10b981', borderRadius: 4, backgroundColor: 'rgba(16, 185, 129, 0.1)' }}></div>
+                <span>Trống</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.825rem' }}>
+                <div style={{ width: 16, height: 16, border: '1px solid #3b82f6', borderRadius: 4, backgroundColor: 'rgba(59, 130, 246, 0.4)' }}></div>
+                <span>Đang dùng</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.825rem' }}>
+                <div style={{ width: 16, height: 16, border: '1px solid #2563eb', borderRadius: 4, backgroundColor: '#2563eb' }}></div>
+                <span>Đầy</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.825rem' }}>
+                <div style={{ width: 16, height: 16, border: '1px solid #f59e0b', borderRadius: 4, backgroundColor: 'rgba(245, 158, 11, 0.2)', backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(245, 158, 11, 0.5) 3px, rgba(245, 158, 11, 0.5) 6px)' }}></div>
+                <span>Bảo trì</span>
+              </div>
+            </>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.825rem' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Lạnh</span>
+              <div style={{ width: '150px', height: '12px', borderRadius: '6px', background: 'linear-gradient(90deg, #3b82f6, #10b981, #f59e0b, #ef4444)' }}></div>
+              <span style={{ color: 'var(--text-muted)' }}>Nóng (Cảnh báo)</span>
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.5rem 1rem', backgroundColor: 'var(--bg-light)', borderRadius: '8px', border: '1px solid var(--border)' }}>
@@ -210,7 +252,7 @@ const ShelfArrangement: React.FC = () => {
         </div>
       </div>
 
-      {/* Shelves Grid */}
+      {/* 2D Floor Plan Grid */}
       {loading ? (
         <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
           Đang tải dữ liệu sơ đồ...
@@ -222,93 +264,194 @@ const ShelfArrangement: React.FC = () => {
         </div>
       ) : (
         <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-          gap: 'var(--spacing-6)'
+          backgroundColor: '#e2e8f0', // Warehouse floor color
+          border: '4px solid #cbd5e1', // Wall
+          borderRadius: '12px',
+          padding: '3rem',
+          position: 'relative',
+          overflowX: 'auto',
+          minHeight: '600px',
+          boxShadow: 'inset 0 4px 12px rgba(0,0,0,0.05)'
         }}>
-          {shelves.map(shelf => (
-            <div key={shelf.shelfCode} className="card" style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Layers size={18} className="text-primary" />
-                  <span style={{ fontWeight: 600 }}>{shelf.shelfName}</span>
-                </div>
-                <span className="badge" style={{ backgroundColor: 'var(--bg-light)', color: 'var(--text)', border: '1px solid var(--border)' }}>
-                  {shelf.usedSlots} / {shelf.maxSlots}
-                </span>
-              </div>
-              
-              <div style={{ padding: '1rem', flexGrow: 1 }}>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(4, 1fr)',
-                  gap: '0.5rem',
-                  alignContent: 'start'
-                }}>
-                  {shelf.slots.map(slot => {
-                    let bg = '';
-                    let border = '';
-                    let title = slot.code;
+          {/* Warehouse Entry Doors Visual */}
+          <div style={{ position: 'absolute', bottom: -4, left: '50%', transform: 'translateX(-50%)', width: '120px', height: '8px', backgroundColor: '#3b82f6', borderRadius: '4px' }}></div>
+          <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', letterSpacing: '2px' }}>CỬA XUẤT NHẬP HÀNG</div>
 
-                    if (slot.status === 'EMPTY') {
-                      bg = 'rgba(16, 185, 129, 0.05)';
-                      border = '1px solid rgba(16, 185, 129, 0.3)';
-                      title += ' (Trống)';
-                    } else if (slot.status === 'OCCUPIED') {
-                      bg = 'rgba(59, 130, 246, 0.2)';
-                      border = '1px solid rgba(59, 130, 246, 0.4)';
-                      title += ` - Lô: ${slot.lotCode}`;
-                    } else if (slot.status === 'FULL') {
-                      bg = 'rgba(59, 130, 246, 0.8)';
-                      border = '1px solid #2563eb';
-                      title += ` - Lô: ${slot.lotCode} (Đầy)`;
-                    } else if (slot.status === 'MAINTENANCE') {
-                      bg = 'rgba(245, 158, 11, 0.1)';
-                      border = '1px dashed #f59e0b';
-                      title += ' (Bảo trì)';
-                    }
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '4rem',
+            justifyContent: 'center',
+            alignItems: 'flex-start'
+          }}>
+            {/* Group shelves by pairs to form aisles */}
+            {Array.from({ length: Math.ceil(shelves.length / 2) }).map((_, rowIndex) => {
+              const shelfA = shelves[rowIndex * 2];
+              const shelfB = shelves[rowIndex * 2 + 1];
+              return (
+                <div key={rowIndex} style={{ display: 'flex', gap: '2rem', backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px dashed #cbd5e1', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
+                  
+                  {/* Rack A */}
+                  {shelfA && (
+                    <div style={{ display: 'flex', flexDirection: 'column', width: '220px' }}>
+                      <div style={{ textAlign: 'center', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: '#475569' }}>{shelfA.shelfName}</div>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(4, 1fr)',
+                        gap: '4px',
+                        backgroundColor: '#64748b', // Steel rack color
+                        padding: '6px',
+                        borderRadius: '4px'
+                      }}>
+                        {shelfA.slots.map((slot, index) => {
+                          const isHighlighted = searchQuery && (slot.code.toLowerCase().includes(searchQuery.toLowerCase()) || (slot.lotCode && slot.lotCode.toLowerCase().includes(searchQuery.toLowerCase())) || (slot.productSku && slot.productSku.toLowerCase().includes(searchQuery.toLowerCase())));
+                          
+                          let bg = '';
+                          let border = '';
+                          let title = slot.code;
 
-                    return (
-                      <div
-                        key={slot.id}
-                        title={title}
-                        onClick={() => handleSlotClick(slot)}
-                        style={{
-                          aspectRatio: '1',
-                          borderRadius: '4px',
-                          backgroundColor: bg,
-                          border: border,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '0.65rem',
-                          fontWeight: 500,
-                          color: slot.status === 'FULL' ? '#fff' : 'var(--text-muted)',
-                          cursor: canManage ? 'pointer' : 'default',
-                          position: 'relative',
-                          overflow: 'hidden',
-                          transition: 'transform 0.1s, box-shadow 0.1s',
-                          ...(slot.status === 'MAINTENANCE' ? { backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(245, 158, 11, 0.3) 5px, rgba(245, 158, 11, 0.3) 10px)' } : {})
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!canManage) return;
-                          e.currentTarget.style.transform = 'scale(1.05)';
-                          e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!canManage) return;
-                          e.currentTarget.style.transform = 'scale(1)';
-                          e.currentTarget.style.boxShadow = 'none';
-                        }}
-                      >
-                        {slot.code.split('-').pop()}
+                          if (viewMode === 'CAPACITY') {
+                            if (slot.status === 'EMPTY') {
+                              bg = '#f8fafc'; border = '1px solid #10b981'; title += ' (Trống)';
+                            } else if (slot.status === 'OCCUPIED') {
+                              bg = 'rgba(59, 130, 246, 0.4)'; border = '1px solid #3b82f6'; title += ` - Lô: ${slot.lotCode}`;
+                            } else if (slot.status === 'FULL') {
+                              bg = '#2563eb'; border = '1px solid #1d4ed8'; title += ` - Lô: ${slot.lotCode} (Đầy)`;
+                            } else if (slot.status === 'MAINTENANCE') {
+                              bg = '#f59e0b'; border = '1px solid #d97706'; title += ' (Bảo trì)';
+                            }
+                          } else {
+                            // FAKE TEMPERATURE HEATMAP BASED ON INDEX
+                            const tempFactor = (index % 4) / 3; // 0 to 1
+                            if (slot.status === 'EMPTY') {
+                                bg = '#f8fafc'; border = '1px solid #cbd5e1';
+                            } else {
+                                if (tempFactor < 0.3) bg = '#3b82f6'; // Cold
+                                else if (tempFactor < 0.7) bg = '#10b981'; // Optimal
+                                else if (tempFactor < 0.9) bg = '#f59e0b'; // Warm
+                                else bg = '#ef4444'; // Hot warning
+                                border = 'none';
+                                title += ' - Nhiệt độ mô phỏng';
+                            }
+                          }
+
+                          return (
+                            <div
+                              key={slot.id}
+                              title={title}
+                              onClick={() => handleSlotClick(slot)}
+                              style={{
+                                aspectRatio: '1',
+                                borderRadius: '2px',
+                                backgroundColor: bg,
+                                border: border,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '0.55rem',
+                                fontWeight: 700,
+                                color: (slot.status === 'FULL' || viewMode === 'TEMPERATURE') && slot.status !== 'EMPTY' ? '#fff' : '#334155',
+                                cursor: canManage ? 'pointer' : 'default',
+                                position: 'relative',
+                                boxShadow: isHighlighted ? '0 0 0 4px rgba(234, 179, 8, 0.5), 0 0 15px rgba(234, 179, 8, 0.8)' : 'none',
+                                zIndex: isHighlighted ? 10 : 1,
+                                transform: isHighlighted ? 'scale(1.1)' : 'scale(1)',
+                                transition: 'all 0.2s',
+                              }}
+                            >
+                              {slot.code.split('-').pop()}
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
+                    </div>
+                  )}
+
+                  {/* Aisle (Lối đi) */}
+                  <div style={{ width: '60px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ height: '100%', borderLeft: '2px dashed #94a3b8' }}></div>
+                    <span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: '0.7rem', color: '#94a3b8', margin: '1rem 0', fontWeight: 600, letterSpacing: '2px' }}>LỐI ĐI</span>
+                    <div style={{ height: '100%', borderLeft: '2px dashed #94a3b8' }}></div>
+                  </div>
+
+                  {/* Rack B */}
+                  {shelfB && (
+                    <div style={{ display: 'flex', flexDirection: 'column', width: '220px' }}>
+                      <div style={{ textAlign: 'center', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: '#475569' }}>{shelfB.shelfName}</div>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(4, 1fr)',
+                        gap: '4px',
+                        backgroundColor: '#64748b',
+                        padding: '6px',
+                        borderRadius: '4px'
+                      }}>
+                        {shelfB.slots.map((slot, index) => {
+                          const isHighlighted = searchQuery && (slot.code.toLowerCase().includes(searchQuery.toLowerCase()) || (slot.lotCode && slot.lotCode.toLowerCase().includes(searchQuery.toLowerCase())) || (slot.productSku && slot.productSku.toLowerCase().includes(searchQuery.toLowerCase())));
+                          
+                          let bg = '';
+                          let border = '';
+                          let title = slot.code;
+
+                          if (viewMode === 'CAPACITY') {
+                            if (slot.status === 'EMPTY') {
+                              bg = '#f8fafc'; border = '1px solid #10b981'; title += ' (Trống)';
+                            } else if (slot.status === 'OCCUPIED') {
+                              bg = 'rgba(59, 130, 246, 0.4)'; border = '1px solid #3b82f6'; title += ` - Lô: ${slot.lotCode}`;
+                            } else if (slot.status === 'FULL') {
+                              bg = '#2563eb'; border = '1px solid #1d4ed8'; title += ` - Lô: ${slot.lotCode} (Đầy)`;
+                            } else if (slot.status === 'MAINTENANCE') {
+                              bg = '#f59e0b'; border = '1px solid #d97706'; title += ' (Bảo trì)';
+                            }
+                          } else {
+                            const tempFactor = (index % 4) / 3;
+                            if (slot.status === 'EMPTY') {
+                                bg = '#f8fafc'; border = '1px solid #cbd5e1';
+                            } else {
+                                if (tempFactor < 0.3) bg = '#3b82f6';
+                                else if (tempFactor < 0.7) bg = '#10b981';
+                                else if (tempFactor < 0.9) bg = '#f59e0b';
+                                else bg = '#ef4444';
+                                border = 'none';
+                                title += ' - Nhiệt độ mô phỏng';
+                            }
+                          }
+
+                          return (
+                            <div
+                              key={slot.id}
+                              title={title}
+                              onClick={() => handleSlotClick(slot)}
+                              style={{
+                                aspectRatio: '1',
+                                borderRadius: '2px',
+                                backgroundColor: bg,
+                                border: border,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '0.55rem',
+                                fontWeight: 700,
+                                color: (slot.status === 'FULL' || viewMode === 'TEMPERATURE') && slot.status !== 'EMPTY' ? '#fff' : '#334155',
+                                cursor: canManage ? 'pointer' : 'default',
+                                position: 'relative',
+                                boxShadow: isHighlighted ? '0 0 0 4px rgba(234, 179, 8, 0.5), 0 0 15px rgba(234, 179, 8, 0.8)' : 'none',
+                                zIndex: isHighlighted ? 10 : 1,
+                                transform: isHighlighted ? 'scale(1.1)' : 'scale(1)',
+                                transition: 'all 0.2s',
+                              }}
+                            >
+                              {slot.code.split('-').pop()}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </div>
-          ))}
+              );
+            })}
+          </div>
         </div>
       )}
 

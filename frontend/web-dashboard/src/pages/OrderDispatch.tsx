@@ -150,7 +150,7 @@ const OrderDispatch = () => {
             unit: i.unit || 'Cái',
           })),
           warehouseId: o.warehouseId || '',
-          warehouseCode: o.warehouseCode || 'Q12',
+          warehouseCode: o.warehouseCode || 'WH-001',
         }));
         setOrders(mapped);
       }

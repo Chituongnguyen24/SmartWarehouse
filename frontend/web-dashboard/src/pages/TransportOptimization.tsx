@@ -387,7 +387,7 @@ const TransportOptimization = () => {
                     <div style={{ backgroundColor: '#f8fafc', padding: '10px 14px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '14px' }}>
                       <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#475569', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Chi tiết giỏ hàng</div>
                       {order.items?.map((it: any, sIdx: number) => (
-                        <div key={sIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#475569', paddingVertical: '4px', borderBottom: sIdx === order.items.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
+                        <div key={sIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#475569', paddingTop: '4px', paddingBottom: '4px', borderBottom: sIdx === order.items.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
                           <span>📦 {it.productName || it.sku}</span>
                           <strong style={{ color: '#1e293b' }}>x{it.requestedQuantity}</strong>
                         </div>
@@ -469,29 +469,29 @@ const TransportOptimization = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Danh mục kiểm tra chất lượng</div>
                 
-                <TouchableOpacity
+                <div
                   onClick={() => setChkTemp(!chkTemp)}
                   style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
                 >
                   {chkTemp ? <CheckSquare size={20} color="#7c3aed" /> : <Square size={20} color="#cbd5e1" />}
                   <span style={{ fontSize: '0.8rem', color: '#334155' }}>Nhiệt độ thùng lạnh an toàn chuẩn 2.8°C</span>
-                </TouchableOpacity>
+                </div>
 
-                <TouchableOpacity
+                <div
                   onClick={() => setChkPack(!chkPack)}
                   style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
                 >
                   {chkPack ? <CheckSquare size={20} color="#7c3aed" /> : <Square size={20} color="#cbd5e1" />}
                   <span style={{ fontSize: '0.8rem', color: '#334155' }}>Đóng gói nguyên vẹn, không dập nát thực phẩm</span>
-                </TouchableOpacity>
+                </div>
 
-                <TouchableOpacity
+                <div
                   onClick={() => setChkSign(!chkSign)}
                   style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
                 >
                   {chkSign ? <CheckSquare size={20} color="#7c3aed" /> : <Square size={20} color="#cbd5e1" />}
                   <span style={{ fontSize: '0.8rem', color: '#334155' }}>Khách hàng ký nhận biên bản bàn giao</span>
-                </TouchableOpacity>
+                </div>
               </div>
 
               {/* Photo Evidence upload preview */}
@@ -693,7 +693,7 @@ const TransportOptimization = () => {
                     {/* Timeline stops */}
                     <div style={{ display: 'flex', flexDirection: 'column', position: 'relative', paddingLeft: '15px' }}>
                       <div style={{ position: 'absolute', left: '5px', top: '5px', bottom: '5px', width: '2px', backgroundColor: '#cbd5e1' }}></div>
-                      {route.stops.map((stop, sIdx) => (
+                      {route.stops.map((stop: any, sIdx: number) => (
                         <div key={sIdx} style={{ fontSize: '0.75rem', marginBottom: sIdx === route.stops.length - 1 ? '0' : '6px', position: 'relative' }}>
                           <span style={{ position: 'absolute', left: '-14px', top: '3px', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: stop.id === 'depot' ? '#ef4444' : '#10b981', zIndex: 1 }}></span>
                           <span style={{ color: stop.id === 'depot' ? '#ef4444' : '#1e293b', fontWeight: stop.id === 'depot' ? '800' : '500' }}>

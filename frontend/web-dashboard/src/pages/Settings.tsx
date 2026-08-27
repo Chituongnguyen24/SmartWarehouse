@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Cpu, Server, Terminal, Save, CheckCircle, RefreshCw } from 'lucide-react';
+import { Cpu, Server, Terminal, Save, CheckCircle, RefreshCw, HardDrive, Download, Mail } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface ServiceStatus {
@@ -27,6 +27,16 @@ const Settings = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isTraining, setIsTraining] = useState(false);
   const [trainSuccess, setTrainSuccess] = useState(false);
+
+  // Backup & Email Settings State
+  const [backupSchedule, setBackupSchedule] = useState('daily');
+  const [backupRetention, setBackupRetention] = useState(30);
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [backupSuccess, setBackupSuccess] = useState(false);
+  const [emailHost, setEmailHost] = useState('smtp.gmail.com');
+  const [emailPort, setEmailPort] = useState(587);
+  const [emailUser, setEmailUser] = useState('noreply@sfwms.vn');
+  const [emailSaveSuccess, setEmailSaveSuccess] = useState(false);
 
   // Microservices & Infra
   const [services] = useState<ServiceStatus[]>([
@@ -98,24 +108,97 @@ const Settings = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleSaveAISettings = (e: React.FormEvent) => {
+  // Save general settings helper
+  const saveToBackend = async (updates: Record<string, string>) => {
+    try {
+      await fetch('http://localhost:3012/system-settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(updates)
+      });
+    } catch (err) {
+      console.error('Failed to save settings', err);
+    }
+  };
+
+  const handleSaveAISettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    await saveToBackend({ forecastCycle, aiModel, riskThreshold: riskThreshold.toString(), trainCycle });
     setSaveSuccess(true);
     setLogs(prev => [...prev, `[${new Date().toISOString()}] [ADMIN] Configuration updated: AI forecasting cycle = ${forecastCycle}, model = ${aiModel}, riskThreshold = ${riskThreshold}%, retraining = ${trainCycle}.`]);
     setTimeout(() => setSaveSuccess(false), 3000);
   };
 
-  const handleRetrainModel = () => {
+  const handleRetrainModel = async () => {
     setIsTraining(true);
     setLogs(prev => [...prev, `[${new Date().toISOString()}] [AI SERVICE] Manual retraining triggered by Admin. Loading historical Postgres & InfluxDB datasets...`]);
     
-    setTimeout(() => {
+    try {
+      const res = await fetch('http://localhost:3012/system-settings/ai/retrain', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      
       setIsTraining(false);
       setTrainSuccess(true);
-      setLogs(prev => [...prev, `[${new Date().toISOString()}] [AI SERVICE] Retraining successfully completed in 2.4s. New model weights exported to MinIO. MLflow run ID: run_f86a7a2a.`]);
+      setLogs(prev => [...prev, `[${new Date().toISOString()}] [AI SERVICE] Retraining successfully completed. Job ID: ${data.jobId}. New model weights exported.`]);
       setTimeout(() => setTrainSuccess(false), 3000);
-    }, 2500);
+    } catch (err) {
+      setIsTraining(false);
+      setLogs(prev => [...prev, `[${new Date().toISOString()}] [ERROR] Failed to trigger retraining.`]);
+    }
   };
+
+  const handleSaveBackup = async () => {
+    setIsBackingUp(true);
+    await saveToBackend({ backupSchedule, backupRetention: backupRetention.toString() });
+    
+    try {
+      await fetch('http://localhost:3012/system-settings/backup', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setIsBackingUp(false);
+      setBackupSuccess(true);
+      setLogs(prev => [...prev, `[${new Date().toISOString()}] [BACKUP] Immediate full backup triggered successfully.`]);
+      setTimeout(() => setBackupSuccess(false), 3000);
+    } catch (err) {
+      setIsBackingUp(false);
+    }
+  };
+
+  const handleSaveEmail = async () => {
+    await saveToBackend({ emailHost, emailPort: emailPort.toString(), emailUser });
+    setEmailSaveSuccess(true);
+    setLogs(prev => [...prev, `[${new Date().toISOString()}] [SMTP] Email configuration updated (Host: ${emailHost}).`]);
+    setTimeout(() => setEmailSaveSuccess(false), 3000);
+  };
+
+  // Fetch initial settings
+  useEffect(() => {
+    if (!token) return;
+    fetch('http://localhost:3012/system-settings', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.forecastCycle) setForecastCycle(data.forecastCycle);
+        if (data.aiModel) setAiModel(data.aiModel);
+        if (data.riskThreshold) setRiskThreshold(Number(data.riskThreshold));
+        if (data.trainCycle) setTrainCycle(data.trainCycle);
+        if (data.backupSchedule) setBackupSchedule(data.backupSchedule);
+        if (data.backupRetention) setBackupRetention(Number(data.backupRetention));
+        if (data.emailHost) setEmailHost(data.emailHost);
+        if (data.emailPort) setEmailPort(Number(data.emailPort));
+        if (data.emailUser) setEmailUser(data.emailUser);
+      })
+      .catch(console.error);
+  }, [token]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-6)' }}>
@@ -238,6 +321,131 @@ const Settings = () => {
               )}
 
             </form>
+          </div>
+
+          {/* Backup Config */}
+          <div className="card">
+            <div className="card-header" style={{ borderBottom: '1px solid var(--color-primary-50)', paddingBottom: '1rem', marginBottom: '1.25rem' }}>
+              <div className="flex items-center" style={{ gap: '0.5rem' }}>
+                <HardDrive size={20} className="text-primary-600" />
+                <h3 className="font-semibold" style={{ fontSize: '1rem' }}>Cấu hình Sao lưu & Phục hồi dữ liệu (PostgreSQL)</h3>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div>
+                <label className="font-medium" style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Lịch sao lưu tự động (Cronjob)</label>
+                <select
+                  className="form-control"
+                  value={backupSchedule}
+                  onChange={(e) => setBackupSchedule(e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  <option value="daily">Hàng ngày lúc 02:00 AM (Khuyến nghị)</option>
+                  <option value="weekly">Hàng tuần vào Chủ nhật</option>
+                  <option value="monthly">Ngày 1 hàng tháng</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-medium" style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Thời gian lưu trữ (Backup Retention)</label>
+                <select
+                  className="form-control"
+                  value={backupRetention}
+                  onChange={(e) => setBackupRetention(Number(e.target.value))}
+                  style={{ width: '100%' }}
+                >
+                  <option value={7}>7 ngày</option>
+                  <option value={30}>30 ngày (Khuyến nghị)</option>
+                  <option value={90}>90 ngày</option>
+                  <option value={365}>1 năm</option>
+                </select>
+              </div>
+
+              {backupSuccess && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-md)', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a', fontSize: '0.875rem' }}>
+                  <CheckCircle size={18} />
+                  <span>Sao lưu thành công! Dữ liệu đã được đẩy lên MinIO bucket.</span>
+                </div>
+              )}
+
+              <div className="flex gap-3" style={{ marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={handleSaveBackup}
+                  disabled={isBackingUp}
+                  className="btn btn-primary flex items-center"
+                  style={{ gap: '0.5rem' }}
+                >
+                  <Download size={16} className={isBackingUp ? 'animate-spin' : ''} />
+                  {isBackingUp ? 'Đang sao lưu...' : 'Sao lưu ngay & Lưu cấu hình'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Email Notification Config */}
+          <div className="card">
+            <div className="card-header" style={{ borderBottom: '1px solid var(--color-primary-50)', paddingBottom: '1rem', marginBottom: '1.25rem' }}>
+              <div className="flex items-center" style={{ gap: '0.5rem' }}>
+                <Mail size={20} className="text-primary-600" />
+                <h3 className="font-semibold" style={{ fontSize: '1rem' }}>Cấu hình Email thông báo (SMTP)</h3>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div>
+                <label className="font-medium" style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>SMTP Host</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={emailHost}
+                  onChange={(e) => setEmailHost(e.target.value)}
+                  style={{ width: '100%' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <div style={{ flex: 1 }}>
+                  <label className="font-medium" style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>SMTP Port</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={emailPort}
+                    onChange={(e) => setEmailPort(Number(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div style={{ flex: 2 }}>
+                  <label className="font-medium" style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Email gửi (From)</label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    value={emailUser}
+                    onChange={(e) => setEmailUser(e.target.value)}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+
+              {emailSaveSuccess && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-md)', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a', fontSize: '0.875rem' }}>
+                  <CheckCircle size={18} />
+                  <span>Đã lưu cấu hình email thành công!</span>
+                </div>
+              )}
+
+              <div className="flex gap-3" style={{ marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={handleSaveEmail}
+                  className="btn btn-primary flex items-center"
+                  style={{ gap: '0.5rem' }}
+                >
+                  <Save size={16} /> Lưu cấu hình Email
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 

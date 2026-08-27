@@ -13,6 +13,9 @@ export class AuthService {
   async validateUser(email: string, pass: string): Promise<any> {
     const user = await this.userService.findOneByEmail(email);
     if (user && await bcrypt.compare(pass, user.passwordHash)) {
+      if (user.isLocked) {
+        throw new UnauthorizedException('Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.');
+      }
       const { passwordHash, ...result } = user;
       return result;
     }
@@ -31,10 +34,5 @@ export class AuthService {
         phone: user.phone,
       },
     };
-  }
-
-  async firebaseLogin(firebaseUid: string, phone: string, name: string, address?: string, lat?: number, lng?: number) {
-    const user = await this.userService.onboardCustomer(firebaseUid, phone, name, address, lat, lng);
-    return this.login(user);
   }
 }

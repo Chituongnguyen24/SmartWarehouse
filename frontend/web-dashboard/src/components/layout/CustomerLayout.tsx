@@ -124,7 +124,6 @@ const CustomerLayout: React.FC = () => {
             color="#ef4444"
             style={{ marginLeft: '10px', cursor: 'pointer' }}
             onClick={handleLogout}
-            title="Đăng xuất"
           />
         </div>
       </header>

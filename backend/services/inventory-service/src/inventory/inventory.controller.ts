@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Query, Param, UseGuards, Request, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Query, Param, UseGuards, Request, BadRequestException } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -24,6 +24,21 @@ export class InventoryController {
   @ApiOperation({ summary: 'Register a new supplier' })
   createSupplier(@Body() body: any) {
     return this.inventoryService.createSupplier(body);
+  }
+
+  @Put('suppliers/:id')
+  @Roles(UserRole.WAREHOUSE_MANAGER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Update a supplier' })
+  updateSupplier(@Param('id') id: string, @Body() body: any) {
+    return this.inventoryService.updateSupplier(id, body);
+  }
+
+  @Delete('suppliers/:id')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Delete a supplier (Admin only)' })
+  async deleteSupplier(@Param('id') id: string) {
+    await this.inventoryService.deleteSupplier(id);
+    return { message: 'Supplier deleted successfully' };
   }
 
   @Get('lots')
@@ -56,7 +71,7 @@ export class InventoryController {
   @ApiOperation({ summary: 'Get smart FEFO extraction suggestions for a product' })
   @ApiQuery({ name: 'sku', type: String, example: 'MILK-DALAT-1L' })
   @ApiQuery({ name: 'quantity', type: Number, example: 50 })
-  @ApiQuery({ name: 'warehouseId', type: String, required: false, example: 'Q12' })
+  @ApiQuery({ name: 'warehouseId', type: String, required: false, example: 'WH-001' })
   getFefoSuggestions(
     @Query('sku') sku: string,
     @Query('quantity') quantity: string,

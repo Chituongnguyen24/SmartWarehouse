@@ -27,29 +27,6 @@ export class InventoryService implements OnModuleInit {
     });
   }
 
-  private async getAuthToken(): Promise<string> {
-    try {
-      const response = await fetch('http://localhost:3012/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'admin@sfwms.vn',
-          password: 'password123',
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Login failed with status ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.access_token;
-    } catch (err) {
-      console.error('[INVENTORY SERVICE] Authentication failed with user-service:', err.message);
-      throw err;
-    }
-  }
-
   async onModuleInit() {
     // Seed default suppliers
     const defaultSuppliers = [
@@ -70,9 +47,9 @@ export class InventoryService implements OnModuleInit {
     const today = new Date();
     
     // Fetch warehouses from warehouse-service to map their codes to database IDs
-    let warehouses = [];
     const warehouseIdMap = {};
     try {
+      let warehouses = [];
       for (let attempt = 0; attempt < 5; attempt++) {
         try {
           const res = await fetch('http://localhost:3005/warehouses');
@@ -92,85 +69,92 @@ export class InventoryService implements OnModuleInit {
       console.warn('[INVENTORY SERVICE] Failed to fetch warehouses from warehouse-service during seed.', err.message);
     }
 
-    // Fetch products from product-service
-    let products = [];
-    try {
-      const token = await this.getAuthToken();
-      const res = await fetch('http://localhost:3010/products', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        products = await res.json();
-      }
-    } catch (e) {
-      console.warn('[INVENTORY SERVICE] Failed to fetch products from product-service during seed.', e.message);
-    }
+    const seedWarehouseLots = [
+      // WH-001 (HCM North - District 12)
+      { warehouseCode: 'WH-001', sku: 'MILK-DALAT-1L', quantity: 100, lotCode: 'LOT-MILK-WH1', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 5, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-001', sku: 'NOODLE-HAOHAO', quantity: 500, lotCode: 'LOT-NOODLE-WH1', zone: 'DRY', location: 'dry-shelf-A1', daysOffset: 60, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-001', sku: 'BEEF-STEAK-US', quantity: 50, lotCode: 'LOT-BEEF-WH1', zone: 'FROZEN', location: 'frozen-shelf-A1', daysOffset: 30, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-001', sku: 'TOMATO-DALAT', quantity: 60, lotCode: 'LOT-TOMATO-WH1', zone: 'COLD', location: 'cold-shelf-A3', daysOffset: 4, riskScore: 0, status: LotStatus.NORMAL },
 
-    // If we have products and warehouses, let's auto-generate random lots for all warehouses!
-    const existingLotsCount = await this.lotRepository.count();
-    if (existingLotsCount < 50 && products.length > 0 && warehouses.length > 0) {
-      console.log(`[INVENTORY SERVICE] Generating bulk random seed lots for all warehouses...`);
-      const suppliers = await this.supplierRepository.find();
-      const supplierId = suppliers[0]?.id || '11111111-1111-1111-1111-111111111111';
+      // WH-002 (HCM East - Thu Duc)
+      { warehouseCode: 'WH-002', sku: 'MILK-DALAT-1L', quantity: 150, lotCode: 'LOT-MILK-WH2', zone: 'COLD', location: 'cold-shelf-A2', daysOffset: 10, riskScore: 75, status: LotStatus.AT_RISK },
+      { warehouseCode: 'WH-002', sku: 'NOODLE-HAOHAO', quantity: 300, lotCode: 'LOT-NOODLE-WH2', zone: 'DRY', location: 'dry-shelf-A2', daysOffset: 90, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-002', sku: 'BEEF-STEAK-US', quantity: 70, lotCode: 'LOT-BEEF-WH2', zone: 'FROZEN', location: 'frozen-shelf-A2', daysOffset: 45, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-002', sku: 'TOMATO-DALAT', quantity: 80, lotCode: 'LOT-TOMATO-WH2', zone: 'COLD', location: 'cold-shelf-A4', daysOffset: 6, riskScore: 0, status: LotStatus.NORMAL },
 
-      for (const wh of warehouses) {
-        // Pick about 40 random products to have stock in this warehouse
-        const shuffled = [...products].sort(() => 0.5 - Math.random());
-        const selectedProducts = shuffled.slice(0, Math.min(40, products.length));
+      // WH-003 (HCM West - Binh Chanh)
+      { warehouseCode: 'WH-003', sku: 'MILK-DALAT-1L', quantity: 80, lotCode: 'LOT-MILK-WH3', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 15, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-003', sku: 'NOODLE-HAOHAO', quantity: 400, lotCode: 'LOT-NOODLE-WH3', zone: 'DRY', location: 'dry-shelf-A1', daysOffset: 45, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-003', sku: 'BEEF-STEAK-US', quantity: 30, lotCode: 'LOT-BEEF-WH3', zone: 'FROZEN', location: 'frozen-shelf-A1', daysOffset: 20, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-003', sku: 'TOMATO-DALAT', quantity: 40, lotCode: 'LOT-TOMATO-WH3', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 3, riskScore: 10, status: LotStatus.NORMAL },
 
-        for (const product of selectedProducts) {
-          // Generate 1 or 2 lots for this product in this warehouse
-          const lotCount = Math.floor(Math.random() * 2) + 1;
-          for (let i = 0; i < lotCount; i++) {
-            const randId = Math.floor(1000 + Math.random() * 9000);
-            const lotCode = `LOT-${wh.code}-${product.sku}-${randId}`;
-            
-            // Random quantity between 50 and 200
-            const quantity = Math.floor(50 + Math.random() * 150);
-            
-            // Determine storage details
-            const zone = product.storageType || 'DRY';
-            const zoneCode = zone === 'COLD' ? 'CL' : zone === 'FROZEN' ? 'FR' : 'DR';
-            const shelf = ['A', 'B', 'C'][Math.floor(Math.random() * 3)];
-            const slotNum = String(Math.floor(Math.random() * 15) + 1).padStart(2, '0');
-            const location = `${wh.code}_${zoneCode}-${shelf}-${slotNum}`;
-            
-            // Expiry date offset (5 to 120 days)
-            const daysOffset = Math.floor(5 + Math.random() * 115);
-            const expiry = new Date();
-            expiry.setDate(today.getDate() + daysOffset);
+      // WH-004 (HCM South - District 7)
+      { warehouseCode: 'WH-004', sku: 'MILK-DALAT-1L', quantity: 200, lotCode: 'LOT-MILK-WH4', zone: 'COLD', location: 'cold-shelf-A3', daysOffset: 8, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-004', sku: 'NOODLE-HAOHAO', quantity: 600, lotCode: 'LOT-NOODLE-WH4', zone: 'DRY', location: 'dry-shelf-A3', daysOffset: 120, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-004', sku: 'BEEF-STEAK-US', quantity: 100, lotCode: 'LOT-BEEF-WH4', zone: 'FROZEN', location: 'frozen-shelf-A3', daysOffset: 60, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-004', sku: 'TOMATO-DALAT', quantity: 120, lotCode: 'LOT-TOMATO-WH4', zone: 'COLD', location: 'cold-shelf-A3', daysOffset: 7, riskScore: 0, status: LotStatus.NORMAL },
 
-            // Risk score
-            const riskScore = daysOffset < 15 ? Math.floor(50 + Math.random() * 40) : 0;
-            const status = riskScore > 70 ? LotStatus.AT_RISK : LotStatus.NORMAL;
+      // WH-005 (HCM Center-East - Binh Thạnh)
+      { warehouseCode: 'WH-005', sku: 'MILK-DALAT-1L', quantity: 120, lotCode: 'LOT-MILK-WH5', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 6, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-005', sku: 'NOODLE-HAOHAO', quantity: 450, lotCode: 'LOT-NOODLE-WH5', zone: 'DRY', location: 'dry-shelf-A1', daysOffset: 50, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-005', sku: 'BEEF-STEAK-US', quantity: 40, lotCode: 'LOT-BEEF-WH5', zone: 'FROZEN', location: 'frozen-shelf-A1', daysOffset: 25, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-005', sku: 'TOMATO-DALAT', quantity: 70, lotCode: 'LOT-TOMATO-WH5', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 5, riskScore: 0, status: LotStatus.NORMAL },
 
-            await this.importLot({
-              lotCode,
-              sku: product.sku,
-              supplierId,
-              expiryDate: expiry,
-              quantity,
-              zone,
-              location,
-              riskScore,
-              status,
-              createdBy: 'admin-id',
-              warehouseId: wh.id,
-              warehouseCode: wh.code,
-            });
-          }
-        }
-        console.log(`[INVENTORY SERVICE] Automatically generated lots for warehouse ${wh.code}`);
+      // WH-006 (HCM Northwest - Go Vap)
+      { warehouseCode: 'WH-006', sku: 'MILK-DALAT-1L', quantity: 90, lotCode: 'LOT-MILK-WH6', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 4, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-006', sku: 'NOODLE-HAOHAO', quantity: 250, lotCode: 'LOT-NOODLE-WH6', zone: 'DRY', location: 'dry-shelf-A1', daysOffset: 35, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-006', sku: 'BEEF-STEAK-US', quantity: 60, lotCode: 'LOT-BEEF-WH6', zone: 'FROZEN', location: 'frozen-shelf-A1', daysOffset: 15, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-006', sku: 'TOMATO-DALAT', quantity: 50, lotCode: 'LOT-TOMATO-WH6', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 3, riskScore: 0, status: LotStatus.NORMAL },
+    ];
+
+    for (const lotData of seedWarehouseLots) {
+      const exists = await this.lotRepository.findOneBy({ lotCode: lotData.lotCode });
+      if (!exists) {
+        const expiry = new Date();
+        expiry.setDate(today.getDate() + lotData.daysOffset);
+
+        await this.importLot({
+          lotCode: lotData.lotCode,
+          sku: lotData.sku,
+          supplierId: defaultSuppliers[0].id,
+          expiryDate: expiry,
+          quantity: lotData.quantity,
+          zone: lotData.zone,
+          location: lotData.location,
+          riskScore: lotData.riskScore,
+          status: lotData.status,
+          createdBy: 'admin-id',
+          warehouseId: warehouseIdMap[lotData.warehouseCode] || null,
+          warehouseCode: lotData.warehouseCode,
+        });
+        console.log(`[INVENTORY SERVICE] Seeded lot ${lotData.lotCode} for warehouse ${lotData.warehouseCode}`);
       }
     }
   }
 
   async findAllSuppliers(): Promise<Supplier[]> {
-    return this.supplierRepository.find();
+    return this.supplierRepository.find({ order: { name: 'ASC' } });
   }
 
   async createSupplier(dto: Partial<Supplier>): Promise<Supplier> {
     return this.supplierRepository.save(this.supplierRepository.create(dto));
+  }
+
+  async updateSupplier(id: string, dto: Partial<Supplier>): Promise<Supplier> {
+    const supplier = await this.supplierRepository.findOneBy({ id });
+    if (!supplier) {
+      throw new NotFoundException(`Supplier with ID ${id} not found`);
+    }
+    Object.assign(supplier, dto);
+    return this.supplierRepository.save(supplier);
+  }
+
+  async deleteSupplier(id: string): Promise<void> {
+    const supplier = await this.supplierRepository.findOneBy({ id });
+    if (!supplier) {
+      throw new NotFoundException(`Supplier with ID ${id} not found`);
+    }
+    await this.supplierRepository.remove(supplier);
   }
 
   async findAllLots(): Promise<Lot[]> {
@@ -208,7 +192,7 @@ export class InventoryService implements OnModuleInit {
     // Create lot record
     const lot = this.lotRepository.create({
       lotCode: dto.lotCode,
-      productId: product.sku,
+      productId: product.id,
       supplierId: supplier.id,
       importDate: new Date(),
       expiryDate: new Date(dto.expiryDate),
@@ -303,7 +287,7 @@ export class InventoryService implements OnModuleInit {
 
     // Get all lots with remaining stock for this product that are not expired
     const qb = this.lotRepository.createQueryBuilder('lot')
-      .where('lot.product_id = :productId', { productId: product.sku })
+      .where('lot.product_id = :productId', { productId: product.id })
       .andWhere('lot.remaining_qty > 0')
       .andWhere('lot.expiry_date > :now', { now: new Date() });
 
@@ -374,7 +358,7 @@ export class InventoryService implements OnModuleInit {
       if (!product) continue;
 
       const lots = await this.lotRepository.createQueryBuilder('lot')
-        .where('lot.product_id = :productId', { productId: product.sku })
+        .where('lot.product_id = :productId', { productId: product.id })
         .andWhere('lot.remaining_qty > 0')
         .andWhere('lot.expiry_date > :now', { now: new Date() })
         .getMany();
