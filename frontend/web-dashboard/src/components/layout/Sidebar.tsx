@@ -40,7 +40,6 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   // QUẢN LÝ KHO (ADMIN + WAREHOUSE_MANAGER)
   { path: '/', label: 'Quản lý Kho hàng', icon: <Boxes size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
-  { path: '/categories', label: 'Danh mục Sản phẩm', icon: <Package size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
   { path: '/shelf', label: 'Tồn kho & Vị trí', icon: <Layers size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF'] },
   { path: '/inbound', label: 'Nhập kho', icon: <ArrowDownLeft size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
   { path: '/outbound', label: 'Xuất kho', icon: <ArrowUpRight size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },

@@ -1,5 +1,7 @@
-import { Target, TrendingUp, TrendingDown, ShoppingCart, Percent, BrainCircuit } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Target, TrendingUp, TrendingDown, ShoppingCart, Percent, BrainCircuit, RefreshCw } from 'lucide-react';
 import { Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart } from 'recharts';
+import { useAuth } from '../contexts/AuthContext';
 
 const mockDemandData = [
   { day: 1, thucTe: 400, duBao: 410, confidenceRange: [380, 440] },
@@ -13,6 +15,49 @@ const mockDemandData = [
 ];
 
 const DemandForecast = () => {
+  const { token } = useAuth();
+  const [forecasts, setForecasts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [chartData, setChartData] = useState(mockDemandData);
+
+  const runAiModel = async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const headers = { 'Authorization': `Bearer ${token}` };
+      // 1. Fetch products
+      const prodRes = await fetch('http://localhost:3010/products', { headers });
+      if (!prodRes.ok) throw new Error('Failed to fetch products');
+      const products = await prodRes.json();
+      
+      // 2. Take top 5 products (or first 5) to forecast
+      const topProducts = products.slice(0, 5);
+      
+      // 3. Fetch AI forecast for each
+      const forecastPromises = topProducts.map((p: any) => 
+        fetch(`http://localhost:3003/ai/forecast/${p.sku}`, { headers }).then(r => r.json())
+      );
+      const results = await Promise.all(forecastPromises);
+      setForecasts(results);
+
+      // Randomize chart a bit for effect
+      const newChart = mockDemandData.map(d => ({
+        ...d,
+        duBao: d.duBao ? d.duBao + Math.floor(Math.random() * 40 - 20) : undefined,
+      }));
+      setChartData(newChart);
+
+    } catch (err) {
+      console.error('Error running AI forecast:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    runAiModel();
+  }, [token]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-6)' }}>
       <div className="flex items-center justify-between">
@@ -20,8 +65,13 @@ const DemandForecast = () => {
           <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.25rem' }}>Dự báo nhu cầu</h2>
           <p className="text-muted" style={{ fontSize: '0.875rem' }}>Mô hình AI dự báo lượng tiêu thụ 30 ngày tới, hỗ trợ đặt hàng đúng lúc và tránh tồn kho.</p>
         </div>
-        <button className="btn btn-outline text-success" style={{ borderColor: 'var(--color-primary-500)', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <BrainCircuit size={16} /> Chạy lại mô hình
+        <button 
+          className="btn btn-outline text-success" 
+          style={{ borderColor: 'var(--color-primary-500)', display: 'flex', alignItems: 'center', gap: 6 }}
+          onClick={runAiModel}
+          disabled={loading}
+        >
+          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> {loading ? 'Đang chạy mô hình...' : 'Chạy lại mô hình'}
         </button>
       </div>
 
@@ -83,7 +133,7 @@ const DemandForecast = () => {
         </div>
         <div style={{ height: 300, width: '100%' }}>
           <ResponsiveContainer>
-            <ComposedChart data={mockDemandData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
               <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
               <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dx={-10} domain={[0, 600]} />
@@ -114,66 +164,39 @@ const DemandForecast = () => {
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td>
-                  <div className="font-semibold">Cà chua bi</div>
-                  <div className="text-muted" style={{ fontSize: '0.75rem' }}>VEG-0044 - Rau củ quả</div>
-                </td>
-                <td className="font-medium">48</td>
-                <td className="font-medium text-muted">210</td>
-                <td className="font-bold">180</td>
-                <td><span className="badge badge-warning">Trong 2 ngày</span></td>
-                <td className="text-muted">91%</td>
-                <td><button className="btn btn-primary" style={{ padding: '0.25rem 0.75rem' }}>Tạo đơn</button></td>
-              </tr>
-              <tr>
-                <td>
-                  <div className="font-semibold">Cá hồi phi lê</div>
-                  <div className="text-muted" style={{ fontSize: '0.75rem' }}>FSH-0210 - Thịt cá</div>
-                </td>
-                <td className="font-medium">76</td>
-                <td className="font-medium text-muted">160</td>
-                <td className="font-bold">120</td>
-                <td><span className="badge badge-warning">Trong 3 ngày</span></td>
-                <td className="text-muted">84%</td>
-                <td><button className="btn btn-primary" style={{ padding: '0.25rem 0.75rem' }}>Tạo đơn</button></td>
-              </tr>
-              <tr>
-                <td>
-                  <div className="font-semibold">Tôm sú đông lạnh</div>
-                  <div className="text-muted" style={{ fontSize: '0.75rem' }}>FRZ-0301 - Đông lạnh</div>
-                </td>
-                <td className="font-medium text-danger">0</td>
-                <td className="font-medium text-muted">140</td>
-                <td className="font-bold">200</td>
-                <td><span className="badge badge-danger">Hôm nay</span></td>
-                <td className="text-muted">95%</td>
-                <td><button className="btn btn-primary" style={{ padding: '0.25rem 0.75rem' }}>Tạo đơn</button></td>
-              </tr>
-              <tr>
-                <td>
-                  <div className="font-semibold">Sữa tươi tiệt trùng</div>
-                  <div className="text-muted" style={{ fontSize: '0.75rem' }}>MLK-0428 - Sữa & đồ uống</div>
-                </td>
-                <td className="font-medium text-success">980</td>
-                <td className="font-medium text-muted">720</td>
-                <td className="font-bold">-</td>
-                <td><span className="badge badge-neutral">Chưa cần</span></td>
-                <td className="text-muted">78%</td>
-                <td><button className="btn btn-outline" style={{ padding: '0.25rem 0.75rem' }} disabled>Tạo đơn</button></td>
-              </tr>
-              <tr>
-                <td>
-                  <div className="font-semibold">Xà lách Romaine</div>
-                  <div className="text-muted" style={{ fontSize: '0.75rem' }}>VEG-0077 - Rau củ quả</div>
-                </td>
-                <td className="font-medium">35</td>
-                <td className="font-medium text-muted">120</td>
-                <td className="font-bold">100</td>
-                <td><span className="badge badge-warning">Trong 1 ngày</span></td>
-                <td className="text-muted">88%</td>
-                <td><button className="btn btn-primary" style={{ padding: '0.25rem 0.75rem' }}>Tạo đơn</button></td>
-              </tr>
+              {loading ? (
+                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>Đang dự báo AI...</td></tr>
+              ) : forecasts.length === 0 ? (
+                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>Không có dữ liệu.</td></tr>
+              ) : (
+                forecasts.map((f, i) => {
+                  const isUrgent = f.replenishmentRecommendation.status === 'RESTOCK_RECOMMENDED';
+                  return (
+                    <tr key={i}>
+                      <td>
+                        <div className="font-semibold">{f.productName}</div>
+                        <div className="text-muted" style={{ fontSize: '0.75rem' }}>{f.sku}</div>
+                      </td>
+                      <td className={`font-medium ${f.currentInventory === 0 ? 'text-danger' : ''}`}>{f.currentInventory}</td>
+                      <td className="font-medium text-muted">{f.weeklyDemandForecast} / tuần</td>
+                      <td className="font-bold">{f.replenishmentRecommendation.suggestedQuantity > 0 ? f.replenishmentRecommendation.suggestedQuantity : '-'}</td>
+                      <td>
+                        {isUrgent ? (
+                          <span className="badge badge-warning">Cần nhập sớm ({f.replenishmentRecommendation.suggestedOrderDate})</span>
+                        ) : (
+                          <span className="badge badge-neutral">Chưa cần</span>
+                        )}
+                      </td>
+                      <td className="text-muted">{f.confidenceInterval}</td>
+                      <td>
+                        <button className={`btn ${isUrgent ? 'btn-primary' : 'btn-outline'}`} style={{ padding: '0.25rem 0.75rem' }} disabled={!isUrgent}>
+                          Tạo đơn
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

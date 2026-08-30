@@ -21,7 +21,6 @@ import UserProfile from './pages/UserProfile';
 import Users from './pages/Users';
 import ShelfArrangement from './pages/ShelfArrangement';
 import Settings from './pages/Settings';
-import CategoryManagement from './pages/CategoryManagement';
 import SupplierManagement from './pages/SupplierManagement';
 import AuditLog from './pages/AuditLog';
 import CustomerLayout from './components/layout/CustomerLayout';
@@ -144,11 +143,6 @@ function App() {
             <Route path="settings" element={
               <ProtectedRoute allowedRoles={['ADMIN']}>
                 <Settings />
-              </ProtectedRoute>
-            } />
-            <Route path="categories" element={
-              <ProtectedRoute allowedRoles={['ADMIN']}>
-                <CategoryManagement />
               </ProtectedRoute>
             } />
             <Route path="suppliers" element={

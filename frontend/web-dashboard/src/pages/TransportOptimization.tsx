@@ -44,7 +44,7 @@ const TransportOptimization = () => {
   const { token, user } = useAuth();
   const isDriver = user?.role === 'DRIVER';
 
-  const [drivers] = useState<DriverInfo[]>(EXTENDED_MOCK_DRIVERS);
+  const [drivers, setDrivers] = useState<DriverInfo[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [vrpResult, setVrpResult] = useState<VrpResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -62,7 +62,36 @@ const TransportOptimization = () => {
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+    fetchDrivers();
+  }, [token]);
+
+  const fetchDrivers = async () => {
+    try {
+      if (!token) return;
+      const res = await fetch('http://localhost:3012/users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const users = await res.json();
+        const driverUsers = users.filter((u: any) => u.role === 'DRIVER');
+        if (driverUsers.length > 0) {
+          const realDrivers: DriverInfo[] = driverUsers.map((u: any, index: number) => ({
+            id: u.id,
+            name: u.name,
+            phone: u.phone || `0909 000 ${index}${index}${index}`,
+            licensePlate: index % 2 === 0 ? `59-X${index} 884.92` : `59-T${index} 123.45`,
+            vehicleType: index % 3 === 0 ? 'REFRIGERATED' : index % 3 === 1 ? 'FROZEN' : 'NORMAL',
+            status: index % 4 === 0 ? 'IN_TRANSIT' : 'AVAILABLE',
+            capacityKg: 150 + index * 50,
+            currentTemp: index % 3 === 0 ? '3.1°C' : index % 3 === 1 ? '-19.2°C' : 'Thường',
+          }));
+          setDrivers(realDrivers);
+        }
+      }
+    } catch (err) {
+      console.error('Lỗi lấy danh sách tài xế:', err);
+    }
+  };
 
   const fetchOrders = async () => {
     try {

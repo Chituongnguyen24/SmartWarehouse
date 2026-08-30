@@ -1,5 +1,7 @@
+import React, { useState, useEffect } from 'react';
 import { Download, Boxes, TrendingDown, Percent, FileText, ArrowUpRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { useAuth } from '../contexts/AuthContext';
 
 const mockTrendData = [
   { name: 'T1', nhap: 4000, xuat: 2400, ton: 5000 },
@@ -21,6 +23,43 @@ const mockCategoryData = [
 ];
 
 const Reports = () => {
+  const { token } = useAuth();
+  const [summary, setSummary] = useState<any>(null);
+  const [performance, setPerformance] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!token) return;
+    const fetchReports = async () => {
+      try {
+        const headers = { 'Authorization': `Bearer ${token}` };
+        const [sumRes, perfRes] = await Promise.all([
+          fetch('http://localhost:3008/reports/inventory-summary', { headers }),
+          fetch('http://localhost:3008/reports/warehouse-performance', { headers })
+        ]);
+        if (sumRes.ok && perfRes.ok) {
+          setSummary(await sumRes.json());
+          setPerformance(await perfRes.json());
+        }
+      } catch (error) {
+        console.error('Failed to fetch reports', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchReports();
+  }, [token]);
+
+  // Transform data for PieChart
+  const categoryData = [];
+  if (performance?.zoneBreakdown) {
+    categoryData.push({ name: 'Kho Khô (DRY)', value: performance.zoneBreakdown.DRY.stock, color: '#f59e0b' });
+    categoryData.push({ name: 'Kho Mát (COLD)', value: performance.zoneBreakdown.COLD.stock, color: '#10b981' });
+    categoryData.push({ name: 'Kho Lạnh (FROZEN)', value: performance.zoneBreakdown.FROZEN.stock, color: '#3b82f6' });
+  } else {
+    categoryData.push(...mockCategoryData);
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-6)' }}>
       <div className="flex items-center justify-between">
@@ -39,8 +78,8 @@ const Reports = () => {
             <div className="card-title">Giá trị tồn kho</div>
             <div className="card-icon primary"><Boxes size={18} /></div>
           </div>
-          <div className="card-value">8,4 tỷ <span className="card-trend up" style={{ fontSize: '0.875rem' }}><ArrowUpRight size={14}/> +5,2%</span></div>
-          <div className="card-desc">VNĐ</div>
+          <div className="card-value">{summary?.totalProducts || 0} SKU <span className="card-trend up" style={{ fontSize: '0.875rem' }}><ArrowUpRight size={14}/> +5,2%</span></div>
+          <div className="card-desc">Sản phẩm quản lý</div>
         </div>
         
         <div className="card">
@@ -48,8 +87,8 @@ const Reports = () => {
             <div className="card-title">Thất thoát do hư hỏng</div>
             <div className="card-icon danger" style={{ backgroundColor: 'var(--color-primary-100)', color: 'var(--color-primary-600)' }}><TrendingDown size={18} /></div>
           </div>
-          <div className="card-value">152 tr <span className="card-trend up" style={{ fontSize: '0.875rem' }}><ArrowUpRight size={14}/> -18%</span></div>
-          <div className="card-desc">30 ngày qua</div>
+          <div className="card-value">{performance?.metrics.expiredLots || 0} Lô <span className="card-trend up" style={{ fontSize: '0.875rem' }}><ArrowUpRight size={14}/> -18%</span></div>
+          <div className="card-desc">Đã hết hạn</div>
         </div>
 
         <div className="card">
@@ -57,8 +96,8 @@ const Reports = () => {
             <div className="card-title">Tỷ lệ thất thoát</div>
             <div className="card-icon primary" style={{ backgroundColor: 'var(--color-primary-100)', color: 'var(--color-primary-600)' }}><Percent size={18} /></div>
           </div>
-          <div className="card-value">1,8% <span className="card-trend up" style={{ fontSize: '0.875rem' }}><TrendingDown size={14}/> -0,6%</span></div>
-          <div className="card-desc">so với tháng trước</div>
+          <div className="card-value">{performance?.metrics.spoilageRate || '0%'} <span className="card-trend up" style={{ fontSize: '0.875rem' }}><TrendingDown size={14}/> -0,6%</span></div>
+          <div className="card-desc">Tỷ lệ hư hỏng / rủi ro</div>
         </div>
 
         <div className="card">
@@ -108,8 +147,8 @@ const Reports = () => {
           <div style={{ height: 300, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <ResponsiveContainer>
               <PieChart>
-                <Pie data={mockCategoryData} innerRadius={60} outerRadius={90} paddingAngle={2} dataKey="value">
-                  {mockCategoryData.map((entry, index) => (
+                <Pie data={categoryData} innerRadius={60} outerRadius={90} paddingAngle={2} dataKey="value">
+                  {categoryData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -139,12 +178,12 @@ const Reports = () => {
             <div className="text-muted" style={{ fontSize: '0.75rem' }}>Mục tiêu 80%</div>
 
             <div className="flex justify-between items-center" style={{ marginBottom: '0.5rem', marginTop: '1.5rem' }}>
-              <span className="font-semibold" style={{ fontSize: '0.875rem' }}>Độ chính xác kiểm kê</span>
-              <span className="text-muted" style={{ fontSize: '0.875rem' }}>99%</span>
+              <span className="font-semibold" style={{ fontSize: '0.875rem' }}>Tỷ lệ giảm thiểu lãng phí (Waste Reduction)</span>
+              <span className="text-muted" style={{ fontSize: '0.875rem' }}>{performance?.metrics.wasteReduction || '99%'}</span>
             </div>
             <div className="progress-container" style={{ marginBottom: '0.5rem' }}>
               <div className="progress-bar-bg" style={{ height: '4px' }}>
-                <div className="progress-bar-fill success" style={{ width: '99%' }}></div>
+                <div className="progress-bar-fill success" style={{ width: performance?.metrics.wasteReduction || '99%' }}></div>
               </div>
             </div>
             <div className="text-muted" style={{ fontSize: '0.75rem' }}>Mục tiêu 98%</div>
@@ -163,12 +202,12 @@ const Reports = () => {
             <div className="text-muted" style={{ fontSize: '0.75rem' }}>Mục tiêu 95%</div>
 
             <div className="flex justify-between items-center" style={{ marginBottom: '0.5rem', marginTop: '1.5rem' }}>
-              <span className="font-semibold" style={{ fontSize: '0.875rem' }}>Tỷ lệ hàng hết hạn</span>
-              <span className="text-muted" style={{ fontSize: '0.875rem' }}>12%</span>
+              <span className="font-semibold" style={{ fontSize: '0.875rem' }}>Tỷ lệ hàng hư hỏng / hết hạn</span>
+              <span className="text-muted" style={{ fontSize: '0.875rem' }}>{performance?.metrics.spoilageRate || '12%'}</span>
             </div>
             <div className="progress-container" style={{ marginBottom: '0.5rem' }}>
               <div className="progress-bar-bg" style={{ height: '4px' }}>
-                <div className="progress-bar-fill warning" style={{ width: '12%' }}></div>
+                <div className="progress-bar-fill warning" style={{ width: performance?.metrics.spoilageRate || '12%' }}></div>
               </div>
             </div>
             <div className="text-muted" style={{ fontSize: '0.75rem' }}>Giới hạn 15%</div>
