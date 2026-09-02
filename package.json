@@ -9,6 +9,7 @@
     "frontend/customer-app",
     "frontend/driver-app",
     "frontend/customer-web",
+    "frontend/staff-app",
     "simulators"
   ],
   "scripts": {
@@ -17,20 +18,26 @@
     "infra:logs": "docker-compose logs -f",
     "customer:start": "npm run start -w frontend/customer-app",
     "driver:start": "npm run start -w frontend/driver-app",
+    "staff:start": "npm run start -w frontend/staff-app",
     "auth:start": "npm run start:dev -w backend/services/auth-service",
     "user:start": "npm run start:dev -w backend/services/user-service",
     "product:start": "npm run start:dev -w backend/services/product-service",
     "inventory:start": "npm run start:dev -w backend/services/inventory-service",
     "order:start": "npm run start:dev -w backend/services/order-service",
+    "warehouse:start": "npm run start:dev -w backend/services/warehouse-service",
     "picking:start": "npm run start:dev -w backend/services/picking-service",
     "packing:start": "npm run start:dev -w backend/services/packing-service",
     "delivery:start": "npm run start:dev -w backend/services/delivery-service",
     "tracking:start": "npm run start:dev -w backend/services/tracking-service",
     "notification:start": "npm run start:dev -w backend/services/notification-service",
     "report:start": "npm run start:dev -w backend/services/report-service",
-    "simulator:start": "npm run start -w simulators",
+    "outbound:start": "npm run start:dev -w backend/services/outbound-service",
+    "inbound:start": "npm run start:dev -w backend/services/inbound-service",
+    "transport:start": "npm run start:dev -w backend/services/transport-service",
     "customer-web:start": "npm run dev -w frontend/customer-web",
-    "backend:all": "concurrently \"npm run auth:start\" \"npm run user:start\" \"npm run product:start\" \"npm run inventory:start\" \"npm run order:start\" \"npm run picking:start\" \"npm run packing:start\" \"npm run delivery:start\" \"npm run tracking:start\" \"npm run notification:start\" \"npm run report:start\"",
+    "seed:products": "node scripts/seed_products.js",
+    "export:products": "node scripts/export_products.js",
+    "backend:all": "concurrently \"npm run user:start\" \"npm run product:start\" \"npm run order:start\" \"npm run inventory:start\" \"npm run warehouse:start\" \"npm run outbound:start\" \"npm run inbound:start\" \"npm run report:start\" \"npm run transport:start\"",
     "install:all": "npm install --legacy-peer-deps"
   },
   "devDependencies": {
@@ -41,8 +48,18 @@
   "dependencies": {
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/passport": "^11.0.5",
+    "amqp-connection-manager": "^5.0.0",
+    "amqplib": "^2.0.1",
     "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
     "passport": "^0.7.0",
-    "passport-jwt": "^4.0.1"
+    "passport-jwt": "^4.0.1",
+    "pg": "^8.23.0",
+    "react": "19.1.4",
+    "react-dom": "19.1.4"
+  },
+  "overrides": {
+    "react": "19.1.4",
+    "react-dom": "19.1.4"
   }
 }

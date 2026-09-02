@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 export enum LotStatus {
   NORMAL = 'NORMAL',
@@ -7,10 +7,13 @@ export enum LotStatus {
 }
 
 @Entity('lots')
+@Index(['warehouseCode', 'expiryDate'])
+@Index(['productId'])
 export class Lot {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Index()
   @Column({ name: 'lot_code', unique: true })
   lotCode: string;
 
@@ -55,6 +58,21 @@ export class Lot {
 
   @Column({ name: 'created_by' })
   createdBy: string; // User ID
+
+  @Column({ name: 'last_audited_at', type: 'timestamp', nullable: true })
+  lastAuditedAt?: Date;
+
+  @Column({ name: 'last_audited_by', nullable: true })
+  lastAuditedBy?: string;
+
+  @Column({ name: 'last_audit_diff', type: 'int', nullable: true })
+  lastAuditDiff?: number;
+
+  @Column({ name: 'last_audit_reason', nullable: true })
+  lastAuditReason?: string;
+
+  @Column({ name: 'last_audit_actual_qty', type: 'int', nullable: true })
+  lastAuditActualQty?: number;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

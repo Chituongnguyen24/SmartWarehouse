@@ -4,13 +4,14 @@ import { useAuth, ROLE_LABELS, ROLE_COLORS } from '../contexts/AuthContext';
 import type { UserRole } from '../contexts/AuthContext';
 import { Leaf, Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react';
 
-const DEMO_ACCOUNTS: { email: string; password: string; name: string; role: UserRole }[] = [
-  { email: 'admin@sfwms.vn', password: 'password123', name: 'Nguyễn Chi Tường', role: 'ADMIN' },
-  { email: 'manager@sfwms.vn', password: 'password123', name: 'Trần Văn Bình', role: 'WAREHOUSE_MANAGER' },
-  { email: 'staff@sfwms.vn', password: 'password123', name: 'Lê Thị Hoa', role: 'WAREHOUSE_STAFF' },
-  { email: 'sales@sfwms.vn', password: 'password123', name: 'Phạm Minh Đức', role: 'SALES_STAFF' },
-  { email: 'driver@sfwms.vn', password: 'password123', name: 'Võ Thanh Tùng', role: 'DRIVER' },
-  { email: 'customer@sfwms.vn', password: 'password123', name: 'Khách hàng Test', role: 'CUSTOMER' },
+const DEMO_ACCOUNTS: { email: string; password: string; name: string; role: UserRole; tag?: string }[] = [
+  { email: 'admin@sfwms.vn', password: 'password123', name: 'Nguyễn Chi Tường', role: 'ADMIN', tag: 'Admin Tổng (16 kho)' },
+  { email: 'govap@sfwms.vn', password: 'password123', name: 'Nguyễn Hoàng Nam', role: 'WAREHOUSE_MANAGER', tag: 'Quản Lý Kho Gò Vấp (WH-006)' },
+  { email: 'manager@sfwms.vn', password: 'password123', name: 'Trần Văn Bình', role: 'WAREHOUSE_MANAGER', tag: 'Quản Lý Kho Bình Thạnh (WH-005)' },
+  { email: 'staff@sfwms.vn', password: 'password123', name: 'Lê Thị Hoa', role: 'WAREHOUSE_STAFF', tag: 'Nhân Viên Kho Gò Vấp (PDA)' },
+  { email: 'driver@sfwms.vn', password: 'password123', name: 'Võ Thanh Tùng', role: 'DRIVER', tag: 'Tài Xế Giao Hàng' },
+  { email: 'sales@sfwms.vn', password: 'password123', name: 'Phạm Minh Đức', role: 'SALES_STAFF', tag: 'Kinh Doanh & Đơn Hàng' },
+  { email: 'customer@sfwms.vn', password: 'password123', name: 'Khách hàng Thử Nghiệm', role: 'CUSTOMER', tag: 'Sàn Mua Sắm TMĐT' },
 ];
 
 const LoginPage: React.FC = () => {
@@ -78,18 +79,18 @@ const LoginPage: React.FC = () => {
 
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 420 }}>
           <div style={{
-            width: 80, height: 80, borderRadius: 20,
-            background: 'linear-gradient(135deg, #10b981, #059669)',
+            padding: '16px 24px', borderRadius: 20,
+            background: '#ffffff',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 1.5rem', boxShadow: '0 8px 32px rgba(16,185,129,0.3)',
+            margin: '0 auto 1.5rem', boxShadow: '0 12px 36px rgba(0,0,0,0.25)',
           }}>
-            <Leaf size={40} color="#fff" />
+            <img src="/logos/logo_full.png" alt="C.T Mart Logo" style={{ height: '56px', width: 'auto', objectFit: 'contain' }} />
           </div>
-          <h1 style={{ color: '#fff', fontSize: '2.5rem', fontWeight: 700, marginBottom: '0.75rem' }}>
-            CityMart
+          <h1 style={{ color: '#fff', fontSize: '2.2rem', fontWeight: 800, marginBottom: '0.75rem', letterSpacing: '-0.02em' }}>
+            Hệ Thống Kho Thông Minh
           </h1>
-          <p style={{ color: '#94a3b8', fontSize: '1.1rem', lineHeight: 1.6 }}>
-            Hệ thống quản lý kho thực phẩm thông minh
+          <p style={{ color: '#94a3b8', fontSize: '1.05rem', lineHeight: 1.6 }}>
+            Nền tảng quản trị chuỗi cung ứng & logistics C.T Mart
           </p>
           <p style={{ color: '#64748b', fontSize: '0.9rem', marginTop: '0.5rem' }}>
             Giám sát IoT · Cảnh báo AI · Tối ưu FEFO · Vận chuyển thông minh
@@ -230,7 +231,14 @@ const LoginPage: React.FC = () => {
                     background: ROLE_COLORS[acc.role], flexShrink: 0,
                   }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: '#e2e8f0', fontSize: '0.8rem', fontWeight: 500 }}>{acc.name}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ color: '#e2e8f0', fontSize: '0.8rem', fontWeight: 600 }}>{acc.name}</span>
+                      {acc.tag && (
+                        <span style={{ fontSize: '0.65rem', padding: '1px 6px', borderRadius: 4, background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', fontWeight: 700 }}>
+                          {acc.tag}
+                        </span>
+                      )}
+                    </div>
                     <div style={{ color: '#64748b', fontSize: '0.7rem' }}>{acc.email}</div>
                   </div>
                   <span style={{

@@ -23,11 +23,50 @@ export default function ProfilePage() {
   const [formData, setFormData] = useState({
     name: user?.name || "",
     phone: user?.phone || "",
-    gender: "male",
-    dob: "1990-01-01",
-    address: "",
-    position: null as { lat: number; lng: number } | null
+    gender: user?.gender || "male",
+    dob: user?.dob ? user.dob.split('T')[0] : "1990-01-01",
+    address: user?.addresses?.[0]?.streetAddress || "",
+    position: user?.addresses?.[0]?.latitude ? { 
+      lat: Number(user.addresses[0].latitude), 
+      lng: Number(user.addresses[0].longitude) 
+    } : null
   });
+
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+
+  // Fetch full profile when page loads
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!token) return;
+      try {
+        const res = await fetch("http://localhost:3012/auth/me", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const fetchedUser = await res.json();
+          // Cập nhật lại store
+          login(fetchedUser, token);
+          
+          setFormData({
+            name: fetchedUser.name || "",
+            phone: fetchedUser.phone || "",
+            gender: fetchedUser.gender || "male",
+            dob: fetchedUser.dob ? fetchedUser.dob.split('T')[0] : "1990-01-01",
+            address: fetchedUser.addresses?.[0]?.streetAddress || "",
+            position: fetchedUser.addresses?.[0]?.latitude ? { 
+              lat: Number(fetchedUser.addresses[0].latitude), 
+              lng: Number(fetchedUser.addresses[0].longitude) 
+            } : null
+          });
+        }
+      } catch (err) {
+        console.error("Lỗi khi tải profile:", err);
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+    fetchProfile();
+  }, [token, login]);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -38,7 +77,7 @@ export default function ProfilePage() {
     setSaveSuccess(false);
 
     try {
-      const res = await fetch("http://localhost:3001/users/profile", {
+      const res = await fetch("http://localhost:3012/users/profile", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -88,6 +127,9 @@ export default function ProfilePage() {
         <p className="text-gray-500 text-sm">Quản lý thông tin hồ sơ để bảo mật tài khoản</p>
       </div>
 
+      {isLoadingProfile ? (
+        <div className="text-center py-8">Đang tải thông tin...</div>
+      ) : (
       <div className="max-w-2xl">
         {saveSuccess && (
           <div className="mb-6 p-4 bg-green-50 text-green-700 border border-green-200 rounded-xl flex items-center justify-between">
@@ -164,9 +206,15 @@ export default function ProfilePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start pt-4 border-t border-gray-100 mt-6">
             <label className="text-gray-600 font-medium md:text-right mt-3">Địa chỉ giao hàng</label>
             <div className="md:col-span-2 space-y-4">
-              
+              {formData.address && (
+                <div className="p-3 bg-blue-50 text-blue-800 rounded-lg border border-blue-100 text-sm">
+                  <strong>Địa chỉ đang lưu:</strong> {formData.address}
+                </div>
+              )}
+              <div className="text-sm text-gray-500 italic mt-2 mb-1">
+                * Nếu bạn muốn thay đổi địa chỉ, hãy chọn lại ở bên dưới:
+              </div>
               <AddressSelector onAddressChange={(addr) => setFormData({...formData, address: addr})} />
-
               <div className="text-sm text-gray-500 italic mt-2">
                 * Bạn có thể click vào Bản đồ dưới đây để ghim chính xác tọa độ giao hàng (Tùy chọn)
               </div>
@@ -190,6 +238,7 @@ export default function ProfilePage() {
           </div>
         </form>
       </div>
+      )}
     </div>
   );
 }

@@ -2,10 +2,10 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, StatusBar } from 'react-native';
 import { useDriverTask } from '../context/DriverTaskContext';
 import { COLORS } from '../theme/colors';
-import { Truck, Thermometer, ShieldCheck, AlertTriangle, Power } from 'lucide-react-native';
+import { Truck, Thermometer, ShieldCheck, AlertTriangle, Power, LogOut } from 'lucide-react-native';
 
 export const DriverHeader: React.FC = () => {
-  const { driverProfile, toggleOnline } = useDriverTask();
+  const { driverProfile, toggleOnline, logout } = useDriverTask();
 
   const isTempNormal = driverProfile.currentTemp <= driverProfile.targetTempMax;
 
@@ -29,21 +29,40 @@ export const DriverHeader: React.FC = () => {
             </View>
           </View>
 
-          {/* Online Toggle Switch with Glow effect */}
-          <TouchableOpacity
-            style={[
-              styles.onlineBtn,
-              driverProfile.isOnline ? styles.onlineBtnActive : styles.onlineBtnOffline,
-              driverProfile.isOnline && styles.activeGlow
-            ]}
-            onPress={toggleOnline}
-            activeOpacity={0.85}
-          >
-            <Power size={13} color={COLORS.surface} style={{ marginRight: 4 }} />
-            <Text style={styles.onlineText}>
-              {driverProfile.isOnline ? 'ONLINE' : 'OFFLINE'}
-            </Text>
-          </TouchableOpacity>
+          {/* Actions: Online Toggle & Logout */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <TouchableOpacity
+              style={[
+                styles.onlineBtn,
+                driverProfile.isOnline ? styles.onlineBtnActive : styles.onlineBtnOffline,
+                driverProfile.isOnline && styles.activeGlow
+              ]}
+              onPress={toggleOnline}
+              activeOpacity={0.85}
+            >
+              <Power size={12} color={COLORS.surface} style={{ marginRight: 3 }} />
+              <Text style={styles.onlineText}>
+                {driverProfile.isOnline ? 'ONLINE' : 'OFF'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+              }}
+              onPress={logout}
+              activeOpacity={0.7}
+            >
+              <LogOut size={14} color="#f87171" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Cold-Chain IoT Sensor Status Bar */}

@@ -1,5 +1,4 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { ProductService } from '../product/product.service';
 
 interface Stop {
   id: string;
@@ -12,14 +11,12 @@ interface Stop {
 
 @Injectable()
 export class TransportService {
-  constructor(private productService: ProductService) {}
+  constructor() {}
 
   // 1. Internal optimization: Suggest warehouse zone and location
   async suggestZonePlacement(sku: string): Promise<any> {
-    const product = await this.productService.findOneBySku(sku);
-    if (!product) {
-      throw new NotFoundException(`Product with SKU ${sku} not found`);
-    }
+    // Mock product info for zone placement
+    const product = { name: 'Mock Product', storageType: 'NORMAL', minTemp: 0, maxTemp: 30, maxHumidity: 80 };
 
     let zone = 'DRY';
     let suggestedLocation = 'dry-row-1';
@@ -311,5 +308,62 @@ export class TransportService {
       routes: outputRoutes,
       totalDistance: Math.round(outputRoutes.reduce((sum, r) => sum + r.totalDistance, 0) * 100) / 100,
     };
+  }
+
+  async optimizeBatch(orders: any[]): Promise<any[]> {
+    if (!orders || orders.length === 0) return [];
+    // Nhóm các order theo warehouseCode
+    const grouped = orders.reduce((acc, order) => {
+      const wh = order.warehouseCode || 'WH-001';
+      if (!acc[wh]) acc[wh] = [];
+      acc[wh].push(order);
+      return acc;
+    }, {});
+
+    const routes = [];
+    for (const wh of Object.keys(grouped)) {
+      const whOrders = grouped[wh];
+      // Tối đa 5 đơn / xe
+      const CAPACITY = 5; 
+      for (let i = 0; i < whOrders.length; i += CAPACITY) {
+        const batch = whOrders.slice(i, i + CAPACITY);
+        routes.push({
+          id: `ROUTE-${wh}-${Math.floor(Math.random() * 10000)}`,
+          warehouseCode: wh,
+          orders: batch,
+          totalDistanceKm: (Math.random() * 20 + 5).toFixed(1), // Mock distance 5-25km
+          status: 'PENDING_DISPATCH',
+        });
+      }
+    }
+    return routes;
+  }
+
+  async get3plQuote(routeInfo: any): Promise<any[]> {
+    const distance = parseFloat(routeInfo.totalDistanceKm || '10');
+    const orderCount = routeInfo.orders?.length || 1;
+    
+    // GHN: Rẻ hơn nhưng đi chậm hơn
+    const ghnPrice = 15000 + (distance * 4000) + (orderCount * 5000);
+    
+    // Ahamove: Mắc hơn nhưng giao siêu tốc (Siêu Tốc)
+    const ahamovePrice = 25000 + (distance * 6000) + (orderCount * 5000);
+
+    return [
+      {
+        provider: 'GHN',
+        name: 'Giao Hàng Nhanh',
+        serviceType: 'Chuẩn (1-2 ngày)',
+        price: Math.round(ghnPrice),
+        estimatedTime: '24-48 giờ',
+      },
+      {
+        provider: 'AHAMOVE',
+        name: 'Ahamove',
+        serviceType: 'Siêu Tốc (2-4 giờ)',
+        price: Math.round(ahamovePrice),
+        estimatedTime: '2-4 giờ',
+      }
+    ];
   }
 }

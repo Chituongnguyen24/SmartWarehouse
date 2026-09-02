@@ -2,17 +2,17 @@ import { DeliveryTask, DriverProfile } from '../types/driver';
 
 export const MOCK_DRIVER_PROFILE: DriverProfile = {
   id: 'drv_8891',
-  name: 'Nguyễn Văn Hùng',
-  phone: '0909 888 111',
-  licensePlate: '59-X1 884.92',
-  vehicleType: 'Xe Máy Thùng Lạnh',
+  name: 'Võ Minh Trí',
+  phone: '0977 112 233',
+  licensePlate: '59-V1 888.99',
+  vehicleType: 'Xe Máy Thùng Lạnh C.T Mart',
   isOnline: true,
-  currentTemp: 2.8,              // 2.8°C (Kho Lạnh)
+  currentTemp: 3.2,              // 3.2°C (Kho Lạnh)
   targetTempMin: 0.0,
   targetTempMax: 4.0,
-  rating: 4.9,
-  completedTasksToday: 8,
-  totalEarningsToday: 340000,    // 340.000đ
+  rating: 4.95,
+  completedTasksToday: 12,
+  totalEarningsToday: 420000,    // 420.000đ
 };
 
 export const MOCK_DELIVERY_TASKS: DeliveryTask[] = [

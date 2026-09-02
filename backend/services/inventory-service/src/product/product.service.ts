@@ -84,3 +84,4 @@ export class ProductService {
     return this.findOneBySku(id);
   }
 }
+}

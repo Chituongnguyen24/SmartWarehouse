@@ -1,10 +1,11 @@
 import { Injectable, OnModuleInit, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, LessThanOrEqual } from 'typeorm';
 import { Lot, LotStatus } from './entities/lot.entity';
 import { Supplier } from './entities/supplier.entity';
 import { StockMovement, MovementType } from './entities/stock-movement.entity';
 import { ProductService } from '../product/product.service';
+import { MLSpoilageService, MLPredictionResult } from './ml-spoilage.service';
 import Redis from 'ioredis';
 
 @Injectable()
@@ -19,11 +20,19 @@ export class InventoryService implements OnModuleInit {
     @InjectRepository(StockMovement)
     private movementRepository: Repository<StockMovement>,
     private productService: ProductService,
+    private mlSpoilageService: MLSpoilageService,
   ) {
-    // Connect to Redis for publishing events
+    // Connect to Redis for publishing events with safe error handling
     this.redisClient = new Redis({
       host: process.env.REDIS_HOST || 'localhost',
       port: Number(process.env.REDIS_PORT) || 6379,
+      maxRetriesPerRequest: null,
+      enableOfflineQueue: false,
+      retryStrategy: (times) => Math.min(times * 100, 3000),
+    });
+
+    this.redisClient.on('error', (err) => {
+      console.warn(`[InventoryService] Redis connection warning: ${err.message}`);
     });
   }
 
@@ -51,6 +60,19 @@ export class InventoryService implements OnModuleInit {
   }
 
   async onModuleInit() {
+    console.log('[INVENTORY SERVICE] onModuleInit starting (async non-blocking)...');
+    this.initializeData().catch((err) => {
+      console.warn('[INVENTORY SERVICE] Background initialization warning:', err.message);
+    });
+  }
+
+  private async initializeData() {
+    // Tự động giải phóng vị trí kệ kho và xóa sạch các lô có tồn kho <= 0
+    try {
+      await this.lotRepository.delete({ remainingQty: LessThanOrEqual(0) });
+    } catch (e) {
+      console.warn('[INVENTORY SERVICE] Failed to delete empty lots:', e);
+    }
     // Seed default suppliers
     const defaultSuppliers = [
       { id: '11111111-1111-1111-1111-111111111111', name: 'Dalat Organic Farms', contact: '0901234567', address: 'Dalat City, Lam Dong' },
@@ -73,9 +95,9 @@ export class InventoryService implements OnModuleInit {
     let warehouses = [];
     const warehouseIdMap = {};
     try {
-      for (let attempt = 0; attempt < 5; attempt++) {
+      for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const res = await fetch('http://localhost:3005/warehouses');
+          const res = await fetch('http://localhost:3007/warehouses');
           if (res.ok) {
             warehouses = await res.json();
             break;
@@ -83,7 +105,7 @@ export class InventoryService implements OnModuleInit {
         } catch (e) {
           // ignore
         }
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 300));
       }
       for (const wh of warehouses) {
         warehouseIdMap[wh.code] = wh.id;
@@ -144,25 +166,54 @@ export class InventoryService implements OnModuleInit {
             const riskScore = daysOffset < 15 ? Math.floor(50 + Math.random() * 40) : 0;
             const status = riskScore > 70 ? LotStatus.AT_RISK : LotStatus.NORMAL;
 
-            await this.importLot({
-              lotCode,
-              sku: product.sku,
-              supplierId,
-              expiryDate: expiry,
-              quantity,
-              zone,
-              location,
-              riskScore,
-              status,
-              createdBy: 'admin-id',
-              warehouseId: wh.id,
-              warehouseCode: wh.code,
-            });
+      // WH-006 (HCM Northwest - Go Vap)
+      { warehouseCode: 'WH-006', sku: 'MILK-DALAT-1L', quantity: 90, lotCode: 'LOT-MILK-WH6', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 4, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-006', sku: 'NOODLE-HAOHAO', quantity: 250, lotCode: 'LOT-NOODLE-WH6', zone: 'DRY', location: 'dry-shelf-A1', daysOffset: 35, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-006', sku: 'BEEF-STEAK-US', quantity: 60, lotCode: 'LOT-BEEF-WH6', zone: 'FROZEN', location: 'frozen-shelf-A1', daysOffset: 15, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-006', sku: 'TOMATO-DALAT', quantity: 50, lotCode: 'LOT-TOMATO-WH6', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 3, riskScore: 0, status: LotStatus.NORMAL },
+    ];
+
+    for (const lotData of seedWarehouseLots) {
+      try {
+        const exists = await this.lotRepository.findOneBy({ lotCode: lotData.lotCode });
+        if (!exists) {
+          const product = await this.productService.findOneBySku(lotData.sku);
+          if (!product) {
+            continue; // Bỏ qua nếu SKU không có trong DB
           }
+          const expiry = new Date();
+          expiry.setDate(today.getDate() + lotData.daysOffset);
+
+          await this.importLot({
+            lotCode: lotData.lotCode,
+            sku: lotData.sku,
+            supplierId: defaultSuppliers[0].id,
+            expiryDate: expiry,
+            quantity: lotData.quantity,
+            zone: lotData.zone,
+            location: lotData.location,
+            riskScore: lotData.riskScore,
+            status: lotData.status,
+            createdBy: 'admin-id',
+            warehouseId: warehouseIdMap[lotData.warehouseCode] || null,
+            warehouseCode: lotData.warehouseCode,
+          });
+          console.log(`[INVENTORY SERVICE] Seeded lot ${lotData.lotCode} for warehouse ${lotData.warehouseCode}`);
         }
-        console.log(`[INVENTORY SERVICE] Automatically generated lots for warehouse ${wh.code}`);
+      } catch (err) {
+        // Safe catch to ensure bootstrap never fails
       }
     }
+      }
+    }
+    console.log('[INVENTORY SERVICE] onModuleInit finished successfully!');
+  }
+
+  async findMovements(limit = 100): Promise<StockMovement[]> {
+    return this.movementRepository.find({
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
   }
 
   async findAllSuppliers(): Promise<Supplier[]> {
@@ -173,8 +224,31 @@ export class InventoryService implements OnModuleInit {
     return this.supplierRepository.save(this.supplierRepository.create(dto));
   }
 
-  async findAllLots(): Promise<Lot[]> {
-    return this.lotRepository.find();
+  async findAllLots(options?: { warehouseCode?: string; limit?: number; search?: string }): Promise<Lot[]> {
+    const query = this.lotRepository.createQueryBuilder('lot')
+      .where('lot.remainingQty > :minQty', { minQty: 0 });
+
+    if (options?.warehouseCode) {
+      query.andWhere('lot.warehouseCode = :wh', { wh: options.warehouseCode });
+    }
+
+    if (options?.search) {
+      const searchPattern = `%${options.search}%`;
+      query.andWhere('(lot.lotCode ILIKE :search OR lot.location ILIKE :search)', { search: searchPattern });
+    }
+
+    query.orderBy('lot.expiryDate', 'ASC');
+
+    if (options?.limit && options.limit > 0) {
+      query.take(options.limit);
+    } else if (options?.warehouseCode) {
+      // Khi lọc theo kho cụ thể (như WH-006 Kho Gò Vấp), tải toàn bộ lô hàng của kho đó (lên đến 5000)
+      query.take(5000);
+    } else {
+      query.take(3000);
+    }
+
+    return query.getMany();
   }
 
   async findLotsByProduct(productId: string): Promise<Lot[]> {
@@ -244,7 +318,13 @@ export class InventoryService implements OnModuleInit {
       zone: savedLot.zone,
       quantity: savedLot.quantity,
     };
-    await this.redisClient.publish('lot_imported', JSON.stringify(eventPayload));
+    try {
+      if (this.redisClient && this.redisClient.status === 'ready') {
+        await this.redisClient.publish('lot_imported', JSON.stringify(eventPayload));
+      }
+    } catch (e) {
+      console.warn('[INVENTORY SERVICE] Failed to publish lot_imported event:', e.message);
+    }
 
     return savedLot;
   }
@@ -265,7 +345,11 @@ export class InventoryService implements OnModuleInit {
     }
 
     lot.remainingQty -= dto.quantity;
-    const updatedLot = await this.lotRepository.save(lot);
+    if (lot.remainingQty <= 0) {
+      await this.lotRepository.delete(lot.id);
+    } else {
+      await this.lotRepository.save(lot);
+    }
 
     // Save Stock Movement
     const movement = this.movementRepository.create({
@@ -283,16 +367,167 @@ export class InventoryService implements OnModuleInit {
       const activeLots = await this.lotRepository.findBy({ productId: product.id });
       const totalStock = activeLots.reduce((sum, l) => sum + l.remainingQty, 0);
       
-      // Assume a default low stock limit of 50 units
       const minStockThreshold = 50;
-      if (totalStock === 0) {
-        await this.redisClient.publish('stock_depleted', JSON.stringify({ sku: product.sku, timestamp: new Date().toISOString() }));
-      } else if (totalStock < minStockThreshold) {
-        await this.redisClient.publish('low_stock', JSON.stringify({ sku: product.sku, currentStock: totalStock, timestamp: new Date().toISOString() }));
+      try {
+        if (this.redisClient && this.redisClient.status === 'ready') {
+          if (totalStock === 0) {
+            await this.redisClient.publish('stock_depleted', JSON.stringify({ sku: product.sku, timestamp: new Date().toISOString() }));
+          } else if (totalStock < minStockThreshold) {
+            await this.redisClient.publish('low_stock', JSON.stringify({ sku: product.sku, currentStock: totalStock, timestamp: new Date().toISOString() }));
+          }
+        }
+      } catch (e) {
+        console.warn('[INVENTORY SERVICE] Failed to publish stock alert event:', e.message);
       }
     }
 
+    return lot;
+  }
+
+  async adjustLotQuantity(dto: {
+    lotId: string;
+    actualQuantity: number;
+    reason: string;
+    performedBy: string;
+  }): Promise<Lot> {
+    let lot: Lot | null = null;
+
+    // 1. Tìm theo lotCode trước nếu là mã LOT-
+    if (dto.lotId && dto.lotId.startsWith('LOT-')) {
+      lot = await this.lotRepository.findOneBy({ lotCode: dto.lotId });
+    }
+
+    // 2. Tìm theo UUID ID
+    if (!lot && dto.lotId) {
+      try {
+        lot = await this.lotRepository.findOneBy({ id: dto.lotId });
+      } catch (err) {
+        // Tránh lỗi invalid UUID format từ postgres
+      }
+    }
+
+    // 3. Tìm theo lotCode nếu chưa thấy
+    if (!lot && dto.lotId) {
+      lot = await this.lotRepository.findOneBy({ lotCode: dto.lotId });
+    }
+
+    if (!lot) {
+      throw new NotFoundException(`Không tìm thấy lô hàng với mã/ID ${dto.lotId}`);
+    }
+
+    const difference = dto.actualQuantity - lot.remainingQty;
+
+    // Save Stock Movement if quantity changed
+    if (difference !== 0) {
+      const movement = this.movementRepository.create({
+        lotId: lot.id,
+        movementType: difference > 0 ? MovementType.IN : MovementType.OUT,
+        quantity: Math.abs(difference),
+        reason: dto.actualQuantity <= 0 ? `[XUẤT HẾT / HỦY BỎ - GIẢI PHÓNG VỊ TRÍ KỆ ${lot.location || ''}] ${dto.reason}` : `[KIỂM KÊ] ${dto.reason}`,
+        performedBy: dto.performedBy,
+      });
+      await this.movementRepository.save(movement);
+    }
+
+    // Nếu số lượng về 0: Xóa lô hàng khỏi bảng để giải phóng vị trí kệ kho hoàn toàn
+    if (dto.actualQuantity <= 0) {
+      await this.lotRepository.delete(lot.id);
+      return {
+        ...lot,
+        remainingQty: 0,
+      } as any;
+    }
+
+    lot.remainingQty = dto.actualQuantity;
+    lot.lastAuditedAt = new Date();
+    lot.lastAuditedBy = dto.performedBy || 'Nhân viên trực ca';
+    lot.lastAuditDiff = difference;
+    lot.lastAuditReason = dto.reason;
+    lot.lastAuditActualQty = dto.actualQuantity;
+    const updatedLot = await this.lotRepository.save(lot);
+
     return updatedLot;
+  }
+
+  async reserveInventory(items: { sku: string; quantity: number }[], warehouseId?: string): Promise<boolean> {
+    const queryRunner = this.lotRepository.manager.connection.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      for (const item of items) {
+        let product: any = null;
+        try {
+          product = await this.productService.findOneBySku(item.sku);
+        } catch (e) {}
+
+        if (!product) {
+          try {
+            product = await this.productService.findOne(item.sku);
+          } catch (e) {}
+        }
+
+        const targetIds = [item.sku];
+        if (product?.id) targetIds.push(product.id);
+        if (product?.sku) targetIds.push(product.sku);
+
+        // Lock rows for this product to prevent concurrent reservations
+        const qb = queryRunner.manager
+          .createQueryBuilder(Lot, 'lot')
+          .setLock('pessimistic_write')
+          .where('(lot.product_id IN (:...targetIds) OR lot.lot_code ILIKE :lotPrefix)', {
+            targetIds,
+            lotPrefix: `%${item.sku}%`,
+          })
+          .andWhere('lot.remaining_qty > 0');
+
+        if (warehouseId && warehouseId !== 'ALL') {
+          qb.andWhere('(lot.warehouse_id = :warehouseId OR lot.warehouse_code = :warehouseId)', { warehouseId });
+        }
+
+        const lots = await qb.orderBy('lot.expiry_date', 'ASC').getMany();
+
+        const totalAvailable = lots.reduce((sum, lot) => sum + lot.remainingQty, 0);
+
+        if (totalAvailable < item.quantity) {
+          throw new BadRequestException(`Out of stock for SKU ${item.sku}. Requested: ${item.quantity}, Available: ${totalAvailable}`);
+        }
+
+        let qtyToFulfill = item.quantity;
+        for (const lot of lots) {
+          if (qtyToFulfill <= 0) break;
+
+          const deduction = Math.min(lot.remainingQty, qtyToFulfill);
+          lot.remainingQty -= deduction;
+          qtyToFulfill -= deduction;
+
+          // Lưu vết đối soát kế toán: Không bao giờ thất thoát (Liên kết mã lô, SKU, số lượng, lý do)
+          const movement = queryRunner.manager.create(StockMovement, {
+            lotId: lot.id,
+            movementType: MovementType.OUT,
+            quantity: deduction,
+            reason: `[XUẤT BÁN ĐƠN HÀNG] SKU: ${item.sku} - Mã Lô: ${lot.lotCode} (Vị trí kệ: ${lot.location || 'Khu vực chung'})`,
+            performedBy: 'HỆ THỐNG XUẤT BÁN TỰ ĐỘNG (FEFO)',
+          });
+          await queryRunner.manager.save(StockMovement, movement);
+
+          // Nếu lô đã xuất hết toàn bộ số lượng -> Xóa khỏi bảng tồn kho để giải phóng vị trí kệ kho
+          if (lot.remainingQty <= 0) {
+            await queryRunner.manager.delete(Lot, lot.id);
+          } else {
+            await queryRunner.manager.save(Lot, lot);
+          }
+        }
+      }
+
+      await queryRunner.commitTransaction();
+      return true;
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   async getSmartFefoSuggestions(sku: string, requiredQty: number, warehouseId?: string): Promise<any> {
@@ -369,12 +604,27 @@ export class InventoryService implements OnModuleInit {
   async getWarehouseStock(skus: string[]): Promise<any> {
     const results = {};
 
-    for (const sku of skus) {
-      const product = await this.productService.findOneBySku(sku);
+    for (const rawSku of skus) {
+      const sku = (rawSku || '').trim();
+      if (!sku) continue;
+
+      let product = await this.productService.findOneBySku(sku);
+      if (!product) {
+        try {
+          product = await this.productService.findOne(sku);
+        } catch (e) {}
+      }
       if (!product) continue;
 
+      const targetIds = [sku];
+      if (product?.id) targetIds.push(product.id);
+      if (product?.sku) targetIds.push(product.sku);
+
       const lots = await this.lotRepository.createQueryBuilder('lot')
-        .where('lot.product_id = :productId', { productId: product.sku })
+        .where('(lot.product_id IN (:...targetIds) OR lot.lot_code ILIKE :lotPrefix)', {
+          targetIds,
+          lotPrefix: `%${sku}%`,
+        })
         .andWhere('lot.remaining_qty > 0')
         .andWhere('lot.expiry_date > :now', { now: new Date() })
         .getMany();
@@ -384,10 +634,15 @@ export class InventoryService implements OnModuleInit {
         if (!results[whCode]) {
           results[whCode] = {};
         }
-        if (!results[whCode][sku]) {
-          results[whCode][sku] = 0;
+        
+        // Key under raw requested identifier, canonical SKU, product ID, and lot productId
+        const keys = Array.from(new Set([sku, product?.sku, product?.id, lot.productId])).filter(Boolean);
+        for (const k of keys) {
+          if (!results[whCode][k]) {
+            results[whCode][k] = 0;
+          }
+          results[whCode][k] += lot.remainingQty;
         }
-        results[whCode][sku] += lot.remainingQty;
       }
     }
 
@@ -431,5 +686,150 @@ export class InventoryService implements OnModuleInit {
     lot.riskScore = riskScore;
     lot.status = status;
     return this.lotRepository.save(lot);
+  }
+
+  // ─────────────────────────────────────────────────────────
+  //  🤖 MACHINE LEARNING SPOILAGE PREDICTION PIPELINE
+  // ─────────────────────────────────────────────────────────
+
+  /**
+   * Run batch ML risk prediction across all active lots in a warehouse
+   */
+  async getMLBatchAssessment(warehouseCode?: string): Promise<{
+    timestamp: string;
+    model: string;
+    warehouseCode: string;
+    totalLotsEvaluated: number;
+    dangerCount: number;
+    warningCount: number;
+    safeCount: number;
+    averageRiskScore: number;
+    predictions: MLPredictionResult[];
+  }> {
+    const qb = this.lotRepository.createQueryBuilder('lot')
+      .where('lot.remaining_qty > 0');
+
+    if (warehouseCode && warehouseCode !== 'ALL') {
+      qb.andWhere('(lot.warehouse_code = :warehouseCode OR lot.warehouse_id = :warehouseCode)', { warehouseCode });
+    }
+
+    const lots = await qb.getMany();
+    const predictions: MLPredictionResult[] = [];
+
+    let dangerCount = 0;
+    let warningCount = 0;
+    let safeCount = 0;
+    let scoreSum = 0;
+
+    for (const lot of lots) {
+      let product: any = null;
+      try {
+        if (lot.productId) {
+          product = await this.productService.findOne(lot.productId);
+        }
+      } catch (e) {
+        // ignore product lookup failure
+      }
+
+      const prediction = this.mlSpoilageService.predictLotRisk(lot, {
+        productName: product?.name,
+        sku: product?.sku || lot.productId,
+      });
+
+      if (prediction.riskLevel === 'DANGER') dangerCount++;
+      else if (prediction.riskLevel === 'WARNING') warningCount++;
+      else safeCount++;
+
+      scoreSum += prediction.mlRiskScore;
+      predictions.push(prediction);
+    }
+
+    // Sort predictions: highest risk first
+    predictions.sort((a, b) => b.mlRiskScore - a.mlRiskScore);
+
+    return {
+      timestamp: new Date().toISOString(),
+      model: 'Ensemble Arrhenius Gradient-Boosted Spoilage Estimator v2.1',
+      warehouseCode: warehouseCode || 'ALL',
+      totalLotsEvaluated: lots.length,
+      dangerCount,
+      warningCount,
+      safeCount,
+      averageRiskScore: lots.length > 0 ? Math.round((scoreSum / lots.length) * 10) / 10 : 0,
+      predictions,
+    };
+  }
+
+  /**
+   * Predict degradation & risk for a single lot
+   */
+  async predictSingleLotML(lotId: string): Promise<MLPredictionResult> {
+    const lot = await this.lotRepository.findOneBy({ id: lotId });
+    if (!lot) {
+      throw new NotFoundException(`Lot with ID ${lotId} not found`);
+    }
+
+    let product: any = null;
+    try {
+      if (lot.productId) {
+        product = await this.productService.findOne(lot.productId);
+      }
+    } catch (e) {}
+
+    return this.mlSpoilageService.predictLotRisk(lot, {
+      productName: product?.name,
+      sku: product?.sku || lot.productId,
+    });
+  }
+
+  /**
+   * Run ML model across all lots and sync predicted risk scores back to DB
+   */
+  async syncMLRiskScores(warehouseCode?: string): Promise<{
+    syncedCount: number;
+    updatedToDanger: number;
+    updatedToWarning: number;
+    message: string;
+  }> {
+    const qb = this.lotRepository.createQueryBuilder('lot')
+      .where('lot.remaining_qty > 0');
+
+    if (warehouseCode && warehouseCode !== 'ALL') {
+      qb.andWhere('(lot.warehouse_code = :warehouseCode OR lot.warehouse_id = :warehouseCode)', { warehouseCode });
+    }
+
+    const lots = await qb.getMany();
+    let updatedToDanger = 0;
+    let updatedToWarning = 0;
+
+    for (const lot of lots) {
+      let product: any = null;
+      try {
+        if (lot.productId) product = await this.productService.findOne(lot.productId);
+      } catch (e) {}
+
+      const prediction = this.mlSpoilageService.predictLotRisk(lot, {
+        productName: product?.name,
+        sku: product?.sku || lot.productId,
+      });
+
+      lot.riskScore = prediction.mlRiskScore;
+      if (prediction.riskLevel === 'DANGER' && lot.status !== LotStatus.EXPIRED) {
+        lot.status = LotStatus.AT_RISK;
+        updatedToDanger++;
+      } else if (prediction.riskLevel === 'WARNING') {
+        lot.status = LotStatus.AT_RISK;
+        updatedToWarning++;
+      }
+
+      await this.lotRepository.save(lot);
+    }
+
+    return {
+      syncedCount: lots.length,
+      updatedToDanger,
+      updatedToWarning,
+      message: `Successfully synchronized ML Spoilage Risk Scores for ${lots.length} active lots.`,
+    };
   }
 }

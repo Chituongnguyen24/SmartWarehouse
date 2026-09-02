@@ -118,31 +118,30 @@ export default function LoginPage() {
         throw new Error('Mock OTP: Vui lòng nhập 123456');
       }
 
-      // Giả lập đối tượng user của Firebase
+      // Giả lập đối tượng user của Firebase (dùng sđt làm UID để nhất quán)
       const formattedPhone = phone.startsWith('0') ? `+84${phone.substring(1)}` : phone;
       const fbUser = {
-        uid: 'mock-uid-' + Date.now(),
+        uid: 'mock-uid-' + formattedPhone,
         phoneNumber: formattedPhone,
-        displayName: null // Để kích hoạt luồng "update_info"
       };
       // ---------------------------------------------
       
-      if (!fbUser.displayName) {
-        setTempUser(fbUser);
-        setStep('update_info');
-      } else {
-        const response = await fetch('http://localhost:3001/auth/firebase-login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            firebaseUid: fbUser.uid,
-            phone: fbUser.phoneNumber || phone,
-            name: fbUser.displayName || 'Khách hàng',
-          }),
-        });
+      // Thử gọi login xem tài khoản đã tồn tại trong DB chưa
+      const response = await fetch('http://localhost:3012/auth/firebase-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firebaseUid: fbUser.uid,
+          phone: fbUser.phoneNumber,
+          name: '', // Cố tình truyền rỗng, backend sẽ không ghi đè name nếu đã có
+        }),
+      });
 
-        if (response.ok) {
-          const { access_token, user } = await response.json();
+      if (response.ok) {
+        const { access_token, user } = await response.json();
+        
+        // Nếu user đã có name (tức là đã đk từ trước), cho login luôn
+        if (user.name && user.name.trim() !== '') {
           login({
             id: user.id,
             name: user.name,
@@ -152,9 +151,14 @@ export default function LoginPage() {
           }, access_token);
           router.push('/');
         } else {
+          // Là user mới tinh, hoặc chưa có tên
           setTempUser(fbUser);
           setStep('update_info');
         }
+      } else {
+        // Lỗi backend
+        setTempUser(fbUser);
+        setStep('update_info');
       }
     } catch (error: any) {
       console.error(error);
@@ -178,7 +182,7 @@ export default function LoginPage() {
     setIsLoading(true);
     
     try {
-      const response = await fetch('http://localhost:3001/auth/firebase-login', {
+      const response = await fetch('http://localhost:3012/auth/firebase-login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

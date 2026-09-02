@@ -5,6 +5,23 @@ import { OutboundOrder } from './outbound-order.entity';
 import { OutboundOrderItem } from './outbound-order-item.entity';
 import * as amqp from 'amqp-connection-manager';
 
+export interface CreateOutboundOrderDto {
+  orderCode?: string;
+  requestedBy: string;
+  requesterName?: string;
+  destination?: string;
+  warehouseId?: string;
+  warehouseCode?: string;
+  latitude?: number;
+  longitude?: number;
+  items: Array<{
+    sku: string;
+    productName: string;
+    requestedQuantity: number;
+  }>;
+  notes?: string;
+}
+
 @Injectable()
 export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
   private rmqConnection: any;
@@ -65,46 +82,36 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
   }
 
   // Bước 1: Bộ phận bán hàng yêu cầu xuất sản phẩm
-  async create(dto: {
-    requestedBy: string;
-    requesterName?: string;
-    destination?: string;
-    warehouseId?: string;
-    warehouseCode?: string;
-    latitude?: number;
-    longitude?: number;
-    items: Array<{
-      sku: string;
-      productName: string;
-      requestedQuantity: number;
-    }>;
-    notes?: string;
-  }): Promise<OutboundOrder> {
-    const orderCode = await this.generateOrderCode();
+  async create(dto: CreateOutboundOrderDto): Promise<OutboundOrder> {
+    const orderCode = dto.orderCode || await this.generateOrderCode();
+
+    // Check if an outbound order with this orderCode already exists (Idempotency)
+    const existing = await this.orderRepository.findOne({ where: { orderCode } });
+    if (existing) {
+      return existing;
+    }
 
     // 1. Phân tích địa chỉ khách hàng để lấy tọa độ mock (geocoding) nếu chưa truyền
     let lat = dto.latitude;
     let lng = dto.longitude;
     
     if (!lat || !lng) {
-      const dest = (dto.destination || '').toLowerCase();
-      if (dest.includes('quận 12') || dest.includes('q12')) { lat = 10.8671; lng = 106.6713; }
-      else if (dest.includes('thủ đức') || dest.includes('quận 9') || dest.includes('q9') || dest.includes('quận 2') || dest.includes('q2') || dest.includes('võ văn ngân')) { lat = 10.8494; lng = 106.7725; }
-      else if (dest.includes('bình chánh')) { lat = 10.6868; lng = 106.5932; }
-      else if (dest.includes('quận 7') || dest.includes('q7') || dest.includes('nguyễn văn linh')) { lat = 10.7324; lng = 106.7214; }
-      else if (dest.includes('bình thạnh') || dest.includes('điện biên phủ')) { lat = 10.8016; lng = 106.7135; }
-      else if (dest.includes('gò vấp') || dest.includes('quang trung')) { lat = 10.8252; lng = 106.6631; }
-      else if (dest.includes('quận 1') || dest.includes('q1') || dest.includes('lê lợi')) { lat = 10.7769; lng = 106.7009; }
-      else if (dest.includes('quận 5') || dest.includes('q5') || dest.includes('nguyễn văn cừ') || dest.includes('an dương vương')) { lat = 10.7574; lng = 106.6635; }
-      else if (dest.includes('tân bình') || dest.includes('trường chinh')) { lat = 10.7938; lng = 106.6509; }
-      else if (dest.includes('bình tân') || dest.includes('kinh dương vương')) { lat = 10.7492; lng = 106.6025; }
-      else if (dest.includes('hóc môn') || dest.includes('nguyễn ảnh thủ')) { lat = 10.8833; lng = 106.5931; }
-      else if (dest.includes('nhà bè') || dest.includes('huỳnh tấn phát')) { lat = 10.6953; lng = 106.7231; }
-      else if (dest.includes('phú nhuận') || dest.includes('phan xích long')) { lat = 10.7992; lng = 106.6803; }
-      else if (dest.includes('quận 8') || dest.includes('q8') || dest.includes('phạm thế hiển')) { lat = 10.7239; lng = 106.6342; }
-      else if (dest.includes('củ chi')) { lat = 10.9625; lng = 106.4981; }
-      else if (dest.includes('quận 10') || dest.includes('q10') || dest.includes('3 tháng 2')) { lat = 10.7719; lng = 106.6669; }
-      else { lat = 10.7574; lng = 106.6635; } // Nguyễn Văn Cừ mặc định
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(dto.destination || 'Ho Chi Minh')}&format=json&limit=1`;
+        const res = await fetch(url, { headers: { 'User-Agent': 'SmartWarehouse/1.0 (Thesis Project)' } });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.length > 0) {
+            lat = parseFloat(data[0].lat);
+            lng = parseFloat(data[0].lon);
+          }
+        }
+      } catch (e) {
+        console.error('[OUTBOUND] Nominatim Geocoding API failed', e.message);
+      }
+      if (!lat || !lng) {
+        lat = 10.7574; lng = 106.6635; // Default if failed
+      }
     }
 
     // 2. Tự động tính toán kho hàng gần nhất và ĐỦ hàng
@@ -159,7 +166,121 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
       }));
     }
 
+    // Auto deduct inventory stock in inventory-service for this warehouse
+    await this.deductInventoryStock(savedOrder.warehouseCode, dto.items.map(i => ({ sku: i.sku, quantity: i.requestedQuantity })));
+
     return this.findOne(savedOrder.id);
+  }
+
+  async splitCreate(dto: CreateOutboundOrderDto): Promise<OutboundOrder[]> {
+    const lat = dto.latitude || 10.8231;
+    const lng = dto.longitude || 106.6297;
+    
+    // Evaluate all warehouses
+    const calcResult = await this.calculateNearestWarehouse({
+      latitude: lat,
+      longitude: lng,
+      items: dto.items.map(i => ({ sku: i.sku, requestedQuantity: i.requestedQuantity })),
+    });
+
+    const createdOrders: OutboundOrder[] = [];
+    
+    // Remaining items to be fulfilled
+    let remainingItems = dto.items.map(i => ({ ...i }));
+    
+    // Iterate through ranked warehouses
+    for (const cand of calcResult.warehouses) {
+      if (remainingItems.length === 0) break;
+      
+      const fulfillableItems = [];
+      const newRemainingItems = [];
+      
+      for (const reqItem of remainingItems) {
+        const candItemInfo = cand.items.find((ci: any) => ci.sku === reqItem.sku);
+        const availableQty = candItemInfo ? candItemInfo.availableQty : 0;
+        
+        if (availableQty > 0) {
+          const qtyToTake = Math.min(availableQty, reqItem.requestedQuantity);
+          fulfillableItems.push({ ...reqItem, requestedQuantity: qtyToTake });
+          
+          if (reqItem.requestedQuantity > qtyToTake) {
+            newRemainingItems.push({ ...reqItem, requestedQuantity: reqItem.requestedQuantity - qtyToTake });
+          }
+        } else {
+          newRemainingItems.push(reqItem);
+        }
+      }
+      
+      // If this warehouse can fulfill anything, create an order for it
+      if (fulfillableItems.length > 0) {
+        const orderCode = `${dto.orderCode || 'OUT'}-${cand.warehouse.code}`;
+        const order = this.orderRepository.create({
+          orderCode,
+          status: 'PENDING',
+          requestedBy: dto.requestedBy,
+          requesterName: dto.requesterName,
+          destination: dto.destination,
+          warehouseId: cand.warehouse.id,
+          warehouseCode: cand.warehouse.code,
+          latitude: lat,
+          longitude: lng,
+          totalItems: fulfillableItems.length,
+          totalQuantity: fulfillableItems.reduce((sum, i) => sum + i.requestedQuantity, 0),
+          notes: dto.notes,
+        });
+
+        const savedOrder = await this.orderRepository.save(order);
+
+        for (const item of fulfillableItems) {
+          await this.itemRepository.save(this.itemRepository.create({
+            outboundOrderId: savedOrder.id,
+            sku: item.sku,
+            productName: item.productName,
+            requestedQuantity: item.requestedQuantity,
+            status: 'PENDING',
+          }));
+        }
+        
+        // Auto deduct/reserve inventory stock from inventory-service for this warehouse
+        this.deductInventoryStock(savedOrder.warehouseCode || cand.warehouse.code, fulfillableItems.map(i => ({ sku: i.sku, quantity: i.requestedQuantity })));
+
+        createdOrders.push(await this.findOne(savedOrder.id));
+      }
+      
+      remainingItems = newRemainingItems;
+    }
+    
+    // If there are still remaining items that NO warehouse can fulfill
+    if (remainingItems.length > 0) {
+        console.warn(`[OUTBOUND AUTO-ROUTING] Could not fulfill some items for order ${dto.orderCode}. Assigning to default WH-001.`);
+        const order = this.orderRepository.create({
+          orderCode: `${dto.orderCode || 'OUT'}-BACKORDER`,
+          status: 'PENDING',
+          requestedBy: dto.requestedBy,
+          requesterName: dto.requesterName,
+          destination: dto.destination,
+          warehouseId: '11111111-1111-1111-1111-111111111111',
+          warehouseCode: 'WH-001',
+          latitude: lat,
+          longitude: lng,
+          totalItems: remainingItems.length,
+          totalQuantity: remainingItems.reduce((sum, i) => sum + i.requestedQuantity, 0),
+          notes: 'BACKORDER - KHÔNG ĐỦ TỒN KHO TRÊN TOÀN HỆ THỐNG',
+        });
+        const savedOrder = await this.orderRepository.save(order);
+        for (const item of remainingItems) {
+          await this.itemRepository.save(this.itemRepository.create({
+            outboundOrderId: savedOrder.id,
+            sku: item.sku,
+            productName: item.productName,
+            requestedQuantity: item.requestedQuantity,
+            status: 'PENDING',
+          }));
+        }
+        createdOrders.push(await this.findOne(savedOrder.id));
+    }
+    
+    return createdOrders;
   }
 
   // Thuật toán tính toán và đề xuất kho hàng gần nhất đáp ứng đủ tồn kho
@@ -215,9 +336,22 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
       console.error('[OUTBOUND SERVICE] Error fetching warehouse stock:', err.message);
     }
 
-    // Công thức Haversine tính khoảng cách giữa 2 tọa độ (km)
-    const getHaversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-      const R = 6371; // Bán kính Trái Đất (km)
+    // API OSRM tính khoảng cách thực tế (km)
+    const getRoutingDistance = async (lat1: number, lon1: number, lat2: number, lon2: number) => {
+      try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=false`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.routes && data.routes.length > 0) {
+            return data.routes[0].distance / 1000;
+          }
+        }
+      } catch (e) {
+        console.error('[OUTBOUND] OSRM Routing API failed, falling back to Haversine', e.message);
+      }
+      
+      const R = 6371; 
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLon = (lon2 - lon1) * Math.PI / 180;
       const a =
@@ -231,8 +365,8 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     };
 
     // Đánh giá từng kho hàng
-    const candidates = warehouses.map(wh => {
-      const distance = getHaversineDistance(dto.latitude, dto.longitude, wh.latitude, wh.longitude);
+    const candidates = await Promise.all(warehouses.map(async (wh) => {
+      const distance = await getRoutingDistance(dto.latitude, dto.longitude, wh.latitude, wh.longitude);
       
       let fulfilledItems = 0;
       const itemDetails = dto.items.map(item => {
@@ -264,7 +398,7 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
         fulfillmentRate,
         items: itemDetails,
       };
-    });
+    }));
 
     // Sắp xếp các kho hàng ứng viên:
     // 1. Tỷ lệ đáp ứng tồn kho giảm dần (ưu tiên kho đủ hàng trước)
@@ -291,8 +425,11 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  async findAll(status?: string): Promise<OutboundOrder[]> {
-    const where = status ? { status } : {};
+  async findAll(status?: string, warehouseCode?: string): Promise<OutboundOrder[]> {
+    const where: any = {};
+    if (status) where.status = status;
+    if (warehouseCode) where.warehouseCode = warehouseCode;
+    
     return this.orderRepository.find({
       where,
       relations: ['items'],
@@ -343,23 +480,46 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     return this.orderRepository.save(order);
   }
 
-  // Bước 4: Nhân viên xác nhận đã lấy hàng
-  async confirmPicking(orderId: string): Promise<OutboundOrder> {
+  // Quản lý kho tiếp nhận & duyệt đơn hàng giao việc cho nhân viên kho lấy hàng
+  async approve(orderId: string): Promise<OutboundOrder> {
     const order = await this.findOne(orderId);
-    if (order.status !== 'PICKING') {
-      throw new BadRequestException(`Order ${order.orderCode} is not in PICKING status`);
-    }
+    order.status = 'PICKING';
 
-    // Mark all suggested items as picked
     for (const item of order.items) {
-      if (item.status === 'SUGGESTED') {
-        item.status = 'PICKED';
+      if (item.status === 'PENDING' || !item.status) {
+        item.status = 'SUGGESTED';
         await this.itemRepository.save(item);
       }
     }
 
+    const saved = await this.orderRepository.save(order);
+    await this.syncStatusToOrderService(order, 'PROCESSING');
+    return saved;
+  }
+
+  // Bước 4: Nhân viên xác nhận đã lấy hàng -> Chuyển sang Đóng Gói (PACKED)
+  async confirmPicking(orderId: string): Promise<OutboundOrder> {
+    const order = await this.findOne(orderId);
+    if (order.status === 'PACKED' || order.status === 'CONFIRMED') {
+      return order;
+    }
+
+    // Mark all items as picked
+    for (const item of order.items) {
+      item.status = 'PICKED';
+      if (!item.pickedQuantity || item.pickedQuantity === 0) {
+        item.pickedQuantity = item.requestedQuantity || 1;
+      }
+      await this.itemRepository.save(item);
+    }
+
     order.status = 'PACKED';
-    return this.orderRepository.save(order);
+    const savedOrder = await this.orderRepository.save(order);
+
+    // Call Webhook to sync status with order-service (CustomerOrder) & broadcast WebSocket
+    await this.syncStatusToOrderService(savedOrder, 'PACKED');
+
+    return savedOrder;
   }
 
   // Bước 5: Xác nhận xuất kho
@@ -380,29 +540,36 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     // Call Inventory Service to deduct stock
     try {
       const token = await this.getAuthToken();
+      const unassignedItems: { sku: string; quantity: number }[] = [];
       for (const item of order.items) {
-        if (!item.lotId || item.pickedQuantity <= 0) continue;
+        if (item.lotId && item.pickedQuantity > 0) {
+          const deductPayload = {
+            lotId: item.lotId,
+            quantity: item.pickedQuantity,
+            reason: `EXPORT_OUTBOUND_ORDER_${order.orderCode}`,
+          };
 
-        const deductPayload = {
-          lotId: item.lotId,
-          quantity: item.pickedQuantity,
-          reason: `EXPORT_OUTBOUND_ORDER_${order.orderCode}`,
-        };
+          const res = await fetch('http://localhost:3011/inventory/lots/export', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(deductPayload),
+          });
 
-        const res = await fetch('http://localhost:3011/inventory/lots/export', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(deductPayload),
-        });
-
-        if (!res.ok) {
-          console.error(`[OUTBOUND SERVICE] Failed to deduct stock for lot ${item.lotCode} (${item.lotId}): ${res.statusText}`);
-        } else {
-          console.log(`[OUTBOUND SERVICE] Successfully deducted ${item.pickedQuantity} from lot ${item.lotCode}`);
+          if (!res.ok) {
+            console.error(`[OUTBOUND SERVICE] Failed to deduct stock for lot ${item.lotCode} (${item.lotId}): ${res.statusText}`);
+          } else {
+            console.log(`[OUTBOUND SERVICE] Successfully deducted ${item.pickedQuantity} from lot ${item.lotCode}`);
+          }
+        } else if (item.requestedQuantity > 0) {
+          unassignedItems.push({ sku: item.sku, quantity: item.requestedQuantity });
         }
+      }
+
+      if (unassignedItems.length > 0) {
+        await this.deductInventoryStock(order.warehouseCode || 'WH-006', unassignedItems);
       }
     } catch (err) {
       console.error('[OUTBOUND SERVICE] Error calling inventory stock deduction:', err.message);
@@ -430,7 +597,84 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
       console.error('[OUTBOUND SERVICE] Failed to publish RabbitMQ event:', err.message);
     }
 
+    // Call Webhook to sync status with order-service (CustomerOrder) -> READY_FOR_DELIVERY (Chờ nhận chuyến)
+    await this.syncStatusToOrderService(order, 'READY_FOR_DELIVERY');
+
     return confirmed;
+  }
+
+  private async syncStatusToOrderService(order: any, orderStatus: string) {
+    if (!order) return;
+    const orderCode = typeof order === 'string' ? order : order.orderCode;
+    const destination = typeof order === 'object' ? order.destination : undefined;
+    const requesterName = typeof order === 'object' ? order.requesterName : undefined;
+
+    try {
+      let targetId = orderCode || '';
+      if (typeof order === 'object' && order.notes && order.notes.includes('[ORDER_ID:')) {
+        const match = order.notes.match(/\[ORDER_ID:([^\]]+)\]/);
+        if (match) targetId = match[1];
+      }
+      const baseOrderId = targetId.split('-WH')[0].split('-BACKORDER')[0];
+      await fetch(`http://localhost:3004/orders/sync-status/${baseOrderId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          status: orderStatus,
+          destination,
+          customerName: requesterName
+        }),
+      });
+      console.log(`[OUTBOUND] Synced status ${orderStatus} to order-service for ${baseOrderId} (dest: ${destination})`);
+    } catch (e) {
+      console.error('[OUTBOUND] Failed to sync status with order-service', e.message);
+    }
+  }
+
+  private async deductInventoryStock(warehouseCode: string, items: { sku: string; quantity: number }[]) {
+    try {
+      const res = await fetch('http://localhost:3011/internal/inventory/reserve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: items.map(i => ({ sku: i.sku, quantity: i.quantity })),
+          warehouseId: warehouseCode,
+        }),
+      });
+      if (res.ok) {
+        console.log(`[OUTBOUND SERVICE] Successfully deducted inventory stock for warehouse ${warehouseCode}:`, items);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        console.warn(`[OUTBOUND SERVICE] Warning deducting stock from inventory-service:`, err);
+      }
+    } catch (e) {
+      console.error('[OUTBOUND SERVICE] Error calling inventory-service reserve:', e.message);
+    }
+  }
+
+  async ship(orderId: string): Promise<OutboundOrder> {
+    const order = await this.findOne(orderId);
+    order.status = 'SHIPPED';
+    const saved = await this.orderRepository.save(order);
+    await this.syncStatusToOrderService(order, 'DELIVERING');
+    return saved;
+  }
+
+  async updateStatus(orderId: string, status: string): Promise<OutboundOrder> {
+    const order = await this.findOne(orderId);
+    order.status = status;
+    const saved = await this.orderRepository.save(order);
+    
+    // Map outbound status to customer order status
+    const mapped = 
+      status === 'DELIVERED' ? 'COMPLETED' :
+      status === 'SHIPPED' ? 'DELIVERING' :
+      status === 'CONFIRMED' || status === 'PACKED' ? 'PACKING' :
+      status === 'PICKING' ? 'PICKING' :
+      status === 'CANCELLED' ? 'CANCELLED' : status;
+
+    await this.syncStatusToOrderService(order, mapped);
+    return saved;
   }
 
   async cancel(orderId: string): Promise<OutboundOrder> {
@@ -439,7 +683,9 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
       throw new BadRequestException(`Cannot cancel a confirmed order`);
     }
     order.status = 'CANCELLED';
-    return this.orderRepository.save(order);
+    const saved = await this.orderRepository.save(order);
+    await this.syncStatusToOrderService(order, 'CANCELLED');
+    return saved;
   }
 
   async getStats(): Promise<any> {

@@ -12,7 +12,7 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
       if (!token) return;
       
       try {
-        const res = await fetch("http://localhost:3001/auth/me", {
+        const res = await fetch("http://localhost:3012/auth/me", {
           headers: {
             Authorization: `Bearer ${token}`
           }

@@ -43,27 +43,31 @@ export class ShelfService implements OnModuleInit {
         const uniqueShelfCode = prefix ? `${prefix}_${seed.code}` : seed.code;
         const exists = await this.shelfRepository.findOneBy({ code: uniqueShelfCode });
         if (!exists) {
-          await this.shelfRepository.save(this.shelfRepository.create({
-            ...seed,
-            code: uniqueShelfCode,
-            zoneId: zone.id,
-          }));
-          console.log(`[SHELF SERVICE] Seeded shelf: ${uniqueShelfCode} in zone ${zone.code}`);
+          try {
+            await this.shelfRepository.save(this.shelfRepository.create({
+              ...seed,
+              code: uniqueShelfCode,
+              zoneId: zone.id,
+            }));
+            console.log(`[SHELF SERVICE] Seeded shelf: ${uniqueShelfCode} in zone ${zone.code}`);
+          } catch (e) {
+            // Ignore duplicate keys during seeding
+          }
         }
       }
     }
   }
 
   async findAll(): Promise<Shelf[]> {
-    return this.shelfRepository.find({ relations: ['zone', 'slots'] });
+    return this.shelfRepository.find({ relations: ['zone'] });
   }
 
   async findByZone(zoneId: string): Promise<Shelf[]> {
-    return this.shelfRepository.find({ where: { zoneId }, relations: ['slots'] });
+    return this.shelfRepository.find({ where: { zoneId } });
   }
 
   async findOne(id: string): Promise<Shelf> {
-    const shelf = await this.shelfRepository.findOne({ where: { id }, relations: ['zone', 'slots'] });
+    const shelf = await this.shelfRepository.findOne({ where: { id }, relations: ['zone'] });
     if (!shelf) throw new NotFoundException(`Shelf with ID ${id} not found`);
     return shelf;
   }

@@ -8,6 +8,7 @@ export interface AuthUser {
   email: string;
   role: UserRole;
   phone?: string;
+  warehouseCode?: string;
 }
 
 interface AuthContextType {
@@ -99,6 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: data.user.email,
       role: data.user.role as UserRole,
       phone: data.user.phone,
+      warehouseCode: data.user.warehouseCode,
     };
 
     setToken(data.access_token);

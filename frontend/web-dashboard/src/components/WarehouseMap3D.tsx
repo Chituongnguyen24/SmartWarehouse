@@ -3,6 +3,7 @@ import React from 'react';
 interface WarehouseMap3DProps {
   onSelectSlot: (zone: string, slotId: string) => void;
   selectedSlot?: string;
+  occupiedSlots?: string[];
 }
 
 const shelves = [
@@ -17,17 +18,19 @@ const shelves = [
   { id: 'DRY-C3', zone: 'DRY', label: 'Kho Khô C3' },
 ];
 
-const WarehouseMap3D: React.FC<WarehouseMap3DProps> = ({ onSelectSlot, selectedSlot }) => {
+const WarehouseMap3D: React.FC<WarehouseMap3DProps> = ({ onSelectSlot, selectedSlot, occupiedSlots }) => {
   return (
     <div className="iso-container">
       <div className="iso-grid">
         {shelves.map((shelf) => {
           const isSelected = selectedSlot === shelf.id;
+          const isOccupied = occupiedSlots?.includes(shelf.id);
           const zoneClass = shelf.zone === 'COLD' ? 'iso-zone-cold' : shelf.zone === 'FROZEN' ? 'iso-zone-frozen' : 'iso-zone-dry';
           return (
             <div
               key={shelf.id}
               className={`iso-shelf ${zoneClass} ${isSelected ? 'selected' : ''}`}
+              style={isOccupied ? { boxShadow: '0 0 15px 5px rgba(16, 185, 129, 0.6)', border: '3px solid #10b981', transform: 'translateY(-10px)' } : {}}
               onClick={() => onSelectSlot(shelf.zone, shelf.id)}
             >
               <div className="iso-shelf-shadow"></div>

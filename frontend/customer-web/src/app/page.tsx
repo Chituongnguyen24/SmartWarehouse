@@ -19,7 +19,8 @@ import {
   BANNERS, 
   SUB_BANNERS 
 } from '@/lib/mockData';
-import { getProducts, Product } from '@/lib/api';
+import { getProducts, getCategories, Product, CategoryData } from '@/lib/api';
+import { getCategoryVisual } from '@/components/ui/CategoryIcon';
 
 export default function Home() {
   const [emblaRef] = useEmblaCarousel({ loop: true }, [Autoplay({ delay: 4000 })]);
@@ -44,14 +45,19 @@ export default function Home() {
   // Fetch real data
   const [flashSaleProducts, setFlashSaleProducts] = useState<Product[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [categoriesList, setCategoriesList] = useState<CategoryData[]>([]);
 
   useEffect(() => {
     async function loadData() {
-      // Fetch flash sale (randomly for now or if we had a flag)
-      const flashSaleData = await getProducts({ isFlashSale: true, limit: 10 });
-      const newProductsData = await getProducts({ limit: 10 });
-      const categoriesData = await getProducts({ category: 'Thực phẩm khô', limit: 8 });
-      setFlashSaleProducts(flashSaleData.items);
+      // Fetch dynamic categories
+      const cats = await getCategories();
+      setCategoriesList(cats);
+
+      // Fetch flash sale and featured products from real DB
+      const flashSaleData = await getProducts({ isFlashSale: true, limit: 12 });
+      const newProductsData = await getProducts({ limit: 20 });
+      
+      setFlashSaleProducts(flashSaleData.items.length > 0 ? flashSaleData.items : newProductsData.items.slice(0, 10));
       setFeaturedProducts(newProductsData.items);
     }
     loadData();
@@ -116,42 +122,56 @@ export default function Home() {
         
         {/* Categories Bento Grid */}
         <section className="mb-12 bg-white rounded-2xl shadow-sm p-6 border border-border">
-          <div className="flex justify-between items-end mb-8">
-            <h2 className="text-xl font-bold text-foreground flex items-center gap-2 uppercase tracking-wide">
-              Danh mục
-            </h2>
+          <div className="flex justify-between items-end mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2 uppercase tracking-wide">
+                Danh mục thực phẩm
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">Đầy đủ các loại thực phẩm tươi sạch đạt chuẩn</p>
+            </div>
+            <Link 
+              href="/danh-muc/tat-ca-danh-muc" 
+              className="text-sm font-semibold text-primary hover:underline flex items-center gap-1"
+            >
+              Xem tất cả ({categoriesList.length}) &gt;
+            </Link>
           </div>
           <motion.div 
             variants={containerVariants}
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, margin: "-100px" }}
-            className="grid grid-cols-3 md:grid-cols-6 gap-y-10 gap-x-4"
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4"
           >
-            {CATEGORIES.map((cat, idx) => (
-              <motion.div 
-                variants={itemVariants}
-                key={idx} 
-                className="flex flex-col items-center gap-4 cursor-pointer group"
-              >
-                <div className="relative w-20 h-20 flex items-center justify-center">
-                  {/* Background shape imitating the leaf/blob from image */}
-                  <div className="absolute inset-0 bg-[#f5f5f5] rounded-full transition-all duration-300 group-hover:scale-105 shadow-sm border border-gray-200"></div>
-                  
-                  {/* Category Image with multiply blend to remove white bg */}
-                  <img 
-                    src={cat.imageUrl} 
-                    alt={cat.name} 
-                    className="relative w-14 h-14 object-contain mix-blend-multiply group-hover:-translate-y-1 transition-transform duration-300"
-                  />
-                </div>
-                
-                {/* Category Name */}
-                <span className="text-[13px] text-center font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2 w-28 leading-snug">
-                  {cat.name}
-                </span>
-              </motion.div>
-            ))}
+            {categoriesList.slice(0, 12).map((cat) => {
+              const visual = getCategoryVisual(cat.name);
+              const IconComponent = visual.Icon;
+              return (
+                <motion.div 
+                  variants={itemVariants}
+                  key={cat.slug} 
+                  className="flex flex-col items-center cursor-pointer group"
+                >
+                  <Link 
+                    href={`/danh-muc/${cat.slug}`} 
+                    className="flex flex-col items-center justify-between p-4 w-full h-full rounded-2xl bg-white border border-gray-100 hover:border-primary/40 shadow-xs hover:shadow-md transition-all group-hover:-translate-y-1"
+                  >
+                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center bg-gradient-to-br ${visual.bgGradient} border ${visual.borderColor} shadow-inner mb-3 group-hover:scale-110 transition-transform`}>
+                      <IconComponent size={28} className={visual.color} />
+                    </div>
+                    
+                    <span className="text-[13px] text-center font-bold text-gray-800 group-hover:text-primary transition-colors line-clamp-2 leading-snug">
+                      {cat.name}
+                    </span>
+                    {cat.count > 0 && (
+                      <span className="text-[11px] text-gray-500 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-full font-medium mt-2 group-hover:bg-green-50 group-hover:text-primary transition-colors">
+                        {cat.count} sản phẩm
+                      </span>
+                    )}
+                  </Link>
+                </motion.div>
+              );
+            })}
           </motion.div>
         </section>
 

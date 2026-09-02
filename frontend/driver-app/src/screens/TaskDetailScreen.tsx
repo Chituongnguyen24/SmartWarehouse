@@ -24,6 +24,7 @@ import {
   CheckCircle,
   MessageSquare,
 } from 'lucide-react-native';
+import { openSingleGoogleMapsNavigation } from '../utils/locationHelper';
 
 interface TaskDetailScreenProps {
   task: DeliveryTask;
@@ -45,8 +46,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task, onBack
   };
 
   const handleOpenMap = () => {
-    const encodedAddr = encodeURIComponent(task.deliveryAddress);
-    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodedAddr}`);
+    openSingleGoogleMapsNavigation(task.deliveryAddress, task.latitude, task.longitude);
   };
 
   return (
@@ -67,7 +67,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task, onBack
               <View style={styles.navIconBox}>
                 <Navigation size={14} color={COLORS.routeBlue} />
               </View>
-              <Text style={styles.mapHeaderTitle}>Dẫn đường GPS (VRP Route)</Text>
+              <Text style={styles.mapHeaderTitle}>Dẫn đường GPS (Điểm dừng #{task.sequenceOrder})</Text>
             </View>
             <TouchableOpacity style={styles.googleMapBtn} onPress={handleOpenMap} activeOpacity={0.8}>
               <Text style={styles.googleMapText}>Mở Google Maps ➔</Text>
@@ -77,7 +77,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task, onBack
           <View style={styles.routeTimeline}>
             <View style={styles.routePoint}>
               <View style={[styles.pointDot, { backgroundColor: COLORS.primary }]} />
-              <Text style={styles.pointLabel}>Điểm xuất phát: <Text style={styles.bold}>Kho CityMart Q.5</Text></Text>
+              <Text style={styles.pointLabel}>Điểm xuất phát: <Text style={styles.bold}>Kho Hàng Gò Vấp (350 Quang Trung)</Text></Text>
             </View>
             <View style={styles.routeLine} />
             <View style={styles.routePoint}>
@@ -168,20 +168,70 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task, onBack
       <View style={styles.bottomBar}>
         {task.status === 'ASSIGNED' ? (
           <TouchableOpacity
-            style={styles.actionBtnPrimary}
+            style={[styles.actionBtnPrimary, { backgroundColor: '#059669', elevation: 4 }]}
             activeOpacity={0.88}
             onPress={() => {
               startDelivery(task.id);
-              Alert.alert('🚚 Bắt đầu giao hàng', `Đã cập nhật trạng thái đơn #${task.orderCode} sang Đang giao hàng!`);
+              Alert.alert(
+                '🚀 Đã Bắt Đầu Giao Đơn!',
+                `Hệ thống trung tâm đã ghi nhận bạn đang đi giao đơn #${task.orderCode} cho khách hàng ${task.customerName}. Bạn có muốn mở Google Maps dẫn đường ngay không?`,
+                [
+                  { text: 'Để sau', style: 'cancel' },
+                  { text: '🧭 Mở Bản Đồ', onPress: handleOpenMap },
+                ]
+              );
             }}
           >
-            <Text style={styles.actionBtnText}>BẮT ĐẦU GIAO HÀNG</Text>
+            <Navigation size={20} color={COLORS.surface} style={{ marginRight: 8 }} />
+            <Text style={[styles.actionBtnText, { fontSize: 15, fontWeight: '900' }]}>
+              🚀 BẮT ĐẦU GIAO ĐƠN NÀY
+            </Text>
           </TouchableOpacity>
         ) : task.status === 'IN_TRANSIT' ? (
-          <TouchableOpacity style={styles.actionBtnSuccess} onPress={onOpenPOD} activeOpacity={0.88}>
-            <CheckCircle size={20} color={COLORS.surface} style={{ marginRight: 6 }} />
-            <Text style={styles.actionBtnText}>XÁC NHẬN GIAO THÀNH CÔNG (POD)</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                backgroundColor: '#0284c7',
+                paddingVertical: 14,
+                borderRadius: 12,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              onPress={handleOpenMap}
+              activeOpacity={0.88}
+            >
+              <Navigation size={18} color="#fff" style={{ marginRight: 6 }} />
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>
+                Dẫn Đường
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flex: 1.4,
+                backgroundColor: '#059669',
+                paddingVertical: 14,
+                borderRadius: 12,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                shadowColor: '#059669',
+                shadowOffset: { width: 0, height: 3 },
+                shadowOpacity: 0.3,
+                shadowRadius: 5,
+                elevation: 3,
+              }}
+              onPress={onOpenPOD}
+              activeOpacity={0.88}
+            >
+              <CheckCircle size={18} color="#fff" style={{ marginRight: 6 }} />
+              <Text style={{ color: '#fff', fontWeight: '900', fontSize: 13 }}>
+                GIAO THÀNH CÔNG
+              </Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <View style={styles.completedBadgeBox}>
             <ShieldCheck size={22} color={COLORS.primary} />
@@ -334,7 +384,7 @@ const styles = StyleSheet.create({
   },
   tempTitle: {
     fontSize: 13,
-    fontWeight: '850',
+    fontWeight: '800',
     color: COLORS.textPrimary,
   },
   tempDesc: {
@@ -358,7 +408,7 @@ const styles = StyleSheet.create({
   },
   cardSectionTitle: {
     fontSize: 14,
-    fontWeight: '850',
+    fontWeight: '800',
     color: COLORS.textPrimary,
     marginBottom: 12,
     borderBottomWidth: 1,
@@ -505,7 +555,7 @@ const styles = StyleSheet.create({
   actionBtnText: {
     color: COLORS.surface,
     fontSize: 14,
-    fontWeight: '950',
+    fontWeight: '900',
   },
   completedBadgeBox: {
     flexDirection: 'row',

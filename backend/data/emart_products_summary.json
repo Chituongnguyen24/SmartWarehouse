@@ -1,0 +1,18 @@
+{
+  "scrapedAt": "2026-09-01T13:48:42.139Z",
+  "stats": {
+    "total": 5044,
+    "byStorage": {
+      "DRY": 3597,
+      "COLD": 1029,
+      "FROZEN": 418
+    },
+    "byOrigin": {
+      "Việt Nam": 3436,
+      "Hàn Quốc": 1181,
+      "Khác": 427
+    },
+    "withDiscount": 1710
+  },
+  "categoriesCount": 81
+}

@@ -1,4 +1,4 @@
-﻿-- CityMart (SFWMS) - Unified Database Initialization & Seeding Script
+-- CityMart (SFWMS) - Unified Database Initialization & Seeding Script
 
 CREATE DATABASE sfwms_core;
 CREATE DATABASE sfwms_product;
@@ -11,7 +11,9 @@ CREATE DATABASE sfwms_alert;
 CREATE DATABASE sfwms_transport;
 CREATE DATABASE sfwms_report;
 CREATE DATABASE sfwms_auth;
-
+CREATE DATABASE sfwms_order;
+CREATE DATABASE sfwms_picking;
+CREATE DATABASE sfwms_delivery;
 
 \connect sfwms_auth
 

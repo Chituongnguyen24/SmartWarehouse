@@ -12,28 +12,8 @@ export class ProductService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    // Delete legacy initial mock items
-    try {
-      await this.productRepository.createQueryBuilder()
-        .delete()
-        .where("category IN (:...cats)", { cats: ['Dairy', 'Meat & Seafood', 'Dry Goods', 'Produce'] })
-        .execute();
-    } catch (e) {
-      console.log('No legacy categories to delete');
-    }
-
-    // Auto-seed large default supermarket dataset
-    for (const item of LARGE_SEED_PRODUCTS) {
-      const exists = await this.productRepository.findOneBy({ sku: item.sku });
-      if (exists) {
-        // Update existing record with new e-commerce fields
-        await this.productRepository.save({ ...exists, ...item });
-      } else {
-        const prod = this.productRepository.create(item);
-        await this.productRepository.save(prod);
-        console.log(`Seeded product SKU: ${item.sku}`);
-      }
-    }
+    // Tắt auto-seed để sử dụng hoàn toàn dữ liệu thật từ DB của người dùng
+    console.log('[ProductService] Initialized with real database data.');
   }
 
   async findAll(
@@ -50,7 +30,7 @@ export class ProductService implements OnModuleInit {
     }
     
     if (category) {
-      queryBuilder.andWhere('product.category = :category', { category });
+      queryBuilder.andWhere('LOWER(TRIM(product.category)) = LOWER(TRIM(:category))', { category });
     }
 
     if (isFlashSale !== undefined) {
@@ -71,6 +51,37 @@ export class ProductService implements OnModuleInit {
       page: Number(page),
       totalPages: Math.ceil(total / limit)
     };
+  }
+
+  async getCategories(): Promise<{ name: string; count: number }[]> {
+    const rawResults = await this.productRepository
+      .createQueryBuilder('product')
+      .select('TRIM(product.category)', 'name')
+      .addSelect('COUNT(product.id)', 'count')
+      .where("product.category IS NOT NULL AND TRIM(product.category) != ''")
+      .groupBy('TRIM(product.category)')
+      .orderBy('COUNT(product.id)', 'DESC')
+      .getRawMany();
+
+    const categoryMap = new Map<string, { name: string; count: number }>();
+    for (const r of rawResults) {
+      const trimmedName = (r.name || '').trim();
+      const lowerKey = trimmedName.toLowerCase();
+      const count = Number(r.count) || 0;
+
+      if (!categoryMap.has(lowerKey)) {
+        categoryMap.set(lowerKey, { name: trimmedName, count });
+      } else {
+        const existing = categoryMap.get(lowerKey)!;
+        existing.count += count;
+        // Ưu tiên tên có viết hoa viết thường (Title Case) thay vì ALL CAPS
+        if (trimmedName !== trimmedName.toUpperCase() && existing.name === existing.name.toUpperCase()) {
+          existing.name = trimmedName;
+        }
+      }
+    }
+
+    return Array.from(categoryMap.values()).sort((a, b) => b.count - a.count);
   }
 
   async findOne(id: string): Promise<Product | null> {

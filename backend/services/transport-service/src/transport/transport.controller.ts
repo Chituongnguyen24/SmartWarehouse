@@ -3,7 +3,7 @@ import { TransportService } from './transport.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { UserRole } from '../../../../../shared/constants/enums';
+import { UserRole } from '../auth/user-role.enum';
 import { ApiBearerAuth, ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 
 @ApiTags('transport')
@@ -44,5 +44,20 @@ export class TransportController {
       throw new BadRequestException('stops array is required');
     }
     return this.transportService.solveVrp(body.stops, body.capacity || 200, body.drivers);
+  }
+
+  @Post('optimize-batch')
+  @ApiOperation({ summary: 'Gom đơn xuất kho thành các chuyến xe (Routes)' })
+  optimizeBatch(@Body() body: { orders: any[] }) {
+    if (!body.orders || !Array.isArray(body.orders)) {
+      throw new BadRequestException('orders array is required');
+    }
+    return this.transportService.optimizeBatch(body.orders);
+  }
+
+  @Post('3pl-quote')
+  @ApiOperation({ summary: 'Lấy báo giá từ các đối tác 3PL (GHN, Ahamove)' })
+  get3plQuote(@Body() body: { routeInfo: any }) {
+    return this.transportService.get3plQuote(body.routeInfo);
   }
 }

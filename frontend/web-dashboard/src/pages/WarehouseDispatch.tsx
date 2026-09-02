@@ -136,13 +136,16 @@ export const WarehouseDispatch = () => {
 
   useEffect(() => {
     fetchBackendOrders();
-  }, []);
+  }, [user]);
 
   const fetchBackendOrders = async () => {
     try {
       const res = await fetch(`${OUTBOUND_API}/outbound-orders`);
       if (res.ok) {
-        const data = await res.json();
+        let data = await res.json();
+        if (user?.role === 'WAREHOUSE_MANAGER' && user?.warehouseCode) {
+          data = data.filter((o: any) => !o.warehouseCode || o.warehouseCode === user.warehouseCode);
+        }
         if (Array.isArray(data) && data.length > 0) {
           const mappedOrders: DispatchOrder[] = data.map((o: any) => ({
             id: o.id,
@@ -919,7 +922,7 @@ const tabButtonStyle = (isActive: boolean): React.CSSProperties => ({
   whiteSpace: 'nowrap',
 });
 
-const renderStatusBadge = (status: DispatchOrder['status']) => {
+const renderStatusBadge = (status: string) => {
   switch (status) {
     case 'PENDING':
       return <span style={{ backgroundColor: '#DBEAFE', color: '#1E40AF', padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 800 }}>Chờ tiếp nhận</span>;
@@ -932,7 +935,10 @@ const renderStatusBadge = (status: DispatchOrder['status']) => {
     case 'SHIPPED':
       return <span style={{ backgroundColor: '#CFFAFE', color: '#0E7490', padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 800 }}>Đang giao hàng</span>;
     case 'CONFIRMED':
-      return <span style={{ backgroundColor: '#D1FAE5', color: '#065F46', padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 800 }}>Hoàn tất</span>;
+      return <span style={{ backgroundColor: '#FFEDD5', color: '#C2410C', padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 800 }}>Đã xuất kho (Chờ gom xe)</span>;
+    case 'DELIVERED':
+    case 'COMPLETED':
+      return <span style={{ backgroundColor: '#D1FAE5', color: '#065F46', padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 800 }}>Đã giao thành công</span>;
     default:
       return null;
   }

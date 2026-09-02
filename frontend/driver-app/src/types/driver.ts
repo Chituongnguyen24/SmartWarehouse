@@ -22,6 +22,8 @@ export interface DeliveryTask {
   customerName: string;
   customerPhone: string;
   deliveryAddress: string;
+  latitude?: number;
+  longitude?: number;
   distanceKm: number;
   estimatedTimeMinutes: number;
   codAmount: number;             // Số tiền cần thu hộ COD (0 nếu đã trả MoMo/ZaloPay)
@@ -43,7 +45,7 @@ export interface DriverProfile {
   name: string;
   phone: string;
   licensePlate: string;
-  vehicleType: 'Xe Máy Thùng Lạnh' | 'Xe Tải Lạnh 1.5T' | 'Xe Tải Đông Lạnh';
+  vehicleType: string;
   isOnline: boolean;
   currentTemp: number;           // Cảm biến nhiệt độ hiện tại (°C)
   targetTempMin: number;

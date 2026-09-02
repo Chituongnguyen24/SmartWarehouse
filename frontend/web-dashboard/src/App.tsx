@@ -12,6 +12,7 @@ import AIAlerts from './pages/AIAlerts';
 import InboundOrder from './pages/InboundOrder';
 import OutboundOrder from './pages/OutboundOrder';
 import WarehouseDispatch from './pages/WarehouseDispatch';
+import OrderManagement from './pages/OrderManagement';
 import SalesManagement from './pages/SalesManagement';
 import AdminControlCenter from './pages/AdminControlCenter';
 import DemandForecast from './pages/DemandForecast';
@@ -28,9 +29,11 @@ import CustomerOrders from './pages/CustomerOrders';
 import CustomerProductDetail from './pages/CustomerProductDetail';
 import CustomerProfile from './pages/CustomerProfile';
 import { WebCartProvider } from './contexts/WebCartContext';
+import { WarehouseProvider } from './contexts/WarehouseContext';
 import InboundOrders from './pages/InboundOrders';
 import OutboundOrders from './pages/OutboundOrders';
 import FEFOExport from './pages/FEFOExport';
+import { Warehouse3DDigitalTwin } from './components/Warehouse3DDigitalTwin';
 import './styles/global.css';
 import './styles/layout.css';
 import './styles/components.css';
@@ -43,7 +46,10 @@ const DashboardIndex = () => {
   if (user?.role === 'WAREHOUSE_STAFF') {
     return <Navigate to="/orders" replace />;
   }
-  return <Inventory />;
+  if (user?.role === 'WAREHOUSE_MANAGER') {
+    return <Navigate to="/inventory" replace />;
+  }
+  return <Dashboard />;
 };
 
 import { useEffect } from 'react';
@@ -80,10 +86,16 @@ function App() {
 
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public route */}
-          <Route path="/login" element={<LoginPage />} />
+      <WarehouseProvider>
+        <BrowserRouter
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+          }}
+        >
+          <Routes>
+            {/* Public route */}
+            <Route path="/login" element={<LoginPage />} />
 
           {/* Protected routes for Admin/Staff */}
           <Route path="/" element={
@@ -106,13 +118,19 @@ function App() {
                 <Inventory />
               </ProtectedRoute>
             } />
+            <Route path="warehouse-3d" element={<Navigate to="/inventory?tab=3d" replace />} />
             <Route path="staff" element={
               <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER']}>
                 <StaffManagement />
               </ProtectedRoute>
             } />
             <Route path="orders" element={
-              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF']}>
+              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF']}>
+                <OrderDispatch />
+              </ProtectedRoute>
+            } />
+            <Route path="customer-orders" element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF']}>
                 <OrderDispatch />
               </ProtectedRoute>
             } />
@@ -132,6 +150,11 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="outbound" element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF']}>
+                <OutboundOrders />
+              </ProtectedRoute>
+            } />
+            <Route path="outbound-orders" element={
               <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF']}>
                 <OutboundOrders />
               </ProtectedRoute>
@@ -200,6 +223,7 @@ function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      </WarehouseProvider>
     </AuthProvider>
   );
 }

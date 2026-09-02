@@ -1,16 +1,101 @@
-import { Product } from '../types/product';
+import { Product, CategoryType } from '../types/product';
 import { Order, CartItem, Address, PaymentMethod, DeliverySlot } from '../types/cart';
-import { MOCK_DELIVERY_SLOTS } from '../data/mockData';
+import { MOCK_DELIVERY_SLOTS, MOCK_PRODUCTS, MOCK_CATEGORIES } from '../data/mockData';
 
 const PRODUCT_API_URL = 'http://localhost:3010/products';
 const OUTBOUND_API_URL = 'http://localhost:3007/outbound-orders';
 
+export interface CategoryItem {
+  id: string;
+  name: string;
+  count: number;
+  emoji: string;
+  color: string;
+}
+
+function getEmojiForCategory(name: string): string {
+  const lower = name.toLowerCase();
+  if (lower.includes('rau') || lower.includes('nấm') || lower.includes('củ')) return '🥬';
+  if (lower.includes('trái') || lower.includes('quả') || lower.includes('táo') || lower.includes('cam')) return '🍎';
+  if (lower.includes('thịt') || lower.includes('heo') || lower.includes('bò') || lower.includes('gà') || lower.includes('trứng')) return '🥩';
+  if (lower.includes('hải sản') || lower.includes('cá') || lower.includes('tôm') || lower.includes('mực') || lower.includes('thủy')) return '🦐';
+  if (lower.includes('sữa') || lower.includes('uống') || lower.includes('nước') || lower.includes('cà phê') || lower.includes('trà') || lower.includes('bia') || lower.includes('cồn')) return '🥛';
+  if (lower.includes('bánh') || lower.includes('kẹo') || lower.includes('khô') || lower.includes('gạo') || lower.includes('mì') || lower.includes('hạt') || lower.includes('bột')) return '🍪';
+  if (lower.includes('gia vị') || lower.includes('dầu') || lower.includes('nước mắm') || lower.includes('chấm') || lower.includes('xốt')) return '🧂';
+  if (lower.includes('cá nhân') || lower.includes('chăm sóc')) return '🧴';
+  if (lower.includes('nhà cửa') || lower.includes('đời sống')) return '🏠';
+  return '🛒';
+}
+
+const CATEGORY_COLORS = ['#E8F5E9', '#FFF3E0', '#FFEBEE', '#E1F5FE', '#FFF8E1', '#F3E5F5', '#EFEBE9', '#E0F2F1', '#F1F8E9'];
+
 /**
- * Lấy danh sách sản phẩm từ Product Service (Port 3010)
+ * Lấy danh sách danh mục sản phẩm từ Product Service kèm số lượng sản phẩm thật trong DB
  */
-export async function fetchProductsApi(): Promise<Product[]> {
+export async function fetchCategoriesApi(): Promise<CategoryItem[]> {
   try {
-    const response = await fetch(PRODUCT_API_URL, {
+    const response = await fetch(`${PRODUCT_API_URL}/categories`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data.map((item: any, index: number) => {
+          const name = typeof item === 'string' ? item : item.name;
+          const count = typeof item === 'object' && item.count ? Number(item.count) : 0;
+          return {
+            id: String(index + 1),
+            name: name,
+            count: count,
+            emoji: getEmojiForCategory(name),
+            color: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
+          };
+        });
+      }
+    }
+  } catch (error) {
+    console.warn('[API] Could not fetch categories from server, using local categories:', error);
+  }
+
+  return MOCK_CATEGORIES.map(c => ({
+    ...c,
+    count: 10,
+    emoji: (c as any).emoji || getEmojiForCategory(c.name),
+  }));
+}
+
+export interface FetchProductParams {
+  category?: string;
+  keyword?: string;
+  isFlashSale?: boolean;
+  page?: number;
+  limit?: number;
+}
+
+/**
+ * Lấy danh sách sản phẩm từ Product Service (Port 3010) với hỗ trợ filter theo category và keyword trực tiếp từ DB
+ */
+export async function fetchProductsApi(params?: FetchProductParams): Promise<{ items: Product[]; total: number }> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.category && params.category !== 'Tất cả') {
+      query.append('category', params.category);
+    }
+    if (params?.keyword) {
+      query.append('keyword', params.keyword);
+    }
+    if (params?.isFlashSale !== undefined) {
+      query.append('isFlashSale', String(params.isFlashSale));
+    }
+    if (params?.page) {
+      query.append('page', String(params.page));
+    }
+    // Lấy số lượng sản phẩm phong phú (mặc định 100 sản phẩm / lượt)
+    query.append('limit', String(params?.limit || 100));
+
+    const response = await fetch(`${PRODUCT_API_URL}?${query.toString()}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -20,32 +105,47 @@ export async function fetchProductsApi(): Promise<Product[]> {
     }
 
     const data = await response.json();
-    if (Array.isArray(data) && data.length > 0) {
-      // Map Backend Entity to Frontend Product Interface
-      return data.map((item: any) => ({
-        id: item.id || item.sku,
-        name: item.name || item.productName,
-        category: mapCategory(item.category),
-        price: Number(item.price) || 25000,
-        originalPrice: item.originalPrice ? Number(item.originalPrice) : Number(item.price || 25000) * 1.25,
-        unit: item.unit || '500g',
-        imageUrl: item.imageUrl || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&q=80',
-        rating: item.rating ? Number(item.rating) : 4.8,
-        soldCount: item.soldCount ? Number(item.soldCount) : 150,
-        isFlashSale: item.isFlashSale ?? true,
-        discountPercent: item.discountPercent || 20,
-        origin: item.origin || 'Việt Nam',
-        preservation: item.preservation || 'Kho lạnh (0-4°C)',
-        description: item.description || 'Thực phẩm tươi sạch đạt chuẩn kiểm duyệt chất lượng CityMart.',
-        stock: item.stock ? Number(item.stock) : 100,
-      }));
+    const rawItems = Array.isArray(data) ? data : (data?.items || []);
+    const total = Array.isArray(data) ? data.length : (data?.total || rawItems.length);
+
+    if (rawItems.length > 0) {
+      const items = rawItems.map((item: any) => {
+        const price = Number(item.price) || 25000;
+        const discountPercent = Number(item.discountPercent) || 0;
+        const originalPrice = item.originalPrice 
+          ? Number(item.originalPrice) 
+          : (discountPercent > 0 ? Math.round(price / (1 - discountPercent / 100)) : price);
+
+        return {
+          id: item.sku || item.id,
+          name: item.name || item.productName,
+          category: item.category || 'Khác',
+          price: price,
+          originalPrice: originalPrice,
+          unit: item.unit || '500g',
+          imageUrl: item.imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&q=80',
+          rating: item.rating ? Number(item.rating) : 4.8,
+          soldCount: item.soldCount ? Number(item.soldCount) : 150,
+          isFlashSale: item.isFlashSale ?? false,
+          discountPercent: discountPercent,
+          origin: item.origin || 'Việt Nam',
+          preservation: item.preservation || 'Kho mát',
+          description: item.description || 'Thực phẩm tươi sạch đạt chuẩn kiểm duyệt chất lượng CityMart.',
+          stock: item.stock ? Number(item.stock) : 100,
+        };
+      });
+
+      return { items, total };
     }
   } catch (error) {
-    console.warn('[API] Connecting to Product Service failed or offline. Using hybrid fallback mock data:', error);
+    console.warn('[API] Connecting to Product Service failed or offline. Using hybrid fallback dataset:', error);
   }
 
   // Graceful Fallback
-  return [];
+  return {
+    items: MOCK_PRODUCTS,
+    total: MOCK_PRODUCTS.length,
+  };
 }
 
 /**
@@ -146,7 +246,7 @@ export async function fetchOrdersApi(): Promise<Order[]> {
             product: {
               id: it.sku || 'p1',
               name: it.productName || 'Thực phẩm tươi',
-              category: mapCategory(it.category),
+              category: it.category || 'Rau củ quả',
               price: Number(it.price) || 25000,
               unit: it.unit || '500g',
               imageUrl: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&q=80',
@@ -186,14 +286,4 @@ export async function fetchOrdersApi(): Promise<Order[]> {
   }
 
   return [];
-}
-
-function mapCategory(cat: string): any {
-  if (!cat) return 'Rau củ quả';
-  if (cat.includes('Rau') || cat.includes('VEGETABLES')) return 'Rau củ quả';
-  if (cat.includes('Thịt') || cat.includes('MEAT')) return 'Thịt cá';
-  if (cat.includes('Đông') || cat.includes('FROZEN')) return 'Đông lạnh';
-  if (cat.includes('Sữa') || cat.includes('DAIRY')) return 'Sữa & đồ uống';
-  if (cat.includes('Khô') || cat.includes('DRY')) return 'Đồ khô';
-  return 'Gia vị & Dầu ăn';
 }

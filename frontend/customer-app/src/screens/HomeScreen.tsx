@@ -40,7 +40,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     return matchesCat && matchesSearch;
   });
 
-  const flashSaleProducts = products.filter(p => p.isFlashSale);
+  const flashSaleProducts = products.filter(p => p.isFlashSale).length > 0 
+    ? products.filter(p => p.isFlashSale) 
+    : products.slice(0, 10);
 
   const handleOpenDetail = (product: Product) => {
     setSelectedProduct(product);

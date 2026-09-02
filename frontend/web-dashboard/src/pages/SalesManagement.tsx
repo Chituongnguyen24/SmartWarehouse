@@ -295,7 +295,10 @@ export const SalesManagement = () => {
 
   const fetchLiveOrders = async () => {
     try {
-      const res = await fetch(OUTBOUND_API);
+      const queryParams = user?.role === 'WAREHOUSE_MANAGER' && user?.warehouseCode 
+        ? `?warehouseCode=${user.warehouseCode}` 
+        : '';
+      const res = await fetch(`${OUTBOUND_API}${queryParams}`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
