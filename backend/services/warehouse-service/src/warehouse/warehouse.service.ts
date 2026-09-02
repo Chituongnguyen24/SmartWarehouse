@@ -153,17 +153,17 @@ export class WarehouseService implements OnModuleInit {
   }
 
   async findAll(): Promise<Warehouse[]> {
-    return this.warehouseRepository.find({ relations: ['zones'] });
+    return this.warehouseRepository.find();
   }
 
   async findOne(id: string): Promise<Warehouse> {
-    const wh = await this.warehouseRepository.findOne({ where: { id }, relations: ['zones'] });
+    const wh = await this.warehouseRepository.findOne({ where: { id } });
     if (!wh) throw new NotFoundException(`Warehouse with ID ${id} not found`);
     return wh;
   }
 
   async findByCode(code: string): Promise<Warehouse> {
-    const wh = await this.warehouseRepository.findOne({ where: { code }, relations: ['zones'] });
+    const wh = await this.warehouseRepository.findOne({ where: { code } });
     if (!wh) throw new NotFoundException(`Warehouse with code ${code} not found`);
     return wh;
   }

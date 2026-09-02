@@ -17,6 +17,7 @@ interface ProductCardProps {
   totalStock?: number;
   slug?: string;
   unit?: string;
+  sku?: string;
 }
 
 export default function ProductCard({ 
@@ -30,7 +31,8 @@ export default function ProductCard({
   soldCount = 0,
   totalStock = 100,
   slug,
-  unit = 'Sản phẩm'
+  unit = 'Sản phẩm',
+  sku
 }: ProductCardProps) {
   const formatPrice = (p: number) => {
     return p.toLocaleString('vi-VN') + ' đ';
@@ -46,6 +48,7 @@ export default function ProductCard({
     e.preventDefault(); // prevent triggering the link wrapping the card if any
     addToCart({
       productId: id,
+      sku: sku || id,
       name,
       price,
       oldPrice,

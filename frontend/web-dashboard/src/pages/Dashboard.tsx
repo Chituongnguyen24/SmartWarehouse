@@ -15,8 +15,11 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (user) {
-      if (user.role === 'WAREHOUSE_STAFF' || user.role === 'WAREHOUSE_MANAGER') {
-        navigate('/dispatch', { replace: true });
+      if (user.role === 'WAREHOUSE_MANAGER') {
+        navigate('/inventory', { replace: true });
+        return;
+      } else if (user.role === 'WAREHOUSE_STAFF') {
+        navigate('/orders', { replace: true });
         return;
       } else if (user.role === 'SALES_STAFF') {
         navigate('/sales', { replace: true });

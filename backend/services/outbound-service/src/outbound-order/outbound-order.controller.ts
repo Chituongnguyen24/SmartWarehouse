@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Body, Param, Query } from '@nestjs/common';
 import { OutboundOrderService } from './outbound-order.service';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 
@@ -13,6 +13,12 @@ export class OutboundOrderController {
     return this.service.create(body);
   }
 
+  @Post('split-create')
+  @ApiOperation({ summary: 'Tạo yêu cầu xuất kho với logic chia tách (Split Order) tự động' })
+  splitCreate(@Body() body: any) {
+    return this.service.splitCreate(body);
+  }
+
   @Post('calculate-nearest')
   @ApiOperation({ summary: 'Tính toán và chọn kho hàng gần nhất dựa trên tọa độ và tồn kho' })
   calculateNearest(@Body() body: { latitude: number; longitude: number; items: any[] }) {
@@ -22,8 +28,9 @@ export class OutboundOrderController {
   @Get()
   @ApiOperation({ summary: 'Lấy danh sách đơn xuất kho' })
   @ApiQuery({ name: 'status', required: false })
-  findAll(@Query('status') status?: string) {
-    return this.service.findAll(status);
+  @ApiQuery({ name: 'warehouseCode', required: false })
+  findAll(@Query('status') status?: string, @Query('warehouseCode') warehouseCode?: string) {
+    return this.service.findAll(status, warehouseCode);
   }
 
   @Get('stats')
@@ -36,6 +43,12 @@ export class OutboundOrderController {
   @ApiOperation({ summary: 'Lấy chi tiết đơn xuất kho' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
+  }
+
+  @Put(':id/approve')
+  @ApiOperation({ summary: 'Quản lý duyệt tiếp nhận đơn hàng và giao việc lấy hàng cho kho' })
+  approve(@Param('id') id: string) {
+    return this.service.approve(id);
   }
 
   @Put(':id/fefo-suggestions')
@@ -54,6 +67,24 @@ export class OutboundOrderController {
   @ApiOperation({ summary: 'Bước 5: Xác nhận xuất kho' })
   confirm(@Param('id') id: string, @Body() body: { confirmedBy: string }) {
     return this.service.confirm(id, body.confirmedBy);
+  }
+
+  @Put(':id/ship')
+  @ApiOperation({ summary: 'Đẩy đơn cho Shipper (SHIPPED)' })
+  ship(@Param('id') id: string) {
+    return this.service.ship(id);
+  }
+
+  @Patch(':id/status')
+  @ApiOperation({ summary: 'Cập nhật trạng thái đơn xuất kho' })
+  updateStatus(@Param('id') id: string, @Body() body: { status: string }) {
+    return this.service.updateStatus(id, body.status);
+  }
+
+  @Put(':id/deliver')
+  @ApiOperation({ summary: 'Xác nhận giao hàng thành công (DELIVERED)' })
+  deliver(@Param('id') id: string) {
+    return this.service.updateStatus(id, 'DELIVERED');
   }
 
   @Put(':id/cancel')

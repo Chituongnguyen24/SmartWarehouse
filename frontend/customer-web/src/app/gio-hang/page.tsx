@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ChevronRight, Trash2, Plus, Minus, Ticket, ShoppingBag } from 'lucide-react';
+import { ChevronRight, Trash2, Plus, Minus, Ticket, ShoppingBag, ShoppingCart } from 'lucide-react';
 import { useCartStore } from '@/lib/store';
 
 export default function CartPage() {
@@ -41,13 +41,10 @@ export default function CartPage() {
         </h1>
 
         {cartItems.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-border p-12 flex flex-col items-center justify-center text-center">
-            <img src="/empty-cart.png" alt="Empty Cart" className="w-48 mb-6 opacity-50" onError={(e) => { e.currentTarget.style.display = 'none' }} />
-            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-              <ShoppingBag size={48} className="text-gray-300" />
-            </div>
-            <h2 className="text-xl font-bold text-gray-700 mb-2">Giỏ hàng trống</h2>
-            <p className="text-gray-500 mb-6 max-w-md">Bạn chưa có sản phẩm nào trong giỏ hàng. Hãy tham quan và mua sắm các sản phẩm tuyệt vời của chúng tôi nhé!</p>
+          <div className="flex flex-col items-center justify-center p-12 bg-white rounded-2xl shadow-sm border border-border">
+            <ShoppingCart className="w-24 h-24 text-gray-300 mb-6" strokeWidth={1.5} />
+            <h2 className="text-xl font-medium text-gray-700 mb-3">Giỏ hàng của bạn đang trống</h2>
+            <p className="text-gray-500 mb-6 text-center">Hãy tham khảo thêm các sản phẩm tuyệt vời của chúng tôi nhé!</p>
             <Link href="/" className="bg-primary text-white font-bold py-3 px-8 rounded-lg hover:bg-primary/90 transition-colors shadow-md">
               Tiếp tục mua sắm
             </Link>

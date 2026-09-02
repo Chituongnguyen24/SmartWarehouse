@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
 interface FilterSidebarProps {
-  categories?: { name: string, slug: string }[];
+  categories?: { name: string; slug: string; count?: number; emoji?: string }[];
   currentCategory?: string;
   brands: string[];
   selectedBrands: string[];
@@ -93,43 +93,23 @@ export default function FilterSidebar({
 
       {/* DANH MỤC */}
       <div className="border-t border-border pt-4">
-        <h3 className="font-bold text-foreground mb-4 uppercase text-sm tracking-wider">Danh mục</h3>
-        <ul className="space-y-2">
-          {categories?.map(cat => (
-            <li key={cat.slug} className="flex flex-col">
-              <div className="flex items-center justify-between group cursor-pointer">
-                <label className="flex items-center gap-3 cursor-pointer flex-1">
-                  <input 
-                    type="checkbox" 
-                    checked={selectedCategories.includes(cat.slug)}
-                    onChange={() => handleCategoryChange(cat.slug)}
-                    className="w-4 h-4 text-primary rounded focus:ring-primary border-gray-300"
-                  />
-                  <span className={`text-sm transition-colors ${selectedCategories.includes(cat.slug) ? 'text-primary font-bold' : 'text-gray-600 group-hover:text-primary'}`}>
-                    {cat.name}
+        <h3 className="font-bold text-foreground mb-4 uppercase text-sm tracking-wider">Danh mục ({categories?.length || 0})</h3>
+        <ul className="space-y-2 max-h-72 overflow-y-auto pr-2 custom-scrollbar">
+          {categories?.map((cat, idx) => (
+            <li key={`${cat.slug}-${idx}`} className="flex flex-col">
+              <a 
+                href={`/danh-muc/${cat.slug}`}
+                className="flex items-center justify-between py-1 px-1.5 rounded-lg hover:bg-green-50 group transition-colors"
+              >
+                <span className={`text-sm transition-colors ${currentCategory === cat.slug || currentCategory === cat.name ? 'text-primary font-bold' : 'text-gray-600 group-hover:text-primary'}`}>
+                  {cat.emoji || '🛒'} {cat.name}
+                </span>
+                {Boolean(cat.count && cat.count > 0) && (
+                  <span className="text-xs text-gray-400 group-hover:text-primary font-medium">
+                    {cat.count}
                   </span>
-                </label>
-                {SUBCATEGORIES[cat.slug] && (
-                  <button onClick={(e) => toggleCatExpand(cat.slug, e)} className="p-1 text-gray-400 hover:text-primary">
-                    {expandedCats[cat.slug] ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                  </button>
                 )}
-              </div>
-              
-              {/* Subcategories Dropdown */}
-              {SUBCATEGORIES[cat.slug] && expandedCats[cat.slug] && (
-                <div className="ml-7 mt-2 space-y-2 border-l-2 border-gray-100 pl-3">
-                  {SUBCATEGORIES[cat.slug].map((sub, idx) => (
-                    <label key={idx} className="flex items-center gap-3 cursor-pointer group">
-                      <input 
-                        type="checkbox" 
-                        className="w-3.5 h-3.5 text-primary rounded focus:ring-primary border-gray-300"
-                      />
-                      <span className="text-sm text-gray-500 group-hover:text-primary transition-colors">{sub}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
+              </a>
             </li>
           ))}
         </ul>

@@ -30,14 +30,11 @@ const OUTBOUND_API = 'http://localhost:3007';
 const TRANSPORT_API = 'http://localhost:3013';
 
 const EXTENDED_MOCK_DRIVERS: DriverInfo[] = [
-  { id: 'drv-01', name: 'Nguyễn Văn Hùng', licensePlate: '59-X1 884.92', vehicleType: 'REFRIGERATED', capacityKg: 150, status: 'AVAILABLE', currentTemp: '2.5°C', phone: '0909 888 111' },
-  { id: 'drv-02', name: 'Trần Quốc Bảo', licensePlate: '59-T2 123.45', vehicleType: 'FROZEN', capacityKg: 300, status: 'AVAILABLE', currentTemp: '-19.2°C', phone: '0918 333 444' },
-  { id: 'drv-03', name: 'Lê Minh Tuấn', licensePlate: '59-K3 999.88', vehicleType: 'NORMAL', capacityKg: 100, status: 'AVAILABLE', currentTemp: 'Thường', phone: '0977 555 666' },
-  { id: 'drv-04', name: 'Võ Thanh Sơn', licensePlate: '59-P1 554.32', vehicleType: 'REFRIGERATED', capacityKg: 200, status: 'IN_TRANSIT', currentTemp: '3.1°C', phone: '0938 222 999' },
-  { id: 'drv-05', name: 'Phạm Quốc Anh', licensePlate: '59-F3 445.67', vehicleType: 'NORMAL', capacityKg: 500, status: 'AVAILABLE', currentTemp: 'Thường', phone: '0902 444 555' },
-  { id: 'drv-06', name: 'Hoàng Văn Nam', licensePlate: '59-D2 778.89', vehicleType: 'REFRIGERATED', capacityKg: 250, status: 'AVAILABLE', currentTemp: '1.8°C', phone: '0988 777 666' },
-  { id: 'drv-07', name: 'Đặng Quốc Huy', licensePlate: '59-S1 889.01', vehicleType: 'FROZEN', capacityKg: 400, status: 'AVAILABLE', currentTemp: '-18.5°C', phone: '0919 222 333' },
-  { id: 'drv-08', name: 'Bùi Minh Đức', licensePlate: '59-L2 667.12', vehicleType: 'NORMAL', capacityKg: 150, status: 'MAINTENANCE', currentTemp: 'Thường', phone: '0908 999 000' }
+  { id: 'drv-01', name: 'Nguyễn Văn Hùng', licensePlate: '59-X1 884.92', vehicleType: 'NORMAL', capacityKg: 30, status: 'AVAILABLE', phone: '0909 888 111' },
+  { id: 'drv-02', name: 'Trần Quốc Bảo', licensePlate: '59-T2 123.45', vehicleType: 'NORMAL', capacityKg: 30, status: 'AVAILABLE', phone: '0918 333 444' },
+  { id: 'drv-03', name: 'Lê Minh Tuấn (Ba gác)', licensePlate: '59-K3 999.88', vehicleType: 'NORMAL', capacityKg: 100, status: 'AVAILABLE', phone: '0977 555 666' },
+  { id: 'drv-04', name: 'Võ Thanh Sơn', licensePlate: '59-P1 554.32', vehicleType: 'NORMAL', capacityKg: 20, status: 'IN_TRANSIT', phone: '0938 222 999' },
+  { id: 'drv-05', name: 'Phạm Quốc Anh', licensePlate: '59-F3 445.67', vehicleType: 'NORMAL', capacityKg: 30, status: 'AVAILABLE', phone: '0902 444 555' }
 ];
 
 const TransportOptimization = () => {
@@ -47,6 +44,8 @@ const TransportOptimization = () => {
   const [drivers] = useState<DriverInfo[]>(EXTENDED_MOCK_DRIVERS);
   const [orders, setOrders] = useState<any[]>([]);
   const [vrpResult, setVrpResult] = useState<VrpResponse | null>(null);
+  const [batchRoutes, setBatchRoutes] = useState<any[]>([]);
+  const [quotes, setQuotes] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -62,13 +61,16 @@ const TransportOptimization = () => {
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+  }, [user]);
 
   const fetchOrders = async () => {
     try {
       const res = await fetch(`${OUTBOUND_API}/outbound-orders`);
       if (res.ok) {
-        const data = await res.json();
+        let data = await res.json();
+        if (user?.role === 'WAREHOUSE_MANAGER' && user?.warehouseCode) {
+          data = data.filter((o: any) => !o.warehouseCode || o.warehouseCode === user.warehouseCode);
+        }
         setOrders(data);
       }
     } catch (err) {
@@ -134,6 +136,77 @@ const TransportOptimization = () => {
     } catch (err) {
       console.error(err);
       showToast('❌ Lỗi khi chạy giải thuật VRP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOptimizeBatch = async () => {
+    const outboundOrders = orders.filter(o => o.status === 'CONFIRMED');
+    if (outboundOrders.length === 0) {
+      showToast('⚠️ Không có Phiếu Xuất Kho (CONFIRMED) nào để gom đơn!');
+      return;
+    }
+    setLoading(true);
+    showToast('Đang gom đơn xuất kho (Batching)...');
+    try {
+      const response = await fetch(`${TRANSPORT_API}/transport/optimize-batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ orders: outboundOrders })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setBatchRoutes(data);
+        showToast(`✅ Đã gom thành ${data.length} chuyến xe!`);
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('❌ Lỗi gom đơn');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGet3plQuote = async (routeInfo: any) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${TRANSPORT_API}/transport/3pl-quote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ routeInfo })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setQuotes(prev => ({ ...prev, [routeInfo.id]: data }));
+        showToast('✅ Đã lấy báo giá 3PL thành công!');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('❌ Lỗi lấy báo giá 3PL');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDispatch3pl = async (routeInfo: any) => {
+    setLoading(true);
+    showToast('🚀 Đang kết nối API 3PL & đẩy đơn cho Shipper...');
+    try {
+      let count = 0;
+      for (const order of routeInfo.orders) {
+        const res = await fetch(`${OUTBOUND_API}/outbound-orders/${order.id}/ship`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) count++;
+      }
+      showToast(`🎉 Đã giao thành công ${count} đơn cho Shipper 3PL! Trạng thái chuyển sang Đang giao hàng.`);
+      setBatchRoutes(prev => prev.filter(r => r.id !== routeInfo.id));
+      fetchOrders();
+    } catch (err) {
+      console.error(err);
+      showToast('❌ Lỗi khi kết nối đẩy đơn cho 3PL');
     } finally {
       setLoading(false);
     }
@@ -387,7 +460,7 @@ const TransportOptimization = () => {
                     <div style={{ backgroundColor: '#f8fafc', padding: '10px 14px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '14px' }}>
                       <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#475569', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Chi tiết giỏ hàng</div>
                       {order.items?.map((it: any, sIdx: number) => (
-                        <div key={sIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#475569', paddingVertical: '4px', borderBottom: sIdx === order.items.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
+                        <div key={sIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#475569', padding: '4px 0', borderBottom: sIdx === order.items.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
                           <span>📦 {it.productName || it.sku}</span>
                           <strong style={{ color: '#1e293b' }}>x{it.requestedQuantity}</strong>
                         </div>
@@ -469,29 +542,29 @@ const TransportOptimization = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Danh mục kiểm tra chất lượng</div>
                 
-                <TouchableOpacity
+                <div
                   onClick={() => setChkTemp(!chkTemp)}
                   style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
                 >
                   {chkTemp ? <CheckSquare size={20} color="#7c3aed" /> : <Square size={20} color="#cbd5e1" />}
                   <span style={{ fontSize: '0.8rem', color: '#334155' }}>Nhiệt độ thùng lạnh an toàn chuẩn 2.8°C</span>
-                </TouchableOpacity>
+                </div>
 
-                <TouchableOpacity
+                <div
                   onClick={() => setChkPack(!chkPack)}
                   style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
                 >
                   {chkPack ? <CheckSquare size={20} color="#7c3aed" /> : <Square size={20} color="#cbd5e1" />}
                   <span style={{ fontSize: '0.8rem', color: '#334155' }}>Đóng gói nguyên vẹn, không dập nát thực phẩm</span>
-                </TouchableOpacity>
+                </div>
 
-                <TouchableOpacity
+                <div
                   onClick={() => setChkSign(!chkSign)}
                   style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
                 >
                   {chkSign ? <CheckSquare size={20} color="#7c3aed" /> : <Square size={20} color="#cbd5e1" />}
                   <span style={{ fontSize: '0.8rem', color: '#334155' }}>Khách hàng ký nhận biên bản bàn giao</span>
-                </TouchableOpacity>
+                </div>
               </div>
 
               {/* Photo Evidence upload preview */}
@@ -531,7 +604,7 @@ const TransportOptimization = () => {
   // -------------------------------------------------------------
   // RENDER FOR MANAGER (VRP SOLVER)
   // -------------------------------------------------------------
-  const activeOrders = orders.filter(o => o.status === 'PENDING' || o.status === 'PICKING');
+  const activeOrders = orders.filter(o => o.status === 'CONFIRMED' || o.status === 'SHIPPED');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1.5rem', background: '#f8fafc', minHeight: '100vh' }}>
@@ -545,76 +618,27 @@ const TransportOptimization = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', padding: '1.25rem 1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.04)' }}>
         <div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            🚚 Tối Ưu Tuyến Đường Đội Xe (VRP Solver)
+            🏍️ Điều Phối Giao Hàng (Shipper / 3PL)
           </h2>
           <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>
-            Sử dụng thuật toán láng giềng gần nhất (Nearest-Neighbor VRP) phân phối tự động đơn hàng dựa trên tải trọng.
+            Hỗ trợ tự động gom đơn hàng loạt (Batching) theo khu vực và kết nối API 3PL để gọi Shipper xe máy siêu tốc.
           </p>
         </div>
         
         <div style={{ display: 'flex', gap: '12px' }}>
           <button
-            onClick={handleOptimizeVrp}
-            disabled={loading || activeOrders.length === 0}
-            className="btn btn-primary"
-            style={{ borderRadius: '10px', fontWeight: 600, padding: '10px 16px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#0f766e', color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(15,118,110,0.25)' }}
+            onClick={handleOptimizeBatch}
+            disabled={loading}
+            className="btn btn-warning"
+            style={{ borderRadius: '10px', fontWeight: 600, padding: '10px 16px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#ea580c', color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(234,88,12,0.25)' }}
           >
-            <Play size={16} /> Tối ưu tuyến (VRP)
+            <Clock size={16} /> Gom đơn xuất (Batching)
           </button>
         </div>
       </div>
 
-      {/* KPI Cards Section */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.25rem' }}>
-        <div style={kpiCardStyle('#f0fdf4', '#16a34a')}>
-          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#16a34a', textTransform: 'uppercase' }}>Đơn hàng hoạt động</div>
-          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#0f172a', marginTop: '6px' }}>{activeOrders.length} đơn</div>
-          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>Chờ gom và xếp tuyến</div>
-        </div>
-
-        <div style={kpiCardStyle('#eff6ff', '#2563eb')}>
-          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#2563eb', textTransform: 'uppercase' }}>Đội xe sẵn sàng</div>
-          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#0f172a', marginTop: '6px' }}>{drivers.filter(d => d.status === 'AVAILABLE').length}/{drivers.length} xe</div>
-          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>Xe lạnh & thường</div>
-        </div>
-
-        <div style={kpiCardStyle('#fff7ed', '#ea580c')}>
-          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#ea580c', textTransform: 'uppercase' }}>Tuyến tối ưu hóa</div>
-          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#0f172a', marginTop: '6px' }}>{vrpResult ? vrpResult.totalRoutes : 0} tuyến</div>
-          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>Sau khi giải VRP</div>
-        </div>
-
-        <div style={kpiCardStyle('#faf5ff', '#7c3aed')}>
-          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase' }}>Tổng quãng đường</div>
-          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#0f172a', marginTop: '6px' }}>{vrpResult ? `${vrpResult.totalDistance} km` : '0 km'}</div>
-          <div style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 600, marginTop: '4px' }}>{vrpResult ? '🔥 Tiết kiệm ~15% xăng' : 'Chưa tối ưu'}</div>
-        </div>
-      </div>
-
       {/* Main Contents layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.2fr', gap: '1.5rem' }}>
-        {/* Column 1: Drivers Fleet */}
-        <div style={panelCardStyle()}>
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1e293b', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            👥 Đội Xe Vận Chuyển ({drivers.length})
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {drivers.map(drv => (
-              <div key={drv.id} style={{ padding: '12px', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f8fafc' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#1e293b' }}>{drv.name}</span>
-                  <span style={driverStatusBadgeStyle(drv.status)}>{drv.status}</span>
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                  Biển số: <strong>{drv.licensePlate}</strong> • Tải trọng: <strong>{drv.capacityKg} Kg</strong>
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#0f766e', marginTop: '4px', fontWeight: 600 }}>
-                  Loại xe: {drv.vehicleType === 'REFRIGERATED' ? '❄️ Lạnh (0-4°C)' : drv.vehicleType === 'FROZEN' ? '🧊 Đông (-18°C)' : '📦 Thường'}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
 
         {/* Column 2: Active Orders / Stops */}
         <div style={panelCardStyle()}>
@@ -650,61 +674,63 @@ const TransportOptimization = () => {
           )}
         </div>
 
-        {/* Column 3: VRP Routes Results */}
+        {/* Column 3: Route Results (VRP or Batching) */}
         <div style={panelCardStyle()}>
           <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1e293b', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            🗺️ Tuyến gom hàng VRP tối ưu
+            🗺️ Tuyến gom hàng & Đấu nối 3PL
           </h3>
-          {!vrpResult ? (
+          {batchRoutes.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#94a3b8', fontSize: '0.85rem' }}>
-              Chưa chạy tối ưu hóa. Bấm "Tối ưu tuyến (VRP)" để hệ thống tính toán đường đi.
+              Bấm "Gom đơn xuất (Batching)" để hệ thống tính toán đường đi.
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              {vrpResult.routes.map((route, idx) => {
-                const driver = route.assignedDriver;
-                return (
-                  <div key={route.routeId} style={{ border: '2px solid #0f766e', borderRadius: '12px', padding: '12px', background: '#f0fdfa', position: 'relative' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px solid #ccfbf1', paddingBottom: '6px' }}>
-                      <strong style={{ color: '#0f766e', fontSize: '0.9rem' }}>Tuyến #{idx + 1} ({route.routeId})</strong>
-                      {driver ? (
-                        <span style={{ fontSize: '0.75rem', fontWeight: 800, backgroundColor: '#ccfbf1', color: '#0f766e', padding: '2px 8px', borderRadius: '12px' }}>
-                          🚚 Tài xế: {driver.name}
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: '0.72rem', fontWeight: 800, backgroundColor: '#fee2e2', color: '#b91c1c', padding: '2px 8px', borderRadius: '12px' }}>
-                          ⚠️ Chưa có tài xế phù hợp
-                        </span>
-                      )}
-                    </div>
+              {batchRoutes.map((route, idx) => (
+                <div key={route.id} style={{ border: '2px solid #ea580c', borderRadius: '12px', padding: '12px', background: '#fff7ed' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px solid #ffedd5', paddingBottom: '6px' }}>
+                    <strong style={{ color: '#ea580c', fontSize: '0.9rem' }}>Chuyến #{idx + 1} (Tự động gom)</strong>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 800, backgroundColor: '#fed7aa', color: '#9a3412', padding: '2px 8px', borderRadius: '12px' }}>
+                      {route.orders.length} Đơn
+                    </span>
+                  </div>
+                  
+                  <div style={{ fontSize: '0.75rem', color: '#475569', marginBottom: '10px' }}>
+                    <span>Cự ly dự kiến: <strong>{route.totalDistanceKm} km</strong></span>
+                  </div>
 
-                    {driver && (
-                      <div style={{ fontSize: '0.72rem', color: '#475569', marginBottom: '8px', backgroundColor: '#e6fffa', padding: '6px 10px', borderRadius: '8px', border: '1px dashed #7cd1c4' }}>
-                        <div>Biển số: <strong>{driver.licensePlate}</strong> • Loại xe: <strong>{driver.vehicleType === 'REFRIGERATED' ? '❄️ Lạnh' : driver.vehicleType === 'FROZEN' ? '🧊 Đông' : '📦 Thường'}</strong></div>
-                        <div style={{ marginTop: '2px' }}>Tải trọng xe: <strong>{driver.capacityKg} Kg</strong> • Hiệu suất: <strong style={{ color: '#0f766e' }}>{Math.round((route.totalDemand / driver.capacityKg) * 100)}%</strong></div>
-                      </div>
-                    )}
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#475569', marginBottom: '10px' }}>
-                      <span>Tổng hàng: <strong>{route.totalDemand} Kg</strong></span>
-                      <span>Cự ly: <strong>{route.totalDistance.toFixed(1)} km</strong></span>
-                    </div>
-
-                    {/* Timeline stops */}
-                    <div style={{ display: 'flex', flexDirection: 'column', position: 'relative', paddingLeft: '15px' }}>
-                      <div style={{ position: 'absolute', left: '5px', top: '5px', bottom: '5px', width: '2px', backgroundColor: '#cbd5e1' }}></div>
-                      {route.stops.map((stop, sIdx) => (
-                        <div key={sIdx} style={{ fontSize: '0.75rem', marginBottom: sIdx === route.stops.length - 1 ? '0' : '6px', position: 'relative' }}>
-                          <span style={{ position: 'absolute', left: '-14px', top: '3px', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: stop.id === 'depot' ? '#ef4444' : '#10b981', zIndex: 1 }}></span>
-                          <span style={{ color: stop.id === 'depot' ? '#ef4444' : '#1e293b', fontWeight: stop.id === 'depot' ? '800' : '500' }}>
-                            {stop.name} {stop.demand > 0 ? `(${stop.demand} Kg)` : ''}
-                          </span>
+                  {!quotes[route.id] ? (
+                    <button 
+                      onClick={() => handleGet3plQuote(route)}
+                      style={{ width: '100%', padding: '8px', borderRadius: '8px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer', fontSize: '0.8rem' }}
+                    >
+                      Báo giá qua 3PL (GHN, Ahamove)
+                    </button>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1e293b' }}>Báo giá 3PL:</div>
+                      {quotes[route.id].map((q: any, i: number) => (
+                        <div key={i} style={{ padding: '8px', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: '0.8rem', color: q.provider === 'GHN' ? '#ea580c' : '#f97316' }}>{q.name}</div>
+                            <div style={{ fontSize: '0.65rem', color: '#64748b' }}>{q.serviceType}</div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontWeight: 800, fontSize: '0.85rem', color: '#10b981' }}>{q.price.toLocaleString()} đ</div>
+                            <div style={{ fontSize: '0.65rem', color: '#64748b' }}>{q.estimatedTime}</div>
+                          </div>
                         </div>
                       ))}
+                      <button
+                        onClick={() => handleDispatch3pl(route)}
+                        disabled={loading}
+                        style={{ marginTop: '4px', width: '100%', padding: '8px', borderRadius: '8px', backgroundColor: '#10b981', color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer', fontSize: '0.8rem' }}
+                      >
+                        Đẩy đơn cho Shipper ngay
+                      </button>
                     </div>
-                  </div>
-                );
-              })}
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>

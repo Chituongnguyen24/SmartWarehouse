@@ -37,17 +37,17 @@ export const ProfileScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* User Card */}
         <View style={styles.userCard}>
-          <Image source={{ uri: user.avatar }} style={styles.avatar} />
+          <Image source={{ uri: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&q=80' }} style={styles.avatar} />
           <View style={styles.userInfo}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={styles.userName}>{user.name}</Text>
+              <Text style={styles.userName}>{user?.name || 'Khách hàng'}</Text>
               <View style={styles.tierBadge}>
                 <Award size={10} color={COLORS.primaryDark} />
-                <Text style={styles.tierText}>Thành viên {user.memberTier}</Text>
+                <Text style={styles.tierText}>Thành viên {user?.memberTier || 'Bạc'}</Text>
               </View>
             </View>
-            <Text style={styles.userPhone}>{user.phone}</Text>
-            <Text style={styles.userEmail}>{user.email}</Text>
+            <Text style={styles.userPhone}>{user?.phone || '0908 123 456'}</Text>
+            <Text style={styles.userEmail}>{user?.email || 'customer@citymart.vn'}</Text>
           </View>
         </View>
 
@@ -55,7 +55,7 @@ export const ProfileScreen: React.FC = () => {
         <View style={styles.pointsCard}>
           <View style={{ flex: 1 }}>
             <Text style={styles.pointsTitle}>Điểm tích lũy CityMart</Text>
-            <Text style={styles.pointsVal}>{user.points.toLocaleString()} điểm</Text>
+            <Text style={styles.pointsVal}>{(user?.points || 0).toLocaleString()} điểm</Text>
             <Text style={styles.pointsSub}>Đổi điểm lấy mã giảm giá cho đơn tiếp theo</Text>
           </View>
           <TouchableOpacity style={styles.redeemBtn}>

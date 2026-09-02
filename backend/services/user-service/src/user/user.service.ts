@@ -17,26 +17,32 @@ export class UserService implements OnModuleInit {
   async onModuleInit() {
     // Auto-seed default accounts
     const emailList = [
-      { email: 'admin@sfwms.vn', name: 'Nguyễn Chi Tường', role: UserRole.ADMIN },
-      { email: 'manager@sfwms.vn', name: 'Trần Văn Bình', role: UserRole.WAREHOUSE_MANAGER },
-      { email: 'staff@sfwms.vn', name: 'Lê Thị Hoa', role: UserRole.WAREHOUSE_STAFF },
-      { email: 'sales@sfwms.vn', name: 'Phạm Minh Đức', role: UserRole.SALES_STAFF },
-      { email: 'driver@sfwms.vn', name: 'Võ Thanh Tùng', role: UserRole.DRIVER },
-      { email: 'customer@sfwms.vn', name: 'Khách hàng Test', role: UserRole.CUSTOMER },
+      { email: 'admin@sfwms.vn', name: 'Nguyễn Chi Tường', role: UserRole.ADMIN, warehouseCode: undefined },
+      { email: 'manager@sfwms.vn', name: 'Trần Văn Bình (Quản lý)', role: UserRole.WAREHOUSE_MANAGER, warehouseCode: 'WH-005' },
+      { email: 'govap@sfwms.vn', name: 'Nguyễn Hoàng Nam (Kho Gò Vấp)', role: UserRole.WAREHOUSE_MANAGER, warehouseCode: 'WH-006' },
+      { email: 'manager_wh006@sfwms.vn', name: 'Nguyễn Hoàng Nam (QL Kho Gò Vấp)', role: UserRole.WAREHOUSE_MANAGER, warehouseCode: 'WH-006' },
+      { email: 'staff@sfwms.vn', name: 'Lê Thị Hoa', role: UserRole.WAREHOUSE_STAFF, warehouseCode: 'WH-006' },
+      { email: 'sales@sfwms.vn', name: 'Phạm Minh Đức', role: UserRole.SALES_STAFF, warehouseCode: undefined },
+      { email: 'driver@sfwms.vn', name: 'Võ Thanh Tùng', role: UserRole.DRIVER, warehouseCode: undefined },
+      { email: 'customer@sfwms.vn', name: 'Khách hàng Test', role: UserRole.CUSTOMER, warehouseCode: undefined },
     ];
 
     for (const item of emailList) {
-      const exists = await this.userRepository.findOneBy({ email: item.email });
-      if (!exists) {
+      let user = await this.userRepository.findOneBy({ email: item.email });
+      if (!user) {
         const passwordHash = await bcrypt.hash('password123', 10);
         const newUser = this.userRepository.create({
           email: item.email,
           name: item.name,
           passwordHash,
           role: item.role,
+          warehouseCode: item.warehouseCode,
         });
         await this.userRepository.save(newUser);
         console.log(`Seeded user: ${item.email} with password: password123`);
+      } else if (item.warehouseCode && user.warehouseCode !== item.warehouseCode) {
+        user.warehouseCode = item.warehouseCode;
+        await this.userRepository.save(user);
       }
     }
   }
@@ -46,7 +52,10 @@ export class UserService implements OnModuleInit {
   }
 
   async findOneById(id: string): Promise<User | null> {
-    return this.userRepository.findOneBy({ id });
+    return this.userRepository.findOne({
+      where: { id },
+      relations: ['addresses'],
+    });
   }
 
   async create(userDto: Partial<User>): Promise<User> {
@@ -96,19 +105,22 @@ export class UserService implements OnModuleInit {
         tier: 'Thành viên mới',
       });
     } else {
-      user.name = name;
-      user.phone = phone;
+      if (name) user.name = name;
+      if (phone) user.phone = phone;
     }
     const savedUser = await this.userRepository.save(user);
 
-    if (isNewUser && addressStr) {
-      const address = this.addressRepository.create({
-        userId: savedUser.id,
-        streetAddress: addressStr,
-        latitude: lat,
-        longitude: lng,
-        isDefault: true,
-      });
+    if (addressStr) {
+      let address = await this.addressRepository.findOneBy({ userId: savedUser.id, isDefault: true });
+      if (!address) {
+        address = this.addressRepository.create({
+          userId: savedUser.id,
+          isDefault: true,
+        });
+      }
+      address.streetAddress = addressStr;
+      if (lat !== undefined) address.latitude = lat;
+      if (lng !== undefined) address.longitude = lng;
       await this.addressRepository.save(address);
     }
 

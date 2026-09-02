@@ -1,0 +1,533 @@
+[
+  {
+    "id": "a87e175c-c877-4682-9d0a-97ca51ee829d",
+    "productId": "57c6105c-8d68-4d39-9490-e359533776ad",
+    "productName": "Hộp Đồ Omo siêu cấp 277",
+    "quantity": 1,
+    "price": "14000.00",
+    "orderId": "ec371af1-82b3-45ad-9e2f-ac6f2d3f7852",
+    "sku": null
+  },
+  {
+    "id": "74a58418-7786-4a80-83be-9bd83addee77",
+    "productId": "e2742d78-7117-4702-8f68-63bdeb592407",
+    "productName": "Mì Hảo Hảo tôm chua cay",
+    "quantity": 1,
+    "price": "115000.00",
+    "orderId": "da191e77-400e-4cf3-bb9d-112955f768ff",
+    "sku": null
+  },
+  {
+    "id": "cff8bb82-673d-465d-aba0-b76363c48be0",
+    "productId": "38e0b70e-b1d1-41fa-8639-1c1a6b13a489",
+    "productName": "Nước mắm Knorr chai 500ml",
+    "quantity": 1,
+    "price": "27500.00",
+    "orderId": "d7a7caf5-56b5-4e0e-b10b-d1cb2cf6023a",
+    "sku": "250103612"
+  },
+  {
+    "id": "1ddbf8be-0e48-4a2c-b027-da4349b9c024",
+    "productId": "38e0b70e-b1d1-41fa-8639-1c1a6b13a489",
+    "productName": "Nước mắm Knorr chai 500ml",
+    "quantity": 1,
+    "price": "27500.00",
+    "orderId": "80bd96a0-c1b6-44f1-83c3-136ca55a0d3f",
+    "sku": "250103612"
+  },
+  {
+    "id": "c7c054f5-205c-4936-96d0-4d6a5c48acc1",
+    "productId": "51c21ba1-21c6-4659-99b5-44bbe6f07e81",
+    "productName": "Chai Đồ Clear siêu cấp 555",
+    "quantity": 1,
+    "price": "456000.00",
+    "orderId": "ab20ce73-be7c-428b-ae12-23e12279b3cd",
+    "sku": "DRY-CLEA-GQAORH"
+  },
+  {
+    "id": "5186c05a-b90a-43cf-96d2-9fdaed84c950",
+    "productId": "550a4f01-6c59-4fbd-97ad-5fb5566f625f",
+    "productName": "Bịch Đồ Vinamilk siêu cấp 354",
+    "quantity": 1,
+    "price": "478000.00",
+    "orderId": "d876beec-ddaa-4e45-afb1-cf412fa2f391",
+    "sku": "DRY-VINA-RFKVVW"
+  },
+  {
+    "id": "73fce42e-110a-4f07-ad71-7370619ecbe8",
+    "productId": "6fd400a5-42f3-4511-bda6-ff3e74488f39",
+    "productName": "Thịt heo Tulip 40% Less Sodium có khóa 340g",
+    "quantity": 1,
+    "price": "115200.00",
+    "orderId": "63852e02-8018-4c04-a8d1-2c2db8b1efc1",
+    "sku": "250108805"
+  },
+  {
+    "id": "e8bce12d-0046-4e90-84ae-06b912d67ff0",
+    "productId": "6fd400a5-42f3-4511-bda6-ff3e74488f39",
+    "productName": "Thịt heo Tulip 40% Less Sodium có khóa 340g",
+    "quantity": 1,
+    "price": "115200.00",
+    "orderId": "7bdeeadd-3632-416e-96e7-2e0abbbd3834",
+    "sku": "250108805"
+  },
+  {
+    "id": "8a3d5937-aed8-42ac-80ef-dc888c33d135",
+    "productId": "73b98566-df79-47aa-8f36-c5608d48e6d0",
+    "productName": "Chà bông giòn Vissan thịt heo hủ 80g",
+    "quantity": 1,
+    "price": "48600.00",
+    "orderId": "782d69ce-857e-4493-a447-08ade133756a",
+    "sku": "250108651"
+  },
+  {
+    "id": "fc5343bf-7ba4-43c0-8e2f-8bf73b05b4b5",
+    "productId": "e08cddcf-337c-4f71-bfdd-2fc4d67a5b47",
+    "productName": "Gạo lứt sấy rong biển Co.op Select 150g",
+    "quantity": 1,
+    "price": "28900.00",
+    "orderId": "fae2da0a-3b78-4cdd-96c8-88b831301f76",
+    "sku": "250808207"
+  },
+  {
+    "id": "dd99650f-3d64-4613-9a55-c45fd3bea97d",
+    "productId": "dd75679f-6be7-44a8-b009-bc495f9580b7",
+    "productName": "Gạo Thiên Kim Tây Đô túi 5kg",
+    "quantity": 1,
+    "price": "77500.00",
+    "orderId": "fae2da0a-3b78-4cdd-96c8-88b831301f76",
+    "sku": "250104879"
+  },
+  {
+    "id": "7219f81b-afe2-43d5-8914-efdadd84cafa",
+    "productId": "550a4f01-6c59-4fbd-97ad-5fb5566f625f",
+    "productName": "Bịch Đồ Vinamilk siêu cấp 354",
+    "quantity": 1,
+    "price": "478000.00",
+    "orderId": "76bf95bf-1bdf-4df5-94a8-0d05e0b28bce",
+    "sku": "DRY-VINA-RFKVVW"
+  },
+  {
+    "id": "f601d67c-d1c5-4b60-9703-6e62bcddd356",
+    "productId": "8c0eaa06-07f1-426e-95a0-55d9e05baa86",
+    "productName": "Bắp cải thảo VietGAP",
+    "quantity": 1,
+    "price": "35000.00",
+    "orderId": "8ece0fde-a042-4b42-9b47-29d629ef499b",
+    "sku": "VEG-CABBAGE-01"
+  },
+  {
+    "id": "06edf8df-817c-471a-b0d9-281ab4cf12a3",
+    "productId": "73b98566-df79-47aa-8f36-c5608d48e6d0",
+    "productName": "Chà bông giòn Vissan thịt heo hủ 80g",
+    "quantity": 1,
+    "price": "48600.00",
+    "orderId": "fd8aed8e-7b5b-401a-b1b1-9d16a9224e58",
+    "sku": "250108651"
+  },
+  {
+    "id": "d7450ca7-015d-4f1f-adcf-4eb98c415121",
+    "productId": "6fd400a5-42f3-4511-bda6-ff3e74488f39",
+    "productName": "Thịt heo Tulip 40% Less Sodium có khóa 340g",
+    "quantity": 1,
+    "price": "115200.00",
+    "orderId": "ded3bf6f-f732-455c-8c62-ef2d0975d17f",
+    "sku": "250108805"
+  },
+  {
+    "id": "1d47b798-2344-42b7-8c63-8b9b584a7713",
+    "productId": "1957a66b-10cc-49bb-992e-be4df3bdc8c0",
+    "productName": "Nước mắm Phú Quốc Thanh Hà 40 độ đạm chai 520ml",
+    "quantity": 1,
+    "price": "135500.00",
+    "orderId": "2ba52d78-949c-46bf-992c-ea64cea370a9",
+    "sku": "250104052"
+  },
+  {
+    "id": "8f8828a1-aef4-455e-927b-cbcf60331fed",
+    "productId": "253d5f67-7868-4beb-92a3-22a108c47dd3",
+    "productName": "Nước mắm tỏi ớt Thanh Hà 250ml",
+    "quantity": 1,
+    "price": "41900.00",
+    "orderId": "2ba52d78-949c-46bf-992c-ea64cea370a9",
+    "sku": "250104079"
+  },
+  {
+    "id": "dc2e597b-cbd2-4636-8742-8bc48c614050",
+    "productId": "test-1",
+    "productName": "Cá hồi Na Uy",
+    "quantity": 1,
+    "price": "100000.00",
+    "orderId": "a47f8608-091f-44af-8ddf-2df01410ea26",
+    "sku": "SKU-01"
+  },
+  {
+    "id": "8459f488-09ac-4e42-9a00-41aed55c70af",
+    "productId": "test-2",
+    "productName": "Táo Envy",
+    "quantity": 2,
+    "price": "80000.00",
+    "orderId": "9ddc48b2-d2f2-4677-bce9-f542f4256665",
+    "sku": "SKU-02"
+  },
+  {
+    "id": "886ced13-6d64-44ca-b906-6dda85acadfa",
+    "productId": "1504629f-8698-4c55-a4b7-974188b6c49b",
+    "productName": "Su su Co.op Select – TNX",
+    "quantity": 1,
+    "price": "29900.00",
+    "orderId": "e9412610-f9e0-44fd-b50d-6be11f11cf17",
+    "sku": "250102025"
+  },
+  {
+    "id": "41e63765-24d2-4a08-af81-61733bf01d1c",
+    "productId": "PROD-SEAFOOD-SALMON-01",
+    "productName": "Cá hồi Na Uy phi lê tươi",
+    "quantity": 1,
+    "price": "195000.00",
+    "orderId": "d188c28b-5217-4405-8f70-27cc96cd4314",
+    "sku": "SEAFOOD-SALMON-01"
+  },
+  {
+    "id": "a6341b7f-6346-4b0a-a414-c77899dccde3",
+    "productId": "PROD-VEG-BROCCOLI-01",
+    "productName": "Súp lơ xanh organic Đà Lạt",
+    "quantity": 2,
+    "price": "45000.00",
+    "orderId": "d188c28b-5217-4405-8f70-27cc96cd4314",
+    "sku": "VEG-BROCCOLI-01"
+  },
+  {
+    "id": "adc49fcd-a2a3-44c2-9923-5a0d345b021b",
+    "productId": "PROD-MILK-DALAT-1L",
+    "productName": "Sữa tươi Dalat Milk 1L",
+    "quantity": 2,
+    "price": "50000.00",
+    "orderId": "d188c28b-5217-4405-8f70-27cc96cd4314",
+    "sku": "MILK-DALAT-1L"
+  },
+  {
+    "id": "a6f62b96-58fb-4cd2-9ad5-f66c7563d9ef",
+    "productId": "PROD-MEAT-BEEF-01",
+    "productName": "Thịt ba chỉ bò Mỹ nhập khẩu",
+    "quantity": 1,
+    "price": "185000.00",
+    "orderId": "c44e5fa1-815b-4710-b50e-37b0c7c4e766",
+    "sku": "MEAT-BEEF-01"
+  },
+  {
+    "id": "cfb346ae-9e64-4323-9cc9-a1ef38265d21",
+    "productId": "PROD-VEG-TOMATO-01",
+    "productName": "Cà chua Beef Đà Lạt",
+    "quantity": 2,
+    "price": "30000.00",
+    "orderId": "c44e5fa1-815b-4710-b50e-37b0c7c4e766",
+    "sku": "VEG-TOMATO-01"
+  },
+  {
+    "id": "126c18d5-2ce4-4108-8972-df48c83bf15f",
+    "productId": "PROD-SEAFOOD-SALMON-01",
+    "productName": "Cá hồi Na Uy phi lê tươi",
+    "quantity": 2,
+    "price": "195000.00",
+    "orderId": "9235baaa-3cf9-4709-ae1e-0acfffbdc8b7",
+    "sku": "SEAFOOD-SALMON-01"
+  },
+  {
+    "id": "44d42914-c03f-47cc-b662-52b0af005a6d",
+    "productId": "PROD-FRUIT-APPLE-ENVY",
+    "productName": "Táo Envy New Zealand Size 30",
+    "quantity": 1,
+    "price": "120000.00",
+    "orderId": "9235baaa-3cf9-4709-ae1e-0acfffbdc8b7",
+    "sku": "FRUIT-APPLE-ENVY"
+  },
+  {
+    "id": "76ffd6bf-f628-4924-a8bc-3229898ddf75",
+    "productId": "PROD-MEAT-PORK-01",
+    "productName": "Thịt ba rọi heo thảo mộc MeatDeli",
+    "quantity": 2,
+    "price": "110000.00",
+    "orderId": "c91111e9-df03-4bfd-8c1e-20a3fa649677",
+    "sku": "MEAT-PORK-01"
+  },
+  {
+    "id": "7296e2f5-1eca-4fe1-8230-5fd160bf8418",
+    "productId": "PROD-MILK-DALAT-1L",
+    "productName": "Sữa tươi Dalat Milk 1L",
+    "quantity": 2,
+    "price": "50000.00",
+    "orderId": "c91111e9-df03-4bfd-8c1e-20a3fa649677",
+    "sku": "MILK-DALAT-1L"
+  },
+  {
+    "id": "8718af25-225f-4ac1-9f2b-8a6d3f1c7f87",
+    "productId": "PROD-VEG-BROCCOLI-01",
+    "productName": "Súp lơ xanh organic Đà Lạt",
+    "quantity": 2,
+    "price": "45000.00",
+    "orderId": "6c8117f8-d87c-49ab-a585-59265fb3b201",
+    "sku": "VEG-BROCCOLI-01"
+  },
+  {
+    "id": "483efa5a-e8a3-49e2-8406-5060a1e09253",
+    "productId": "PROD-VEG-TOMATO-01",
+    "productName": "Cà chua Beef Đà Lạt",
+    "quantity": 3,
+    "price": "30000.00",
+    "orderId": "6c8117f8-d87c-49ab-a585-59265fb3b201",
+    "sku": "VEG-TOMATO-01"
+  },
+  {
+    "id": "f03908ce-1656-4951-bc43-10b645075253",
+    "productId": "PROD-SEAFOOD-SALMON-01",
+    "productName": "Cá hồi Na Uy phi lê tươi",
+    "quantity": 1,
+    "price": "195000.00",
+    "orderId": "9d6fdfa9-69fb-4aab-8e4f-f92e25445b8b",
+    "sku": "SEAFOOD-SALMON-01"
+  },
+  {
+    "id": "c687f8c6-2b8c-4304-9063-cae8289a5263",
+    "productId": "PROD-MEAT-BEEF-01",
+    "productName": "Thịt ba chỉ bò Mỹ nhập khẩu",
+    "quantity": 1,
+    "price": "185000.00",
+    "orderId": "9d6fdfa9-69fb-4aab-8e4f-f92e25445b8b",
+    "sku": "MEAT-BEEF-01"
+  },
+  {
+    "id": "71c7b94d-f138-4e08-929d-d23a912c68ff",
+    "productId": "PROD-MILK-DALAT-1L",
+    "productName": "Sữa tươi Dalat Milk 1L",
+    "quantity": 1,
+    "price": "50000.00",
+    "orderId": "9d6fdfa9-69fb-4aab-8e4f-f92e25445b8b",
+    "sku": "MILK-DALAT-1L"
+  },
+  {
+    "id": "7b16465f-3f24-4a7c-a3e2-cbae27230143",
+    "productId": "PROD-MEAT-PORK-01",
+    "productName": "Thịt ba rọi heo thảo mộc MeatDeli",
+    "quantity": 2,
+    "price": "110000.00",
+    "orderId": "97b316ab-fe7c-47df-bc4b-452478517af5",
+    "sku": "MEAT-PORK-01"
+  },
+  {
+    "id": "f7be5d07-2abb-4cb3-9d2f-9622b147a805",
+    "productId": "PROD-FRUIT-ORANGE-01",
+    "productName": "Cam sành Hàm Yên loại 1",
+    "quantity": 2,
+    "price": "35000.00",
+    "orderId": "97b316ab-fe7c-47df-bc4b-452478517af5",
+    "sku": "FRUIT-ORANGE-01"
+  },
+  {
+    "id": "3aeb9925-a08a-4ef2-b3fe-0221cf521fce",
+    "productId": "PROD-SEAFOOD-SHRIMP-01",
+    "productName": "Tôm sú tươi sống Cà Mau",
+    "quantity": 1,
+    "price": "260000.00",
+    "orderId": "af55ecda-0b66-4665-bd47-7dc30ba38fe0",
+    "sku": "SEAFOOD-SHRIMP-01"
+  },
+  {
+    "id": "e40d16a0-2188-4d3d-b55e-2fcc176631e0",
+    "productId": "PROD-MILK-DALAT-1L",
+    "productName": "Sữa tươi Dalat Milk 1L",
+    "quantity": 2,
+    "price": "50000.00",
+    "orderId": "af55ecda-0b66-4665-bd47-7dc30ba38fe0",
+    "sku": "MILK-DALAT-1L"
+  },
+  {
+    "id": "93125984-d87a-4a17-bc63-c29fd7483ecc",
+    "productId": "PROD-MEAT-BEEF-01",
+    "productName": "Thịt ba chỉ bò Mỹ nhập khẩu",
+    "quantity": 1,
+    "price": "185000.00",
+    "orderId": "bc2ef7da-f605-45ab-a29a-52437793e41e",
+    "sku": "MEAT-BEEF-01"
+  },
+  {
+    "id": "2bc3df4c-5f9a-4e77-a6dc-2c172ed007f2",
+    "productId": "PROD-VEG-BROCCOLI-01",
+    "productName": "Súp lơ xanh organic Đà Lạt",
+    "quantity": 2,
+    "price": "45000.00",
+    "orderId": "bc2ef7da-f605-45ab-a29a-52437793e41e",
+    "sku": "VEG-BROCCOLI-01"
+  },
+  {
+    "id": "096efd8a-0c4d-4378-ad5a-4425ebbe4cef",
+    "productId": "PROD-SEAFOOD-SALMON-01",
+    "productName": "Cá hồi Na Uy phi lê tươi",
+    "quantity": 2,
+    "price": "195000.00",
+    "orderId": "493afd73-aecf-4869-a90a-c5b8c4854d8f",
+    "sku": "SEAFOOD-SALMON-01"
+  },
+  {
+    "id": "a35b0c87-ed98-47f7-ae5f-71ac3c3f5094",
+    "productId": "PROD-MILK-DALAT-1L",
+    "productName": "Sữa tươi Dalat Milk 1L",
+    "quantity": 2,
+    "price": "50000.00",
+    "orderId": "493afd73-aecf-4869-a90a-c5b8c4854d8f",
+    "sku": "MILK-DALAT-1L"
+  },
+  {
+    "id": "3475859b-77be-4fe8-aed0-1a14f8c6f8b7",
+    "productId": "332662a1-a87a-4435-9e4d-324dfc59be99",
+    "productName": "Heo cao bồi thịt viên vị xốt cà 200g",
+    "quantity": 3,
+    "price": "32300.00",
+    "orderId": "63bebda7-52cb-4a7e-8dbb-c049a732885f",
+    "sku": "250108255"
+  },
+  {
+    "id": "fc44854e-78ae-4268-a9f3-86ecef26a735",
+    "productId": "74d9c6e8-6075-43de-bb3b-d5d62aeead17",
+    "productName": "Nước mắm Chinsu Nam Ngư 750ml",
+    "quantity": 1,
+    "price": "46000.00",
+    "orderId": "c3a61b47-84be-43ea-b726-0dc32c2d788a",
+    "sku": "DRY-SAUCE-01"
+  },
+  {
+    "id": "8b602a52-e821-473c-b086-eb66b1d8682a",
+    "productId": "PROD-COOL-01",
+    "productName": "Sữa Tươi Thanh Trùng Dalat Milk 450ml",
+    "quantity": 2,
+    "price": "35000.00",
+    "orderId": "5c7b4c2f-da33-418f-818d-d433fd09ccee",
+    "sku": "SKU-TEST-8660"
+  },
+  {
+    "id": "887ecbaf-8157-4483-981a-d43edcd67e56",
+    "productId": "PROD-COOL-01",
+    "productName": "Sữa Tươi Thanh Trùng Dalat Milk 450ml",
+    "quantity": 2,
+    "price": "35000.00",
+    "orderId": "2533244f-68eb-4380-8b0f-d976613e9f2b",
+    "sku": "SKU-TEST-2600"
+  },
+  {
+    "id": "407f78be-f4e7-45d4-b5df-c8c94e41fb0a",
+    "productId": "PROD-COOL-01",
+    "productName": "Sữa Tươi Thanh Trùng Dalat Milk 450ml",
+    "quantity": 2,
+    "price": "35000.00",
+    "orderId": "6c24d8c9-664b-45a0-a82a-e4ae0fc7d068",
+    "sku": "SKU-TEST-8090"
+  },
+  {
+    "id": "3f0c0f5d-0f88-4683-be94-9897b86d4dcd",
+    "productId": "PROD-COOL-01",
+    "productName": "Sữa Tươi Thanh Trùng Dalat Milk 450ml",
+    "quantity": 2,
+    "price": "35000.00",
+    "orderId": "17b8ecdf-8501-4254-8be3-14d8568810df",
+    "sku": "SKU-TEST-3961"
+  },
+  {
+    "id": "72a314eb-b138-4c33-9e31-0714b03b874f",
+    "productId": "PROD-COOL-01",
+    "productName": "Sữa Tươi Thanh Trùng Dalat Milk 450ml",
+    "quantity": 2,
+    "price": "35000.00",
+    "orderId": "ff298f2f-166d-4f35-aab8-916874099896",
+    "sku": "SKU-TEST-9887"
+  },
+  {
+    "id": "c38ab6a6-251b-4783-92ad-230d126a64c7",
+    "productId": "9394a05e-b44f-4b87-8e55-147b39249945",
+    "productName": "Sữa Tươi Thanh Trùng Dalat Milk 450ml",
+    "quantity": 2,
+    "price": "35000.00",
+    "orderId": "3fe30e5c-9222-48fc-bb81-771349b59f90",
+    "sku": "SKU-TEST-9121"
+  },
+  {
+    "id": "b2c0e69f-0cbe-44b7-8dd7-d532960f658b",
+    "productId": "90dc0e44-85ae-41e4-8ab1-d174644540cd",
+    "productName": "Sữa Tươi Thanh Trùng Dalat Milk 450ml",
+    "quantity": 2,
+    "price": "35000.00",
+    "orderId": "8b489c34-dcd7-403d-a6e0-3a63e5b0ef3b",
+    "sku": "SKU-TEST-7227"
+  },
+  {
+    "id": "56bdcf43-259c-45ec-a66b-a052d5578e2a",
+    "productId": "eec4894e-178b-4fb3-9786-5e1f70bd0feb",
+    "productName": "Sữa Tươi Thanh Trùng Dalat Milk 450ml",
+    "quantity": 2,
+    "price": "35000.00",
+    "orderId": "561fe97e-a3dc-4b8c-a6a1-48676951e840",
+    "sku": "SKU-TEST-2611"
+  },
+  {
+    "id": "84a1847d-2bbb-4f4f-b721-b36e93ec405a",
+    "productId": "0bd05afe-8b50-4b4b-a6e5-7d13165ce181",
+    "productName": "Sữa Tươi Thanh Trùng Dalat Milk 450ml",
+    "quantity": 2,
+    "price": "35000.00",
+    "orderId": "a052b813-0ce5-4ec5-9738-948402f54417",
+    "sku": "SKU-TEST-7560"
+  },
+  {
+    "id": "eea91ee7-c74f-4217-8bfd-04f88e330660",
+    "productId": "877b3843-0da8-4975-b239-42694f999daa",
+    "productName": "Sữa Tươi Thanh Trùng Dalat Milk 450ml",
+    "quantity": 2,
+    "price": "35000.00",
+    "orderId": "f18b86a2-999c-49e6-b0fc-bbdfe9aac6c0",
+    "sku": "SKU-TEST-9263"
+  },
+  {
+    "id": "fe21fe70-d23e-4563-a247-517d8089f199",
+    "productId": "250015d5-ef62-47f0-a958-c314ade7b6ee",
+    "productName": "Sữa Tươi Thanh Trùng Dalat Milk 450ml",
+    "quantity": 2,
+    "price": "35000.00",
+    "orderId": "6aa3cfb7-2bf6-46a3-b64a-797fbc34a218",
+    "sku": "SKU-TEST-5245"
+  },
+  {
+    "id": "57c07a94-1f56-408d-b0f0-2d7922c3519e",
+    "productId": "a996344a-223f-498a-a623-cda6e83a926b",
+    "productName": "Sữa Tươi Thanh Trùng Dalat Milk 450ml",
+    "quantity": 2,
+    "price": "35000.00",
+    "orderId": "fa053383-276f-4d7c-9258-6cb5ffea3499",
+    "sku": "SKU-TEST-3065"
+  },
+  {
+    "id": "6b7e476e-2824-4e97-870c-0655331df0d8",
+    "productId": "f48e9e67-a0e0-44ea-87fd-c32fcc957f9d",
+    "productName": "Sữa Tươi Thanh Trùng Dalat Milk 450ml",
+    "quantity": 2,
+    "price": "35000.00",
+    "orderId": "17c50656-7594-4716-af97-9e83c0af6871",
+    "sku": "SKU-TEST-3558"
+  },
+  {
+    "id": "aa85ee97-a205-4d7f-a3c2-b6e1b61158b9",
+    "productId": "32ad4230-3266-4533-acd4-a609bb9051a5",
+    "productName": "Sữa Tươi Thanh Trùng Dalat Milk 450ml",
+    "quantity": 2,
+    "price": "35000.00",
+    "orderId": "ca9cf5bf-52d6-4702-b438-fc566b8897a4",
+    "sku": "SKU-TEST-4754"
+  },
+  {
+    "id": "ceec5250-dce9-4e73-a84b-1d124c17442e",
+    "productId": "dcc60ca8-73e7-42a0-8a1a-a38e5ecd132d",
+    "productName": "Sữa Tươi Thanh Trùng Dalat Milk 450ml",
+    "quantity": 2,
+    "price": "35000.00",
+    "orderId": "8147ad4f-f5d6-4895-9161-efb433881c7d",
+    "sku": "SKU-TEST-0553"
+  }
+]

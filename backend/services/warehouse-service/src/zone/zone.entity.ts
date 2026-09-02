@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
-import { Shelf } from '../shelf/shelf.entity';
 import { Warehouse } from '../warehouse/warehouse.entity';
+import { Shelf } from '../shelf/shelf.entity';
 
 /**
  * Zone Entity — Khu vực kho (Kho lạnh, Kho đông lạnh, Kho khô)
@@ -52,7 +52,6 @@ export class Zone {
 
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
-
   @OneToMany(() => Shelf, (shelf) => shelf.zone)
   shelves: Shelf[];
 

@@ -2,11 +2,15 @@ import React, { createContext, useContext, useState, useMemo, useEffect } from '
 import { Product } from '../types/product';
 import { CartItem, DeliverySlot, Voucher, Order, Address, PaymentMethod } from '../types/cart';
 import { MOCK_DELIVERY_SLOTS } from '../data/mockData';
-import { fetchProductsApi, createOrderApi, fetchOrdersApi } from '../services/api';
+import { fetchProductsApi, fetchCategoriesApi, createOrderApi, fetchOrdersApi, CategoryItem } from '../services/api';
 
 interface CartContextType {
   products: Product[];
+  categories: CategoryItem[];
+  totalProductsCount: number;
   isLoadingProducts: boolean;
+  refreshProducts: (category?: string) => Promise<void>;
+  getProductsByCategory: (category: string) => Promise<Product[]>;
   cartItems: CartItem[];
   addToCart: (product: Product, qty?: number) => void;
   removeFromCart: (productId: string) => void;
@@ -31,21 +35,43 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [totalProductsCount, setTotalProductsCount] = useState(0);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<DeliverySlot>(MOCK_DELIVERY_SLOTS[0]);
   const [ordersList, setOrdersList] = useState<Order[]>([]);
 
+  const refreshProducts = async (category?: string) => {
+    setIsLoadingProducts(true);
+    // Fetch categories with real counts from DB
+    const cats = await fetchCategoriesApi();
+    setCategories(cats);
+
+    // Fetch products
+    const res = await fetchProductsApi({
+      category: category && category !== 'Tất cả' ? category : undefined,
+      limit: 100,
+    });
+    setProducts(res.items);
+    setTotalProductsCount(res.total);
+    setIsLoadingProducts(false);
+  };
+
+  const getProductsByCategory = async (category: string): Promise<Product[]> => {
+    const res = await fetchProductsApi({
+      category: category && category !== 'Tất cả' ? category : undefined,
+      limit: 100,
+    });
+    return res.items;
+  };
+
   // Load Real Data on Mount
   useEffect(() => {
     async function loadInitialData() {
-      setIsLoadingProducts(true);
-      const realProds = await fetchProductsApi();
-      setProducts(realProds);
-      setIsLoadingProducts(false);
+      await refreshProducts();
 
       const realOrders = await fetchOrdersApi();
       if (realOrders.length > 0) {
@@ -165,7 +191,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <CartContext.Provider
       value={{
         products,
+        categories,
+        totalProductsCount,
         isLoadingProducts,
+        refreshProducts,
+        getProductsByCategory,
         cartItems,
         addToCart,
         removeFromCart,

@@ -31,17 +31,7 @@ const CustomerLayout: React.FC = () => {
       }}>
         {/* LOGO */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={() => navigate('/store')}>
-          <div style={{
-            backgroundColor: '#10b981',
-            padding: '8px',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <Leaf size={24} color="white" />
-          </div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b', margin: 0 }}>CityMart</h1>
+          <img src="/logos/logo_full.png" alt="C.T Mart Logo" style={{ height: '40px', width: 'auto', objectFit: 'contain' }} />
         </div>
 
         {/* NAVIGATION */}

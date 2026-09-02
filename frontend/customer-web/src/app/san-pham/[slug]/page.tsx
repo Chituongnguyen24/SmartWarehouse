@@ -46,6 +46,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     
     addToCart({
       productId: product.id,
+      sku: (product as any).sku || product.id,
       name: product.name,
       price: product.price,
       oldPrice: product.oldPrice,

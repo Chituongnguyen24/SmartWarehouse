@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "build": "nest build",
-    "start": "node dist/backend/services/inventory-service/src/main",
-    "start:dev": "ts-node src/main.ts",
-    "start:prod": "node dist/backend/services/inventory-service/src/main"
+    "start": "node dist/main",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/main"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",

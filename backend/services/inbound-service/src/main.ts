@@ -18,8 +18,8 @@ async function bootstrap() {
   SwaggerModule.setup('api', app, document);
 
   const port = process.env.PORT || 3006;
-  await app.listen(port);
-  console.log(`Inbound Service is running on: http://localhost:${port}`);
+  await app.listen(port, '0.0.0.0');
+  console.log(`Inbound Service is running on: http://0.0.0.0:${port}`);
   console.log(`Swagger docs: http://localhost:${port}/api`);
 }
 bootstrap();

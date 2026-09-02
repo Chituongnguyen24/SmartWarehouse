@@ -2,6 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import { useAuth } from '../../contexts/AuthContext';
+import { AICoPilotAssistant } from '../AICoPilotAssistant';
 
 const getPageTitle = (pathname: string) => {
   switch (pathname) {
@@ -42,6 +43,9 @@ const MainLayout = () => {
           <Outlet />
         </div>
       </main>
+
+      {/* Floating AI Operations Co-Pilot Assistant */}
+      <AICoPilotAssistant />
     </div>
   );
 };

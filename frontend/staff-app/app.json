@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "CityMart Staff",
+    "slug": "citymart-staff-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

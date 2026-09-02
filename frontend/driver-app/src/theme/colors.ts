@@ -14,14 +14,17 @@ export const COLORS = {
   warningLight: '#FEF3C7',
   danger: '#EF4444',         // High Temperature Alert (>4°C in Cold Container)
   dangerLight: '#FEE2E2',
+  error: '#EF4444',
   success: '#10B981',        // Delivered
   successLight: '#D1FAE5',
 
   // Neutral Colors
   background: '#F8FAFC',
+  backgroundDark: '#0F172A',
+  cardDark: '#1E293B',
   surface: '#FFFFFF',
   border: '#E2E8F0',
-  borderDark: '#cbd5e1',
+  borderDark: '#334155',
 
   // Text Colors
   textPrimary: '#0F172A',

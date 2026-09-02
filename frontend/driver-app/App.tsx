@@ -7,6 +7,7 @@ import { TaskDetailScreen } from './src/screens/TaskDetailScreen';
 import { ProofOfDeliveryScreen } from './src/screens/ProofOfDeliveryScreen';
 import { ColdChainScreen } from './src/screens/ColdChainScreen';
 import { EarningsScreen } from './src/screens/EarningsScreen';
+import { LoginScreen } from './src/screens/LoginScreen';
 import { COLORS } from './src/theme/colors';
 import { DeliveryTask } from './src/types/driver';
 import { Navigation, Thermometer, Wallet } from 'lucide-react-native';
@@ -132,10 +133,20 @@ const DriverMainAppContent: React.FC = () => {
   );
 };
 
+const DriverAppRoot: React.FC = () => {
+  const { isAuthenticated } = useDriverTask();
+
+  if (!isAuthenticated) {
+    return <LoginScreen />;
+  }
+
+  return <DriverMainAppContent />;
+};
+
 export default function App() {
   return (
     <DriverTaskProvider>
-      <DriverMainAppContent />
+      <DriverAppRoot />
     </DriverTaskProvider>
   );
 }

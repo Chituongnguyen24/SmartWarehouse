@@ -68,10 +68,28 @@ const mockProducts: Product[] = [
 @Injectable()
 export class ProductService {
   async findOneBySku(sku: string): Promise<Product | null> {
-    return mockProducts.find(p => p.sku === sku) || null;
+    const existing = mockProducts.find(p => p.sku === sku);
+    if (existing) return existing;
+    return {
+      id: 'a6eb70a8-b0eb-461b-aa60-ca1e084471f1', // fake default id for unknown products
+      sku: sku,
+      name: 'Dynamic Product ' + sku,
+      category: 'Unknown',
+      storageType: StorageType.DRY,
+      unit: 'pack'
+    };
   }
 
   async findOne(id: string): Promise<Product | null> {
-    return mockProducts.find(p => p.id === id) || null;
+    const existing = mockProducts.find(p => p.id === id);
+    if (existing) return existing;
+    return {
+      id: id,
+      sku: 'DYNAMIC-SKU-' + id,
+      name: 'Dynamic Product ' + id,
+      category: 'Unknown',
+      storageType: StorageType.DRY,
+      unit: 'pack'
+    };
   }
 }

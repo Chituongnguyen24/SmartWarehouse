@@ -21,7 +21,8 @@ import {
   Inbox,
   Clock,
   Search,
-  Grid3X3
+  Grid3X3,
+  ShoppingCart
 } from 'lucide-react';
 import { useAuth, ROLE_LABELS } from '../../contexts/AuthContext';
 import type { UserRole } from '../../contexts/AuthContext';
@@ -37,9 +38,14 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   // QUẢN LÝ KHO (ADMIN + WAREHOUSE_MANAGER)
-  { path: '/', label: 'Quản lý Kho hàng', icon: <Boxes size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
+  { path: '/', label: 'Dashboard Tổng quan', icon: <LayoutDashboard size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
+  { path: '/inventory', label: 'Sản phẩm & Tồn kho', icon: <Layers size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
+  { path: '/inbound', label: 'Nhập kho', icon: <ArrowDownLeft size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
+  { path: '/outbound', label: 'Xuất kho', icon: <ArrowUpRight size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
+  { path: '/fefo', label: 'Cảnh báo Hạn dùng', icon: <AlertTriangle size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
   { path: '/staff', label: 'Nhân viên Trực kho', icon: <Users size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
-  { path: '/orders', label: 'Điều phối Đơn hàng', icon: <Send size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
+  { path: '/orders', label: 'Tiếp nhận & Điều phối Đơn', icon: <Send size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'SALES_STAFF'] },
+  { path: '/reports', label: 'Báo cáo Thống kê', icon: <BarChart3 size={18} />, section: 'BÁO CÁO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
 
   // NHÂN VIÊN KHO - các tab chức năng chi tiết
   { path: '/orders?tab=packing', label: 'Đơn hàng chờ đóng gói', icon: <Boxes size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
@@ -47,7 +53,7 @@ const menuItems: MenuItem[] = [
   { path: '/orders?tab=delivery', label: 'Bàn giao cho tài xế', icon: <Truck size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
 
   // TÀI XẾ
-  { path: '/transport', label: 'Tối ưu vận chuyển', icon: <Truck size={18} />, section: 'TÀI XẾ', allowedRoles: ['DRIVER'] },
+  { path: '/transport', label: 'Tối ưu vận chuyển', icon: <Truck size={18} />, section: 'VẬN HÀNH KHO', allowedRoles: ['DRIVER'] },
 ];
 
 const Sidebar = () => {
@@ -84,13 +90,13 @@ const Sidebar = () => {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-header">
-        <div className="brand-icon">
-          <Leaf size={20} />
+      <div className="sidebar-header" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ background: '#fff', borderRadius: '10px', padding: '4px 6px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }}>
+          <img src="/logos/logo_icon.png" alt="C.T Mart Logo" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
         </div>
         <div className="brand-info">
-          <h1>CityMart</h1>
-          <p>Kho thực phẩm thông minh</p>
+          <h1 style={{ fontSize: '1.15rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.02em', margin: 0, lineHeight: 1.2 }}>C.T Mart</h1>
+          <p style={{ fontSize: '0.72rem', color: '#99f6e4', margin: '2px 0 0 0', fontWeight: 600 }}>Kho Thực Phẩm Thông Minh</p>
         </div>
       </div>
 
@@ -112,7 +118,6 @@ const Sidebar = () => {
       ))}
 
       <div className="sidebar-footer">
-
         {/* User info & Logout */}
         <div style={{
           marginTop: '0.75rem',

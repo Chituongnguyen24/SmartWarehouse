@@ -42,6 +42,9 @@ export class User {
   @Column({ nullable: true })
   phone: string;
 
+  @Column({ name: 'warehouse_code', nullable: true })
+  warehouseCode: string;
+
   @Column({ nullable: true })
   gender: string;
 

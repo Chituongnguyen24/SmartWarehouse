@@ -1,10 +1,11 @@
 export type CategoryType = 
   | 'Rau củ quả' 
-  | 'Thịt cá' 
-  | 'Đông lạnh' 
-  | 'Sữa & đồ uống' 
-  | 'Đồ khô' 
-  | 'Gia vị & Dầu ăn';
+  | 'Trái cây' 
+  | 'Thịt tươi' 
+  | 'Hải sản' 
+  | 'Sữa & Đồ uống' 
+  | 'Bánh kẹo & Đồ khô'
+  | string;
 
 export interface Product {
   id: string;

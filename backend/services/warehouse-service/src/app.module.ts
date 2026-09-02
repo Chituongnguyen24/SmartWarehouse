@@ -1,14 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { WarehouseModule } from './warehouse/warehouse.module';
 import { ZoneModule } from './zone/zone.module';
 import { ShelfModule } from './shelf/shelf.module';
-import { StorageSlotModule } from './storage-slot/storage-slot.module';
-import { WarehouseModule } from './warehouse/warehouse.module';
-import { Zone } from './zone/zone.entity';
-import { Shelf } from './shelf/shelf.entity';
-import { StorageSlot } from './storage-slot/storage-slot.entity';
-import { Warehouse } from './warehouse/warehouse.entity';
 
 @Module({
   imports: [
@@ -23,14 +18,13 @@ import { Warehouse } from './warehouse/warehouse.entity';
         username: config.get<string>('DB_USER', 'postgres'),
         password: config.get<string>('DB_PASSWORD', 'postgres'),
         database: config.get<string>('DB_NAME', 'sfwms_warehouse'),
-        entities: [Zone, Shelf, StorageSlot, Warehouse],
+        autoLoadEntities: true,
         synchronize: true,
       }),
     }),
     WarehouseModule,
     ZoneModule,
     ShelfModule,
-    StorageSlotModule,
   ],
 })
 export class AppModule {}

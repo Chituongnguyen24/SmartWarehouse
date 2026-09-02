@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   walletAmount: {
     color: COLORS.accent,
     fontSize: 34,
-    fontWeight: '950',
+    fontWeight: '900',
     marginVertical: 4,
   },
   divider: {
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 14,
-    fontWeight: '850',
+    fontWeight: '800',
     color: COLORS.textPrimary,
     marginBottom: 12,
     borderBottomWidth: 1,

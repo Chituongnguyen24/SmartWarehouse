@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "CityMart Driver",
-    "slug": "citymart-driver-app",
+    "name": "C.T Mart Driver",
+    "slug": "ctmart-driver-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -9,7 +9,11 @@
       "backgroundColor": "#0F172A"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "vn.ctmart.driver"
+    },
+    "android": {
+      "package": "vn.ctmart.driver"
     },
     "web": {
       "bundler": "metro"

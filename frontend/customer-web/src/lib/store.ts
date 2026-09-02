@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware';
 export interface CartItem {
   id: string; // unique ID for the cart item (could be productId + variant)
   productId: string;
+  sku?: string;
   name: string;
   price: number;
   oldPrice?: number;
@@ -68,6 +69,10 @@ export interface UserProfile {
   id: string;
   name: string;
   phone: string;
+  email?: string;
+  gender?: string;
+  dob?: string;
+  addresses?: any[];
   tier: string;
   points: number;
 }

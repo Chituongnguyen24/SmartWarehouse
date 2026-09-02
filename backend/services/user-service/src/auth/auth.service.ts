@@ -29,6 +29,7 @@ export class AuthService {
         email: user.email,
         role: user.role,
         phone: user.phone,
+        warehouseCode: user.warehouseCode,
       },
     };
   }
