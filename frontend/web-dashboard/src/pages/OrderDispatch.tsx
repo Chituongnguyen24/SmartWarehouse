@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import {
   Inbox,
   PackageCheck,
@@ -18,7 +17,6 @@ import {
   Cloud,
   Compass,
   Check,
-  Eye,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -36,7 +34,6 @@ import { PrintOrderSlipModal } from '../components/PrintOrderSlipModal';
 const ORDER_API = 'http://localhost:3004/orders';
 const OUTBOUND_API = 'http://localhost:3007';
 const WAREHOUSE_API = 'http://localhost:3005';
-const INVENTORY_API = 'http://localhost:3011';
 
 interface OrderItem {
   sku: string;
@@ -103,14 +100,13 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
 
 export default function OrderDispatch() {
   const { user } = useAuth();
-  const [searchParams, setSearchParams] = useSearchParams();
 
   const [orders, setOrders] = useState<UnifiedOrder[]>([]);
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [selectedWarehouseCode, setSelectedWarehouseCode] = useState<string>('WH-006');
+  const [, setWarehouses] = useState<Warehouse[]>([]);
+  const [selectedWarehouseCode] = useState<string>('WH-006');
   const [selectedOrder, setSelectedOrder] = useState<UnifiedOrder | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Pipeline Step filter
@@ -498,7 +494,7 @@ export default function OrderDispatch() {
 
   // Pipeline Counts
   const step1Count = useMemo(() => orders.filter(o => o.status === 'PENDING' || o.status === 'PROCESSING' || o.status === 'PICKING').length, [orders]);
-  const step2Count = useMemo(() => orders.filter(o => (o.status === 'PACKED' || o.status === 'READY_FOR_DELIVERY') && o.status !== 'DELIVERING').length, [orders]);
+  const step2Count = useMemo(() => orders.filter(o => o.status === 'PACKED' || o.status === 'READY_FOR_DELIVERY').length, [orders]);
   const step3Count = useMemo(() => orders.filter(o => o.status === 'DELIVERING' || o.status === 'SHIPPED').length, [orders]);
   const stepExceptionCount = useMemo(() => orders.filter(o => o.status === 'FAILED_DELIVERY' || o.status === 'RETURN_TO_WAREHOUSE').length, [orders]);
   const completedCount = useMemo(() => orders.filter(o => o.status === 'COMPLETED' || o.status === 'DELIVERED').length, [orders]);

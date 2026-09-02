@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Bell, Building2, ChevronDown, Check, Settings, Plus, MapPin } from 'lucide-react';
+import { Search, Bell, Building2, ChevronDown, Check, Settings, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth, ROLE_LABELS } from '../../contexts/AuthContext';
 import { useWarehouse } from '../../contexts/WarehouseContext';
@@ -257,7 +257,6 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
               <span>Kho Trực Thuộc: <strong>{selectedWarehouse?.name || user?.warehouseCode}</strong></span>
             </div>
           )}
->>>>>>> lechung-ui-customer-web
         </div>
 
         <div className="header-actions">
