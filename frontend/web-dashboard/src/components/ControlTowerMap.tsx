@@ -426,11 +426,11 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
       });
       leafletInstance.current = map;
 
-      // High-res Goong / Carto Voyager Tile Layer
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-        subdomains: 'abcd',
-        attribution: '&copy; Goong.io Maps',
+      // Clean High-Resolution Street Map Tiles
+      L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+        attribution: '&copy; Goong.io & Google Maps',
       }).addTo(map);
 
       L.control.zoom({ position: 'topright' }).addTo(map);
