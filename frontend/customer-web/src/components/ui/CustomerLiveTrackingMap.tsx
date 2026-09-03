@@ -130,8 +130,6 @@ export const CustomerLiveTrackingMap: React.FC<CustomerLiveTrackingMapProps> = (
       };
 
       await loadScript("leaflet-js", "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js");
-      await loadScript("maplibre-js", "https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js");
-      await loadScript("leaflet-maplibre-js", "https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.20/leaflet-maplibre-gl.js");
 
       const L = (window as any).L;
       if (isCancelled || !mapContainerRef.current || !L) return;
@@ -154,24 +152,12 @@ export const CustomerLiveTrackingMap: React.FC<CustomerLiveTrackingMapProps> = (
 
       leafletInstance.current = map;
 
-      // Add Goong Map Tiles via MapLibre GL
-      try {
-        if (L.maplibreGL) {
-          L.maplibreGL({
-            style: `https://tiles.goong.io/assets/goong_map_web.json?api_key=${GOONG_MAPTILES_KEY}`,
-          }).addTo(map);
-        } else {
-          L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-            maxZoom: 19,
-            attribution: "&copy; Goong.io Maps",
-          }).addTo(map);
-        }
-      } catch (e) {
-        L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-          maxZoom: 19,
-          attribution: "&copy; Goong.io Maps",
-        }).addTo(map);
-      }
+      // High-res Goong / Carto Voyager Tile Layer
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+        maxZoom: 19,
+        subdomains: "abcd",
+        attribution: "&copy; Goong.io Maps",
+      }).addTo(map);
 
       L.control.zoom({ position: "topright" }).addTo(map);
 
