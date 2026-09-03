@@ -1,6 +1,37 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ShieldAlert, Navigation, Gauge, ThermometerSnowflake, RefreshCw, AlertTriangle, Phone, Store, MapPin, Route, Layers, CheckCircle, Users, Eye, Sparkles, Clock, Check, Truck, Bike } from 'lucide-react';
 
+const GOONG_MAPTILES_KEY = import.meta.env.VITE_GOONG_MAPTILES_KEY || 'xR9zgCIphv0ZQ7sAS02MRDA9mouqEfatcx24BtYl';
+const GOONG_API_KEY = import.meta.env.VITE_GOONG_API_KEY || '9ZLtEkemS6YgqbCVlt5yfFCl0VdvJIN57mCXRge6';
+
+// Decode Google / Goong encoded polyline points
+function decodePolyline(encoded: string): [number, number][] {
+  const points: [number, number][] = [];
+  let index = 0, len = encoded.length;
+  let lat = 0, lng = 0;
+  while (index < len) {
+    let b, shift = 0, result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlat = (result & 1) ? ~(result >> 1) : (result >> 1);
+    lat += dlat;
+    shift = 0;
+    result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlng = (result & 1) ? ~(result >> 1) : (result >> 1);
+    lng += dlng;
+    points.push([lat * 1e-5, lng * 1e-5]);
+  }
+  return points;
+}
+
 interface ShipperLiveState {
   id: string;
   name: string;
@@ -237,30 +268,27 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
 
     const stops = selectedShipper.routeStops || [];
     if (stops.length > 0) {
-      const waypoints = [
-        { lat: 10.8354, lng: 106.6668 }, // Hub Gò Vấp
-        { lat: selectedShipper.lat, lng: selectedShipper.lng }, // Shipper Live GPS
-        ...stops.map(st => ({ lat: st.lat, lng: st.lng })),
-      ];
+      const isTruck = vehicleMode === 'TRUCK';
+      const vehicle = isTruck ? 'car' : 'bike';
 
-      const osrmCoordStr = waypoints.map(w => `${w.lng},${w.lat}`).join(';');
-      // Bike profile uses flexible alleyway routing, Truck profile sticks to main arteries
-      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${osrmCoordStr}?overview=full&geometries=geojson`;
+      // 1. Fetch real road polyline from Goong Direction API
+      const origin = `${selectedShipper.lat},${selectedShipper.lng}`;
+      const activeStop = stops.find(st => st.id === selectedShipper.currentOrderId) || stops[0];
+      const destination = `${activeStop.lat},${activeStop.lng}`;
 
-      fetch(osrmUrl)
+      const goongDirUrl = `https://rsapi.goong.io/Direction?origin=${origin}&destination=${destination}&vehicle=${vehicle}&api_key=${GOONG_API_KEY}`;
+
+      fetch(goongDirUrl)
         .then(res => res.json())
         .then(data => {
-          if (data && data.routes && data.routes.length > 0) {
-            const coordinates: [number, number][] = data.routes[0].geometry.coordinates.map(
-              ([lng, lat]: [number, number]) => [lat, lng]
-            );
+          if (data && data.routes && data.routes.length > 0 && data.routes[0].overview_polyline?.points) {
+            const coordinates = decodePolyline(data.routes[0].overview_polyline.points);
 
             // Glow Outline
-            const isTruck = vehicleMode === 'TRUCK';
             const glowLine = L.polyline(coordinates, {
               color: isTruck ? '#fb923c' : '#38bdf8',
               weight: isTruck ? 7 : 5,
-              opacity: 0.8,
+              opacity: 0.85,
               lineCap: 'round',
               lineJoin: 'round',
               dashArray: isTruck ? '12, 6' : '6, 6',
@@ -274,14 +302,23 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
 
             routeLayersRef.current.push(glowLine, mainLine);
           } else {
-            const straightPoints = waypoints.map(w => [w.lat, w.lng] as [number, number]);
-            const fbLine = L.polyline(straightPoints, { color: '#0284c7', weight: 3, dashArray: '6,6' }).addTo(map);
+            // Fallback connecting straight lines
+            const waypoints = [
+              [10.8354, 106.6668],
+              [selectedShipper.lat, selectedShipper.lng],
+              ...stops.map(st => [st.lat, st.lng]),
+            ];
+            const fbLine = L.polyline(waypoints as [number, number][], { color: '#0284c7', weight: 3, dashArray: '6,6' }).addTo(map);
             routeLayersRef.current.push(fbLine);
           }
         })
         .catch(() => {
-          const straightPoints = waypoints.map(w => [w.lat, w.lng] as [number, number]);
-          const fbLine = L.polyline(straightPoints, { color: '#0284c7', weight: 3, dashArray: '6,6' }).addTo(map);
+          const waypoints = [
+            [10.8354, 106.6668],
+            [selectedShipper.lat, selectedShipper.lng],
+            ...stops.map(st => [st.lat, st.lng]),
+          ];
+          const fbLine = L.polyline(waypoints as [number, number][], { color: '#0284c7', weight: 3, dashArray: '6,6' }).addTo(map);
           routeLayersRef.current.push(fbLine);
         });
 
@@ -334,11 +371,12 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
     }
   }, [selectedShipper?.id, selectedShipper?.lat, selectedShipper?.lng, selectedShipper?.currentCustomerAddress, selectedShipper?.status, vehicleMode]);
 
-  // Leaflet Map Initialization
+  // Leaflet Map Initialization with Goong Map Tiles
   useEffect(() => {
     let isCancelled = false;
 
     const initMap = async () => {
+      // 1. Load Leaflet CSS
       if (!document.getElementById('leaflet-css')) {
         const link = document.createElement('link');
         link.id = 'leaflet-css';
@@ -347,27 +385,34 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
         document.head.appendChild(link);
       }
 
-      let L = (window as any).L;
-      if (!L) {
-        await new Promise<void>((resolve) => {
-          if (document.getElementById('leaflet-js')) {
-            const check = setInterval(() => {
-              if ((window as any).L) {
-                clearInterval(check);
-                resolve();
-              }
-            }, 100);
-          } else {
-            const script = document.createElement('script');
-            script.id = 'leaflet-js';
-            script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-            script.onload = () => resolve();
-            document.head.appendChild(script);
-          }
-        });
-        L = (window as any).L;
+      // 2. Load MapLibre CSS & JS for Goong Vector Tiles
+      if (!document.getElementById('maplibre-css')) {
+        const mlLink = document.createElement('link');
+        mlLink.id = 'maplibre-css';
+        mlLink.rel = 'stylesheet';
+        mlLink.href = 'https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css';
+        document.head.appendChild(mlLink);
       }
 
+      const loadScript = (id: string, src: string) => {
+        return new Promise<void>((resolve) => {
+          if (document.getElementById(id)) {
+            resolve();
+            return;
+          }
+          const script = document.createElement('script');
+          script.id = id;
+          script.src = src;
+          script.onload = () => resolve();
+          document.head.appendChild(script);
+        });
+      };
+
+      await loadScript('leaflet-js', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js');
+      await loadScript('maplibre-js', 'https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js');
+      await loadScript('leaflet-maplibre-js', 'https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.20/leaflet-maplibre-gl.js');
+
+      const L = (window as any).L;
       if (isCancelled || !mapRef.current || !L) return;
 
       if (leafletInstance.current) {
@@ -383,11 +428,25 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
       });
       leafletInstance.current = map;
 
-      // OpenStreetMap Standard Tiles
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors',
-      }).addTo(map);
+      // 3. Add Goong Map Tiles via MapLibre Vector GL
+      try {
+        if (L.maplibreGL) {
+          L.maplibreGL({
+            style: `https://tiles.goong.io/assets/goong_map_web.json?api_key=${GOONG_MAPTILES_KEY}`,
+          }).addTo(map);
+        } else {
+          // Fallback High-res Carto Voyager Tiles
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            attribution: '&copy; Goong.io Maps',
+          }).addTo(map);
+        }
+      } catch (e) {
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+          maxZoom: 19,
+          attribution: '&copy; Goong.io Maps',
+        }).addTo(map);
+      }
 
       L.control.zoom({ position: 'topright' }).addTo(map);
 

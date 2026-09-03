@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Truck, Phone, ShieldCheck, Navigation, Store, MapPin, Gauge, ThermometerSnowflake } from "lucide-react";
+import { Phone, Navigation, Store, MapPin, Gauge, ThermometerSnowflake } from "lucide-react";
 
 interface CustomerLiveTrackingMapProps {
   order: {
@@ -17,26 +17,57 @@ interface CustomerLiveTrackingMapProps {
   };
 }
 
+const GOONG_MAPTILES_KEY = process.env.NEXT_PUBLIC_GOONG_MAPTILES_KEY || "xR9zgCIphv0ZQ7sAS02MRDA9mouqEfatcx24BtYl";
+const GOONG_API_KEY = process.env.NEXT_PUBLIC_GOONG_API_KEY || "9ZLtEkemS6YgqbCVlt5yfFCl0VdvJIN57mCXRge6";
+
+// Decode Google / Goong encoded polyline points
+function decodePolyline(encoded: string): [number, number][] {
+  const points: [number, number][] = [];
+  let index = 0, len = encoded.length;
+  let lat = 0, lng = 0;
+  while (index < len) {
+    let b, shift = 0, result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlat = (result & 1) ? ~(result >> 1) : (result >> 1);
+    lat += dlat;
+    shift = 0;
+    result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlng = (result & 1) ? ~(result >> 1) : (result >> 1);
+    lng += dlng;
+    points.push([lat * 1e-5, lng * 1e-5]);
+  }
+  return points;
+}
+
 // Geolocation coordinates dictionary for Gò Vấp & HCM routes
 const getCoordinatesForAddress = (address: string): { dest: [number, number]; label: string } => {
   const addr = (address || "").toLowerCase();
 
-  if (addr.includes("phạm văn chiêu")) {
+  if (addr.includes("phạm văn chiêu") || addr.includes("pham van chieu")) {
     return { dest: [10.8492, 106.6543], label: "29 Phạm Văn Chiêu, P.14, Gò Vấp" };
   }
-  if (addr.includes("phan huy ích")) {
+  if (addr.includes("phan huy ích") || addr.includes("phan huy ich")) {
     return { dest: [10.8315, 106.6345], label: "30 Phan Huy Ích, P.12, Gò Vấp" };
   }
   if (addr.includes("quang trung")) {
     return { dest: [10.8398, 106.6582], label: "618 Quang Trung, P.11, Gò Vấp" };
   }
-  if (addr.includes("nguyễn oanh")) {
+  if (addr.includes("nguyễn oanh") || addr.includes("nguyen oanh")) {
     return { dest: [10.8420, 106.6780], label: "Nguyễn Oanh, Gò Vấp" };
   }
-  if (addr.includes("thống nhất")) {
+  if (addr.includes("thống nhất") || addr.includes("thong nhat")) {
     return { dest: [10.8465, 106.6690], label: "Thống Nhất, Gò Vấp" };
   }
-  if (addr.includes("lê đức thọ")) {
+  if (addr.includes("lê đức thọ") || addr.includes("le duc tho")) {
     return { dest: [10.8520, 106.6710], label: "Lê Đức Thọ, Gò Vấp" };
   }
   return { dest: [10.8450, 106.6600], label: address || "Địa chỉ nhận hàng" };
@@ -75,28 +106,34 @@ export const CustomerLiveTrackingMap: React.FC<CustomerLiveTrackingMapProps> = (
         document.head.appendChild(link);
       }
 
-      // 2. Load Leaflet JS
-      let L = (window as any).L;
-      if (!L) {
-        await new Promise<void>((resolve) => {
-          if (document.getElementById("leaflet-js")) {
-            const check = setInterval(() => {
-              if ((window as any).L) {
-                clearInterval(check);
-                resolve();
-              }
-            }, 100);
-          } else {
-            const script = document.createElement("script");
-            script.id = "leaflet-js";
-            script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-            script.onload = () => resolve();
-            document.head.appendChild(script);
-          }
-        });
-        L = (window as any).L;
+      // 2. Inject MapLibre CSS
+      if (!document.getElementById("maplibre-css")) {
+        const mlLink = document.createElement("link");
+        mlLink.id = "maplibre-css";
+        mlLink.rel = "stylesheet";
+        mlLink.href = "https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css";
+        document.head.appendChild(mlLink);
       }
 
+      const loadScript = (id: string, src: string) => {
+        return new Promise<void>((resolve) => {
+          if (document.getElementById(id)) {
+            resolve();
+            return;
+          }
+          const script = document.createElement("script");
+          script.id = id;
+          script.src = src;
+          script.onload = () => resolve();
+          document.head.appendChild(script);
+        });
+      };
+
+      await loadScript("leaflet-js", "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js");
+      await loadScript("maplibre-js", "https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js");
+      await loadScript("leaflet-maplibre-js", "https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.20/leaflet-maplibre-gl.js");
+
+      const L = (window as any).L;
       if (isCancelled || !mapContainerRef.current || !L) return;
 
       // Clean old instance
@@ -107,54 +144,35 @@ export const CustomerLiveTrackingMap: React.FC<CustomerLiveTrackingMapProps> = (
       const { dest } = getCoordinatesForAddress(order.customerAddress || "");
       const start = WAREHOUSE_COORDS;
 
-      // Generate intermediate waypoints for smooth curved realistic road routing
-      const mid1: [number, number] = [
-        start[0] + (dest[0] - start[0]) * 0.35 + 0.002,
-        start[1] + (dest[1] - start[1]) * 0.35 - 0.0015
-      ];
-      const mid2: [number, number] = [
-        start[0] + (dest[0] - start[0]) * 0.7 - 0.001,
-        start[1] + (dest[1] - start[1]) * 0.7 + 0.0012
-      ];
-
-      const fullRoutePoints: [number, number][] = [start, mid1, mid2, dest];
-
-      // Interpolate 50 smooth GPS steps along the path
-      const smoothPath: [number, number][] = [];
-      const stepsPerSegment = 20;
-      for (let i = 0; i < fullRoutePoints.length - 1; i++) {
-        const p1 = fullRoutePoints[i];
-        const p2 = fullRoutePoints[i + 1];
-        for (let s = 0; s < stepsPerSegment; s++) {
-          const t = s / stepsPerSegment;
-          smoothPath.push([
-            p1[0] + (p2[0] - p1[0]) * t,
-            p1[1] + (p2[1] - p1[1]) * t
-          ]);
-        }
-      }
-      smoothPath.push(dest);
-
-      // Create Leaflet Map
+      // Create Leaflet Map centered between warehouse & dest
       const map = L.map(mapContainerRef.current, {
-        center: [
-          (start[0] + dest[0]) / 2,
-          (start[1] + dest[1]) / 2
-        ],
+        center: [(start[0] + dest[0]) / 2, (start[1] + dest[1]) / 2],
         zoom: 14,
         zoomControl: false,
-        attributionControl: false
+        attributionControl: false,
       });
 
       leafletInstance.current = map;
 
-      // Modern TileLayer (OpenStreetMap Clean style)
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors',
-      }).addTo(map);
+      // Add Goong Map Tiles via MapLibre GL
+      try {
+        if (L.maplibreGL) {
+          L.maplibreGL({
+            style: `https://tiles.goong.io/assets/goong_map_web.json?api_key=${GOONG_MAPTILES_KEY}`,
+          }).addTo(map);
+        } else {
+          L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+            maxZoom: 19,
+            attribution: "&copy; Goong.io Maps",
+          }).addTo(map);
+        }
+      } catch (e) {
+        L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+          maxZoom: 19,
+          attribution: "&copy; Goong.io Maps",
+        }).addTo(map);
+      }
 
-      // Add Zoom Control top right
       L.control.zoom({ position: "topright" }).addTo(map);
 
       // 1. Warehouse Marker (🏬 Green Theme)
@@ -213,90 +231,106 @@ export const CustomerLiveTrackingMap: React.FC<CustomerLiveTrackingMapProps> = (
         .addTo(map)
         .bindPopup(`<b>📍 Địa chỉ nhận hàng của bạn</b><br><span style="font-size:11px;color:#64748b">${order.customerAddress || "Điểm đến"}</span>`);
 
-      // 3. Planned Route Polyline (Full Background Line)
+      // 3. Fetch Real Road Routing from Goong Direction API
+      let smoothPath: [number, number][] = [];
+      try {
+        const goongDirUrl = `https://rsapi.goong.io/Direction?origin=${start[0]},${start[1]}&destination=${dest[0]},${dest[1]}&vehicle=bike&api_key=${GOONG_API_KEY}`;
+        const dirRes = await fetch(goongDirUrl);
+        if (dirRes.ok) {
+          const dirData = await dirRes.json();
+          if (dirData.routes && dirData.routes.length > 0 && dirData.routes[0].overview_polyline?.points) {
+            smoothPath = decodePolyline(dirData.routes[0].overview_polyline.points);
+          }
+        }
+      } catch (err) {
+        console.warn("[CustomerLiveTrackingMap] Goong Direction fallback:", err);
+      }
+
+      // Fallback if API is offline
+      if (smoothPath.length < 2) {
+        const fullRoutePoints: [number, number][] = [
+          start,
+          [start[0] + (dest[0] - start[0]) * 0.35 + 0.002, start[1] + (dest[1] - start[1]) * 0.35 - 0.0015],
+          [start[0] + (dest[0] - start[0]) * 0.7 - 0.001, start[1] + (dest[1] - start[1]) * 0.7 + 0.0012],
+          dest,
+        ];
+        for (let i = 0; i < fullRoutePoints.length - 1; i++) {
+          const p1 = fullRoutePoints[i];
+          const p2 = fullRoutePoints[i + 1];
+          for (let s = 0; s < 15; s++) {
+            const t = s / 15;
+            smoothPath.push([p1[0] + (p2[0] - p1[0]) * t, p1[1] + (p2[1] - p1[1]) * t]);
+          }
+        }
+        smoothPath.push(dest);
+      }
+
+      // 4. Planned Route Polyline (Full Background Line)
       L.polyline(smoothPath, {
         color: "#94a3b8",
         weight: 6,
-        opacity: 0.4,
-        dashArray: "8, 10"
+        opacity: 0.35,
+        lineCap: "round",
       }).addTo(map);
 
-      // 4. Traveled Route Polyline (Glowing Green)
-      const initTraveled = smoothPath.slice(0, Math.floor(smoothPath.length * 0.45));
-      traveledPolylineRef.current = L.polyline(initTraveled, {
+      // 5. Traveled Active Polyline (Emerald Glowing Line)
+      const initialStep = Math.floor(smoothPath.length * 0.4);
+      const traveledLine = L.polyline(smoothPath.slice(0, initialStep + 1), {
         color: "#10b981",
-        weight: 6,
-        opacity: 0.9,
+        weight: 5,
+        opacity: 0.95,
+        lineCap: "round",
       }).addTo(map);
+      traveledPolylineRef.current = traveledLine;
 
-      // 5. Shipper Moving Marker (🛵 Radar Pulsing Neon)
-      const currentPos = smoothPath[Math.floor(smoothPath.length * 0.45)] || start;
+      // 6. Shipper Real-time GPS Marker with Pulse Ring
+      const initialPos = smoothPath[initialStep] || start;
       const shipperIcon = L.divIcon({
         className: "custom-shipper-marker",
         html: `
-          <div style="position:relative; width:52px; height:52px; display:flex; align-items:center; justify-content:center;">
-            <!-- Radar Ripple Ping -->
+          <div style="position:relative; width:44px; height:44px; display:flex; align-items:center; justify-content:center;">
             <div style="
               position: absolute;
-              width: 100%;
-              height: 100%;
+              width: 44px;
+              height: 44px;
               border-radius: 50%;
-              background: rgba(6, 182, 212, 0.4);
+              background: rgba(16, 185, 129, 0.4);
               animation: pulseRing 1.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
             "></div>
-            <!-- Motorbike Circle -->
             <div style="
               position: relative;
-              z-index: 2;
               background: linear-gradient(135deg, #0284c7, #06b6d4);
               color: white;
               border-radius: 50%;
-              border: 3px solid #ffffff;
-              width: 42px;
-              height: 42px;
+              border: 2.5px solid white;
+              width: 36px;
+              height: 36px;
               display: flex;
               align-items: center;
               justify-content: center;
-              font-size: 20px;
-              box-shadow: 0 4px 18px rgba(6, 182, 212, 0.7);
+              box-shadow: 0 4px 14px rgba(2, 132, 199, 0.7);
+              font-size: 18px;
             ">
               🛵
             </div>
-            <!-- Floating Plate Tag -->
-            <div style="
-              position: absolute;
-              bottom: -16px;
-              left: 50%;
-              transform: translateX(-50%);
-              background: #0f172a;
-              color: #38bdf8;
-              font-size: 9px;
-              font-weight: 800;
-              padding: 2px 6px;
-              border-radius: 6px;
-              white-space: nowrap;
-              border: 1px solid #38bdf8;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-              z-index: 3;
-            ">
-              ${driverPlate}
-            </div>
           </div>
         `,
-        iconSize: [52, 52],
-        iconAnchor: [26, 26],
+        iconSize: [44, 44],
+        iconAnchor: [22, 22],
       });
 
-      shipperMarkerRef.current = L.marker(currentPos, { icon: shipperIcon }).addTo(map);
+      const shipperMarker = L.marker(initialPos, { icon: shipperIcon }).addTo(map);
+      shipperMarker.bindPopup(`
+        <div style="min-width:160px">
+          <b>🛵 Shipper: ${driverName}</b><br>
+          <span style="font-size:11px;color:#0284c7">Biển số: ${driverPlate}</span><br>
+          <span style="font-size:11px;color:#10b981">Nhiệt độ thùng lạnh: ${containerTemp}°C</span>
+        </div>
+      `);
+      shipperMarkerRef.current = shipperMarker;
 
-      // Fit map bounds to show complete route with nice padding
-      map.fitBounds(L.latLngBounds([start, dest]), {
-        padding: [45, 45],
-        maxZoom: 16
-      });
-
-      // 6. Real-time Live GPS Simulation Loop
-      let stepIndex = Math.floor(smoothPath.length * 0.45);
+      // 7. Live GPS Simulation Movement Loop along Real Goong Path
+      let stepIndex = initialStep;
       let direction = 1;
 
       animationTimer = setInterval(() => {
@@ -316,7 +350,7 @@ export const CustomerLiveTrackingMap: React.FC<CustomerLiveTrackingMapProps> = (
         const ratio = stepIndex / smoothPath.length;
         setProgressRatio(ratio);
 
-        const remainingKm = Math.max(0.2, (2.8 * (1 - ratio))).toFixed(1);
+        const remainingKm = Math.max(0.2, 2.8 * (1 - ratio)).toFixed(1);
         setDistanceKm(Number(remainingKm));
 
         const remainingMin = Math.max(2, Math.round(15 * (1 - ratio)));
@@ -355,7 +389,7 @@ export const CustomerLiveTrackingMap: React.FC<CustomerLiveTrackingMapProps> = (
           </span>
           <h4 className="text-xs font-black text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
             <Navigation size={14} className="text-emerald-400 animate-spin" style={{ animationDuration: "6s" }} />
-            Định Tuyến & GPS Trực Tiếp Xe Giao Hàng
+            Định Tuyến & GPS Trực Tiếp Xe Giao Hàng (Goong.io)
           </h4>
         </div>
 

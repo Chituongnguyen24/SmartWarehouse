@@ -1,5 +1,7 @@
 import { Linking, Alert, Platform } from 'react-native';
 
+const GOONG_API_KEY = '9ZLtEkemS6YgqbCVlt5yfFCl0VdvJIN57mCXRge6';
+
 // Từ điển tọa độ các tuyến đường & địa bàn trọng điểm TP.HCM
 const KNOWN_GEO_DICT: Array<{ keywords: string[]; lat: number; lng: number; defaultStreet: string }> = [
   { keywords: ['quang trung'], lat: 10.8398, lng: 106.6582, defaultStreet: 'Quang Trung, Phường 10, Gò Vấp' },
@@ -39,7 +41,30 @@ export const resolveCoordsAndCleanAddress = (address: string, fallbackLat?: numb
 };
 
 /**
- * Mở Google Maps dẫn đường trực tiếp cho 1 đơn hàng
+ * Tra cứu lộ trình từ Goong Direction API cho tài xế
+ */
+export const fetchGoongDriverDirection = async (
+  originLat: number,
+  originLng: number,
+  destLat: number,
+  destLng: number,
+  vehicle: 'bike' | 'car' = 'bike'
+) => {
+  try {
+    const url = `https://rsapi.goong.io/Direction?origin=${originLat},${originLng}&destination=${destLat},${destLng}&vehicle=${vehicle}&api_key=${GOONG_API_KEY}`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+  } catch (err) {
+    console.warn('[Goong Direction API Error]', err);
+  }
+  return null;
+};
+
+/**
+ * Mở Bản đồ dẫn đường trực tiếp cho 1 đơn hàng (Goong Maps GPS Universal)
  * Dùng tọa độ GPS chính xác kết hợp định danh nhãn địa chỉ
  */
 export const openSingleGoogleMapsNavigation = (address: string, lat?: number, lng?: number) => {
@@ -48,7 +73,7 @@ export const openSingleGoogleMapsNavigation = (address: string, lat?: number, ln
   const targetLng = geo.lng;
   const label = encodeURIComponent(geo.cleanAddress);
 
-  // 1. Dùng Universal Google Maps Direction URL với GPS đích đến (Chính xác 100% không bị lệch)
+  // 1. Dùng Universal Map Direction URL với GPS đích đến (Chính xác 100% không bị lệch)
   const universalUrl = `https://www.google.com/maps/dir/?api=1&destination=${targetLat},${targetLng}&travelmode=two_wheeler`;
 
   // 2. Android Geo Intent with Label (hiển thị đúng tên địa chỉ thay vì "Vị trí đã ghim")
@@ -71,7 +96,7 @@ export const openSingleGoogleMapsNavigation = (address: string, lat?: number, ln
 };
 
 /**
- * Mở Google Maps toàn bộ lộ trình VRP đa điểm dừng
+ * Mở Bản đồ toàn bộ lộ trình VRP đa điểm dừng
  * Tự động lấy điểm GPS chính xác của từng trạm và dẫn đường từ vị trí thực tế của tài xế
  */
 export const openMultiStopGoogleMapsRoute = (
