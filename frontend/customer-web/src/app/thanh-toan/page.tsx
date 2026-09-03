@@ -81,20 +81,21 @@ export default function CheckoutPage() {
     searchTimerRef.current = setTimeout(async () => {
       try {
         const query = text.trim();
-        // 1. Fetch from OpenStreetMap Nominatim
-        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ' TP.HCM')}&format=json&limit=5&countrycodes=vn&addressdetails=1`;
-        const res = await fetch(url, {
-          headers: { 'User-Agent': 'CityMartSmartWarehouse/1.0' },
-        });
+        const goongKey = process.env.NEXT_PUBLIC_GOONG_API_KEY || '9ZLtEkemS6YgqbCVlt5yfFCl0VdvJIN57mCXRge6';
+        
+        // 1. Fetch from Goong.io Place AutoComplete API
+        const url = `https://rsapi.goong.io/Place/AutoComplete?api_key=${goongKey}&input=${encodeURIComponent(query)}&location=10.8231,106.6297&limit=6`;
+        const res = await fetch(url);
 
         if (res.ok) {
           const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            const mapped: AddressSuggestion[] = data.map((item: any) => ({
-              displayName: item.display_name,
-              lat: Number(item.lat),
-              lng: Number(item.lon),
-              highlightName: item.name || item.display_name.split(',')[0],
+          if (data.status === 'OK' && Array.isArray(data.predictions) && data.predictions.length > 0) {
+            const mapped: AddressSuggestion[] = data.predictions.map((item: any) => ({
+              displayName: item.description,
+              lat: 10.8354, // will be resolved precisely on select
+              lng: 106.6668,
+              highlightName: item.structured_formatting?.main_text || item.description.split(',')[0],
+              placeId: item.place_id,
             }));
             setSuggestions(mapped);
             setShowDropdown(true);
@@ -118,14 +119,8 @@ export default function CheckoutPage() {
         if (lower.includes('lê văn thọ') || lower.includes('le van tho')) {
           localMatches.push({ displayName: '540 Lê Văn Thọ, Phường 16, Quận Gò Vấp, TP.HCM', lat: 10.8465, lng: 106.6521 });
         }
-        if (lower.includes('cây trâm') || lower.includes('nguyễn văn khối')) {
-          localMatches.push({ displayName: '32/5 Nguyễn Văn Khối, Phường 9, Quận Gò Vấp, TP.HCM', lat: 10.8432, lng: 106.6567 });
-        }
         if (lower.includes('nguyễn oanh')) {
           localMatches.push({ displayName: '450 Nguyễn Oanh, Phường 6, Quận Gò Vấp, TP.HCM', lat: 10.8420, lng: 106.6780 });
-        }
-        if (lower.includes('lại hùng cường') || lower.includes('bình chánh')) {
-          localMatches.push({ displayName: '145 Lại Hùng Cường, Vĩnh Lộc B, Bình Chánh, TP.HCM', lat: 10.6868, lng: 106.5932 });
         }
 
         setSuggestions(localMatches);
@@ -135,13 +130,34 @@ export default function CheckoutPage() {
       } finally {
         setIsSearchingAddress(false);
       }
-    }, 350);
+    }, 300);
   };
 
-  const handleSelectSuggestion = (s: AddressSuggestion) => {
+  const handleSelectSuggestion = async (s: AddressSuggestion & { placeId?: string }) => {
     setCustomerAddress(s.displayName);
-    setCustomerCoordinates({ lat: s.lat, lng: s.lng });
     setShowDropdown(false);
+
+    if (s.placeId) {
+      try {
+        const goongKey = process.env.NEXT_PUBLIC_GOONG_API_KEY || '9ZLtEkemS6YgqbCVlt5yfFCl0VdvJIN57mCXRge6';
+        const detailRes = await fetch(`https://rsapi.goong.io/Place/Detail?place_id=${s.placeId}&api_key=${goongKey}`);
+        if (detailRes.ok) {
+          const detailData = await detailRes.json();
+          if (detailData.status === 'OK' && detailData.result?.geometry?.location) {
+            const loc = detailData.result.geometry.location;
+            setCustomerCoordinates({ lat: Number(loc.lat), lng: Number(loc.lng) });
+            if (detailData.result.formatted_address) {
+              setCustomerAddress(detailData.result.formatted_address);
+            }
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch Goong place detail:', err);
+      }
+    }
+
+    setCustomerCoordinates({ lat: s.lat, lng: s.lng });
   };
 
   const formatPrice = (p: number) => p.toLocaleString('vi-VN') + 'đ';

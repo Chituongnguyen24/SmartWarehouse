@@ -287,7 +287,18 @@ export const WarehouseConfigModal: React.FC = () => {
                   <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155' }}>Địa Chỉ Kho Hàng (Hành chính chuẩn) *</label>
                   <AddressPicker
                     initialAddress={form.address}
-                    onAddressChange={address => setForm({ ...form, address })}
+                    onAddressChange={(address, coords) => {
+                      if (coords) {
+                        setForm(prev => ({
+                          ...prev,
+                          address,
+                          latitude: Number(coords.lat.toFixed(6)),
+                          longitude: Number(coords.lng.toFixed(6)),
+                        }));
+                      } else {
+                        setForm(prev => ({ ...prev, address }));
+                      }
+                    }}
                   />
                 </div>
 
