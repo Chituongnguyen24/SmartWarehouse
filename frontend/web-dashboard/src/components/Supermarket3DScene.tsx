@@ -69,6 +69,7 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
   const rackMeshesRef = useRef<Map<string, THREE.Group>>(new Map());
   const boxMeshesRef = useRef<THREE.Mesh[]>([]);
   const animationFrameRef = useRef<number>(0);
+  const rebuildAllRacksRef = useRef<((currentRacks: Rack3DData[]) => void) | null>(null);
 
   // Mouse Orbiting / Drag State (Game Controls)
   const isDraggingRef = useRef(false);
@@ -254,145 +255,152 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
     agvGroup.position.set(-5, 0, 4);
     scene.add(agvGroup);
 
-    // 6. Build Detailed Multi-level Shelves & Interactive 3D Product Boxes
-    rackMeshesRef.current.clear();
-    boxMeshesRef.current = [];
-
-    const buildDetailedRack = (rack: Rack3DData) => {
-      const rackGroup = new THREE.Group();
-      rackGroup.name = rack.id;
-      rackGroup.position.set(...rack.position);
-
-      const rackWidth = 2.8;
-      const rackHeight = 4.5;
-      const rackDepth = 1.6;
-      const levels = 3; // 3 Tầng kệ
-
-      // Vertical Upright Posts
-      const postMat = new THREE.MeshStandardMaterial({
-        color: 0x334155,
-        metalness: 0.7,
-        roughness: 0.3,
+    // Function to build all racks dynamically
+    const rebuildAllRacks = (currentRacks: Rack3DData[]) => {
+      // Clear old meshes
+      rackMeshesRef.current.forEach((mesh) => {
+        scene.remove(mesh);
       });
-      const postGeo = new THREE.BoxGeometry(0.08, rackHeight, 0.08);
+      rackMeshesRef.current.clear();
+      boxMeshesRef.current = [];
 
-      const postPos = [
-        [-rackWidth / 2, rackHeight / 2, -rackDepth / 2],
-        [rackWidth / 2, rackHeight / 2, -rackDepth / 2],
-        [-rackWidth / 2, rackHeight / 2, rackDepth / 2],
-        [rackWidth / 2, rackHeight / 2, rackDepth / 2],
-      ];
+      currentRacks.forEach((rack) => {
+        const rackGroup = new THREE.Group();
+        rackGroup.name = rack.id;
+        rackGroup.position.set(...rack.position);
 
-      postPos.forEach(([px, py, pz]) => {
-        const post = new THREE.Mesh(postGeo, postMat);
-        post.position.set(px, py, pz);
-        post.castShadow = true;
-        rackGroup.add(post);
-      });
+        const rackWidth = 2.8;
+        const rackHeight = 4.5;
+        const rackDepth = 1.6;
+        const levels = 3; // 3 Tầng kệ
 
-      // Shelf Level Platforms & Crossbars
-      const beamMat = new THREE.MeshStandardMaterial({
-        color: rack.zone === 'COOL' ? 0x0284c7 : rack.zone === 'FROZEN' ? 0x0891b2 : 0xd97706,
-        metalness: 0.5,
-        roughness: 0.4,
-      });
+        // Vertical Upright Posts
+        const postMat = new THREE.MeshStandardMaterial({
+          color: 0x334155,
+          metalness: 0.7,
+          roughness: 0.3,
+        });
+        const postGeo = new THREE.BoxGeometry(0.08, rackHeight, 0.08);
 
-      for (let lvl = 0; lvl <= levels; lvl++) {
-        const y = 0.35 + (lvl * (rackHeight - 0.7)) / levels;
-        const beamGeo = new THREE.BoxGeometry(rackWidth + 0.1, 0.08, rackDepth + 0.1);
-        const beam = new THREE.Mesh(beamGeo, beamMat);
-        beam.position.y = y;
-        beam.castShadow = true;
-        beam.receiveShadow = true;
-        rackGroup.add(beam);
-      }
+        const postPos = [
+          [-rackWidth / 2, rackHeight / 2, -rackDepth / 2],
+          [rackWidth / 2, rackHeight / 2, -rackDepth / 2],
+          [-rackWidth / 2, rackHeight / 2, rackDepth / 2],
+          [rackWidth / 2, rackHeight / 2, rackDepth / 2],
+        ];
 
-      // Add 3D Text Floating Signboard over Rack
-      const spriteSign = createTextSprite(
-        `${rack.id.replace('RACK-', '')} - ${rack.name.split('(')[0]}`,
-        rack.hasAlert ? '#dc2626' : rack.zone === 'COOL' ? '#0284c7' : rack.zone === 'FROZEN' ? '#0891b2' : '#d97706'
-      );
-      if (spriteSign) {
-        spriteSign.position.set(0, rackHeight + 0.6, 0);
-        rackGroup.add(spriteSign);
-      }
+        postPos.forEach(([px, py, pz]) => {
+          const post = new THREE.Mesh(postGeo, postMat);
+          post.position.set(px, py, pz);
+          post.castShadow = true;
+          rackGroup.add(post);
+        });
 
-      // Populate Individual Interactive 3D Product Crates/Boxes on each level
-      const itemsList = rack.items || [];
-      const slotsPerLevel = 2;
+        // Shelf Level Platforms & Crossbars
+        const beamMat = new THREE.MeshStandardMaterial({
+          color: rack.zone === 'COOL' ? 0x0284c7 : rack.zone === 'FROZEN' ? 0x0891b2 : 0xd97706,
+          metalness: 0.5,
+          roughness: 0.4,
+        });
 
-      for (let lvl = 0; lvl < levels; lvl++) {
-        const levelY = 0.35 + (lvl * (rackHeight - 0.7)) / levels + 0.32;
-
-        for (let slot = 0; slot < slotsPerLevel; slot++) {
-          const itemIdx = lvl * slotsPerLevel + slot;
-          const it = itemsList[itemIdx % Math.max(1, itemsList.length)] || {
-            sku: `SKU-${rack.id}-L${lvl + 1}S${slot + 1}`,
-            name: `${rack.name.split('(')[0]} - Thùng ${lvl + 1}.${slot + 1}`,
-            category: rack.zoneLabel,
-            qty: 24,
-            unit: 'Thùng',
-            lotCode: `LOT-${rack.id}-${lvl + 1}${slot + 1}`,
-            expiryDate: '15/09/2026',
-            daysRemaining: 12 - lvl * 3,
-            price: 55000,
-          };
-
-          const isNearExpiry = (it.daysRemaining ?? 10) <= 3;
-
-          // Box Geometry & Material
-          const boxWidth = 1.0;
-          const boxHeight = 0.55;
-          const boxDepth = 1.2;
-          const boxGeo = new THREE.BoxGeometry(boxWidth, boxHeight, boxDepth);
-
-          let boxColorHex = rack.zone === 'COOL' ? 0x38bdf8 : rack.zone === 'FROZEN' ? 0x22d3ee : 0xfbbf24;
-          if (isNearExpiry) {
-            boxColorHex = 0xef4444; // Cận date đỏ rực
-          }
-
-          const boxMat = new THREE.MeshStandardMaterial({
-            color: boxColorHex,
-            roughness: 0.5,
-            metalness: 0.2,
-            emissive: isNearExpiry ? 0x7f1d1d : 0x000000,
-            emissiveIntensity: isNearExpiry ? 0.6 : 0.0,
-          });
-
-          const boxMesh = new THREE.Mesh(boxGeo, boxMat);
-          const posX = (slot - 0.5) * (rackWidth * 0.45);
-          boxMesh.position.set(posX, levelY, 0);
-          boxMesh.castShadow = true;
-          boxMesh.receiveShadow = true;
-
-          // Attach Metadata for Game Click & Raycasting
-          boxMesh.userData = {
-            isProductBox: true,
-            rack: rack,
-            item: it,
-            level: lvl + 1,
-            slot: slot + 1,
-            originalColor: boxColorHex,
-          };
-
-          rackGroup.add(boxMesh);
-          boxMeshesRef.current.push(boxMesh);
+        for (let lvl = 0; lvl <= levels; lvl++) {
+          const y = 0.35 + (lvl * (rackHeight - 0.7)) / levels;
+          const beamGeo = new THREE.BoxGeometry(rackWidth + 0.1, 0.08, rackDepth + 0.1);
+          const beam = new THREE.Mesh(beamGeo, beamMat);
+          beam.position.y = y;
+          beam.castShadow = true;
+          beam.receiveShadow = true;
+          rackGroup.add(beam);
         }
-      }
 
-      // Hitbox for Rack Selection
-      const hitBoxGeo = new THREE.BoxGeometry(rackWidth + 0.4, rackHeight + 0.8, rackDepth + 0.4);
-      const hitBoxMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 });
-      const hitBox = new THREE.Mesh(hitBoxGeo, hitBoxMat);
-      hitBox.position.y = rackHeight / 2;
-      hitBox.userData = { isRackHitbox: true, rackData: rack };
-      rackGroup.add(hitBox);
+        // Add 3D Text Floating Signboard over Rack
+        const spriteSign = createTextSprite(
+          `${rack.id.replace('RACK-', '')} - ${rack.name.split('(')[0]}`,
+          rack.hasAlert ? '#dc2626' : rack.zone === 'COOL' ? '#0284c7' : rack.zone === 'FROZEN' ? '#0891b2' : '#d97706'
+        );
+        if (spriteSign) {
+          spriteSign.position.set(0, rackHeight + 0.6, 0);
+          rackGroup.add(spriteSign);
+        }
 
-      scene.add(rackGroup);
-      rackMeshesRef.current.set(rack.id, rackGroup);
+        // Populate Individual Interactive 3D Product Crates/Boxes on each level
+        const itemsList = rack.items || [];
+        const slotsPerLevel = 2;
+
+        for (let lvl = 0; lvl < levels; lvl++) {
+          const levelY = 0.35 + (lvl * (rackHeight - 0.7)) / levels + 0.32;
+
+          for (let slot = 0; slot < slotsPerLevel; slot++) {
+            const itemIdx = lvl * slotsPerLevel + slot;
+            const it = itemsList[itemIdx % Math.max(1, itemsList.length)] || {
+              sku: `SKU-${rack.id}-L${lvl + 1}S${slot + 1}`,
+              name: `${rack.name.split('(')[0]} - Thùng ${lvl + 1}.${slot + 1}`,
+              category: rack.zoneLabel,
+              qty: 24,
+              unit: 'Thùng',
+              lotCode: `LOT-${rack.id}-${lvl + 1}${slot + 1}`,
+              expiryDate: '15/09/2026',
+              daysRemaining: 12 - lvl * 3,
+              price: 55000,
+            };
+
+            const isNearExpiry = (it.daysRemaining ?? 10) <= 3;
+
+            // Box Geometry & Material
+            const boxWidth = 1.0;
+            const boxHeight = 0.55;
+            const boxDepth = 1.2;
+            const boxGeo = new THREE.BoxGeometry(boxWidth, boxHeight, boxDepth);
+
+            let boxColorHex = rack.zone === 'COOL' ? 0x38bdf8 : rack.zone === 'FROZEN' ? 0x22d3ee : 0xfbbf24;
+            if (isNearExpiry) {
+              boxColorHex = 0xef4444; // Cận date đỏ rực
+            }
+
+            const boxMat = new THREE.MeshStandardMaterial({
+              color: boxColorHex,
+              roughness: 0.5,
+              metalness: 0.2,
+              emissive: isNearExpiry ? 0x7f1d1d : 0x000000,
+              emissiveIntensity: isNearExpiry ? 0.6 : 0.0,
+            });
+
+            const boxMesh = new THREE.Mesh(boxGeo, boxMat);
+            const posX = (slot - 0.5) * (rackWidth * 0.45);
+            boxMesh.position.set(posX, levelY, 0);
+            boxMesh.castShadow = true;
+            boxMesh.receiveShadow = true;
+
+            // Attach Metadata for Game Click & Raycasting
+            boxMesh.userData = {
+              isProductBox: true,
+              rack: rack,
+              item: it,
+              level: lvl + 1,
+              slot: slot + 1,
+              originalColor: boxColorHex,
+            };
+
+            rackGroup.add(boxMesh);
+            boxMeshesRef.current.push(boxMesh);
+          }
+        }
+
+        // Hitbox for Rack Selection
+        const hitBoxGeo = new THREE.BoxGeometry(rackWidth + 0.4, rackHeight + 0.8, rackDepth + 0.4);
+        const hitBoxMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 });
+        const hitBox = new THREE.Mesh(hitBoxGeo, hitBoxMat);
+        hitBox.position.y = rackHeight / 2;
+        hitBox.userData = { isRackHitbox: true, rackData: rack };
+        rackGroup.add(hitBox);
+
+        scene.add(rackGroup);
+        rackMeshesRef.current.set(rack.id, rackGroup);
+      });
     };
 
-    racks.forEach(buildDetailedRack);
+    rebuildAllRacksRef.current = rebuildAllRacks;
+    rebuildAllRacks(racks);
 
     // 7. Mouse Orbit Controls (Interactive Game Navigation)
     const handleMouseDown = (e: MouseEvent) => {
@@ -631,6 +639,13 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
     targetCamPos.current.z = cameraTarget.current.z + radius * Math.sin(phi) * Math.cos(theta);
     targetCamLookAt.current.copy(cameraTarget.current);
   }, [viewMode, selectedRackId, racks]);
+
+  // Dynamic Rebuild Racks when racks list updates (e.g. Added new rack, synced from DB)
+  useEffect(() => {
+    if (rebuildAllRacksRef.current) {
+      rebuildAllRacksRef.current(racks);
+    }
+  }, [racks]);
 
   // Visibility Filter
   useEffect(() => {

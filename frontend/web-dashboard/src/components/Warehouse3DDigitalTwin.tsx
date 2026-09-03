@@ -101,6 +101,21 @@ const DEFAULT_RACKS: ShelfRack[] = [
       { sku: 'SKU-MUSH-03', name: 'Nấm đùi gà baby VietGAP 200g', category: 'Rau củ', qty: 40, unit: 'Gói', lotCode: 'LOT-0828-M', expiryDate: '04/09/2026', daysRemaining: 4, price: 28000 },
     ],
   },
+  {
+    id: 'RACK-COOL-04',
+    name: 'Kệ A4 (Trái Cây Tươi & Nước Ép Mát)',
+    zone: 'COOL',
+    zoneLabel: 'Kho Mát (0°C ~ +4°C)',
+    temperature: '+3.5°C',
+    humidity: '76%',
+    maxCapacity: 280,
+    currentCapacity: 210,
+    items: [
+      { sku: 'SKU-APPLE-ENVY', name: 'Táo Envy New Zealand Size 70', category: 'Trái cây', qty: 90, unit: 'Kg', lotCode: 'LOT-0822-AP', expiryDate: '18/09/2026', daysRemaining: 14, price: 149000 },
+      { sku: 'SKU-ORANGE-VAL', name: 'Cam vàng Úc Navel mọng nước', category: 'Trái cây', qty: 70, unit: 'Kg', lotCode: 'LOT-0825-OR', expiryDate: '22/09/2026', daysRemaining: 18, price: 89000 },
+      { sku: 'SKU-JUICE-ORANGE', name: 'Nước ép cam tươi nguyên chất Teppy 1L', category: 'Nước ép', qty: 50, unit: 'Chai', lotCode: 'LOT-0820-TP', expiryDate: '25/09/2026', daysRemaining: 21, price: 32000 },
+    ],
+  },
 
   // 2. FROZEN ZONE (Kho Đông -18°C)
   {
@@ -120,7 +135,7 @@ const DEFAULT_RACKS: ShelfRack[] = [
   },
   {
     id: 'RACK-FROZEN-02',
-    name: 'Kệ B2 (Kem & Thực Phẩm Sơ Chế Sẵn)',
+    name: 'Kệ B2 (Kem & Bánh Tráng Miệng Đông Lạnh)',
     zone: 'FROZEN',
     zoneLabel: 'Hầm Đông Lạnh (-18°C ~ -22°C)',
     temperature: '-20.5°C',
@@ -129,8 +144,38 @@ const DEFAULT_RACKS: ShelfRack[] = [
     currentCapacity: 210,
     items: [
       { sku: 'SKU-ICECREAM-01', name: 'Kem Häagen-Dazs Vani 473ml', category: 'Kem & Tráng miệng', qty: 70, unit: 'Hộp', lotCode: 'LOT-0720-HD', expiryDate: '30/06/2027', daysRemaining: 303, price: 245000 },
+      { sku: 'SKU-CORNETTO-02', name: 'Kem cây Cornetto Dâu Socola lốc 5', category: 'Kem & Tráng miệng', qty: 80, unit: 'Hộp', lotCode: 'LOT-0725-CN', expiryDate: '15/07/2027', daysRemaining: 318, price: 65000 },
+      { sku: 'SKU-MOCHI-ICE', name: 'Bánh Mochi kem trà xanh Nhật 6 cái', category: 'Kem & Tráng miệng', qty: 60, unit: 'Hộp', lotCode: 'LOT-0801-MC', expiryDate: '01/05/2027', daysRemaining: 243, price: 82000 },
+    ],
+  },
+  {
+    id: 'RACK-FROZEN-03',
+    name: 'Kệ B3 (Thực Phẩm Sơ Chế & Viên Lẩu)',
+    zone: 'FROZEN',
+    zoneLabel: 'Hầm Đông Lạnh (-18°C ~ -22°C)',
+    temperature: '-19.8°C',
+    humidity: '59%',
+    maxCapacity: 320,
+    currentCapacity: 240,
+    items: [
       { sku: 'SKU-DIMSUM-02', name: 'Há cảo tôm thịt Cầu Tre 500g', category: 'Chế biến sẵn', qty: 90, unit: 'Gói', lotCode: 'LOT-0805-CT', expiryDate: '12/04/2027', daysRemaining: 224, price: 58000 },
-      { sku: 'SKU-PIZZA-03', name: 'Pizza phô mai bò bằm Dr.Oetker', category: 'Chế biến sẵn', qty: 50, unit: 'Hộp', lotCode: 'LOT-0801-PZ', expiryDate: '01/05/2027', daysRemaining: 243, price: 92000 },
+      { sku: 'SKU-PIZZA-03', name: 'Pizza phô mai bò bằm Dr.Oetker', category: 'Chế biến sẵn', qty: 70, unit: 'Hộp', lotCode: 'LOT-0801-PZ', expiryDate: '01/05/2027', daysRemaining: 243, price: 92000 },
+      { sku: 'SKU-HOTPOT-BALLS', name: 'Viên thả lẩu tôm trứng cá EB 500g', category: 'Chế biến sẵn', qty: 80, unit: 'Gói', lotCode: 'LOT-0808-EB', expiryDate: '20/05/2027', daysRemaining: 262, price: 115000 },
+    ],
+  },
+  {
+    id: 'RACK-FROZEN-04',
+    name: 'Kệ B4 (Thịt Nhập Khẩu Đông Lạnh)',
+    zone: 'FROZEN',
+    zoneLabel: 'Hầm Đông Lạnh (-18°C ~ -22°C)',
+    temperature: '-21.0°C',
+    humidity: '57%',
+    maxCapacity: 360,
+    currentCapacity: 280,
+    items: [
+      { sku: 'SKU-BEEF-SHORTRIB', name: 'Dẻ sườn bò Mỹ đông lạnh Black Angus 1kg', category: 'Thịt đông lạnh', qty: 95, unit: 'Khay', lotCode: 'LOT-0810-BA', expiryDate: '28/08/2027', daysRemaining: 362, price: 340000 },
+      { sku: 'SKU-PORK-BELLY-CA', name: 'Ba chỉ heo rút sườn Canada đông lạnh 1kg', category: 'Thịt đông lạnh', qty: 110, unit: 'Khay', lotCode: 'LOT-0812-CA', expiryDate: '15/09/2027', daysRemaining: 380, price: 165000 },
+      { sku: 'SKU-LAMB-CHOP', name: 'Sườn cừu Úc cắt khúc đông lạnh 500g', category: 'Thịt đông lạnh', qty: 75, unit: 'Gói', lotCode: 'LOT-0815-LB', expiryDate: '10/10/2027', daysRemaining: 405, price: 210000 },
     ],
   },
 
@@ -177,6 +222,20 @@ const DEFAULT_RACKS: ShelfRack[] = [
       { sku: 'SKU-TUNA-185G', name: 'Cá ngừ ngâm dầu Hạ Long 185g', category: 'Đồ hộp', qty: 80, unit: 'Hộp', lotCode: 'LOT-0615-HL', expiryDate: '15/06/2029', daysRemaining: 1018, price: 34000 },
     ],
   },
+  {
+    id: 'RACK-DRY-04',
+    name: 'Kệ C4 (Bánh Kẹo, Snack & Nước Ngọt)',
+    zone: 'DRY',
+    zoneLabel: 'Kho Khô Thường (+25°C)',
+    temperature: '+25.5°C',
+    humidity: '62%',
+    maxCapacity: 380,
+    currentCapacity: 295,
+    items: [
+      { sku: 'SKU-SNACK-LAYS', name: 'Snack khoai tây Lay\'s vị tảo biển 150g', category: 'Bánh kẹo', qty: 150, unit: 'Gói', lotCode: 'LOT-0715-LY', expiryDate: '15/03/2027', daysRemaining: 196, price: 28000 },
+      { sku: 'SKU-COCA-CAN', name: 'Nước ngọt Coca-Cola lon 320ml lốc 6', category: 'Đồ uống', qty: 145, unit: 'Lốc', lotCode: 'LOT-0801-CC', expiryDate: '01/08/2027', daysRemaining: 335, price: 54000 },
+    ],
+  },
 ];
 
 export const Warehouse3DDigitalTwin: React.FC = () => {
@@ -190,28 +249,34 @@ export const Warehouse3DDigitalTwin: React.FC = () => {
   const [isLoadingLive, setIsLoadingLive] = useState<boolean>(false);
   const [liveLotCount, setLiveLotCount] = useState<number>(0);
 
-  // Convert racks to 3D positioning coordinates for WebGL Digital Twin
+  // Convert racks to 3D matrix coordinates for WebGL Digital Twin
   const racks3D: Rack3DData[] = useMemo(() => {
+    const coolRacks = racks.filter(x => x.zone === 'COOL');
+    const frozenRacks = racks.filter(x => x.zone === 'FROZEN');
+    const dryRacks = racks.filter(x => x.zone === 'DRY');
+
     return racks.map(r => {
       let posX = 0;
       let posZ = 0;
 
-      const coolRacks = racks.filter(x => x.zone === 'COOL');
-      const frozenRacks = racks.filter(x => x.zone === 'FROZEN');
-      const dryRacks = racks.filter(x => x.zone === 'DRY');
-
       if (r.zone === 'COOL') {
-        posX = -11;
         const idx = Math.max(0, coolRacks.findIndex(x => x.id === r.id));
-        posZ = -6 + idx * 6;
+        const col = idx % 2;
+        const row = Math.floor(idx / 2);
+        posX = -13 + col * 4.2;
+        posZ = -8 + row * 5.8;
       } else if (r.zone === 'FROZEN') {
-        posX = 0;
         const idx = Math.max(0, frozenRacks.findIndex(x => x.id === r.id));
-        posZ = -6 + idx * 6;
+        const col = idx % 2;
+        const row = Math.floor(idx / 2);
+        posX = -2.1 + col * 4.2;
+        posZ = -8 + row * 5.8;
       } else {
-        posX = 11;
         const idx = Math.max(0, dryRacks.findIndex(x => x.id === r.id));
-        posZ = -6 + idx * 6;
+        const col = idx % 2;
+        const row = Math.floor(idx / 2);
+        posX = 8.8 + col * 4.2;
+        posZ = -8 + row * 5.8;
       }
 
       return {
