@@ -20,7 +20,9 @@ import {
   ArrowRight,
   ShieldCheck,
   RefreshCw,
+  Box,
 } from 'lucide-react';
+import { Supermarket3DScene, Rack3DData } from './Supermarket3DScene';
 
 export interface ShelfItem {
   sku: string;
@@ -180,11 +182,52 @@ export const Warehouse3DDigitalTwin: React.FC = () => {
   const [racks, setRacks] = useState<ShelfRack[]>(DEFAULT_RACKS);
   const [selectedRackId, setSelectedRackId] = useState<string>('RACK-COOL-01');
   const [zoneFilter, setZoneFilter] = useState<'ALL' | 'COOL' | 'FROZEN' | 'DRY'>('ALL');
+  const [displayMode, setDisplayMode] = useState<'3D_SCENE' | 'ISOMETRIC'>('3D_SCENE');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [showEditCapacityModal, setShowEditCapacityModal] = useState<boolean>(false);
   const [isLoadingLive, setIsLoadingLive] = useState<boolean>(false);
   const [liveLotCount, setLiveLotCount] = useState<number>(0);
+
+  // Convert racks to 3D positioning coordinates for WebGL Digital Twin
+  const racks3D: Rack3DData[] = useMemo(() => {
+    return racks.map(r => {
+      let posX = 0;
+      let posZ = 0;
+
+      const coolRacks = racks.filter(x => x.zone === 'COOL');
+      const frozenRacks = racks.filter(x => x.zone === 'FROZEN');
+      const dryRacks = racks.filter(x => x.zone === 'DRY');
+
+      if (r.zone === 'COOL') {
+        posX = -11;
+        const idx = Math.max(0, coolRacks.findIndex(x => x.id === r.id));
+        posZ = -6 + idx * 6;
+      } else if (r.zone === 'FROZEN') {
+        posX = 0;
+        const idx = Math.max(0, frozenRacks.findIndex(x => x.id === r.id));
+        posZ = -6 + idx * 6;
+      } else {
+        posX = 11;
+        const idx = Math.max(0, dryRacks.findIndex(x => x.id === r.id));
+        posZ = -6 + idx * 6;
+      }
+
+      return {
+        id: r.id,
+        name: r.name,
+        zone: r.zone,
+        temperature: r.temperature,
+        humidity: r.humidity,
+        maxCapacity: r.maxCapacity,
+        currentCapacity: r.currentCapacity,
+        hasAlert: r.hasAlert,
+        alertMsg: r.alertMsg,
+        position: [posX, 0, posZ],
+        color: r.zone === 'COOL' ? '#0284c7' : r.zone === 'FROZEN' ? '#06b6d4' : '#f59e0b',
+      };
+    });
+  }, [racks]);
 
   // New Rack Form State
   const [newRackName, setNewRackName] = useState('');
@@ -467,89 +510,141 @@ export const Warehouse3DDigitalTwin: React.FC = () => {
       {/* Main Digital Twin Grid Layout */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.8fr) minmax(360px, 1.2fr)', gap: '20px' }}>
         
-        {/* Left Column: 3D Isometric Racks Layout */}
+        {/* Left Column: 3D Scene / Isometric View */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ background: '#0f172a', borderRadius: '20px', padding: '20px', border: '1px solid #1e293b', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)' }}>
             
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            {/* Header with Switcher */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Sparkles size={18} color="#38bdf8" />
                 <span style={{ fontSize: '14px', fontWeight: 900, color: '#ffffff' }}>
-                  SƠ ĐỒ TRỰC QUAN KHÔNG GIAN KHO (ISOMETRIC DIGITAL TWIN)
+                  BẢN SAO SỐ 3D KHÔNG GIAN SIÊU THỊ (DIGITAL TWIN)
                 </span>
               </div>
-              <span style={{ fontSize: '11px', color: '#94a3b8' }}>
-                Chạm vào kệ để xem danh mục sản phẩm & Lô FEFO
-              </span>
+
+              {/* Toggle 3D WebGL vs Isometric */}
+              <div style={{ display: 'flex', gap: '6px', backgroundColor: '#020617', padding: '4px', borderRadius: '12px', border: '1px solid #334155' }}>
+                <button
+                  onClick={() => setDisplayMode('3D_SCENE')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    backgroundColor: displayMode === '3D_SCENE' ? '#0284c7' : 'transparent',
+                    color: displayMode === '3D_SCENE' ? '#ffffff' : '#94a3b8',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <Box size={14} />
+                  <span>3D WebGL Siêu Thị</span>
+                </button>
+                <button
+                  onClick={() => setDisplayMode('ISOMETRIC')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    backgroundColor: displayMode === 'ISOMETRIC' ? '#0284c7' : 'transparent',
+                    color: displayMode === 'ISOMETRIC' ? '#ffffff' : '#94a3b8',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <Layers size={14} />
+                  <span>Sơ Đồ Kệ Mặt Bằng</span>
+                </button>
+              </div>
             </div>
 
-            {/* 3D Racks Display Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '14px' }}>
-              {filteredRacks.map(rack => {
-                const isSelected = rack.id === selectedRackId;
-                const pct = Math.round((rack.currentCapacity / rack.maxCapacity) * 100);
-                const capColor = getCapacityColor(rack.currentCapacity, rack.maxCapacity);
+            {/* Display Mode: Pure 3D WebGL Scene */}
+            {displayMode === '3D_SCENE' ? (
+              <Supermarket3DScene
+                racks={racks3D}
+                selectedRackId={selectedRackId}
+                onSelectRack={id => setSelectedRackId(id)}
+                zoneFilter={zoneFilter}
+              />
+            ) : (
+              /* Display Mode: Isometric 2.5D Grid */
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '14px' }}>
+                {filteredRacks.map(rack => {
+                  const isSelected = rack.id === selectedRackId;
+                  const pct = Math.round((rack.currentCapacity / rack.maxCapacity) * 100);
+                  const capColor = getCapacityColor(rack.currentCapacity, rack.maxCapacity);
 
-                const zoneBorder =
-                  rack.zone === 'COOL' ? '#0284c7' : rack.zone === 'FROZEN' ? '#06b6d4' : '#f59e0b';
+                  const zoneBorder =
+                    rack.zone === 'COOL' ? '#0284c7' : rack.zone === 'FROZEN' ? '#06b6d4' : '#f59e0b';
 
-                return (
-                  <div
-                    key={rack.id}
-                    onClick={() => setSelectedRackId(rack.id)}
-                    style={{
-                      backgroundColor: isSelected ? '#1e293b' : '#020617',
-                      border: `2px solid ${isSelected ? '#38bdf8' : rack.hasAlert ? '#ef4444' : zoneBorder}`,
-                      borderRadius: '16px',
-                      padding: '16px',
-                      cursor: 'pointer',
-                      position: 'relative',
-                      boxShadow: isSelected ? '0 0 20px rgba(56, 189, 248, 0.35)' : 'none',
-                      transform: isSelected ? 'translateY(-4px)' : 'none',
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    {/* Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '10px', fontWeight: 900, backgroundColor: 'rgba(255,255,255,0.1)', color: '#ffffff', padding: '2px 6px', borderRadius: '4px' }}>
-                        {rack.id}
-                      </span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 800, color: rack.zone === 'FROZEN' ? '#38bdf8' : rack.zone === 'COOL' ? '#34d399' : '#fbbf24' }}>
-                        <Thermometer size={12} />
-                        <span>{rack.temperature}</span>
+                  return (
+                    <div
+                      key={rack.id}
+                      onClick={() => setSelectedRackId(rack.id)}
+                      style={{
+                        backgroundColor: isSelected ? '#1e293b' : '#020617',
+                        border: `2px solid ${isSelected ? '#38bdf8' : rack.hasAlert ? '#ef4444' : zoneBorder}`,
+                        borderRadius: '16px',
+                        padding: '16px',
+                        cursor: 'pointer',
+                        position: 'relative',
+                        boxShadow: isSelected ? '0 0 20px rgba(56, 189, 248, 0.35)' : 'none',
+                        transform: isSelected ? 'translateY(-4px)' : 'none',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      {/* Header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '10px', fontWeight: 900, backgroundColor: 'rgba(255,255,255,0.1)', color: '#ffffff', padding: '2px 6px', borderRadius: '4px' }}>
+                          {rack.id}
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 800, color: rack.zone === 'FROZEN' ? '#38bdf8' : rack.zone === 'COOL' ? '#34d399' : '#fbbf24' }}>
+                          <Thermometer size={12} />
+                          <span>{rack.temperature}</span>
+                        </div>
                       </div>
+
+                      <h4 style={{ margin: '0 0 6px 0', fontSize: '13px', fontWeight: 900, color: '#ffffff' }}>
+                        {rack.name}
+                      </h4>
+
+                      <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '10px' }}>
+                        Chứa: <b style={{ color: '#ffffff' }}>{rack.items.length} mặt hàng</b> ({rack.items.reduce((s, i) => s + i.qty, 0)} sản phẩm)
+                      </div>
+
+                      {/* Capacity Progress Bar */}
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px', color: '#cbd5e1', marginBottom: '4px' }}>
+                          <span>Sức chứa:</span>
+                          <b style={{ color: capColor }}>{rack.currentCapacity} / {rack.maxCapacity} ({pct}%)</b>
+                        </div>
+                        <div style={{ height: '6px', width: '100%', backgroundColor: '#334155', borderRadius: '999px', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${pct}%`, backgroundColor: capColor, borderRadius: '999px' }} />
+                        </div>
+                      </div>
+
+                      {/* Alert Badge if near-expiry */}
+                      {rack.hasAlert && (
+                        <div style={{ marginTop: '10px', backgroundColor: '#7f1d1d', border: '1px solid #dc2626', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', color: '#fca5a5', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <AlertTriangle size={12} color="#f87171" />
+                          <span>{rack.alertMsg}</span>
+                        </div>
+                      )}
                     </div>
-
-                    <h4 style={{ margin: '0 0 6px 0', fontSize: '13px', fontWeight: 900, color: '#ffffff' }}>
-                      {rack.name}
-                    </h4>
-
-                    <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '10px' }}>
-                      Chứa: <b style={{ color: '#ffffff' }}>{rack.items.length} mặt hàng</b> ({rack.items.reduce((s, i) => s + i.qty, 0)} sản phẩm)
-                    </div>
-
-                    {/* Capacity Progress Bar */}
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px', color: '#cbd5e1', marginBottom: '4px' }}>
-                        <span>Sức chứa:</span>
-                        <b style={{ color: capColor }}>{rack.currentCapacity} / {rack.maxCapacity} ({pct}%)</b>
-                      </div>
-                      <div style={{ height: '6px', width: '100%', backgroundColor: '#334155', borderRadius: '999px', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${pct}%`, backgroundColor: capColor, borderRadius: '999px' }} />
-                      </div>
-                    </div>
-
-                    {/* Alert Badge if near-expiry */}
-                    {rack.hasAlert && (
-                      <div style={{ marginTop: '10px', backgroundColor: '#7f1d1d', border: '1px solid #dc2626', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', color: '#fca5a5', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <AlertTriangle size={12} color="#f87171" />
-                        <span>{rack.alertMsg}</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
