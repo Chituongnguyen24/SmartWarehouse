@@ -218,6 +218,7 @@ export const Warehouse3DDigitalTwin: React.FC = () => {
         id: r.id,
         name: r.name,
         zone: r.zone,
+        zoneLabel: r.zoneLabel,
         temperature: r.temperature,
         humidity: r.humidity,
         maxCapacity: r.maxCapacity,
@@ -226,6 +227,7 @@ export const Warehouse3DDigitalTwin: React.FC = () => {
         alertMsg: r.alertMsg,
         position: [posX, 0, posZ],
         color: r.zone === 'COOL' ? '#0284c7' : r.zone === 'FROZEN' ? '#06b6d4' : '#f59e0b',
+        items: r.items,
       };
     });
   }, [racks]);
