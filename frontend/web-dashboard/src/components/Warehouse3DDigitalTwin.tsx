@@ -22,7 +22,8 @@ import {
   RefreshCw,
   Box,
 } from 'lucide-react';
-import { Supermarket3DScene, Rack3DData } from './Supermarket3DScene';
+import { Supermarket3DScene } from './Supermarket3DScene';
+import type { Rack3DData } from './Supermarket3DScene';
 
 export interface ShelfItem {
   sku: string;
