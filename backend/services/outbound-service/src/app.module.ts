@@ -4,6 +4,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { OutboundOrderModule } from './outbound-order/outbound-order.module';
 import { OutboundOrder } from './outbound-order/outbound-order.entity';
 import { OutboundOrderItem } from './outbound-order/outbound-order-item.entity';
+import { OutboxEvent } from './outbox/outbox.entity';
+import { OutboxModule } from './outbox/outbox.module';
+import { SagaModule } from './saga/saga.module';
 
 @Module({
   imports: [
@@ -18,10 +21,12 @@ import { OutboundOrderItem } from './outbound-order/outbound-order-item.entity';
         username: config.get<string>('DB_USER', 'postgres'),
         password: config.get<string>('DB_PASSWORD', 'postgres'),
         database: config.get<string>('DB_NAME', 'sfwms_outbound'),
-        entities: [OutboundOrder, OutboundOrderItem],
+        entities: [OutboundOrder, OutboundOrderItem, OutboxEvent],
         synchronize: true,
       }),
     }),
+    OutboxModule,
+    SagaModule,
     OutboundOrderModule,
   ],
 })

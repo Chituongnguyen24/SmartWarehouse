@@ -52,12 +52,19 @@ export interface VrpBatchRoute {
 }
 
 export const INTERNAL_DRIVERS = [
-  { id: 'NV-GV05', name: 'Võ Minh Trí', phone: '0977112233', plate: '59-V1 888.99', maxCapacityKg: 30, isAvailable: true },
-  { id: 'NV-GV06', name: 'Nguyễn Văn Hùng', phone: '0909888111', plate: '59-G2 688.39', maxCapacityKg: 30, isAvailable: true },
-  { id: 'NV-GV07', name: 'Trần Quốc Bảo', phone: '0933445566', plate: '59-P1 456.78', maxCapacityKg: 30, isAvailable: true },
-  { id: 'NV-GV08', name: 'Phạm Hoàng Nam', phone: '0918776655', plate: '59-K1 234.56', maxCapacityKg: 30, isAvailable: true },
-  { id: 'NV-GV09', name: 'Lê Thanh Tùng', phone: '0966332211', plate: '59-X1 999.11', maxCapacityKg: 30, isAvailable: true },
-  { id: 'NV-GV10', name: 'Đặng Hữu Phúc', phone: '0944778899', plate: '59-T2 777.88', maxCapacityKg: 30, isAvailable: true },
+  // Xe Tải Lạnh & Bán Tải (Hàng sỉ, cồng kềnh, chuyển kho, xuất tiêu hủy môi trường)
+  { id: 'NV-TK01', name: 'Đặng Hoàng Phúc (Xe Tải Lạnh)', phone: '0944778899', plate: '51D-892.45', vehicleType: 'TRUCK', maxCapacityKg: 2500, warehouseCode: 'WH-006', isAvailable: true },
+  { id: 'NV-VAN01', name: 'Phan Hữu Nam (Xe Bán Tải)', phone: '0918776655', plate: '51C-734.12', vehicleType: 'VAN', maxCapacityKg: 1500, warehouseCode: 'WH-006', isAvailable: true },
+
+  // Xe Máy Thùng Lạnh (Đơn lẻ E-Commerce)
+  { id: 'NV-GV05', name: 'Võ Minh Trí', phone: '0977112233', plate: '59-V1 888.99', vehicleType: 'MOTORBIKE', maxCapacityKg: 30, warehouseCode: 'WH-006', isAvailable: true },
+  { id: 'NV-GV06', name: 'Nguyễn Văn Hùng', phone: '0909888111', plate: '59-G2 688.39', vehicleType: 'MOTORBIKE', maxCapacityKg: 30, warehouseCode: 'WH-006', isAvailable: true },
+  { id: 'NV-GV07', name: 'Trần Quốc Bảo', phone: '0933445566', plate: '59-P1 456.78', vehicleType: 'MOTORBIKE', maxCapacityKg: 30, warehouseCode: 'WH-006', isAvailable: true },
+  { id: 'NV-GV09', name: 'Lê Thanh Tùng', phone: '0966332211', plate: '59-X1 999.11', vehicleType: 'MOTORBIKE', maxCapacityKg: 30, warehouseCode: 'WH-006', isAvailable: true },
+
+  // Tài xế Liên Kho (Inter-Hub Fleet)
+  { id: 'NV-BT01', name: 'Bùi Hoàng Long', phone: '0988112244', plate: '59-S2 555.66', vehicleType: 'MOTORBIKE', maxCapacityKg: 30, warehouseCode: 'WH-002', isAvailable: true },
+  { id: 'NV-TB01', name: 'Trương Gia Huy', phone: '0977223344', plate: '59-H1 333.22', vehicleType: 'MOTORBIKE', maxCapacityKg: 30, warehouseCode: 'WH-003', isAvailable: true },
 ];
 
 // Danh mục trục hành lang giao thông đô thị TP.HCM
@@ -326,9 +333,19 @@ export class VrpBatchingService {
         };
       });
 
-      // Gán tài xế nội bộ
-      const driver = INTERNAL_DRIVERS[clusterIdx % INTERNAL_DRIVERS.length];
+      // Gán tài xế thông minh theo tải trọng & loại phương tiện
       const totalWeight = cluster.reduce((sum, o) => sum + o.totalWeightKg, 0);
+      const isHeavyCluster = totalWeight > 30 || cluster.some(o => (o.orderCode || '').includes('DISPOSAL') || (o.orderCode || '').includes('HUY'));
+
+      const trucks = INTERNAL_DRIVERS.filter(d => d.vehicleType === 'TRUCK' || d.vehicleType === 'VAN');
+      const bikes = INTERNAL_DRIVERS.filter(d => d.vehicleType === 'MOTORBIKE');
+
+      let driver = INTERNAL_DRIVERS[0];
+      if (isHeavyCluster && trucks.length > 0) {
+        driver = trucks[clusterIdx % trucks.length];
+      } else if (bikes.length > 0) {
+        driver = bikes[clusterIdx % bikes.length];
+      }
 
       routes.push({
         routeId: `ROUTE-${warehouseCode}-${Date.now().toString().slice(-4)}-${clusterIdx + 1}`,

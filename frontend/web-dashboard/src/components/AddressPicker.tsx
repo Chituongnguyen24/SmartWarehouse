@@ -37,7 +37,7 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
   const [isManualMode, setIsManualMode] = useState(false);
 
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimerRef = useRef<any>(null);
 
   // Sync with parent initialAddress if changed externally
   useEffect(() => {

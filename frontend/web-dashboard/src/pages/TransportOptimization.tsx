@@ -45,7 +45,7 @@ const TransportOptimization = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [vrpResult, setVrpResult] = useState<VrpResponse | null>(null);
   const [batchRoutes, setBatchRoutes] = useState<any[]>([]);
-  const [quotes, setQuotes] = useState<any>({});
+  const [quotes, setQuotes] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -178,7 +178,7 @@ const TransportOptimization = () => {
       });
       if (response.ok) {
         const data = await response.json();
-        setQuotes(prev => ({ ...prev, [routeInfo.id]: data }));
+        setQuotes((prev: Record<string, any>) => ({ ...prev, [routeInfo.id]: data }));
         showToast('✅ Đã lấy báo giá 3PL thành công!');
       }
     } catch (err) {

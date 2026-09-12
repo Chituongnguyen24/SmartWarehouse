@@ -1,11 +1,13 @@
 import { DeliveryTask, DriverProfile } from '../types/driver';
 
 export const MOCK_DRIVER_PROFILE: DriverProfile = {
-  id: 'drv_8891',
+  id: 'NV-GV05',
   name: 'Võ Minh Trí',
   phone: '0977 112 233',
   licensePlate: '59-V1 888.99',
-  vehicleType: 'Xe Máy Thùng Lạnh C.T Mart',
+  vehicleType: '🛵 Xe Máy Thùng Lạnh',
+  warehouseCode: 'WH-006',
+  warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
   isOnline: true,
   currentTemp: 3.2,              // 3.2°C (Kho Lạnh)
   targetTempMin: 0.0,

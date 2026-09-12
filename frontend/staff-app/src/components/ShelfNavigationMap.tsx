@@ -21,22 +21,22 @@ export const ShelfNavigationMap: React.FC<Props> = ({
   return (
     <div
       style={{
-        backgroundColor: '#0f172a',
+        backgroundColor: '#ffffff',
         borderRadius: '20px',
         padding: '16px',
-        border: '1px solid #1e293b',
-        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
+        border: '1.5px solid #e2e8f0',
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)',
       }}
     >
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Compass size={18} color="#38bdf8" />
-          <span style={{ fontSize: '12.5px', fontWeight: 800, color: '#ffffff' }}>
+          <Compass size={18} color="#0284c7" />
+          <span style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
             Lộ Trình Đi Bộ Ngắn Nhất (FEFO Route)
           </span>
         </div>
-        <span style={{ fontSize: '10px', color: '#10b981', backgroundColor: '#064e3b', padding: '2px 8px', borderRadius: '999px', fontWeight: 800 }}>
+        <span style={{ fontSize: '10.5px', color: '#059669', backgroundColor: '#dcfce7', border: '1px solid #bbf7d0', padding: '2px 8px', borderRadius: '999px', fontWeight: 800 }}>
           Tiết kiệm 65% quãng đường
         </span>
       </div>
@@ -47,26 +47,27 @@ export const ShelfNavigationMap: React.FC<Props> = ({
           display: 'grid',
           gridTemplateColumns: 'repeat(3, 1fr)',
           gap: '8px',
-          backgroundColor: '#020617',
+          backgroundColor: '#f8fafc',
           padding: '12px',
           borderRadius: '14px',
-          border: '1px solid #1e293b',
+          border: '1px solid #e2e8f0',
         }}
       >
         {/* Zone 1: Dry Goods */}
         <div
           style={{
-            backgroundColor: currentShelf.includes('A') ? 'rgba(56, 189, 248, 0.2)' : '#0f172a',
-            border: `2px solid ${currentShelf.includes('A') ? '#38bdf8' : '#334155'}`,
+            backgroundColor: currentShelf.includes('A') ? '#eff6ff' : '#ffffff',
+            border: `2px solid ${currentShelf.includes('A') ? '#0284c7' : '#e2e8f0'}`,
             borderRadius: '10px',
             padding: '10px 8px',
             textAlign: 'center',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
           }}
         >
-          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700 }}>KỆ A1 - A4</div>
-          <div style={{ fontSize: '12px', fontWeight: 900, color: '#ffffff', marginTop: '2px' }}>KHO KHÔ</div>
+          <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>KỆ A1 - A4</div>
+          <div style={{ fontSize: '12px', fontWeight: 900, color: '#0f172a', marginTop: '2px' }}>KHO KHÔ</div>
           {currentShelf.includes('A') && (
-            <div style={{ fontSize: '9px', color: '#38bdf8', marginTop: '4px', fontWeight: 800 }}>
+            <div style={{ fontSize: '9.5px', color: '#0284c7', marginTop: '4px', fontWeight: 800 }}>
               📍 Đang ở đây
             </div>
           )}
@@ -75,19 +76,20 @@ export const ShelfNavigationMap: React.FC<Props> = ({
         {/* Zone 2: Cool Storage */}
         <div
           style={{
-            backgroundColor: currentShelf.includes('B') ? 'rgba(52, 211, 153, 0.2)' : '#0f172a',
-            border: `2px solid ${currentShelf.includes('B') ? '#34d399' : '#334155'}`,
+            backgroundColor: currentShelf.includes('B') ? '#ecfdf5' : '#ffffff',
+            border: `2px solid ${currentShelf.includes('B') ? '#059669' : '#e2e8f0'}`,
             borderRadius: '10px',
             padding: '10px 8px',
             textAlign: 'center',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', fontSize: '10px', color: '#6ee7b7' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', fontSize: '10px', color: '#059669', fontWeight: 800 }}>
             <Snowflake size={10} /> 0-4°C
           </div>
-          <div style={{ fontSize: '12px', fontWeight: 900, color: '#ffffff', marginTop: '2px' }}>KHO LẠNH B</div>
+          <div style={{ fontSize: '12px', fontWeight: 900, color: '#0f172a', marginTop: '2px' }}>KHO LẠNH B</div>
           {currentShelf.includes('B') && (
-            <div style={{ fontSize: '9px', color: '#34d399', marginTop: '4px', fontWeight: 800 }}>
+            <div style={{ fontSize: '9.5px', color: '#059669', marginTop: '4px', fontWeight: 800 }}>
               📍 Đang ở đây
             </div>
           )}
@@ -96,19 +98,20 @@ export const ShelfNavigationMap: React.FC<Props> = ({
         {/* Zone 3: Deep Freeze */}
         <div
           style={{
-            backgroundColor: currentShelf.includes('C') ? 'rgba(129, 140, 248, 0.2)' : '#0f172a',
-            border: `2px solid ${currentShelf.includes('C') ? '#818cf8' : '#334155'}`,
+            backgroundColor: currentShelf.includes('C') ? '#eef2ff' : '#ffffff',
+            border: `2px solid ${currentShelf.includes('C') ? '#6366f1' : '#e2e8f0'}`,
             borderRadius: '10px',
             padding: '10px 8px',
             textAlign: 'center',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', fontSize: '10px', color: '#a5b4fc' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', fontSize: '10px', color: '#4f46e5', fontWeight: 800 }}>
             <Snowflake size={10} /> -18°C
           </div>
-          <div style={{ fontSize: '12px', fontWeight: 900, color: '#ffffff', marginTop: '2px' }}>ĐÔNG LẠNH C</div>
+          <div style={{ fontSize: '12px', fontWeight: 900, color: '#0f172a', marginTop: '2px' }}>ĐÔNG LẠNH C</div>
           {currentShelf.includes('C') && (
-            <div style={{ fontSize: '9px', color: '#818cf8', marginTop: '4px', fontWeight: 800 }}>
+            <div style={{ fontSize: '9.5px', color: '#6366f1', marginTop: '4px', fontWeight: 800 }}>
               📍 Đang ở đây
             </div>
           )}
@@ -117,14 +120,14 @@ export const ShelfNavigationMap: React.FC<Props> = ({
 
       {/* Step Sequence Pills */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '12px', overflowX: 'auto', paddingBottom: '4px' }}>
-        <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700, whiteSpace: 'nowrap' }}>Lộ trình:</span>
-        <span style={{ fontSize: '11px', backgroundColor: '#0284c7', color: '#ffffff', padding: '3px 8px', borderRadius: '6px', fontWeight: 800, whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' }}>Lộ trình:</span>
+        <span style={{ fontSize: '11px', backgroundColor: '#0284c7', color: '#ffffff', padding: '3px 9px', borderRadius: '6px', fontWeight: 800, whiteSpace: 'nowrap' }}>
           1. {currentShelf}
         </span>
         {nextShelves.map((sh, idx) => (
           <React.Fragment key={idx}>
-            <ArrowRight size={12} color="#64748b" />
-            <span style={{ fontSize: '11px', backgroundColor: '#1e293b', color: '#cbd5e1', padding: '3px 8px', borderRadius: '6px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+            <ArrowRight size={12} color="#94a3b8" />
+            <span style={{ fontSize: '11px', backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #e2e8f0', padding: '3px 9px', borderRadius: '6px', fontWeight: 700, whiteSpace: 'nowrap' }}>
               {idx + 2}. {sh}
             </span>
           </React.Fragment>

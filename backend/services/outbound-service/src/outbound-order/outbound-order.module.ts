@@ -4,9 +4,15 @@ import { OutboundOrder } from './outbound-order.entity';
 import { OutboundOrderItem } from './outbound-order-item.entity';
 import { OutboundOrderController } from './outbound-order.controller';
 import { OutboundOrderService } from './outbound-order.service';
+import { OutboxModule } from '../outbox/outbox.module';
+import { SagaModule } from '../saga/saga.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([OutboundOrder, OutboundOrderItem])],
+  imports: [
+    TypeOrmModule.forFeature([OutboundOrder, OutboundOrderItem]),
+    OutboxModule,
+    SagaModule,
+  ],
   controllers: [OutboundOrderController],
   providers: [OutboundOrderService],
 })

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
 
 export interface ShelfItem3D {
@@ -14,6 +14,7 @@ export interface ShelfItem3D {
   imageUrl?: string;
   shelfLevel?: number;
   slotIndex?: number;
+  location?: string;
 }
 
 export interface Rack3DData {
@@ -27,7 +28,7 @@ export interface Rack3DData {
   currentCapacity: number;
   hasAlert?: boolean;
   alertMsg?: string;
-  position: [number, number, number]; // [x, y, z]
+  position: [number, number, number];
   color: string;
   items: ShelfItem3D[];
 }
@@ -36,9 +37,14 @@ interface Supermarket3DSceneProps {
   racks: Rack3DData[];
   selectedRackId: string;
   onSelectRack: (id: string) => void;
-  zoneFilter: 'ALL' | 'COOL' | 'FROZEN' | 'DRY';
+  zoneFilter: 'COOL' | 'FROZEN' | 'DRY';
   onSelectBox?: (item: ShelfItem3D, rack: Rack3DData, level: number) => void;
+  onUpdateRackPosition?: (rackId: string, newPos: [number, number, number]) => void;
+  searchQuery?: string;
 }
+
+// Module-level Singleton Renderer to prevent WebGL Context Leak during Hot-Reload
+let globalSharedRenderer: THREE.WebGLRenderer | null = null;
 
 export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
   racks,
@@ -46,9 +52,16 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
   onSelectRack,
   zoneFilter,
   onSelectBox,
+  onUpdateRackPosition,
+  searchQuery = '',
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
-  const [viewMode, setViewMode] = useState<'ISOMETRIC' | 'TOP_DOWN' | 'FOCUS_RACK' | 'AISLE'>('ISOMETRIC');
+  const [viewMode, setViewMode] = useState<'ISOMETRIC' | 'RACK_FRONT' | 'RACK_BACK' | 'TOP_DOWN' | 'AISLE'>('ISOMETRIC');
+  const [isolateRack, setIsolateRack] = useState<boolean>(true);
+  const [isLayoutEditMode, setIsLayoutEditMode] = useState<boolean>(false);
+  const isLayoutEditModeRef = useRef<boolean>(false);
+  const [webglError, setWebglError] = useState<string | null>(null);
+
   const [hoveredInfo, setHoveredInfo] = useState<{
     type: 'RACK' | 'BOX';
     rack: Rack3DData;
@@ -65,329 +78,528 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
 
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const rackMeshesRef = useRef<Map<string, THREE.Group>>(new Map());
   const boxMeshesRef = useRef<THREE.Mesh[]>([]);
   const animationFrameRef = useRef<number>(0);
-  const rebuildAllRacksRef = useRef<((currentRacks: Rack3DData[]) => void) | null>(null);
+  const rebuildAllRacksRef = useRef<((currentRacks: Rack3DData[], activeId: string, currentZone: string) => void) | null>(null);
+  const applySearchHighlightRef = useRef<((query: string) => void) | null>(null);
 
-  // Mouse Orbiting / Drag State (Game Controls)
-  const isDraggingRef = useRef(false);
-  const isPanningRef = useRef(false);
+  // Cold Frost Mist Particle System Ref
+  const mistParticlesRef = useRef<THREE.Points | null>(null);
+
+  // References for live props without remounting WebGL
+  const zoneFilterRef = useRef<'COOL' | 'FROZEN' | 'DRY'>(zoneFilter);
+  const selectedRackIdRef = useRef<string>(selectedRackId);
+  const racksRef = useRef<Rack3DData[]>(racks);
+  const searchQueryRef = useRef<string>(searchQuery);
+  const onSelectRackRef = useRef(onSelectRack);
+  const onSelectBoxRef = useRef(onSelectBox);
+  const onUpdateRackPositionRef = useRef(onUpdateRackPosition);
+
+  // Sync refs
+  useEffect(() => {
+    isLayoutEditModeRef.current = isLayoutEditMode;
+  }, [isLayoutEditMode]);
+
+  useEffect(() => {
+    zoneFilterRef.current = zoneFilter;
+    selectedRackIdRef.current = selectedRackId;
+    racksRef.current = racks;
+    searchQueryRef.current = searchQuery;
+    onSelectRackRef.current = onSelectRack;
+    onSelectBoxRef.current = onSelectBox;
+    onUpdateRackPositionRef.current = onUpdateRackPosition;
+  }, [zoneFilter, selectedRackId, racks, searchQuery, onSelectRack, onSelectBox, onUpdateRackPosition]);
+
+  // Mouse Orbiting / Drag State
+  const isDraggingCam = useRef(false);
+  const isPanningCam = useRef(false);
+  const isDraggingRack = useRef(false);
+  const draggedRackId = useRef<string | null>(null);
+  const draggedRackGroup = useRef<THREE.Group | null>(null);
+  const dragPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
+  const dragIntersection = useRef(new THREE.Vector3());
+
   const previousMousePos = useRef({ x: 0, y: 0 });
-  const sphericalCoords = useRef({ radius: 34, theta: Math.PI / 4, phi: Math.PI / 3.2 });
-  const cameraTarget = useRef(new THREE.Vector3(0, 2, 0));
+  const sphericalCoords = useRef({ radius: 26, theta: Math.PI / 4, phi: Math.PI / 3.2 });
+  const cameraTarget = useRef(new THREE.Vector3(0, 2.0, 0));
 
   // Target camera interpolations
-  const targetCamPos = useRef(new THREE.Vector3(18, 20, 22));
-  const targetCamLookAt = useRef(new THREE.Vector3(0, 2, 0));
-  const currentCamLookAt = useRef(new THREE.Vector3(0, 2, 0));
+  const targetCamPos = useRef(new THREE.Vector3(16, 18, 18));
+  const targetCamLookAt = useRef(new THREE.Vector3(0, 2.0, 0));
+  const currentCamLookAt = useRef(new THREE.Vector3(0, 2.0, 0));
 
   // Raycaster
   const mouseRef = useRef(new THREE.Vector2());
   const raycasterRef = useRef(new THREE.Raycaster());
+  const searchHighlightMeshesRef = useRef<THREE.Object3D[]>([]);
 
-  // Helper: Create 3D Text Billboard Sprite for Rack Signboard
+  // Room Wall & Floor Refs for dynamic themes
+  const floorMatRef = useRef<THREE.MeshStandardMaterial | null>(null);
+  const wallMatRef = useRef<THREE.MeshStandardMaterial | null>(null);
+  const wallLineMatRef = useRef<THREE.LineBasicMaterial | null>(null);
+  const roomLightRef = useRef<THREE.PointLight | null>(null);
+
+  // Helper: Create 3D Text Billboard
   const createTextSprite = (text: string, bgColor: string, textColor: string = '#ffffff') => {
     const canvas = document.createElement('canvas');
     canvas.width = 512;
-    canvas.height = 128;
+    canvas.height = 120;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
-    // Rounded Box background
     ctx.fillStyle = bgColor;
     ctx.beginPath();
-    ctx.roundRect(10, 10, 492, 108, 20);
+    ctx.roundRect(8, 8, 496, 104, 16);
     ctx.fill();
-    ctx.lineWidth = 6;
+    ctx.lineWidth = 5;
     ctx.strokeStyle = '#ffffff';
     ctx.stroke();
 
-    // Text label
     ctx.fillStyle = textColor;
-    ctx.font = 'bold 36px "Segoe UI", Inter, sans-serif';
+    ctx.font = 'bold 32px "Segoe UI", Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, 256, 64);
+    ctx.fillText(text, 256, 60);
 
     const texture = new THREE.CanvasTexture(canvas);
     const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true });
     const sprite = new THREE.Sprite(spriteMat);
-    sprite.scale.set(3.6, 0.9, 1);
+    sprite.scale.set(4.0, 0.95, 1);
     return sprite;
   };
 
+  // Helper: Create 3D Front Label for Lot Box WITH CLEAR BARCODE AND LOT CODE
+  const createLotBoxLabelTexture = (it: ShelfItem3D) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 320;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    const isNear = (it.daysRemaining ?? 10) <= 3;
+    const isMed = (it.daysRemaining ?? 10) > 3 && (it.daysRemaining ?? 10) <= 7;
+
+    // Card background
+    ctx.fillStyle = isNear ? '#450a0a' : '#0f172a';
+    ctx.beginPath();
+    ctx.roundRect(8, 8, 496, 304, 20);
+    ctx.fill();
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = isNear ? '#ef4444' : isMed ? '#f59e0b' : '#38bdf8';
+    ctx.stroke();
+
+    // 1. Draw Real-looking Barcode Box in Top Left
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.roundRect(20, 18, 175, 54, 8);
+    ctx.fill();
+
+    // Barcode stripes (Code 128 simulation)
+    ctx.fillStyle = '#000000';
+    const barPattern = [3, 2, 4, 1, 3, 2, 1, 4, 2, 3, 1, 2, 4, 1, 3, 2, 3, 1, 2, 4, 2, 1, 3, 2, 4, 2];
+    let curX = 26;
+    barPattern.forEach((w, bIdx) => {
+      if (bIdx % 2 === 0) {
+        ctx.fillRect(curX, 22, w, 36);
+      }
+      curX += w + 2;
+    });
+
+    ctx.fillStyle = '#334155';
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(it.sku, 107, 68);
+
+    // 2. Lot Code Title
+    ctx.fillStyle = isNear ? '#fca5a5' : '#38bdf8';
+    ctx.font = 'bold 23px "Segoe UI", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`LÔ: ${it.lotCode.length > 17 ? it.lotCode.slice(0, 16) + '..' : it.lotCode}`, 205, 42);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 15px "Segoe UI", sans-serif';
+    ctx.fillText(`BARCODE: ${it.sku}`, 205, 64);
+
+    // 3. Product Name (Large & Crisp)
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 29px "Segoe UI", sans-serif';
+    ctx.textAlign = 'left';
+    const truncatedName = it.name.length > 20 ? it.name.slice(0, 19) + '...' : it.name;
+    ctx.fillText(truncatedName, 22, 115);
+
+    // 4. Quantity & Price Row
+    ctx.fillStyle = '#34d399';
+    ctx.font = 'bold 28px "Segoe UI", sans-serif';
+    ctx.fillText(`TỒN: ${it.qty} ${it.unit}`, 22, 168);
+
+    ctx.fillStyle = '#fbbf24';
+    ctx.textAlign = 'right';
+    ctx.fillText(`${it.price.toLocaleString('vi-VN')} đ`, 490, 168);
+
+    // 5. Expiry Status Banner
+    ctx.fillStyle = isNear ? '#dc2626' : isMed ? '#d97706' : '#0284c7';
+    ctx.beginPath();
+    ctx.roundRect(22, 205, 468, 88, 14);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 28px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    const expText = isNear
+      ? `⚠️ CẬN DATE: Còn ${it.daysRemaining} ngày`
+      : `HSD: ${it.expiryDate} (Còn ${it.daysRemaining} ngày)`;
+    ctx.fillText(expText, 256, 258);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    return texture;
+  };
+
+  // Mount Effect: Run ONCE with Singleton WebGL Engine
   useEffect(() => {
     if (!mountRef.current) return;
     const container = mountRef.current;
     const width = container.clientWidth || 850;
-    const height = container.clientHeight || 560;
+    const height = container.clientHeight || 580;
+
+    let renderer = globalSharedRenderer;
+
+    if (!renderer) {
+      try {
+        renderer = new THREE.WebGLRenderer({
+          antialias: true,
+          alpha: false,
+          powerPreference: 'default',
+          preserveDrawingBuffer: false,
+          failIfMajorPerformanceCaveat: false,
+        });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.15;
+        globalSharedRenderer = renderer;
+      } catch (err: any) {
+        console.error('WebGL Renderer Init Error:', err);
+        setWebglError(err?.message || 'Trình duyệt chưa bật tăng tốc phần cứng WebGL');
+        return;
+      }
+    }
+
+    renderer.setSize(width, height);
+
+    // Attach singleton canvas to container
+    if (renderer.domElement.parentElement !== container) {
+      container.innerHTML = '';
+      container.appendChild(renderer.domElement);
+    }
+    setWebglError(null);
 
     // 1. Scene Setup
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0f1d);
-    scene.fog = new THREE.FogExp2(0x0a0f1d, 0.012);
+    scene.background = new THREE.Color(0x081528);
+    scene.fog = new THREE.FogExp2(0x081528, 0.015);
     sceneRef.current = scene;
 
     // 2. Camera Setup
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    camera.position.set(18, 20, 22);
-    camera.lookAt(0, 2, 0);
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 500);
+    camera.position.set(16, 18, 18);
+    camera.lookAt(0, 2.0, 0);
     cameraRef.current = camera;
 
-    // 3. WebGL Renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    container.innerHTML = '';
-    container.appendChild(renderer.domElement);
-    rendererRef.current = renderer;
-
-    // 4. Lighting Environment
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+    // 3. PBR Cinematic Industrial Lighting Environment
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.3);
-    dirLight.position.set(25, 35, 20);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
-    dirLight.shadow.camera.near = 0.5;
-    dirLight.shadow.camera.far = 100;
-    dirLight.shadow.camera.left = -30;
-    dirLight.shadow.camera.right = 30;
-    dirLight.shadow.camera.top = 30;
-    dirLight.shadow.camera.bottom = -30;
-    scene.add(dirLight);
+    const mainSunLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    mainSunLight.position.set(15, 25, 15);
+    mainSunLight.castShadow = true;
+    mainSunLight.shadow.mapSize.width = 1024;
+    mainSunLight.shadow.mapSize.height = 1024;
+    mainSunLight.shadow.bias = -0.0005;
+    scene.add(mainSunLight);
 
-    // Accent Point Lights
-    const coolLight = new THREE.PointLight(0x38bdf8, 2.5, 30);
-    coolLight.position.set(-11, 8, 0);
-    scene.add(coolLight);
+    const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.6);
+    fillLight.position.set(-15, 15, -15);
+    scene.add(fillLight);
 
-    const frozenLight = new THREE.PointLight(0x06b6d4, 3, 30);
-    frozenLight.position.set(0, 8, 0);
-    scene.add(frozenLight);
+    // Overhead High-Bay Industrial Spotlights
+    const roomAccentLight = new THREE.PointLight(0x0284c7, 3.5, 45, 1.2);
+    roomAccentLight.position.set(0, 10, 0);
+    scene.add(roomAccentLight);
+    roomLightRef.current = roomAccentLight;
 
-    const dryLight = new THREE.PointLight(0xf59e0b, 2.5, 30);
-    dryLight.position.set(11, 8, 0);
-    scene.add(dryLight);
+    // 4. Warehouse Room Frame (34m x 38m x 6.0m) - Mega Multi-Aisle Layout
+    const roomW = 34;
+    const roomD = 38;
+    const roomH = 6.0;
 
-    // 5. Floor & Zone Markings
-    const floorGeo = new THREE.PlaneGeometry(46, 36);
+    // PBR Glossy Industrial Epoxy Floor with Reflections
+    const floorGeo = new THREE.PlaneGeometry(roomW, roomD);
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
-      roughness: 0.85,
-      metalness: 0.15,
+      color: 0x0c1e38,
+      roughness: 0.16,
+      metalness: 0.12,
     });
+    floorMatRef.current = floorMat;
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     scene.add(floor);
 
-    // Grid Lines Overlay
-    const gridHelper = new THREE.GridHelper(44, 44, 0x334155, 0x1e293b);
-    gridHelper.position.y = 0.01;
+    // Safety Hazard Walkway Border Lines
+    const safetyLineGeo = new THREE.RingGeometry(15.8, 16.0, 4);
+    const safetyLineMat = new THREE.MeshBasicMaterial({ color: 0xfacc15, side: THREE.DoubleSide });
+    const safetyLine = new THREE.Mesh(safetyLineGeo, safetyLineMat);
+    safetyLine.rotation.x = -Math.PI / 2;
+    safetyLine.rotation.z = Math.PI / 4;
+    safetyLine.position.y = 0.015;
+    scene.add(safetyLine);
+
+    // Subtle High-Tech Floor Grid
+    const gridHelper = new THREE.GridHelper(roomD, 38, 0x1e3a5f, 0x0f2942);
+    gridHelper.position.y = 0.02;
     scene.add(gridHelper);
 
-    // Visual Zone Areas with glowing edges
-    const createZoneFloor = (x: number, z: number, w: number, d: number, color: number, label: string) => {
-      const zoneGeo = new THREE.PlaneGeometry(w, d);
-      const zoneMat = new THREE.MeshBasicMaterial({
-        color: color,
-        transparent: true,
-        opacity: 0.14,
-        depthWrite: false,
+    // PBR Translucent Wall Panels
+    const wallMat = new THREE.MeshStandardMaterial({
+      color: 0x0369a1,
+      roughness: 0.2,
+      metalness: 0.8,
+      transparent: true,
+      opacity: 0.2,
+      side: THREE.DoubleSide,
+    });
+    wallMatRef.current = wallMat;
+
+    const backWall = new THREE.Mesh(new THREE.PlaneGeometry(roomW, roomH), wallMat);
+    backWall.position.set(0, roomH / 2, -roomD / 2);
+    scene.add(backWall);
+
+    const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(roomD, roomH), wallMat);
+    leftWall.rotation.y = Math.PI / 2;
+    leftWall.position.set(-roomW / 2, roomH / 2, 0);
+    scene.add(leftWall);
+
+    // Wall Frame Lines
+    const wallLineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8 });
+    wallLineMatRef.current = wallLineMat;
+    const wallEdges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(roomW, roomH, roomD)),
+      wallLineMat
+    );
+    wallEdges.position.y = roomH / 2;
+    scene.add(wallEdges);
+
+    // 5. Cold Frost Mist Particle System
+    const particleCount = 120;
+    const particleGeo = new THREE.BufferGeometry();
+    const particlePositions = new Float32Array(particleCount * 3);
+
+    for (let i = 0; i < particleCount * 3; i += 3) {
+      particlePositions[i] = (Math.random() - 0.5) * 24;
+      particlePositions[i + 1] = 0.2 + Math.random() * 3.5;
+      particlePositions[i + 2] = (Math.random() - 0.5) * 18;
+    }
+
+    particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+    const particleMat = new THREE.PointsMaterial({
+      color: 0xe0f2fe,
+      size: 0.22,
+      transparent: true,
+      opacity: 0.45,
+      blending: THREE.AdditiveBlending,
+    });
+
+    const mistParticles = new THREE.Points(particleGeo, particleMat);
+    scene.add(mistParticles);
+    mistParticlesRef.current = mistParticles;
+
+    // High-Performance Shared Geometries & Materials (Saves >90% RAM/VRAM)
+    const matNormal = new THREE.MeshStandardMaterial({ color: 0xb48256, roughness: 0.7, metalness: 0.05 });
+    const matNearExpiry = new THREE.MeshStandardMaterial({ color: 0x991b1b, roughness: 0.6, metalness: 0.05 });
+    const matMediumRisk = new THREE.MeshStandardMaterial({ color: 0xc2410c, roughness: 0.6, metalness: 0.05 });
+    const matSearch = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5, metalness: 0.1 });
+
+    // 6. Dynamic Rack Builder with PBR Steel & Kraft Carton Boxes
+    const rebuildAllRacks = (currentRacks: Rack3DData[], activeId: string, currentZone: string) => {
+      rackMeshesRef.current.forEach((group) => {
+        group.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            const mesh = child as THREE.Mesh;
+            mesh.geometry?.dispose();
+            if (Array.isArray(mesh.material)) {
+              mesh.material.forEach(m => m.dispose());
+            } else {
+              mesh.material?.dispose();
+            }
+          }
+        });
+        scene.remove(group);
       });
-      const zoneMesh = new THREE.Mesh(zoneGeo, zoneMat);
-      zoneMesh.rotation.x = -Math.PI / 2;
-      zoneMesh.position.set(x, 0.02, z);
-      scene.add(zoneMesh);
-
-      const edges = new THREE.EdgesGeometry(zoneGeo);
-      const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: color, linewidth: 2 }));
-      line.rotation.x = -Math.PI / 2;
-      line.position.set(x, 0.03, z);
-      scene.add(line);
-    };
-
-    createZoneFloor(-11, 0, 11, 26, 0x0284c7, 'KHO MÁT (0-4°C)');
-    createZoneFloor(0, 0, 10, 26, 0x06b6d4, 'ĐÔNG LẠNH (-18°C)');
-    createZoneFloor(11, 0, 11, 26, 0xf59e0b, 'KHO KHÔ (+25°C)');
-
-    // Inbound / Outbound Front Staging Line
-    const dockGeo = new THREE.BoxGeometry(38, 0.15, 3.5);
-    const dockMat = new THREE.MeshStandardMaterial({ color: 0x1e293b });
-    const dockMesh = new THREE.Mesh(dockGeo, dockMat);
-    dockMesh.position.set(0, 0.08, 14);
-    dockMesh.receiveShadow = true;
-    scene.add(dockMesh);
-
-    // Forklift / AGV Robot
-    const agvGroup = new THREE.Group();
-    const agvBody = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.8, 2.4), new THREE.MeshStandardMaterial({ color: 0xeab308 }));
-    agvBody.position.y = 0.5;
-    agvBody.castShadow = true;
-    agvGroup.add(agvBody);
-
-    const agvMast1 = new THREE.Mesh(new THREE.BoxGeometry(0.15, 2.2, 0.15), new THREE.MeshStandardMaterial({ color: 0x0f172a }));
-    agvMast1.position.set(0.6, 1.2, 1.2);
-    agvGroup.add(agvMast1);
-
-    const agvMast2 = agvMast1.clone();
-    agvMast2.position.x = -0.6;
-    agvGroup.add(agvMast2);
-
-    const agvPallet = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.7, 1.1), new THREE.MeshStandardMaterial({ color: 0x0284c7 }));
-    agvPallet.position.set(0, 1.2, 1.3);
-    agvGroup.add(agvPallet);
-
-    // Headlights
-    const headlight = new THREE.SpotLight(0xfef08a, 4, 15, Math.PI / 6, 0.5);
-    headlight.position.set(0, 0.8, 1.4);
-    headlight.target.position.set(0, 0, 8);
-    agvGroup.add(headlight);
-    agvGroup.add(headlight.target);
-
-    agvGroup.position.set(-5, 0, 4);
-    scene.add(agvGroup);
-
-    // Function to build all racks dynamically
-    const rebuildAllRacks = (currentRacks: Rack3DData[]) => {
-      // Clear old meshes
-      rackMeshesRef.current.forEach((mesh) => {
-        scene.remove(mesh);
-      });
-      rackMeshesRef.current.clear();
       boxMeshesRef.current = [];
+      searchHighlightMeshesRef.current = [];
 
-      currentRacks.forEach((rack) => {
+      const filteredZoneRacks = currentRacks.filter((r) => r.zone === currentZone);
+
+      filteredZoneRacks.forEach((rack) => {
         const rackGroup = new THREE.Group();
         rackGroup.name = rack.id;
-        rackGroup.position.set(...rack.position);
+        rackGroup.position.set(rack.position[0], 0, rack.position[2]);
 
-        const rackWidth = 2.8;
-        const rackHeight = 4.5;
-        const rackDepth = 1.6;
-        const levels = 3; // 3 Tầng kệ
+        const itemsList = rack.items || [];
+        const isSelected = rack.id === activeId;
 
-        // Vertical Upright Posts
+        const rackWidth = 5.6;
+        const rackDepth = 1.5;
+        const rackHeight = 4.9;
+        const levels = 5;
+        const levelHeight = 0.92;
+
+        // PBR Upright Blue Steel Columns with Middle Support (Industrial 3-Bay Heavy Duty Rack)
+        const postGeo = new THREE.BoxGeometry(0.12, rackHeight, 0.12);
         const postMat = new THREE.MeshStandardMaterial({
-          color: 0x334155,
-          metalness: 0.7,
-          roughness: 0.3,
-        });
-        const postGeo = new THREE.BoxGeometry(0.08, rackHeight, 0.08);
-
-        const postPos = [
-          [-rackWidth / 2, rackHeight / 2, -rackDepth / 2],
-          [rackWidth / 2, rackHeight / 2, -rackDepth / 2],
-          [-rackWidth / 2, rackHeight / 2, rackDepth / 2],
-          [rackWidth / 2, rackHeight / 2, rackDepth / 2],
-        ];
-
-        postPos.forEach(([px, py, pz]) => {
-          const post = new THREE.Mesh(postGeo, postMat);
-          post.position.set(px, py, pz);
-          post.castShadow = true;
-          rackGroup.add(post);
+          color: 0x1e3a8a,
+          metalness: 0.88,
+          roughness: 0.28,
         });
 
-        // Shelf Level Platforms & Crossbars
+        const postXPos = [-rackWidth / 2, -rackWidth / 6, rackWidth / 6, rackWidth / 2];
+        const postZPos = [-rackDepth / 2, rackDepth / 2];
+
+        postXPos.forEach((px) => {
+          postZPos.forEach((pz) => {
+            const post = new THREE.Mesh(postGeo, postMat);
+            post.position.set(px, rackHeight / 2, pz);
+            post.castShadow = true;
+            post.receiveShadow = true;
+            rackGroup.add(post);
+          });
+        });
+
+        // Diagonal Cross-Bracing Steel Bars on Left, Middle and Right
+        const braceMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.9, roughness: 0.2 });
+        const sideBraceGeo = new THREE.BoxGeometry(0.04, 4.4, 0.04);
+        [-rackWidth / 2, rackWidth / 2].forEach((px, bIdx) => {
+          const brace = new THREE.Mesh(sideBraceGeo, braceMat);
+          brace.position.set(px, rackHeight / 2, 0);
+          brace.rotation.x = (bIdx === 0 ? 1 : -1) * (Math.PI / 8);
+          rackGroup.add(brace);
+        });
+
+        // PBR High-Visibility Load Beams and Heavy Mesh Decking on All 5 Tiers
         const beamMat = new THREE.MeshStandardMaterial({
-          color: rack.zone === 'COOL' ? 0x0284c7 : rack.zone === 'FROZEN' ? 0x0891b2 : 0xd97706,
-          metalness: 0.5,
-          roughness: 0.4,
+          color: rack.zone === 'COOL' ? 0x0284c7 : rack.zone === 'FROZEN' ? 0x0891b2 : 0xea580c,
+          metalness: 0.75,
+          roughness: 0.3,
         });
 
         for (let lvl = 0; lvl <= levels; lvl++) {
-          const y = 0.35 + (lvl * (rackHeight - 0.7)) / levels;
-          const beamGeo = new THREE.BoxGeometry(rackWidth + 0.1, 0.08, rackDepth + 0.1);
-          const beam = new THREE.Mesh(beamGeo, beamMat);
-          beam.position.y = y;
-          beam.castShadow = true;
-          beam.receiveShadow = true;
-          rackGroup.add(beam);
+          const y = 0.22 + lvl * levelHeight;
+          const beamFront = new THREE.Mesh(new THREE.BoxGeometry(rackWidth + 0.12, 0.09, 0.06), beamMat);
+          beamFront.position.set(0, y, rackDepth / 2);
+          beamFront.castShadow = true;
+          
+          const beamBack = new THREE.Mesh(new THREE.BoxGeometry(rackWidth + 0.12, 0.09, 0.06), beamMat);
+          beamBack.position.set(0, y, -rackDepth / 2);
+          beamBack.castShadow = true;
+
+          const deckingGeo = new THREE.BoxGeometry(rackWidth, 0.02, rackDepth - 0.08);
+          const deckingMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.85, roughness: 0.35 });
+          const decking = new THREE.Mesh(deckingGeo, deckingMat);
+          decking.position.set(0, y + 0.03, 0);
+          decking.receiveShadow = true;
+
+          rackGroup.add(beamFront, beamBack, decking);
         }
 
-        // Add 3D Text Floating Signboard over Rack
+        // 3D Billboard Sign
         const spriteSign = createTextSprite(
-          `${rack.id.replace('RACK-', '')} - ${rack.name.split('(')[0]}`,
+          `${rack.id.replace('RACK-', '')} - ${rack.name.split('(')[0]} (${itemsList.length} Lô)`,
           rack.hasAlert ? '#dc2626' : rack.zone === 'COOL' ? '#0284c7' : rack.zone === 'FROZEN' ? '#0891b2' : '#d97706'
         );
         if (spriteSign) {
-          spriteSign.position.set(0, rackHeight + 0.6, 0);
+          spriteSign.position.set(0, rackHeight + 0.65, 0);
           rackGroup.add(spriteSign);
         }
 
-        // Populate Individual Interactive 3D Product Crates/Boxes on each level
-        const itemsList = rack.items || [];
-        const slotsPerLevel = 2;
-
-        for (let lvl = 0; lvl < levels; lvl++) {
-          const levelY = 0.35 + (lvl * (rackHeight - 0.7)) / levels + 0.32;
-
-          for (let slot = 0; slot < slotsPerLevel; slot++) {
-            const itemIdx = lvl * slotsPerLevel + slot;
-            const it = itemsList[itemIdx % Math.max(1, itemsList.length)] || {
-              sku: `SKU-${rack.id}-L${lvl + 1}S${slot + 1}`,
-              name: `${rack.name.split('(')[0]} - Thùng ${lvl + 1}.${slot + 1}`,
-              category: rack.zoneLabel,
-              qty: 24,
-              unit: 'Thùng',
-              lotCode: `LOT-${rack.id}-${lvl + 1}${slot + 1}`,
-              expiryDate: '15/09/2026',
-              daysRemaining: 12 - lvl * 3,
-              price: 55000,
-            };
-
-            const isNearExpiry = (it.daysRemaining ?? 10) <= 3;
-
-            // Box Geometry & Material
-            const boxWidth = 1.0;
-            const boxHeight = 0.55;
-            const boxDepth = 1.2;
-            const boxGeo = new THREE.BoxGeometry(boxWidth, boxHeight, boxDepth);
-
-            let boxColorHex = rack.zone === 'COOL' ? 0x38bdf8 : rack.zone === 'FROZEN' ? 0x22d3ee : 0xfbbf24;
-            if (isNearExpiry) {
-              boxColorHex = 0xef4444; // Cận date đỏ rực
-            }
-
-            const boxMat = new THREE.MeshStandardMaterial({
-              color: boxColorHex,
-              roughness: 0.5,
-              metalness: 0.2,
-              emissive: isNearExpiry ? 0x7f1d1d : 0x000000,
-              emissiveIntensity: isNearExpiry ? 0.6 : 0.0,
-            });
-
-            const boxMesh = new THREE.Mesh(boxGeo, boxMat);
-            const posX = (slot - 0.5) * (rackWidth * 0.45);
-            boxMesh.position.set(posX, levelY, 0);
-            boxMesh.castShadow = true;
-            boxMesh.receiveShadow = true;
-
-            // Attach Metadata for Game Click & Raycasting
-            boxMesh.userData = {
-              isProductBox: true,
-              rack: rack,
-              item: it,
-              level: lvl + 1,
-              slot: slot + 1,
-              originalColor: boxColorHex,
-            };
-
-            rackGroup.add(boxMesh);
-            boxMeshesRef.current.push(boxMesh);
-          }
+        // Active Ring Base when selected
+        if (isSelected) {
+          const ringGeo = new THREE.RingGeometry(2.8, 3.3, 32);
+          const ringMat = new THREE.MeshBasicMaterial({
+            color: 0x38bdf8,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.7,
+          });
+          const ring = new THREE.Mesh(ringGeo, ringMat);
+          ring.rotation.x = -Math.PI / 2;
+          ring.position.y = 0.03;
+          rackGroup.add(ring);
         }
 
-        // Hitbox for Rack Selection
-        const hitBoxGeo = new THREE.BoxGeometry(rackWidth + 0.4, rackHeight + 0.8, rackDepth + 0.4);
+        // Standard 5-Tier x 8-Column Industrial Rack Grid
+        const numCols = 8; // Fixed 8 structural columns per tier
+        const colSpacing = (rackWidth - 0.4) / numCols;
+        const boxWidth = Math.min(0.55, colSpacing - 0.05);
+        const boxDepth = (rackDepth - 0.25) / 2 - 0.04; // Double deep depth
+        const sharedBoxGeo = new THREE.BoxGeometry(boxWidth, 0.38, boxDepth);
+
+        const totalCells = levels * numCols * 2; // 5 Tiers x 8 Columns x 2 Sides = 80 Cells
+        const cellOccupancy = new Map<string, number>();
+
+        itemsList.forEach((it, idx) => {
+          // Evenly distribute across 5 Tiers x 8 Columns x 2 Sides = 80 distinct rack cells
+          const cellSlot = idx % totalCells;
+          const lvl = Math.floor(cellSlot / (numCols * 2)) % levels;
+          const col = cellSlot % numCols;
+          const rowDeep = Math.floor(cellSlot / numCols) % 2; // 0 = back, 1 = front
+
+          const cellKey = `${lvl}-${col}-${rowDeep}`;
+          const stackCount = cellOccupancy.get(cellKey) || 0;
+          cellOccupancy.set(cellKey, stackCount + 1);
+
+          const boxHeight = 0.38;
+          const levelBaseY = 0.22 + lvl * levelHeight + 0.04;
+          const stackOffset = Math.min(2, stackCount);
+          const posY = levelBaseY + (boxHeight / 2) + stackOffset * (boxHeight * 0.4);
+
+          const startX = -((numCols - 1) * colSpacing) / 2;
+          const posZOffset = (stackCount % 2 === 1 ? 0.03 : -0.03) * (stackCount > 0 ? 1 : 0);
+          const posX = startX + col * colSpacing + (stackCount > 1 ? 0.02 : 0);
+          const posZ = (rowDeep === 0 ? -rackDepth * 0.24 : rackDepth * 0.24) + posZOffset;
+
+          const isNearExpiry = (it.daysRemaining ?? 10) <= 3;
+          const isMediumRisk = (it.daysRemaining ?? 10) > 3 && (it.daysRemaining ?? 10) <= 7;
+          const defaultMat = isNearExpiry ? matNearExpiry : isMediumRisk ? matMediumRisk : matNormal;
+
+          const boxMesh = new THREE.Mesh(sharedBoxGeo, defaultMat);
+          boxMesh.castShadow = true;
+          boxMesh.receiveShadow = true;
+          boxMesh.position.set(posX, posY, posZ);
+
+          boxMesh.userData = {
+            isProductBox: true,
+            rack: rack,
+            item: it,
+            level: lvl + 1,
+            slot: col + 1,
+            rowDeep: rowDeep === 1 ? 'Trước' : 'Sau',
+            stackLayer: stackCount + 1,
+            originalMat: defaultMat,
+            boxWidth,
+            boxDepth,
+            posX,
+            posY,
+            posZ,
+          };
+
+          rackGroup.add(boxMesh);
+          boxMeshesRef.current.push(boxMesh);
+        });
+
+        // Hitbox for Rack Selection & Dragging
+        const hitBoxGeo = new THREE.BoxGeometry(rackWidth + 0.4, rackHeight + 0.6, rackDepth + 0.4);
         const hitBoxMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 });
         const hitBox = new THREE.Mesh(hitBoxGeo, hitBoxMat);
         hitBox.position.y = rackHeight / 2;
@@ -397,20 +609,127 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
         scene.add(rackGroup);
         rackMeshesRef.current.set(rack.id, rackGroup);
       });
+
+      // Apply initial search highlight if query exists
+      if (searchQueryRef.current) {
+        applySearchHighlight(searchQueryRef.current);
+      }
+    };
+
+    // Ultra-Fast In-Memory Search Highlighter (<1ms without WebGL rebuild)
+    const applySearchHighlight = (query: string) => {
+      // Clear previous search wireframes and billboard pins
+      searchHighlightMeshesRef.current.forEach((m) => {
+        if (m.parent) {
+          m.parent.remove(m);
+        }
+        if ((m as THREE.Mesh).geometry) {
+          (m as THREE.Mesh).geometry.dispose();
+        }
+      });
+      searchHighlightMeshesRef.current = [];
+
+      const q = (query || '').trim().toLowerCase();
+      let firstMatchedWorldPos: THREE.Vector3 | null = null;
+
+      boxMeshesRef.current.forEach((boxMesh) => {
+        const it = boxMesh.userData?.item as ShelfItem3D | undefined;
+        const origMat = boxMesh.userData?.originalMat || matNormal;
+        if (!it) return;
+
+        const isMatched = q.length > 0 && (
+          it.lotCode.toLowerCase().includes(q) ||
+          it.sku.toLowerCase().includes(q) ||
+          it.name.toLowerCase().includes(q)
+        );
+
+        if (isMatched) {
+          boxMesh.material = matSearch;
+
+          const lvl = boxMesh.userData.level;
+          const col = boxMesh.userData.slot;
+          const rowDeep = boxMesh.userData.rowDeep;
+          const posX = boxMesh.userData.posX ?? boxMesh.position.x;
+          const posY = boxMesh.userData.posY ?? boxMesh.position.y;
+          const posZ = boxMesh.userData.posZ ?? boxMesh.position.z;
+          const bW = boxMesh.userData.boxWidth || 0.55;
+          const bD = boxMesh.userData.boxDepth || 0.55;
+
+          const glowGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(bW * 1.08, 0.44, bD * 1.08));
+          const glowMat = new THREE.LineBasicMaterial({ color: 0xfacc15 });
+          const glowBox = new THREE.LineSegments(glowGeo, glowMat);
+          glowBox.position.set(posX, posY, posZ);
+          if (boxMesh.parent) {
+            boxMesh.parent.add(glowBox);
+            searchHighlightMeshesRef.current.push(glowBox);
+          }
+
+          const pointerPin = createTextSprite(
+            `📍 ${it.lotCode} • T${lvl}-C${col} (${rowDeep})`,
+            '#eab308',
+            '#0f172a'
+          );
+          if (pointerPin && boxMesh.parent) {
+            pointerPin.scale.set(3.4, 0.8, 1);
+            pointerPin.position.set(posX, posY + 0.55, posZ);
+            boxMesh.parent.add(pointerPin);
+            searchHighlightMeshesRef.current.push(pointerPin);
+          }
+
+          if (!firstMatchedWorldPos) {
+            const wp = new THREE.Vector3();
+            boxMesh.getWorldPosition(wp);
+            firstMatchedWorldPos = wp;
+          }
+        } else {
+          boxMesh.material = origMat;
+        }
+      });
+
+      // Fly Camera to first searched lot box in 3D smoothly
+      if (firstMatchedWorldPos) {
+        cameraTarget.current.set(firstMatchedWorldPos.x, firstMatchedWorldPos.y, firstMatchedWorldPos.z);
+        targetCamLookAt.current.copy(cameraTarget.current);
+        targetCamPos.current.set(
+          firstMatchedWorldPos.x + (firstMatchedWorldPos.x >= 0 ? 3.5 : -3.5),
+          firstMatchedWorldPos.y + 2.0,
+          firstMatchedWorldPos.z + 4.2
+        );
+      }
     };
 
     rebuildAllRacksRef.current = rebuildAllRacks;
-    rebuildAllRacks(racks);
+    applySearchHighlightRef.current = applySearchHighlight;
+    rebuildAllRacks(racksRef.current, selectedRackIdRef.current, zoneFilterRef.current);
 
-    // 7. Mouse Orbit Controls (Interactive Game Navigation)
+    // 8. Mouse Orbit & Drag Controls
     const handleMouseDown = (e: MouseEvent) => {
+      const rect = container.getBoundingClientRect();
+      mouseRef.current.x = ((e.clientX - rect.left) / container.clientWidth) * 2 - 1;
+      mouseRef.current.y = -((e.clientY - rect.top) / container.clientHeight) * 2 + 1;
+
+      raycasterRef.current.setFromCamera(mouseRef.current, camera);
+      const intersects = raycasterRef.current.intersectObjects(scene.children, true);
+
+      if (isLayoutEditModeRef.current && e.button === 0) {
+        for (const hit of intersects) {
+          if (hit.object.userData?.isRackHitbox) {
+            const rackData = hit.object.userData.rackData as Rack3DData;
+            isDraggingRack.current = true;
+            draggedRackId.current = rackData.id;
+            draggedRackGroup.current = rackMeshesRef.current.get(rackData.id) || null;
+            onSelectRackRef.current(rackData.id);
+            container.style.cursor = 'move';
+            return;
+          }
+        }
+      }
+
       if (e.button === 0) {
-        // Left Click: Orbit
-        isDraggingRef.current = true;
+        isDraggingCam.current = true;
         previousMousePos.current = { x: e.clientX, y: e.clientY };
       } else if (e.button === 2) {
-        // Right Click: Pan
-        isPanningRef.current = true;
+        isPanningCam.current = true;
         previousMousePos.current = { x: e.clientX, y: e.clientY };
       }
     };
@@ -420,7 +739,18 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
       mouseRef.current.x = ((e.clientX - rect.left) / container.clientWidth) * 2 - 1;
       mouseRef.current.y = -((e.clientY - rect.top) / container.clientHeight) * 2 + 1;
 
-      if (isDraggingRef.current) {
+      if (isDraggingRack.current && draggedRackGroup.current) {
+        raycasterRef.current.setFromCamera(mouseRef.current, camera);
+        if (raycasterRef.current.ray.intersectPlane(dragPlane.current, dragIntersection.current)) {
+          const clampedX = Math.max(-11, Math.min(11, dragIntersection.current.x));
+          const clampedZ = Math.max(-8, Math.min(8, dragIntersection.current.z));
+          draggedRackGroup.current.position.x = clampedX;
+          draggedRackGroup.current.position.z = clampedZ;
+        }
+        return;
+      }
+
+      if (isDraggingCam.current) {
         const deltaX = e.clientX - previousMousePos.current.x;
         const deltaY = e.clientY - previousMousePos.current.y;
         previousMousePos.current = { x: e.clientX, y: e.clientY };
@@ -431,7 +761,7 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
         return;
       }
 
-      if (isPanningRef.current) {
+      if (isPanningCam.current) {
         const deltaX = e.clientX - previousMousePos.current.x;
         const deltaY = e.clientY - previousMousePos.current.y;
         previousMousePos.current = { x: e.clientX, y: e.clientY };
@@ -442,7 +772,6 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
         return;
       }
 
-      // Raycasting Hover
       raycasterRef.current.setFromCamera(mouseRef.current, camera);
       const intersects = raycasterRef.current.intersectObjects(scene.children, true);
 
@@ -471,25 +800,40 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
           type: 'RACK',
           rack: foundRack,
         });
-        container.style.cursor = 'pointer';
+        container.style.cursor = isLayoutEditModeRef.current ? 'grab' : 'pointer';
       } else {
         setHoveredInfo(null);
-        container.style.cursor = 'grab';
+        container.style.cursor = 'default';
       }
     };
 
     const handleMouseUp = () => {
-      isDraggingRef.current = false;
-      isPanningRef.current = false;
+      if (isDraggingRack.current && draggedRackId.current && draggedRackGroup.current) {
+        const finalPos: [number, number, number] = [
+          draggedRackGroup.current.position.x,
+          0,
+          draggedRackGroup.current.position.z,
+        ];
+        if (onUpdateRackPositionRef.current) {
+          onUpdateRackPositionRef.current(draggedRackId.current, finalPos);
+        }
+        isDraggingRack.current = false;
+        draggedRackId.current = null;
+        draggedRackGroup.current = null;
+      }
+      isDraggingCam.current = false;
+      isPanningCam.current = false;
     };
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      sphericalCoords.current.radius = Math.max(8, Math.min(65, sphericalCoords.current.radius + e.deltaY * 0.04));
+      sphericalCoords.current.radius = Math.max(8, Math.min(60, sphericalCoords.current.radius + e.deltaY * 0.03));
       updateCameraFromSpherical();
     };
 
     const handleClick = (e: MouseEvent) => {
+      if (isLayoutEditModeRef.current) return;
+
       const rect = container.getBoundingClientRect();
       mouseRef.current.x = ((e.clientX - rect.left) / container.clientWidth) * 2 - 1;
       mouseRef.current.y = -((e.clientY - rect.top) / container.clientHeight) * 2 + 1;
@@ -498,10 +842,9 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
       const intersects = raycasterRef.current.intersectObjects(scene.children, true);
 
       for (const hit of intersects) {
-        // 1. Click specifically on a 3D Product Box
         if (hit.object.userData?.isProductBox) {
           const u = hit.object.userData;
-          onSelectRack(u.rack.id);
+          onSelectRackRef.current(u.rack.id);
 
           setActiveBoxModal({
             item: u.item,
@@ -510,25 +853,23 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
             slot: u.slot,
           });
 
-          if (onSelectBox) {
-            onSelectBox(u.item, u.rack, u.level);
+          if (onSelectBoxRef.current) {
+            onSelectBoxRef.current(u.item, u.rack, u.level);
           }
 
-          // Smooth Zoom in onto this specific box
           const worldPos = new THREE.Vector3();
           hit.object.getWorldPosition(worldPos);
           cameraTarget.current.copy(worldPos);
-          sphericalCoords.current.radius = 12;
+          sphericalCoords.current.radius = 10;
           updateCameraFromSpherical();
           return;
         }
 
-        // 2. Click on Rack Hitbox
         if (hit.object.userData?.isRackHitbox) {
           const r = hit.object.userData.rackData as Rack3DData;
-          onSelectRack(r.id);
-          cameraTarget.current.set(r.position[0], 2, r.position[2]);
-          sphericalCoords.current.radius = 18;
+          onSelectRackRef.current(r.id);
+          cameraTarget.current.set(r.position[0], 2.0, r.position[2]);
+          sphericalCoords.current.radius = 14;
           updateCameraFromSpherical();
           return;
         }
@@ -550,53 +891,52 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
     container.addEventListener('click', handleClick);
     container.addEventListener('contextmenu', (e) => e.preventDefault());
 
-    // 8. Game Animation & Render Loop (60 FPS)
-    let agvX = -5;
-    let agvDir = 1;
+    // 7. Animation Loop
+    let timeTick = 0;
 
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
+      timeTick += 0.015;
 
-      // Smooth Camera LERP
       camera.position.lerp(targetCamPos.current, 0.08);
       currentCamLookAt.current.lerp(targetCamLookAt.current, 0.08);
       camera.lookAt(currentCamLookAt.current);
 
-      // AGV Robot Patrol Animation
-      agvX += 0.025 * agvDir;
-      if (agvX > 7) agvDir = -1;
-      if (agvX < -7) agvDir = 1;
-      agvGroup.position.x = agvX;
-      agvGroup.rotation.y = agvDir > 0 ? 0 : Math.PI;
-
-      // Animate Near-Expiry Pulsing Boxes
-      const time = Date.now() * 0.006;
-      boxMeshesRef.current.forEach((box) => {
-        if (box.userData?.item?.daysRemaining <= 3) {
-          const pulse = 0.5 + Math.sin(time) * 0.5;
-          (box.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.3 + pulse * 0.7;
+      // Pulsing Animation for 3D Search Highlights
+      searchHighlightMeshesRef.current.forEach((m, mIdx) => {
+        if ((m as THREE.LineSegments).isLineSegments) {
+          const scale = 1.0 + 0.08 * Math.sin(timeTick * 7 + mIdx);
+          m.scale.set(scale, scale, scale);
         }
       });
 
-      // Highlight selected rack
-      const selGroup = rackMeshesRef.current.get(selectedRackId);
-      if (selGroup) {
-        const pulse = 1 + Math.sin(time * 0.8) * 0.02;
-        selGroup.scale.set(pulse, pulse, pulse);
+      if (mistParticlesRef.current) {
+        const positions = mistParticlesRef.current.geometry.attributes.position.array as Float32Array;
+        for (let i = 1; i < positions.length; i += 3) {
+          positions[i] += 0.005;
+          if (positions[i] > 3.8) {
+            positions[i] = 0.2;
+          }
+        }
+        mistParticlesRef.current.geometry.attributes.position.needsUpdate = true;
+        mistParticlesRef.current.rotation.y = timeTick * 0.05;
       }
 
-      renderer.render(scene, camera);
+      if (renderer && scene && camera) {
+        renderer.render(scene, camera);
+      }
     };
     animate();
 
-    // 9. Resize Handler
     const handleResize = () => {
       if (!container) return;
       const w = container.clientWidth;
       const h = container.clientHeight;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
+      if (renderer) {
+        renderer.setSize(w, h);
+      }
     };
     window.addEventListener('resize', handleResize);
 
@@ -608,28 +948,94 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
       window.removeEventListener('mouseup', handleMouseUp);
       container.removeEventListener('wheel', handleWheel);
       container.removeEventListener('click', handleClick);
-      renderer.dispose();
-      container.innerHTML = '';
     };
   }, []);
 
+  // Update Theme & Racks when zoneFilter, racks, selectedRackId, or searchQuery change
+  useEffect(() => {
+    if (!sceneRef.current) return;
+
+    const bgColor = zoneFilter === 'COOL' ? 0x081528 : zoneFilter === 'FROZEN' ? 0x051b26 : 0x1a1208;
+    sceneRef.current.background = new THREE.Color(bgColor);
+    if (sceneRef.current.fog) {
+      sceneRef.current.fog.color = new THREE.Color(bgColor);
+    }
+
+    if (floorMatRef.current) {
+      floorMatRef.current.color.set(
+        zoneFilter === 'COOL' ? 0x0c1e38 : zoneFilter === 'FROZEN' ? 0x082230 : 0x22180d
+      );
+    }
+    if (wallMatRef.current) {
+      wallMatRef.current.color.set(
+        zoneFilter === 'COOL' ? 0x0369a1 : zoneFilter === 'FROZEN' ? 0x0891b2 : 0xd97706
+      );
+    }
+    if (wallLineMatRef.current) {
+      wallLineMatRef.current.color.set(
+        zoneFilter === 'COOL' ? 0x38bdf8 : zoneFilter === 'FROZEN' ? 0x22d3ee : 0xfbbf24
+      );
+    }
+    if (roomLightRef.current) {
+      roomLightRef.current.color.set(
+        zoneFilter === 'COOL' ? 0x0284c7 : zoneFilter === 'FROZEN' ? 0x06b6d4 : 0xf59e0b
+      );
+    }
+
+    if (mistParticlesRef.current) {
+      mistParticlesRef.current.visible = zoneFilter === 'FROZEN' || zoneFilter === 'COOL';
+    }
+
+    if (rebuildAllRacksRef.current) {
+      rebuildAllRacksRef.current(racks, selectedRackId, zoneFilter);
+    }
+  }, [zoneFilter, racks, selectedRackId]);
+
+  // Ultra-fast search highlight trigger without scene rebuilding
+  useEffect(() => {
+    searchQueryRef.current = searchQuery;
+    if (applySearchHighlightRef.current) {
+      applySearchHighlightRef.current(searchQuery);
+    }
+  }, [searchQuery]);
+
   // Update View Modes Presets
+  const currentSelectedRack = useMemo(() => {
+    return racks.find(r => r.id === selectedRackId) || racks[0];
+  }, [racks, selectedRackId]);
+
   useEffect(() => {
     if (!cameraRef.current) return;
+    const sel = currentSelectedRack;
+    const isInspectingSingleRack = viewMode === 'RACK_FRONT' || viewMode === 'RACK_BACK';
+
+    // Isolate rack visibility: Hide surrounding racks when inspecting front/back to prevent obstruction
+    rackMeshesRef.current.forEach((group, rackId) => {
+      if (isInspectingSingleRack && isolateRack) {
+        group.visible = (rackId === selectedRackId);
+      } else {
+        group.visible = true;
+      }
+    });
+
     if (viewMode === 'ISOMETRIC') {
-      cameraTarget.current.set(0, 2, 0);
-      sphericalCoords.current = { radius: 32, theta: Math.PI / 4, phi: Math.PI / 3.2 };
+      cameraTarget.current.set(0, 2.0, 0);
+      sphericalCoords.current = { radius: 26, theta: Math.PI / 4, phi: Math.PI / 3.2 };
+    } else if (viewMode === 'RACK_FRONT') {
+      if (sel) {
+        cameraTarget.current.set(sel.position[0], 2.4, sel.position[2]);
+        sphericalCoords.current = { radius: 6.8, theta: 0, phi: Math.PI / 2.05 };
+      }
+    } else if (viewMode === 'RACK_BACK') {
+      if (sel) {
+        cameraTarget.current.set(sel.position[0], 2.4, sel.position[2]);
+        sphericalCoords.current = { radius: 6.8, theta: Math.PI, phi: Math.PI / 2.05 };
+      }
     } else if (viewMode === 'TOP_DOWN') {
       cameraTarget.current.set(0, 0, 0);
-      sphericalCoords.current = { radius: 36, theta: 0, phi: 0.05 };
-    } else if (viewMode === 'FOCUS_RACK') {
-      const sel = racks.find(r => r.id === selectedRackId) || racks[0];
-      if (sel) {
-        cameraTarget.current.set(sel.position[0], 2, sel.position[2]);
-        sphericalCoords.current = { radius: 14, theta: Math.PI / 4, phi: Math.PI / 3.4 };
-      }
+      sphericalCoords.current = { radius: 30, theta: 0, phi: 0.05 };
     } else if (viewMode === 'AISLE') {
-      cameraTarget.current.set(-5, 1.8, 0);
+      cameraTarget.current.set(-4, 1.8, 0);
       sphericalCoords.current = { radius: 10, theta: Math.PI / 2, phi: Math.PI / 2.2 };
     }
 
@@ -638,183 +1044,274 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
     targetCamPos.current.y = cameraTarget.current.y + radius * Math.cos(phi);
     targetCamPos.current.z = cameraTarget.current.z + radius * Math.sin(phi) * Math.cos(theta);
     targetCamLookAt.current.copy(cameraTarget.current);
-  }, [viewMode, selectedRackId, racks]);
-
-  // Dynamic Rebuild Racks when racks list updates (e.g. Added new rack, synced from DB)
-  useEffect(() => {
-    if (rebuildAllRacksRef.current) {
-      rebuildAllRacksRef.current(racks);
-    }
-  }, [racks]);
-
-  // Visibility Filter
-  useEffect(() => {
-    rackMeshesRef.current.forEach((group, rackId) => {
-      const isSelected = rackId === selectedRackId;
-      if (!isSelected) {
-        group.scale.set(1, 1, 1);
-      }
-      const rack = racks.find(r => r.id === rackId);
-      if (rack) {
-        group.visible = zoneFilter === 'ALL' || rack.zone === zoneFilter;
-      }
-    });
-  }, [selectedRackId, zoneFilter, racks]);
+  }, [viewMode, selectedRackId, racks, currentSelectedRack, isolateRack]);
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '560px', borderRadius: '20px', overflow: 'hidden', userSelect: 'none' }}>
-      {/* 3D WebGL Canvas */}
-      <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
+    <div style={{ position: 'relative', width: '100%', height: '580px', borderRadius: '20px', overflow: 'hidden', userSelect: 'none', backgroundColor: '#081528' }}>
+      
+      {/* WebGL Canvas Container */}
+      <div ref={mountRef} style={{ width: '100%', height: '100%', display: webglError ? 'none' : 'block' }} />
 
-      {/* Game Camera Controls Switcher */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '16px',
-          left: '16px',
-          display: 'flex',
-          gap: '8px',
-          backgroundColor: 'rgba(15, 23, 42, 0.88)',
-          padding: '6px',
-          borderRadius: '14px',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(56, 189, 248, 0.3)',
-          zIndex: 10,
-          boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
-        }}
-      >
-        <button
-          onClick={() => setViewMode('ISOMETRIC')}
+      {/* WebGL GPU Recovery Guide HUD if Context was disabled in Browser */}
+      {webglError && (
+        <div
           style={{
-            padding: '6px 12px',
-            borderRadius: '8px',
-            border: 'none',
-            fontSize: '11.5px',
-            fontWeight: 800,
-            cursor: 'pointer',
-            backgroundColor: viewMode === 'ISOMETRIC' ? '#0284c7' : 'transparent',
-            color: viewMode === 'ISOMETRIC' ? '#ffffff' : '#94a3b8',
-            transition: 'all 0.2s',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '30px',
+            textAlign: 'center',
+            backgroundColor: '#0a192f',
+            color: '#ffffff',
           }}
         >
-          🎮 Toàn Cảnh 3D
-        </button>
-        <button
-          onClick={() => setViewMode('FOCUS_RACK')}
-          style={{
-            padding: '6px 12px',
-            borderRadius: '8px',
-            border: 'none',
-            fontSize: '11.5px',
-            fontWeight: 800,
-            cursor: 'pointer',
-            backgroundColor: viewMode === 'FOCUS_RACK' ? '#0284c7' : 'transparent',
-            color: viewMode === 'FOCUS_RACK' ? '#ffffff' : '#94a3b8',
-            transition: 'all 0.2s',
-          }}
-        >
-          🎯 Soi Kệ Đang Chọn
-        </button>
-        <button
-          onClick={() => setViewMode('TOP_DOWN')}
-          style={{
-            padding: '6px 12px',
-            borderRadius: '8px',
-            border: 'none',
-            fontSize: '11.5px',
-            fontWeight: 800,
-            cursor: 'pointer',
-            backgroundColor: viewMode === 'TOP_DOWN' ? '#0284c7' : 'transparent',
-            color: viewMode === 'TOP_DOWN' ? '#ffffff' : '#94a3b8',
-            transition: 'all 0.2s',
-          }}
-        >
-          🗺️ Mặt Bằng
-        </button>
-        <button
-          onClick={() => setViewMode('AISLE')}
-          style={{
-            padding: '6px 12px',
-            borderRadius: '8px',
-            border: 'none',
-            fontSize: '11.5px',
-            fontWeight: 800,
-            cursor: 'pointer',
-            backgroundColor: viewMode === 'AISLE' ? '#0284c7' : 'transparent',
-            color: viewMode === 'AISLE' ? '#ffffff' : '#94a3b8',
-            transition: 'all 0.2s',
-          }}
-        >
-          🚶 Lối Đi Soạn Hàng
-        </button>
-      </div>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎮</div>
+          <h3 style={{ fontSize: '18px', fontWeight: 900, color: '#facc15', margin: '0 0 10px' }}>
+            Trình Duyệt Đang Tạm Khóa Tăng Tốc Đồ Họa 3D WebGL
+          </h3>
+          <p style={{ fontSize: '13px', color: '#94a3b8', maxWidth: '600px', lineHeight: '1.6', margin: '0 0 20px' }}>
+            Do trình duyệt Chrome/Edge của bạn vừa kích hoạt cờ an toàn <b>GL_VENDOR = Disabled</b> sau một lần crash GPU hoặc tắt tính năng tăng tốc phần cứng.
+          </p>
 
-      {/* Game Navigation Guide Badge (Top Right) */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '16px',
-          right: '16px',
-          backgroundColor: 'rgba(15, 23, 42, 0.85)',
-          padding: '6px 12px',
-          borderRadius: '10px',
-          backdropFilter: 'blur(8px)',
-          border: '1px solid rgba(51, 65, 85, 0.8)',
-          fontSize: '11px',
-          color: '#38bdf8',
-          fontWeight: 700,
-          zIndex: 10,
-          display: 'flex',
-          gap: '10px',
-        }}
-      >
-        <span>🖱️ Kéo chuột: Xoay 360°</span>
-        <span>🔍 Cuộn chuột: Phóng to</span>
-        <span>📦 Click thùng: Xem chi tiết</span>
-      </div>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <button
+              onClick={() => {
+                globalSharedRenderer = null;
+                window.location.reload();
+              }}
+              style={{
+                backgroundColor: '#0284c7',
+                color: '#ffffff',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '10px',
+                fontWeight: 800,
+                fontSize: '13px',
+                cursor: 'pointer',
+              }}
+            >
+              🔄 Tải Lại và Khởi Chạy 3D Ngay
+            </button>
+            <button
+              onClick={() => window.open('chrome://settings/system', '_blank')}
+              style={{
+                backgroundColor: '#1e293b',
+                color: '#38bdf8',
+                border: '1px solid #38bdf8',
+                padding: '10px 20px',
+                borderRadius: '10px',
+                fontWeight: 800,
+                fontSize: '13px',
+                cursor: 'pointer',
+              }}
+            >
+              ⚙️ Mở Cài Đặt GPU Trình Duyệt
+            </button>
+          </div>
+        </div>
+      )}
 
-      {/* Floating Legend / Zone Indicators (Bottom Left) */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '16px',
-          left: '16px',
-          display: 'flex',
-          gap: '12px',
-          backgroundColor: 'rgba(15, 23, 42, 0.88)',
-          padding: '8px 14px',
-          borderRadius: '12px',
-          backdropFilter: 'blur(8px)',
-          border: '1px solid rgba(51, 65, 85, 0.8)',
-          fontSize: '11px',
-          color: '#cbd5e1',
-          zIndex: 10,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#0284c7' }} />
-          <span>Kho Mát (0°C ~ +4°C)</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#06b6d4' }} />
-          <span>Đông Lạnh (-18°C)</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#f59e0b' }} />
-          <span>Kho Khô (+25°C)</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#ef4444' }} />
-          <span>Lô Hàng Cận Date (FEFO)</span>
-        </div>
-      </div>
-
-      {/* Hover Mini Tooltip HUD */}
-      {hoveredInfo && (
+      {/* View Presets & Edit Layout Mode Bar */}
+      {!webglError && (
         <div
           style={{
             position: 'absolute',
-            bottom: '60px',
+            top: '16px',
+            left: '16px',
+            display: 'flex',
+            gap: '8px',
+            backgroundColor: 'rgba(15, 23, 42, 0.92)',
+            padding: '6px',
+            borderRadius: '14px',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(56, 189, 248, 0.3)',
+            zIndex: 10,
+            boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+            flexWrap: 'wrap',
+          }}
+        >
+          {/* Front Face Button */}
+          <button
+            onClick={() => setViewMode('RACK_FRONT')}
+            title="Góc nhìn trực diện mặt trước của kệ"
+            style={{
+              padding: '6px 12px',
+              borderRadius: '8px',
+              border: 'none',
+              fontSize: '11.5px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              backgroundColor: viewMode === 'RACK_FRONT' ? '#0284c7' : 'transparent',
+              color: viewMode === 'RACK_FRONT' ? '#ffffff' : '#94a3b8',
+              transition: 'all 0.2s',
+            }}
+          >
+            👁️ Mặt Trước ({currentSelectedRack ? currentSelectedRack.name.split('(')[0].trim() : 'Kệ'})
+          </button>
+
+          {/* Back Face Button */}
+          <button
+            onClick={() => setViewMode('RACK_BACK')}
+            title="Góc nhìn trực diện mặt sau (hàng sâu) của kệ"
+            style={{
+              padding: '6px 12px',
+              borderRadius: '8px',
+              border: 'none',
+              fontSize: '11.5px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              backgroundColor: viewMode === 'RACK_BACK' ? '#0891b2' : 'transparent',
+              color: viewMode === 'RACK_BACK' ? '#ffffff' : '#94a3b8',
+              transition: 'all 0.2s',
+            }}
+          >
+            🔄 Mặt Sau (Hàng Sâu)
+          </button>
+
+          {/* Toggle Isolate Rack Button (Visible during front/back inspection) */}
+          {(viewMode === 'RACK_FRONT' || viewMode === 'RACK_BACK') && (
+            <button
+              onClick={() => setIsolateRack(!isolateRack)}
+              title={isolateRack ? 'Đang ẩn các dãy kệ khác để không bị che khuất tầm nhìn' : 'Hiển thị lại toàn bộ các dãy kệ xung quanh'}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: isolateRack ? '1px solid #38bdf8' : '1px solid #64748b',
+                fontSize: '11.5px',
+                fontWeight: 900,
+                cursor: 'pointer',
+                backgroundColor: isolateRack ? 'rgba(2, 132, 199, 0.45)' : '#1e293b',
+                color: isolateRack ? '#38bdf8' : '#cbd5e1',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                transition: 'all 0.2s',
+              }}
+            >
+              <span>{isolateRack ? '✨ Đang Ẩn Kệ Khác (Không Bị Che)' : '🏢 Hiện Lại Toàn Bộ Kệ'}</span>
+            </button>
+          )}
+
+          {/* Isometric Overview */}
+          <button
+            onClick={() => setViewMode('ISOMETRIC')}
+            title="Góc nhìn 3D toàn cảnh nhà kho"
+            style={{
+              padding: '6px 12px',
+              borderRadius: '8px',
+              border: 'none',
+              fontSize: '11.5px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              backgroundColor: viewMode === 'ISOMETRIC' ? '#0284c7' : 'transparent',
+              color: viewMode === 'ISOMETRIC' ? '#ffffff' : '#94a3b8',
+              transition: 'all 0.2s',
+            }}
+          >
+            🌐 Toàn Cảnh
+          </button>
+
+          {/* Top Down View */}
+          <button
+            onClick={() => setViewMode('TOP_DOWN')}
+            title="Góc nhìn 2D từ trần kho nhìn xuống"
+            style={{
+              padding: '6px 12px',
+              borderRadius: '8px',
+              border: 'none',
+              fontSize: '11.5px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              backgroundColor: viewMode === 'TOP_DOWN' ? '#0284c7' : 'transparent',
+              color: viewMode === 'TOP_DOWN' ? '#ffffff' : '#94a3b8',
+              transition: 'all 0.2s',
+            }}
+          >
+            🗺️ Mặt Bằng
+          </button>
+
+          {/* Aisle Walkway View */}
+          <button
+            onClick={() => setViewMode('AISLE')}
+            title="Góc nhìn dọc theo lối đi giữa các dãy kệ"
+            style={{
+              padding: '6px 12px',
+              borderRadius: '8px',
+              border: 'none',
+              fontSize: '11.5px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              backgroundColor: viewMode === 'AISLE' ? '#0284c7' : 'transparent',
+              color: viewMode === 'AISLE' ? '#ffffff' : '#94a3b8',
+              transition: 'all 0.2s',
+            }}
+          >
+            🚶 Lối Đi
+          </button>
+
+          {/* Drag & Drop Rack Toggle */}
+          <button
+            onClick={() => setIsLayoutEditMode(!isLayoutEditMode)}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: isLayoutEditMode ? '1px solid #22c55e' : '1px solid #475569',
+              fontSize: '11.5px',
+              fontWeight: 900,
+              cursor: 'pointer',
+              backgroundColor: isLayoutEditMode ? '#15803d' : '#1e293b',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              boxShadow: isLayoutEditMode ? '0 0 15px rgba(34, 197, 94, 0.5)' : 'none',
+            }}
+          >
+            <span>{isLayoutEditMode ? '✅ Đang Kéo Thả Kệ' : '🛠️ Kéo Thả Sắp Xếp Kệ'}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Guide Badge */}
+      {!webglError && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '16px',
+            right: '16px',
+            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            padding: '6px 12px',
+            borderRadius: '10px',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(51, 65, 85, 0.8)',
+            fontSize: '11px',
+            color: isLayoutEditMode ? '#4ade80' : '#38bdf8',
+            fontWeight: 700,
+            zIndex: 10,
+            display: 'flex',
+            gap: '10px',
+          }}
+        >
+          {isLayoutEditMode ? (
+            <span>✋ Giữ chuột trái vào Kệ để kéo thả di chuyển vị trí trong kho!</span>
+          ) : (
+            <>
+              <span>❄️ Hiệu Ứng Sương Khói PBR</span>
+              <span>📦 Thùng Kraft Barcode</span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Hover Tooltip HUD */}
+      {hoveredInfo && !isDraggingRack.current && !webglError && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '20px',
             left: '16px',
             backgroundColor: 'rgba(15, 23, 42, 0.95)',
             border: '1.5px solid #38bdf8',
@@ -860,14 +1357,14 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
         </div>
       )}
 
-      {/* GAMING HUD: MODAL X-RAY THÔNG TIN CHI TIẾT THÙNG HÀNG 3D KHI CLICK */}
+      {/* GAMING HUD: MODAL X-RAY THÔNG TIN CHI TIẾT */}
       {activeBoxModal && (
         <div
           style={{
             position: 'absolute',
             top: '60px',
             right: '16px',
-            width: '320px',
+            width: '330px',
             backgroundColor: 'rgba(15, 23, 42, 0.96)',
             borderRadius: '16px',
             border: '2px solid #38bdf8',
@@ -879,7 +1376,6 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
             animation: 'fadeIn 0.2s ease',
           }}
         >
-          {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #334155', paddingBottom: '10px', marginBottom: '12px' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -902,14 +1398,13 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
             </button>
           </div>
 
-          {/* Details Body */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', backgroundColor: '#1e293b', padding: '6px 10px', borderRadius: '8px' }}>
-              <span style={{ color: '#94a3b8' }}>Mã SKU:</span>
+              <span style={{ color: '#94a3b8' }}>Mã Barcode SKU:</span>
               <b style={{ color: '#f8fafc' }}>{activeBoxModal.item.sku}</b>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', backgroundColor: '#1e293b', padding: '6px 10px', borderRadius: '8px' }}>
-              <span style={{ color: '#94a3b8' }}>Số lô (Lot Code):</span>
+              <span style={{ color: '#94a3b8' }}>Mã số Lô (Lot Code):</span>
               <b style={{ color: '#38bdf8' }}>{activeBoxModal.item.lotCode}</b>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', backgroundColor: '#1e293b', padding: '6px 10px', borderRadius: '8px' }}>
@@ -921,7 +1416,6 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
               <b style={{ color: '#fbbf24' }}>{activeBoxModal.item.price.toLocaleString('vi-VN')} đ</b>
             </div>
 
-            {/* Expiry / FEFO Risk Bar */}
             <div style={{ backgroundColor: activeBoxModal.item.daysRemaining <= 3 ? '#7f1d1d' : '#1e293b', padding: '8px 10px', borderRadius: '8px', border: activeBoxModal.item.daysRemaining <= 3 ? '1px solid #ef4444' : 'none' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px' }}>
                 <span style={{ color: activeBoxModal.item.daysRemaining <= 3 ? '#fca5a5' : '#94a3b8' }}>
@@ -942,16 +1436,14 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
               </div>
             </div>
 
-            {/* Environmental Sensor at slot */}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#94a3b8', padding: '4px 2px' }}>
               <span>Nhiệt độ kệ: <b style={{ color: '#ffffff' }}>{activeBoxModal.rack.temperature}</b></span>
               <span>Độ ẩm: <b style={{ color: '#ffffff' }}>{activeBoxModal.rack.humidity}</b></span>
             </div>
 
-            {/* Action Buttons */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '6px' }}>
               <button
-                onClick={() => alert(`Đã tạo lệnh xuất kho FEFO ưu tiên cho lô hàng: ${activeBoxModal.item.lotCode} (${activeBoxModal.item.name})`)}
+                onClick={() => alert(`Đã tạo lệnh xuất FEFO ưu tiên cho lô hàng: ${activeBoxModal.item.lotCode} (${activeBoxModal.item.name})`)}
                 style={{
                   backgroundColor: '#0284c7',
                   color: '#ffffff',

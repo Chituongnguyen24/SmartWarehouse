@@ -28,7 +28,7 @@ import {
   Truck,
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
-import { fetchShiftMetricsApi } from '../services/api';
+import { fetchShiftMetricsApi, fetchPackingOrdersApi, fetchInboundOrdersApi, lookupStockApi } from '../services/api';
 import { TabType } from '../../App';
 import { COLORS } from '../theme/colors';
 
@@ -50,8 +50,25 @@ export const ShiftHomeScreen: React.FC<ShiftHomeScreenProps> = ({ onNavigate }) 
 
   const loadMetrics = async () => {
     try {
-      const data = await fetchShiftMetricsApi(activeWarehouse);
-      setMetrics(data);
+      const [outbound, inbound, lots] = await Promise.all([
+        fetchPackingOrdersApi(activeWarehouse).catch(() => []),
+        fetchInboundOrdersApi(activeWarehouse).catch(() => []),
+        lookupStockApi(activeWarehouse).then(r => r.lots).catch(() => []),
+      ]);
+
+      const pendingPicking = outbound.filter((o: any) => o.status === 'PENDING' || o.status === 'PICKING').length;
+      const readyToPack = outbound.filter((o: any) => o.status === 'PICKED' || o.status === 'PACKING' || o.status === 'PACKED').length;
+      const pendingInbound = inbound.filter((i: any) => i.status === 'PENDING' || i.status === 'RECEIVING' || i.status === 'CHECKING').length;
+      const now = Date.now();
+      const nearExpiryLots = lots.filter((l: any) => l.expiryDate && (new Date(l.expiryDate).getTime() - now < 7 * 86400000)).length;
+
+      setMetrics({
+        pendingInbound,
+        pendingPicking,
+        readyToPack,
+        nearExpiryLots,
+        totalLots: lots.length,
+      });
     } catch (e) {
       console.error(e);
     } finally {

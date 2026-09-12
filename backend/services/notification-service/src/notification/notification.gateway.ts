@@ -22,7 +22,19 @@ export class NotificationGateway implements OnGatewayInit, OnGatewayConnection, 
     console.log('WebSocket Gateway Initialized');
     
     // Subscribe to all event channels
-    const channels = ['sensor_anomaly', 'spoilage_risk_high', 'low_stock', 'stock_depleted', 'lot_imported'];
+    const channels = [
+      'sensor_anomaly',
+      'spoilage_risk_high',
+      'low_stock',
+      'stock_depleted',
+      'lot_imported',
+      'outbound_order_created',
+      'outbound_order_updated',
+      'order_status_updated',
+      'order_locked',
+      'order_unlocked',
+      'outbound_confirmed',
+    ];
     this.redisSub.subscribe(...channels);
 
     this.redisSub.on('message', (channel, message) => {

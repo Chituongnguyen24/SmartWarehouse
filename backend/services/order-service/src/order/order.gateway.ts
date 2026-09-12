@@ -34,4 +34,12 @@ export class OrderGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.logger.log(`Emitted order_status_updated for Order ID: ${orderData.id}, Status: ${orderData.status}`);
     }
   }
+
+  broadcastEvent(event: string, payload: any) {
+    if (this.server) {
+      this.server.emit(event, payload);
+      this.server.emit('all_alerts', { channel: event, data: payload, timestamp: new Date().toISOString() });
+      this.logger.log(`Broadcasted "${event}" event: ${JSON.stringify(payload)}`);
+    }
+  }
 }

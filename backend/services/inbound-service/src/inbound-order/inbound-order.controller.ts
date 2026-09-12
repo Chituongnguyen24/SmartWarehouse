@@ -1,10 +1,45 @@
 import { Controller, Get, Post, Put, Patch, Body, Param, NotFoundException, Query } from '@nestjs/common';
 import { InboundOrderService } from './inbound-order.service';
+import { MLDemandForecastingService } from './ml-demand-forecasting.service';
 
 @Controller('inbound-orders')
 export class InboundOrderController {
-  constructor(private readonly inboundOrderService: InboundOrderService) {}
+  constructor(
+    private readonly inboundOrderService: InboundOrderService,
+    private readonly mlDemandForecastingService: MLDemandForecastingService,
+  ) {}
 
+  // ── AI & ML DEMAND FORECASTING ENDPOINTS ──
+  @Get('ai-forecast')
+  async getAIForecast(
+    @Query('recalculate') recalculate?: string,
+    @Query('warehouseCode') warehouseCode?: string,
+  ) {
+    try {
+      const force = recalculate === 'true';
+      return await this.mlDemandForecastingService.getForecast(warehouseCode, force);
+    } catch (err) {
+      console.error('[InboundOrderController] Error in getAIForecast:', err);
+      throw err;
+    }
+  }
+
+  @Get('ai-forecast/sku/:sku')
+  async getSkuForecast(
+    @Param('sku') sku: string,
+    @Query('warehouseCode') warehouseCode?: string,
+  ) {
+    const result = await this.mlDemandForecastingService.getSkuForecast(sku, warehouseCode);
+    if (!result) throw new NotFoundException(`Forecast data not found for SKU: ${sku}`);
+    return result;
+  }
+
+  @Post('ai-forecast/recalculate')
+  async recalculateForecast(@Query('warehouseCode') warehouseCode?: string) {
+    return this.mlDemandForecastingService.computeFullForecast(warehouseCode);
+  }
+
+  // ── STANDARD INBOUND ORDER ENDPOINTS ──
   @Get()
   async findAll(@Query('warehouseCode') warehouseCode: string) {
     return this.inboundOrderService.findAll(warehouseCode);

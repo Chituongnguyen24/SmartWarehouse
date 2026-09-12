@@ -1,11 +1,15 @@
 export interface StaffUser {
   id: string;
+  code?: string;
   name: string;
-  role: 'WAREHOUSE_STAFF' | 'WAREHOUSE_MANAGER';
+  email?: string;
+  role: 'WAREHOUSE_STAFF' | 'WAREHOUSE_MANAGER' | 'DRIVER' | 'ADMIN' | string;
   warehouseCode: string;
   warehouseName: string;
+  assignedZone?: string;
   avatar?: string;
-  shift: string;
+  shift?: string;
+  status?: string;
 }
 
 export interface PickingItem {
@@ -20,6 +24,7 @@ export interface PickingItem {
   lotCode: string;
   expiryDate: string;
   shelfLocation: string; // VD: Kệ A1-02-B
+  location?: string;
   zone: 'DRY' | 'COOL' | 'FROZEN';
   barcode: string;
   status: 'PENDING' | 'PICKED' | 'SHORTAGE';

@@ -42,18 +42,16 @@ interface ProofOfDeliveryScreenProps {
   onSuccess: () => void;
 }
 
-const SERVER_HOSTS = [
-  'http://192.168.2.147:3004',
-  'http://localhost:3004',
-  'http://10.0.2.2:3004',
-];
+import { driverApi } from '../services/api';
+import { addPodWatermark } from '../utils/watermarkHelper';
+import { UserCheck, Shield } from 'lucide-react-native';
 
 export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
   task,
   onBack,
   onSuccess,
 }) => {
-  const { completeDelivery, reportDeliveryFailure } = useDriverTask();
+  const { tasks, completeDelivery, reportDeliveryFailure, driverProfile } = useDriverTask();
 
   const [activeMode, setActiveMode] = useState<'POD' | 'EXCEPTION'>('POD');
   const [photoUri, setPhotoUri] = useState<string>('https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&q=80');
@@ -61,6 +59,10 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
   const [isUploadingS3, setIsUploadingS3] = useState<boolean>(false);
   const [isCodCollected, setIsCodCollected] = useState(task.codAmount === 0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Receiver Identity Selection
+  const [receiverRole, setReceiverRole] = useState<'SELF' | 'FAMILY' | 'SECURITY'>('SELF');
+  const [receiverName, setReceiverName] = useState<string>(task.customerName);
 
   // Exception reasons list for Reverse Logistics
   const EXCEPTION_REASONS = [
@@ -76,6 +78,27 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
 
   const formatPrice = (val: number) => val.toLocaleString('vi-VN') + 'đ';
 
+  const processAndUploadPhoto = async (rawUri: string, mode: 'POD' | 'EXCEPTION') => {
+    try {
+      const watermarkedUri = await addPodWatermark(rawUri, {
+        orderCode: task.orderCode,
+        customerName: receiverName || task.customerName,
+        deliveryAddress: task.deliveryAddress,
+        lat: task.latitude,
+        lng: task.longitude,
+        driverName: driverProfile?.name || 'Tài xế C.T Mart',
+        licensePlate: driverProfile?.licensePlate || '59-S2 555.66',
+        tempC: driverProfile?.currentTemp || 3.2,
+        type: mode === 'POD' ? 'POD_DELIVERY' : 'RETURN_EXCEPTION',
+      });
+      setPhotoUri(watermarkedUri);
+      uploadToAmazonS3(watermarkedUri, mode);
+    } catch (e) {
+      setPhotoUri(rawUri);
+      uploadToAmazonS3(rawUri, mode);
+    }
+  };
+
   // 1. Chụp ảnh thực tế bằng Camera (Universal Native & Web)
   const handleTakePhoto = () => {
     if (typeof document !== 'undefined') {
@@ -88,10 +111,9 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
           const file = e.target?.files?.[0];
           if (file) {
             const reader = new FileReader();
-            reader.onload = () => {
+            reader.onload = async () => {
               const dataUrl = reader.result as string;
-              setPhotoUri(dataUrl);
-              uploadToAmazonS3(dataUrl, activeMode);
+              await processAndUploadPhoto(dataUrl, activeMode);
             };
             reader.readAsDataURL(file);
           }
@@ -104,9 +126,8 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
     const sampleUri = activeMode === 'POD'
       ? 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&q=80'
       : 'https://images.unsplash.com/photo-1558611848-73f7eb4001a1?w=500&q=80';
-    setPhotoUri(sampleUri);
-    uploadToAmazonS3(sampleUri, activeMode);
-    Alert.alert('📸 Đã chụp ảnh POD', 'Ảnh kiện hàng đã được đính kèm và lưu trữ.');
+    processAndUploadPhoto(sampleUri, activeMode);
+    Alert.alert('📸 Đã chụp ảnh POD', 'Ảnh kiện hàng đã được đóng dấu chìm GPS & Timestamp.');
   };
 
   // 2. Chọn ảnh từ thư viện (Universal Native & Web)
@@ -120,10 +141,9 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
           const file = e.target?.files?.[0];
           if (file) {
             const reader = new FileReader();
-            reader.onload = () => {
+            reader.onload = async () => {
               const dataUrl = reader.result as string;
-              setPhotoUri(dataUrl);
-              uploadToAmazonS3(dataUrl, activeMode);
+              await processAndUploadPhoto(dataUrl, activeMode);
             };
             reader.readAsDataURL(file);
           }
@@ -134,69 +154,56 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
     }
 
     const sampleUri = 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=500&q=80';
-    setPhotoUri(sampleUri);
-    uploadToAmazonS3(sampleUri, activeMode);
+    processAndUploadPhoto(sampleUri, activeMode);
   };
 
   // 3. Upload ảnh lên Amazon S3 thông qua backend order-service
   const uploadToAmazonS3 = async (base64: string, type: 'POD' | 'EXCEPTION') => {
     setIsUploadingS3(true);
-    for (const host of SERVER_HOSTS) {
-      try {
-        const res = await fetch(`${host}/orders/upload-pod-image`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            imageBase64: base64,
-            orderId: task.id,
-            type: type === 'POD' ? 'POD' : 'RETURN',
-          }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          setS3UploadedUrl(data.url);
-          break;
-        }
-      } catch (err) {}
+    try {
+      const res = await driverApi.uploadPodImage(task.id, base64, type === 'POD' ? 'POD' : 'RETURN');
+      if (res.url) {
+        setS3UploadedUrl(res.url);
+      }
+    } catch (err) {
+      // Handled quietly
+    } finally {
+      setIsUploadingS3(false);
     }
-    setIsUploadingS3(false);
   };
 
-  const handleConfirmPOD = () => {
+  const handleConfirmPOD = async () => {
     if (task.codAmount > 0 && !isCodCollected) {
-      Alert.alert('⚠️ Chưa xác nhận thu COD', 'Vui lòng tích chọn đã thu đủ số tiền COD từ khách hàng!');
+      if (Platform.OS === 'web') {
+        window.alert('⚠️ Chưa xác nhận thu COD: Vui lòng tích chọn đã thu đủ số tiền COD từ khách hàng!');
+      } else {
+        Alert.alert('⚠️ Chưa xác nhận thu COD', 'Vui lòng tích chọn đã thu đủ số tiền COD từ khách hàng!');
+      }
       return;
     }
 
     setIsSubmitting(true);
     const finalPhoto = s3UploadedUrl || photoUri;
 
-    setTimeout(() => {
-      completeDelivery(task.id, finalPhoto);
+    try {
+      await completeDelivery(task.id, finalPhoto);
+    } finally {
       setIsSubmitting(false);
-      Alert.alert(
-        '🎉 Giao hàng thành công!',
-        `Đã hoàn tất POD cho đơn #${task.orderCode}.\nẢnh đã lưu trữ an toàn trên Amazon S3 Cloud.\nPhí ship 35.000đ đã được cộng vào Ví thu nhập!`,
-        [{ text: 'Trở về trang chủ', onPress: onSuccess }]
-      );
-    }, 400);
+      onSuccess();
+    }
   };
 
-  const handleReportFailure = () => {
+  const handleReportFailure = async () => {
     const finalReason = customNote.trim() ? `${selectedReason} - ${customNote}` : selectedReason;
     const finalPhoto = s3UploadedUrl || photoUri;
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      reportDeliveryFailure(task.id, finalReason, finalPhoto);
+    try {
+      await reportDeliveryFailure(task.id, finalReason, finalPhoto);
+    } finally {
       setIsSubmitting(false);
-      Alert.alert(
-        '🔄 Đã ghi nhận hàng hoàn',
-        `Đơn hàng #${task.orderCode} đã chuyển sang trạng thái "Trả Hàng Về Kho (Reverse Logistics)".\nVui lòng bảo quản kiện hàng lạnh và mang về Kho Gò Vấp khi kết thúc chuyến.`,
-        [{ text: 'Trở về trang chủ', onPress: onSuccess }]
-      );
-    }, 400);
+      onSuccess();
+    }
   };
 
   const nowString = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN');
@@ -283,14 +290,84 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
               )}
             </View>
 
-            {/* Step 2: Proof Photo Capture with Camera & S3 Sync */}
+            {/* Step 2: Receiver Identity Verification */}
             <View style={styles.card}>
               <View style={styles.cardHeaderRow}>
                 <View style={styles.stepNumberBadge}>
                   <Text style={styles.stepNumberText}>2</Text>
                 </View>
+                <UserCheck size={16} color={COLORS.primary} />
+                <Text style={styles.cardTitle}>Xác thực người nhận hàng</Text>
+              </View>
+
+              {/* Role Selection Chips */}
+              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+                {[
+                  { id: 'SELF', label: '👤 Chính chủ', desc: 'Khách nhận trực tiếp' },
+                  { id: 'FAMILY', label: '👨‍👩‍👧 Người nhận hộ', desc: 'Người nhà / Bạn bè' },
+                  { id: 'SECURITY', label: '🏢 Lễ tân / Bảo vệ', desc: 'Gửi sảnh chung cư' },
+                ].map((item) => {
+                  const isSel = receiverRole === item.id;
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[
+                        {
+                          flex: 1,
+                          paddingVertical: 8,
+                          paddingHorizontal: 6,
+                          borderRadius: 8,
+                          borderWidth: 1.5,
+                          borderColor: isSel ? COLORS.primary : '#e2e8f0',
+                          backgroundColor: isSel ? '#f0fdf4' : '#f8fafc',
+                          alignItems: 'center',
+                        },
+                      ]}
+                      onPress={() => {
+                        setReceiverRole(item.id as any);
+                        if (item.id === 'SELF') setReceiverName(task.customerName);
+                        else if (item.id === 'SECURITY') setReceiverName('Bảo vệ / Lễ tân sảnh');
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: isSel ? COLORS.primary : '#334155' }}>
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text style={{ fontSize: 11, color: '#64748b', marginBottom: 4, fontWeight: '600' }}>
+                Họ và tên người nhận thực tế:
+              </Text>
+              <TextInput
+                style={{
+                  backgroundColor: '#f8fafc',
+                  borderWidth: 1,
+                  borderColor: '#cbd5e1',
+                  borderRadius: 8,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  fontSize: 13,
+                  color: '#0f172a',
+                  fontWeight: '600',
+                }}
+                value={receiverName}
+                onChangeText={setReceiverName}
+                placeholder="Nhập tên người nhận..."
+                placeholderTextColor="#94a3b8"
+              />
+            </View>
+
+            {/* Step 3: Proof Photo Capture with Camera & S3 Sync */}
+            <View style={styles.card}>
+              <View style={styles.cardHeaderRow}>
+                <View style={styles.stepNumberBadge}>
+                  <Text style={styles.stepNumberText}>3</Text>
+                </View>
                 <Camera size={16} color={COLORS.primary} />
-                <Text style={styles.cardTitle}>Ảnh Bằng Chứng Giao Hàng (POD)</Text>
+                <Text style={styles.cardTitle}>Ảnh Bằng Chứng Giao Hàng (POD Watermark)</Text>
               </View>
 
               {/* Photo Box with GPS & Timestamp Watermark */}

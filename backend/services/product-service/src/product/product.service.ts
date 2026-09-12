@@ -2,18 +2,47 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './product.entity';
-import { LARGE_SEED_PRODUCTS } from './product.seed-data';
+import Redis from 'ioredis';
 
 @Injectable()
 export class ProductService implements OnModuleInit {
+  private redisClient: Redis;
+
   constructor(
     @InjectRepository(Product)
     private productRepository: Repository<Product>,
-  ) {}
+  ) {
+    this.redisClient = new Redis({
+      host: process.env.REDIS_HOST || 'localhost',
+      port: Number(process.env.REDIS_PORT) || 6379,
+      maxRetriesPerRequest: null,
+      enableOfflineQueue: false,
+      retryStrategy: (times) => Math.min(times * 100, 3000),
+    });
+
+    this.redisClient.on('error', (err) => {
+      console.warn(`[ProductService] Redis warning: ${err.message}`);
+    });
+  }
 
   async onModuleInit() {
-    // Tắt auto-seed để sử dụng hoàn toàn dữ liệu thật từ DB của người dùng
-    console.log('[ProductService] Initialized with real database data.');
+    console.log('[ProductService] Initialized with real database data & Redis Caching.');
+  }
+
+  private async invalidateProductCache() {
+    try {
+      if (this.redisClient && this.redisClient.status === 'ready') {
+        const keys = await this.redisClient.keys('cache:product:*');
+        const catKeys = await this.redisClient.keys('cache:categories:*');
+        const allKeys = [...keys, ...catKeys];
+        if (allKeys.length > 0) {
+          await this.redisClient.del(...allKeys);
+          console.log(`[PRODUCT REDIS CACHE] 🧹 Invalidated ${allKeys.length} product cache keys`);
+        }
+      }
+    } catch (e) {
+      console.warn('[PRODUCT REDIS CACHE] Failed to invalidate cache:', e.message);
+    }
   }
 
   async findAll(
@@ -23,6 +52,18 @@ export class ProductService implements OnModuleInit {
     page: number = 1,
     limit: number = 20
   ): Promise<{ items: Product[], total: number, page: number, totalPages: number }> {
+    const cacheKey = `cache:product:list:${keyword || ''}:${category || ''}:${isFlashSale ?? ''}:${page}:${limit}`;
+
+    // 1. Check Redis Cache
+    try {
+      if (this.redisClient && this.redisClient.status === 'ready') {
+        const cached = await this.redisClient.get(cacheKey);
+        if (cached) {
+          return JSON.parse(cached);
+        }
+      }
+    } catch (e) {}
+
     const queryBuilder = this.productRepository.createQueryBuilder('product');
 
     if (keyword) {
@@ -45,15 +86,34 @@ export class ProductService implements OnModuleInit {
 
     const [items, total] = await queryBuilder.getManyAndCount();
 
-    return {
+    const result = {
       items,
       total,
       page: Number(page),
       totalPages: Math.ceil(total / limit)
     };
+
+    // 2. Store in Redis with TTL 300 seconds
+    try {
+      if (this.redisClient && this.redisClient.status === 'ready') {
+        await this.redisClient.set(cacheKey, JSON.stringify(result), 'EX', 300);
+      }
+    } catch (e) {}
+
+    return result;
   }
 
   async getCategories(): Promise<{ name: string; count: number }[]> {
+    const cacheKey = 'cache:categories:all';
+    try {
+      if (this.redisClient && this.redisClient.status === 'ready') {
+        const cached = await this.redisClient.get(cacheKey);
+        if (cached) {
+          return JSON.parse(cached);
+        }
+      }
+    } catch (e) {}
+
     const rawResults = await this.productRepository
       .createQueryBuilder('product')
       .select('TRIM(product.category)', 'name')
@@ -81,32 +141,77 @@ export class ProductService implements OnModuleInit {
       }
     }
 
-    return Array.from(categoryMap.values()).sort((a, b) => b.count - a.count);
+    const categories = Array.from(categoryMap.values()).sort((a, b) => b.count - a.count);
+
+    try {
+      if (this.redisClient && this.redisClient.status === 'ready') {
+        await this.redisClient.set(cacheKey, JSON.stringify(categories), 'EX', 600);
+      }
+    } catch (e) {}
+
+    return categories;
   }
 
   async findOne(id: string): Promise<Product | null> {
+    const cacheKey = `cache:product:item:${id}`;
+    try {
+      if (this.redisClient && this.redisClient.status === 'ready') {
+        const cached = await this.redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+      }
+    } catch (e) {}
+
     const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id);
-    if (isUuid) {
-      return this.productRepository.findOneBy({ id });
+    const prod = isUuid
+      ? await this.productRepository.findOneBy({ id })
+      : await this.productRepository.findOneBy({ sku: id });
+
+    if (prod) {
+      try {
+        if (this.redisClient && this.redisClient.status === 'ready') {
+          await this.redisClient.set(cacheKey, JSON.stringify(prod), 'EX', 300);
+        }
+      } catch (e) {}
     }
-    return this.productRepository.findOneBy({ sku: id });
+
+    return prod;
   }
 
   async findOneBySku(sku: string): Promise<Product | null> {
-    return this.productRepository.findOneBy({ sku });
+    const cacheKey = `cache:product:sku:${sku}`;
+    try {
+      if (this.redisClient && this.redisClient.status === 'ready') {
+        const cached = await this.redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+      }
+    } catch (e) {}
+
+    const prod = await this.productRepository.findOneBy({ sku });
+    if (prod) {
+      try {
+        if (this.redisClient && this.redisClient.status === 'ready') {
+          await this.redisClient.set(cacheKey, JSON.stringify(prod), 'EX', 300);
+        }
+      } catch (e) {}
+    }
+    return prod;
   }
 
   async create(prod: Partial<Product>): Promise<Product> {
     const newProd = this.productRepository.create(prod);
-    return this.productRepository.save(newProd);
+    const saved = await this.productRepository.save(newProd);
+    this.invalidateProductCache();
+    return saved;
   }
 
   async update(id: string, prod: Partial<Product>): Promise<Product> {
     await this.productRepository.update(id, prod);
+    this.invalidateProductCache();
     return this.findOne(id);
   }
 
   async remove(id: string): Promise<void> {
     await this.productRepository.delete(id);
+    this.invalidateProductCache();
   }
 }

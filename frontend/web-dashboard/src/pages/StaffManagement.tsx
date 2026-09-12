@@ -1,806 +1,796 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Users, UserPlus, Search, Edit, Trash2, 
   Clock, Phone, Mail, MapPin, Building, 
-  Truck, Package, X, UserCheck
+  Truck, Package, X, UserCheck, RefreshCw, Key, Shield, ShieldCheck,
+  AlertCircle, CheckCircle2, Lock, Eye, EyeOff
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useWarehouse } from '../contexts/WarehouseContext';
 
-interface WarehouseStaffMember {
+const USER_API = 'http://localhost:3012';
+
+export interface WarehouseStaffMember {
   id: string;
-  code: string; // NV-001
+  code?: string;
   name: string;
   email: string;
-  phone: string;
-  roleTitle: 'Thủ kho' | 'Nhân viên Soạn hàng' | 'Nhân viên Đóng gói' | 'Nhân viên Kiểm định (QC)' | 'Tài xế giao hàng' | 'Nhân viên Bốc xếp';
-  department: 'Quản trị kho' | 'Soạn hàng (Picking)' | 'Đóng gói (Packing)' | 'Kiểm định chất lượng' | 'Vận chuyển (Fleet)' | 'Bốc xếp & Nhập hàng';
-  warehouseCode: string;
-  assignedZone: string; // Khu Mát A, Khu Đông B, Khu Khô C, Bãi xuất hàng...
-  shift: 'CA_SANG' | 'CA_CHIEU' | 'CA_DEM' | 'HANH_CHINH';
-  status: 'ACTIVE' | 'ON_LEAVE' | 'OFF_DUTY';
-  rating: number; // 4.8 / 5
-  joinedDate: string;
-  tasksCompleted: number;
+  phone?: string;
+  role: 'WAREHOUSE_STAFF' | 'WAREHOUSE_MANAGER' | 'DRIVER' | 'ADMIN' | 'SALES_STAFF';
+  department?: string;
+  warehouseCode?: string;
+  assignedZone?: string;
+  shift?: 'CA_SANG' | 'CA_CHIEU' | 'CA_DEM' | 'HANH_CHINH' | string;
+  status: 'ACTIVE' | 'ON_LEAVE' | 'INACTIVE' | 'OFF_DUTY' | string;
+  rating?: number;
+  tasksCompleted?: number;
+  createdAt?: string;
 }
 
-const INITIAL_STAFF_GOVAP: WarehouseStaffMember[] = [
-  {
-    id: 'stf-001',
-    code: 'NV-GV01',
-    name: 'Nguyễn Hoàng Nam',
-    email: 'nam.nguyen@ctmart.vn',
-    phone: '0908123456',
-    roleTitle: 'Thủ kho',
-    department: 'Quản trị kho',
-    warehouseCode: 'WH-006',
-    assignedZone: 'Toàn bộ Kho Gò Vấp',
-    shift: 'HANH_CHINH',
-    status: 'ACTIVE',
-    rating: 4.9,
-    joinedDate: '15/01/2023',
-    tasksCompleted: 1420
-  },
-  {
-    id: 'stf-002',
-    code: 'NV-GV02',
-    name: 'Trần Văn Bình',
-    email: 'binh.tran@ctmart.vn',
-    phone: '0912345678',
-    roleTitle: 'Nhân viên Soạn hàng',
-    department: 'Soạn hàng (Picking)',
-    warehouseCode: 'WH-006',
-    assignedZone: 'Khu Khô C (Dry-C1 -> C3)',
-    shift: 'CA_SANG',
-    status: 'ACTIVE',
-    rating: 4.8,
-    joinedDate: '10/05/2023',
-    tasksCompleted: 860
-  },
-  {
-    id: 'stf-003',
-    code: 'NV-GV03',
-    name: 'Lê Văn Kho',
-    email: 'kho.le@ctmart.vn',
-    phone: '0933987654',
-    roleTitle: 'Nhân viên Đóng gói',
-    department: 'Đóng gói (Packing)',
-    warehouseCode: 'WH-006',
-    assignedZone: 'Bàn Đóng Gói Pack-01',
-    shift: 'CA_SANG',
-    status: 'ACTIVE',
-    rating: 4.7,
-    joinedDate: '01/08/2023',
-    tasksCompleted: 920
-  },
-  {
-    id: 'stf-004',
-    code: 'NV-GV04',
-    name: 'Phạm Thị Thúy',
-    email: 'thuy.pham@ctmart.vn',
-    phone: '0987654321',
-    roleTitle: 'Nhân viên Kiểm định (QC)',
-    department: 'Kiểm định chất lượng',
-    warehouseCode: 'WH-006',
-    assignedZone: 'Cửa Tiếp Nhận & Trạm QC-01',
-    shift: 'CA_CHIEU',
-    status: 'ACTIVE',
-    rating: 4.9,
-    joinedDate: '12/11/2023',
-    tasksCompleted: 640
-  },
-  {
-    id: 'stf-005',
-    code: 'NV-GV05',
-    name: 'Võ Minh Trí',
-    email: 'tri.vo@ctmart.vn',
-    phone: '0977112233',
-    roleTitle: 'Tài xế giao hàng',
-    department: 'Vận chuyển (Fleet)',
-    warehouseCode: 'WH-006',
-    assignedZone: '🛵 Xe Máy Thùng Lạnh (59-V1 888.99)',
-    shift: 'CA_SANG',
-    status: 'ACTIVE',
-    rating: 4.95,
-    joinedDate: '05/02/2024',
-    tasksCompleted: 520
-  },
-  {
-    id: 'stf-006',
-    code: 'NV-GV06',
-    name: 'Nguyễn Văn Hùng',
-    email: 'hung.nguyen@ctmart.vn',
-    phone: '0909888111',
-    roleTitle: 'Tài xế giao hàng',
-    department: 'Vận chuyển (Fleet)',
-    warehouseCode: 'WH-006',
-    assignedZone: '🛵 Xe Máy Giao Siêu Tốc (59-G2 688.39)',
-    shift: 'CA_SANG',
-    status: 'ACTIVE',
-    rating: 4.9,
-    joinedDate: '15/03/2024',
-    tasksCompleted: 430
-  },
-  {
-    id: 'stf-007',
-    code: 'NV-GV07',
-    name: 'Trần Quốc Bảo',
-    email: 'bao.tran@ctmart.vn',
-    phone: '0933445566',
-    roleTitle: 'Tài xế giao hàng',
-    department: 'Vận chuyển (Fleet)',
-    warehouseCode: 'WH-006',
-    assignedZone: '🛵 Xe Máy Thùng Mát (59-P1 456.78)',
-    shift: 'CA_CHIEU',
-    status: 'ACTIVE',
-    rating: 4.85,
-    joinedDate: '10/04/2024',
-    tasksCompleted: 380
-  },
-  {
-    id: 'stf-008',
-    code: 'NV-GV08',
-    name: 'Phạm Hoàng Nam',
-    email: 'nam.pham@ctmart.vn',
-    phone: '0918776655',
-    roleTitle: 'Tài xế giao hàng',
-    department: 'Vận chuyển (Fleet)',
-    warehouseCode: 'WH-006',
-    assignedZone: '🛵 Xe Máy Thực Phẩm Tươi (59-K1 234.56)',
-    shift: 'CA_CHIEU',
-    status: 'ACTIVE',
-    rating: 4.8,
-    joinedDate: '22/04/2024',
-    tasksCompleted: 310
-  },
-  {
-    id: 'stf-009',
-    code: 'NV-GV09',
-    name: 'Lê Thanh Tùng',
-    email: 'tung.le@ctmart.vn',
-    phone: '0966332211',
-    roleTitle: 'Tài xế giao hàng',
-    department: 'Vận chuyển (Fleet)',
-    warehouseCode: 'WH-006',
-    assignedZone: '🛵 Xe Máy Thùng Lạnh (59-X1 999.11)',
-    shift: 'CA_SANG',
-    status: 'ON_LEAVE',
-    rating: 4.9,
-    joinedDate: '01/05/2024',
-    tasksCompleted: 275
-  },
-  {
-    id: 'stf-010',
-    code: 'NV-GV10',
-    name: 'Đặng Hữu Phúc',
-    email: 'phuc.dang@ctmart.vn',
-    phone: '0944778899',
-    roleTitle: 'Tài xế giao hàng',
-    department: 'Vận chuyển (Fleet)',
-    warehouseCode: 'WH-006',
-    assignedZone: '🛵 Xe Máy Giao Nhanh (59-T2 777.88)',
-    shift: 'CA_CHIEU',
-    status: 'ACTIVE',
-    rating: 4.75,
-    joinedDate: '15/05/2024',
-    tasksCompleted: 190
-  },
-  {
-    id: 'stf-011',
-    code: 'NV-GV11',
-    name: 'Đặng Quốc Huy',
-    email: 'huy.dang@ctmart.vn',
-    phone: '0944556677',
-    roleTitle: 'Nhân viên Bốc xếp',
-    department: 'Bốc xếp & Nhập hàng',
-    warehouseCode: 'WH-006',
-    assignedZone: 'Khu Đông B (Frozen-B1 -> B3)',
-    shift: 'CA_DEM',
-    status: 'OFF_DUTY',
-    rating: 4.6,
-    joinedDate: '20/03/2024',
-    tasksCompleted: 350
-  },
-  {
-    id: 'stf-012',
-    code: 'NV-GV12',
-    name: 'Lê Minh Quân',
-    email: 'quan.le@ctmart.vn',
-    phone: '0911223344',
-    roleTitle: 'Nhân viên Soạn hàng',
-    department: 'Soạn hàng (Picking)',
-    warehouseCode: 'WH-006',
-    assignedZone: 'Khu Mát A (Cold-A1 -> A3)',
-    shift: 'CA_SANG',
-    status: 'ACTIVE',
-    rating: 4.8,
-    joinedDate: '01/06/2024',
-    tasksCompleted: 210
-  }
-];
+export const StaffManagement: React.FC = () => {
+  const { user: currentUser, token } = useAuth();
+  const { warehouses, selectedWarehouseCode, setSelectedWarehouseCode } = useWarehouse();
 
-const SHIFT_MAP = {
-  CA_SANG: { label: 'Ca Sáng (06:00 - 14:00)', color: '#0284c7', bg: '#e0f2fe' },
-  CA_CHIEU: { label: 'Ca Chiều (14:00 - 22:00)', color: '#d97706', bg: '#fef3c7' },
-  CA_DEM: { label: 'Ca Đêm (22:00 - 06:00)', color: '#7c3aed', bg: '#ede9fe' },
-  HANH_CHINH: { label: 'Hành Chính (08:00 - 17:00)', color: '#0f766e', bg: '#ccfbf1' },
-};
+  const isAdmin = currentUser?.role === 'ADMIN';
+  const isManager = currentUser?.role === 'WAREHOUSE_MANAGER';
+  const myWarehouseCode = currentUser?.warehouseCode || 'WH-006';
 
-const STATUS_MAP = {
-  ACTIVE: { label: 'Đang Trong Ca', color: '#16a34a', bg: '#dcfce7', icon: '🟢' },
-  ON_LEAVE: { label: 'Nghỉ Phép', color: '#d97706', bg: '#fef3c7', icon: '🟡' },
-  OFF_DUTY: { label: 'Đã Tan Ca', color: '#64748b', bg: '#f1f5f9', icon: '⚪' },
-};
-
-export const StaffManagement = () => {
-  const { user } = useAuth();
-  
-  // Warehouse selector (Locked to WH-006 if manager)
-  const isManager = user?.role === 'WAREHOUSE_MANAGER';
-  const [selectedWarehouse, setSelectedWarehouse] = useState<string>(
-    user?.warehouseCode || (user?.email?.includes('govap') ? 'WH-006' : 'WH-006')
-  );
-
-  // Staff State with Local Storage persistence
-  const [staffList, setStaffList] = useState<WarehouseStaffMember[]>(() => {
-    try {
-      const saved = localStorage.getItem(`staff_list_${selectedWarehouse}`);
-      return saved ? JSON.parse(saved) : INITIAL_STAFF_GOVAP;
-    } catch {
-      return INITIAL_STAFF_GOVAP;
-    }
+  const [staffList, setStaffList] = useState<WarehouseStaffMember[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>('ALL');
+  const [selectedShiftFilter, setSelectedShiftFilter] = useState<string>('ALL');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('ALL');
+  const [activeWhFilter, setActiveWhFilter] = useState<string>(() => {
+    return isManager ? myWarehouseCode : (selectedWarehouseCode || 'WH-006');
   });
 
-  // Filters & Search
-  const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState('ALL');
-  const [shiftFilter, setShiftFilter] = useState('ALL');
-  const [statusFilter, setStatusFilter] = useState('ALL');
-
-  // Modal State (Create / Edit)
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingStaff, setEditingStaff] = useState<WarehouseStaffMember | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Form State
-  const [formData, setFormData] = useState<Partial<WarehouseStaffMember>>({
+  const [formData, setFormData] = useState({
     code: '',
     name: '',
     email: '',
     phone: '',
-    roleTitle: 'Nhân viên Soạn hàng',
-    department: 'Soạn hàng (Picking)',
-    assignedZone: 'Khu Mát A (Cold-A1)',
+    password: '',
+    role: 'WAREHOUSE_STAFF' as WarehouseStaffMember['role'],
+    warehouseCode: 'WH-006',
+    department: 'Vận hành kho',
+    assignedZone: 'Khu Khô C & Soạn hàng',
     shift: 'CA_SANG',
     status: 'ACTIVE',
   });
 
-  // Save to LocalStorage whenever staffList changes
-  useEffect(() => {
+  const showToast = (text: string, type: 'success' | 'error' = 'success') => {
+    setToastMessage({ text, type });
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Fetch Staff list from real user-service DB
+  const fetchStaffData = useCallback(async () => {
+    setIsLoading(true);
     try {
-      localStorage.setItem(`staff_list_${selectedWarehouse}`, JSON.stringify(staffList));
-    } catch (e) {
-      console.error(e);
+      let url = `${USER_API}/users/staff?`;
+      if (activeWhFilter && activeWhFilter !== 'ALL') {
+        url += `warehouseCode=${encodeURIComponent(activeWhFilter)}&`;
+      }
+      if (selectedRoleFilter && selectedRoleFilter !== 'ALL') {
+        url += `role=${encodeURIComponent(selectedRoleFilter)}&`;
+      }
+      if (selectedStatusFilter && selectedStatusFilter !== 'ALL') {
+        url += `status=${encodeURIComponent(selectedStatusFilter)}&`;
+      }
+      if (searchQuery.trim()) {
+        url += `search=${encodeURIComponent(searchQuery.trim())}&`;
+      }
+
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setStaffList(Array.isArray(data) ? data : []);
+      } else {
+        showToast('Không thể tải danh sách nhân viên từ máy chủ', 'error');
+      }
+    } catch (err: any) {
+      console.error('Fetch staff error:', err);
+      showToast(`Lỗi kết nối user-service: ${err.message}`, 'error');
+    } finally {
+      setIsLoading(false);
     }
-  }, [staffList, selectedWarehouse]);
+  }, [activeWhFilter, selectedRoleFilter, selectedStatusFilter, searchQuery, token]);
 
-  // KPIs
-  const kpis = useMemo(() => {
-    const total = staffList.length;
-    const active = staffList.filter(s => s.status === 'ACTIVE').length;
-    const onLeave = staffList.filter(s => s.status === 'ON_LEAVE').length;
-    const pickers = staffList.filter(s => s.roleTitle.includes('Soạn') || s.roleTitle.includes('Đóng gói')).length;
-    const drivers = staffList.filter(s => s.roleTitle.includes('Tài xế')).length;
-    return { total, active, onLeave, pickers, drivers };
-  }, [staffList]);
+  useEffect(() => {
+    fetchStaffData();
+  }, [fetchStaffData]);
 
-  // Filtered List
+  // Sync with WarehouseContext
+  useEffect(() => {
+    if (isManager && myWarehouseCode) {
+      setActiveWhFilter(myWarehouseCode);
+    } else if (selectedWarehouseCode) {
+      setActiveWhFilter(selectedWarehouseCode);
+    }
+  }, [isManager, myWarehouseCode, selectedWarehouseCode]);
+
+  // Filtered staff list by shift and UI search
   const filteredStaff = useMemo(() => {
     return staffList.filter(s => {
-      const matchWh = s.warehouseCode === selectedWarehouse;
-      const matchSearch = searchQuery.trim() === '' || 
-        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.phone.includes(searchQuery) ||
-        s.email.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchRole = roleFilter === 'ALL' || s.roleTitle === roleFilter;
-      const matchShift = shiftFilter === 'ALL' || s.shift === shiftFilter;
-      const matchStatus = statusFilter === 'ALL' || s.status === statusFilter;
-
-      return matchWh && matchSearch && matchRole && matchShift && matchStatus;
+      if (selectedShiftFilter !== 'ALL' && s.shift !== selectedShiftFilter) return false;
+      return true;
     });
-  }, [staffList, selectedWarehouse, searchQuery, roleFilter, shiftFilter, statusFilter]);
+  }, [staffList, selectedShiftFilter]);
 
-  // Open Create Modal
-  const handleOpenCreate = () => {
-    const nextCode = `NV-GV0${staffList.length + 1}`;
+  // Staff KPI Summary
+  const stats = useMemo(() => {
+    const total = filteredStaff.length;
+    const active = filteredStaff.filter(s => s.status === 'ACTIVE').length;
+    const onLeave = filteredStaff.filter(s => s.status === 'ON_LEAVE').length;
+    const totalTasks = filteredStaff.reduce((sum, s) => sum + (s.tasksCompleted || 0), 0);
+    const avgRating = total > 0 
+      ? (filteredStaff.reduce((sum, s) => sum + (s.rating || 5), 0) / total).toFixed(1) 
+      : '5.0';
+
+    return { total, active, onLeave, totalTasks, avgRating };
+  }, [filteredStaff]);
+
+  // Open Modal for Add
+  const handleOpenAdd = () => {
     setEditingStaff(null);
+    setShowPassword(false);
     setFormData({
-      code: nextCode,
+      code: `NV-${activeWhFilter.replace('WH-', '') || 'GV'}${Math.floor(10 + Math.random() * 90)}`,
       name: '',
       email: '',
       phone: '',
-      roleTitle: 'Nhân viên Soạn hàng',
-      department: 'Soạn hàng (Picking)',
-      assignedZone: 'Khu Mát A (Cold-A1)',
+      password: 'password123',
+      role: 'WAREHOUSE_STAFF',
+      warehouseCode: activeWhFilter !== 'ALL' ? activeWhFilter : (myWarehouseCode || 'WH-006'),
+      department: 'Vận hành kho',
+      assignedZone: 'Khu Khô C & Soạn hàng',
       shift: 'CA_SANG',
       status: 'ACTIVE',
     });
     setIsModalOpen(true);
   };
 
-  // Open Edit Modal
+  // Open Modal for Edit
   const handleOpenEdit = (staff: WarehouseStaffMember) => {
     setEditingStaff(staff);
-    setFormData({ ...staff });
+    setShowPassword(false);
+    setFormData({
+      code: staff.code || '',
+      name: staff.name || '',
+      email: staff.email || '',
+      phone: staff.phone || '',
+      password: '', // Blank means keep old password
+      role: staff.role || 'WAREHOUSE_STAFF',
+      warehouseCode: staff.warehouseCode || 'WH-006',
+      department: staff.department || 'Vận hành kho',
+      assignedZone: staff.assignedZone || 'Toàn bộ kho',
+      shift: staff.shift || 'CA_SANG',
+      status: staff.status || 'ACTIVE',
+    });
     setIsModalOpen(true);
   };
 
-  // Save (Create / Update)
-  const handleSaveStaff = (e: React.FormEvent) => {
+  // Submit Add / Edit Form
+  const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.phone) {
-      alert('Vui lòng nhập đầy đủ họ tên và số điện thoại nhân viên!');
-      return;
-    }
+    setIsSubmitting(true);
 
-    if (editingStaff) {
-      // Update
-      setStaffList(prev => prev.map(s => s.id === editingStaff.id ? { ...s, ...formData } as WarehouseStaffMember : s));
-    } else {
-      // Create
-      const newMember: WarehouseStaffMember = {
-        id: `stf-${Date.now()}`,
-        code: formData.code || `NV-GV0${staffList.length + 1}`,
-        name: formData.name!,
-        email: formData.email || `${formData.name?.toLowerCase().replace(/\s+/g, '')}@ctmart.vn`,
-        phone: formData.phone!,
-        roleTitle: formData.roleTitle as any || 'Nhân viên Soạn hàng',
-        department: formData.department as any || 'Soạn hàng (Picking)',
-        warehouseCode: selectedWarehouse,
-        assignedZone: formData.assignedZone || 'Khu Mát A',
-        shift: formData.shift as any || 'CA_SANG',
-        status: formData.status as any || 'ACTIVE',
-        rating: 5.0,
-        joinedDate: new Date().toLocaleDateString('vi-VN'),
-        tasksCompleted: 0
-      };
-      setStaffList(prev => [newMember, ...prev]);
+    try {
+      if (editingStaff) {
+        // UPDATE API
+        const payload: any = {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          role: formData.role,
+          warehouseCode: formData.warehouseCode,
+          department: formData.department,
+          assignedZone: formData.assignedZone,
+          shift: formData.shift,
+          status: formData.status,
+          code: formData.code,
+        };
+        if (formData.password.trim()) {
+          payload.password = formData.password.trim();
+        }
+
+        const res = await fetch(`${USER_API}/users/staff/${editingStaff.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (res.ok) {
+          showToast(`✅ Đã cập nhật thông tin nhân viên ${formData.name}!`);
+          setIsModalOpen(false);
+          fetchStaffData();
+        } else {
+          const err = await res.json().catch(() => ({}));
+          showToast(`Lỗi: ${err.message || 'Cập nhật thất bại'}`, 'error');
+        }
+      } else {
+        // CREATE API
+        const payload = {
+          name: formData.name,
+          email: formData.email,
+          password: formData.password || 'password123',
+          phone: formData.phone,
+          role: formData.role,
+          warehouseCode: formData.warehouseCode,
+          department: formData.department,
+          assignedZone: formData.assignedZone,
+          shift: formData.shift,
+          status: formData.status,
+          code: formData.code,
+        };
+
+        const res = await fetch(`${USER_API}/users/staff`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (res.ok) {
+          showToast(`🎉 Cấp tài khoản nhân viên ${formData.name} thành công! Mật khẩu mặc định: ${formData.password || 'password123'}`);
+          setIsModalOpen(false);
+          fetchStaffData();
+        } else {
+          const err = await res.json().catch(() => ({}));
+          showToast(`Lỗi: ${err.message || 'Không thể tạo nhân viên'}`, 'error');
+        }
+      }
+    } catch (err: any) {
+      showToast(`Lỗi kết nối: ${err.message}`, 'error');
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsModalOpen(false);
+  };
+
+  // Toggle Staff Status (Quick Action)
+  const handleToggleStatus = async (staff: WarehouseStaffMember) => {
+    const newStatus = staff.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    try {
+      const res = await fetch(`${USER_API}/users/staff/${staff.id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (res.ok) {
+        showToast(`Đã chuyển trạng thái của ${staff.name} sang ${newStatus === 'ACTIVE' ? 'Hoạt động' : 'Tạm khóa'}`);
+        fetchStaffData();
+      }
+    } catch (err: any) {
+      showToast(`Lỗi đổi trạng thái: ${err.message}`, 'error');
+    }
   };
 
   // Delete Staff Member
-  const handleDeleteStaff = (id: string, name: string) => {
-    if (window.confirm(`Bạn có chắc chắn muốn xóa nhân viên "${name}" khỏi danh sách nhân sự kho?`)) {
-      setStaffList(prev => prev.filter(s => s.id !== id));
+  const handleDeleteStaff = async (staff: WarehouseStaffMember) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa tài khoản nhân viên "${staff.name}" (${staff.email}) khỏi hệ thống?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`${USER_API}/users/staff/${staff.id}`, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+      if (res.ok) {
+        showToast(`Đã xóa tài khoản nhân viên ${staff.name} thành công`);
+        fetchStaffData();
+      } else {
+        showToast('Không thể xóa tài khoản này', 'error');
+      }
+    } catch (err: any) {
+      showToast(`Lỗi xóa: ${err.message}`, 'error');
     }
   };
 
-  // Quick Status Toggle
-  const handleToggleStatus = (id: string, currentStatus: string) => {
-    const nextStatus = currentStatus === 'ACTIVE' ? 'OFF_DUTY' : currentStatus === 'OFF_DUTY' ? 'ON_LEAVE' : 'ACTIVE';
-    setStaffList(prev => prev.map(s => s.id === id ? { ...s, status: nextStatus as any } : s));
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case 'WAREHOUSE_MANAGER':
+        return <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, backgroundColor: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>👑 Thủ Kho / Quản Lý</span>;
+      case 'WAREHOUSE_STAFF':
+        return <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, backgroundColor: '#ccfbf1', color: '#0f766e', border: '1px solid #99f6e4' }}>📦 Nhân Viên Trực Kho</span>;
+      case 'DRIVER':
+        return <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, backgroundColor: '#e0e7ff', color: '#4338ca', border: '1px solid #c7d2fe' }}>🚚 Tài Xế Giao Hàng</span>;
+      case 'ADMIN':
+        return <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, backgroundColor: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca' }}>⭐ Quản Trị Viên</span>;
+      default:
+        return <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, backgroundColor: '#f1f5f9', color: '#475569' }}>{role}</span>;
+    }
+  };
+
+  const getShiftBadge = (shift?: string) => {
+    switch (shift) {
+      case 'CA_SANG':
+        return <span style={{ fontSize: '11px', fontWeight: 700, color: '#0284c7' }}>☀️ Ca Sáng (06:00 - 14:00)</span>;
+      case 'CA_CHIEU':
+        return <span style={{ fontSize: '11px', fontWeight: 700, color: '#d97706' }}>⛅ Ca Chiều (14:00 - 22:00)</span>;
+      case 'CA_DEM':
+        return <span style={{ fontSize: '11px', fontWeight: 700, color: '#7c3aed' }}>🌙 Ca Đêm (22:00 - 06:00)</span>;
+      default:
+        return <span style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>🏢 Hành Chính (08:00 - 17:00)</span>;
+    }
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', background: '#f8fafc', padding: '1.5rem', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '40px' }}>
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '24px',
+            right: '24px',
+            zIndex: 99999,
+            backgroundColor: toastMessage.type === 'success' ? '#0f766e' : '#dc2626',
+            color: '#ffffff',
+            padding: '12px 20px',
+            borderRadius: '12px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontWeight: 700,
+            fontSize: '13px',
+            animation: 'fadeIn 0.2s ease',
+          }}
+        >
+          {toastMessage.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+          <span>{toastMessage.text}</span>
+        </div>
+      )}
 
-      {/* Header section */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        background: '#ffffff',
-        padding: '1.25rem 1.5rem',
-        borderRadius: '16px',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 4px 20px -2px rgba(0,0,0,0.04)'
-      }}>
+      {/* Header Bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '20px 24px', borderRadius: '18px', border: '1px solid #e2e8f0', flexWrap: 'wrap', gap: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ background: '#0f766e', color: '#fff', padding: '12px', borderRadius: '14px', display: 'flex' }}>
-            <Building size={28} />
+          <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, #0f766e 0%, #115e59 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 8px 16px rgba(15, 118, 110, 0.25)' }}>
+            <Users size={26} />
           </div>
           <div>
-            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              Quản Lý Nhân Sự & Ca Trực Kho Hàng
-              <span style={{ fontSize: '0.8rem', background: '#ccfbf1', color: '#0f766e', padding: '3px 10px', borderRadius: '20px', fontWeight: 800 }}>
-                {selectedWarehouse === 'WH-006' ? '🏢 Kho Gò Vấp (WH-006)' : selectedWarehouse}
-              </span>
+            <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 900, color: '#0f172a' }}>
+              Quản Lý Nhân Viên Trực Kho & Cấp Tài Khoản
             </h2>
-            <p style={{ color: '#64748b', fontSize: '0.875rem', margin: '4px 0 0 0' }}>
-              Quản lý danh sách thủ kho, nhân viên soạn hàng, đóng gói, kiểm định và đội ngũ tài xế trực tiếp tại kho.
+            <p style={{ margin: '2px 0 0 0', fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>
+              Dữ liệu nhân sự thực tế từ cơ sở dữ liệu kho vận — Quản lý phân quyền và ca trực theo chi nhánh
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {/* Warehouse Selector for Admin */}
-          {!isManager && (
-            <select
-              value={selectedWarehouse}
-              onChange={e => setSelectedWarehouse(e.target.value)}
-              style={{
-                padding: '10px 14px', borderRadius: '10px', border: '1px solid #cbd5e1',
-                fontWeight: 700, fontSize: '0.85rem', background: '#fff', color: '#0f766e'
-              }}
-            >
-              <option value="WH-006">🏢 Kho Gò Vấp (WH-006)</option>
-              <option value="WH-001">🏢 Kho Quận 12 (WH-001)</option>
-              <option value="WH-002">🏢 Kho Thủ Đức (WH-002)</option>
-              <option value="WH-005">🏢 Kho Bình Thạnh (WH-005)</option>
-            </select>
+          {isAdmin ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f8fafc', padding: '6px 12px', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
+              <Building size={16} color="#0f766e" />
+              <select
+                value={activeWhFilter}
+                onChange={e => {
+                  const code = e.target.value;
+                  setActiveWhFilter(code);
+                  setSelectedWarehouseCode(code);
+                }}
+                style={{ border: 'none', background: 'transparent', fontWeight: 800, fontSize: '0.85rem', color: '#0f172a', outline: 'none', cursor: 'pointer' }}
+              >
+                <option value="ALL">🏢 Tất cả kho hàng</option>
+                {warehouses.map(w => (
+                  <option key={w.code} value={w.code}>
+                    📍 {w.name} ({w.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f0fdfa', padding: '8px 14px', borderRadius: '12px', border: '1px solid #99f6e4', color: '#0f766e', fontWeight: 800, fontSize: '0.85rem' }}>
+              <Building size={16} />
+              <span>Kho Trực Thuộc: {warehouses.find(w => w.code === myWarehouseCode)?.name || myWarehouseCode}</span>
+            </div>
           )}
 
           <button
-            onClick={handleOpenCreate}
+            onClick={() => fetchStaffData()}
+            disabled={isLoading}
             style={{
-              padding: '10px 18px',
-              borderRadius: '10px',
-              border: 'none',
-              backgroundColor: '#0f766e',
-              color: '#fff',
+              padding: '10px 14px',
+              borderRadius: '12px',
+              border: '1px solid #cbd5e1',
+              backgroundColor: '#f8fafc',
+              color: '#0f172a',
+              fontSize: '0.85rem',
               fontWeight: 800,
-              fontSize: '0.9rem',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(15,118,110,0.25)'
             }}
           >
-            <UserPlus size={18} /> + Thêm Nhân Viên Mới
+            <RefreshCw size={15} style={{ animation: isLoading ? 'spin 1s linear infinite' : 'none' }} />
+          </button>
+
+          <button
+            onClick={handleOpenAdd}
+            style={{
+              padding: '10px 18px',
+              borderRadius: '12px',
+              border: 'none',
+              backgroundColor: '#0f766e',
+              color: '#fff',
+              fontSize: '0.85rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 4px 14px rgba(15, 118, 110, 0.35)',
+            }}
+          >
+            <UserPlus size={16} />
+            <span>Cấp Tài Khoản Nhân Viên Mới</span>
           </button>
         </div>
       </div>
 
       {/* KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-        <div style={{ background: '#fff', padding: '16px 20px', borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: '0.82rem', fontWeight: 700 }}>
-            <span>TỔNG NHÂN SỰ KHO</span>
-            <Users size={18} color="#0f766e" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+        <div style={{ background: '#fff', padding: '16px 20px', borderRadius: '16px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0284c7' }}>
+            <Users size={22} />
           </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#0f766e', marginTop: '6px' }}>
-            {kpis.total} <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>nhân sự</span>
-          </div>
-        </div>
-
-        <div style={{ background: '#fff', padding: '16px 20px', borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: '0.82rem', fontWeight: 700 }}>
-            <span>ĐANG TRONG CA TRỰC</span>
-            <UserCheck size={18} color="#16a34a" />
-          </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#16a34a', marginTop: '6px' }}>
-            {kpis.active} <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#16a34a' }}>đang làm việc</span>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b' }}>TỔNG NHÂN SỰ TẠI KHO</div>
+            <div style={{ fontSize: '20px', fontWeight: 900, color: '#0f172a' }}>{stats.total} nhân viên</div>
           </div>
         </div>
 
-        <div style={{ background: '#fff', padding: '16px 20px', borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: '0.82rem', fontWeight: 700 }}>
-            <span>ĐỘI SOẠN & ĐÓNG GÓI</span>
-            <Package size={18} color="#0284c7" />
+        <div style={{ background: '#fff', padding: '16px 20px', borderRadius: '16px', border: '1px solid #ccfbf1', display: 'flex', alignItems: 'center', gap: '14px', backgroundColor: '#f0fdfa' }}>
+          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#ccfbf1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0f766e' }}>
+            <UserCheck size={22} />
           </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#0284c7', marginTop: '6px' }}>
-            {kpis.pickers} <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>nhân sự</span>
-          </div>
-        </div>
-
-        <div style={{ background: '#fff', padding: '16px 20px', borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: '0.82rem', fontWeight: 700 }}>
-            <span>ĐỘI TÀI XẾ GIAO HÀNG</span>
-            <Truck size={18} color="#d97706" />
-          </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#d97706', marginTop: '6px' }}>
-            {kpis.drivers} <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>tài xế</span>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 800, color: '#0f766e' }}>ĐANG TRONG CA TRỰC</div>
+            <div style={{ fontSize: '20px', fontWeight: 900, color: '#0f766e' }}>{stats.active} nhân sự</div>
           </div>
         </div>
 
-        <div style={{ background: '#fff', padding: '16px 20px', borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: '0.82rem', fontWeight: 700 }}>
-            <span>NGHỈ PHÉP / VẮNG MẶT</span>
-            <Clock size={18} color="#94a3b8" />
+        <div style={{ background: '#fff', padding: '16px 20px', borderRadius: '16px', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', gap: '14px', backgroundColor: '#fffbeb' }}>
+          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d97706' }}>
+            <Clock size={22} />
           </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#64748b', marginTop: '6px' }}>
-            {kpis.onLeave} <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>vắng mặt</span>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 800, color: '#b45309' }}>NGHỈ PHÉP / TẠM VẮNG</div>
+            <div style={{ fontSize: '20px', fontWeight: 900, color: '#b45309' }}>{stats.onLeave} nhân viên</div>
+          </div>
+        </div>
+
+        <div style={{ background: '#fff', padding: '16px 20px', borderRadius: '16px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#f3e8ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7c3aed' }}>
+            <Package size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 800, color: '#6b21a8' }}>TÁC VỤ HOÀN TẤT</div>
+            <div style={{ fontSize: '20px', fontWeight: 900, color: '#6b21a8' }}>{stats.totalTasks.toLocaleString()} đơn/lô</div>
           </div>
         </div>
       </div>
 
-      {/* Filter & Search Bar */}
-      <div style={{
-        background: '#ffffff',
-        padding: '14px 18px',
-        borderRadius: '14px',
-        border: '1px solid #e2e8f0',
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '12px',
-        alignItems: 'center',
-        justifyContent: 'space-between'
-      }}>
-        <div style={{ display: 'flex', gap: '10px', flex: 1, minWidth: '280px', maxWidth: '400px', position: 'relative' }}>
-          <Search size={18} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '10px' }} />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Tìm theo tên, mã NV, SĐT, email..."
-            style={{
-              width: '100%',
-              padding: '8px 12px 8px 38px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              fontSize: '0.85rem',
-              outline: 'none'
-            }}
-          />
+      {/* Filter Toolbar */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px', background: '#fff', padding: '14px 20px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 300px' }}>
+          <div style={{ position: 'relative', width: '100%', maxWidth: '380px' }}>
+            <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} size={16} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Tìm theo Tên, Mã NV, Email, SĐT, Phân khu..."
+              style={{
+                width: '100%',
+                padding: '9px 12px 9px 36px',
+                borderRadius: '10px',
+                border: '1px solid #cbd5e1',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                outline: 'none',
+              }}
+            />
+          </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
+          {/* Role Filter */}
           <select
-            value={roleFilter}
-            onChange={e => setRoleFilter(e.target.value)}
-            style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#fff' }}
+            value={selectedRoleFilter}
+            onChange={e => setSelectedRoleFilter(e.target.value)}
+            style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontWeight: 700, fontSize: '0.85rem', background: '#f8fafc', outline: 'none', cursor: 'pointer' }}
           >
-            <option value="ALL">Tất cả Vị trí / Chức vụ</option>
-            <option value="Thủ kho">Thủ kho</option>
-            <option value="Nhân viên Soạn hàng">Nhân viên Soạn hàng</option>
-            <option value="Nhân viên Đóng gói">Nhân viên Đóng gói</option>
-            <option value="Nhân viên Kiểm định (QC)">Nhân viên Kiểm định (QC)</option>
-            <option value="Tài xế giao hàng">Tài xế giao hàng</option>
-            <option value="Nhân viên Bốc xếp">Nhân viên Bốc xếp</option>
+            <option value="ALL">Tất cả chức vụ</option>
+            <option value="WAREHOUSE_STAFF">📦 Nhân viên trực kho</option>
+            <option value="WAREHOUSE_MANAGER">👑 Thủ kho / Quản lý</option>
+            <option value="DRIVER">🚚 Tài xế giao hàng</option>
+            <option value="ADMIN">⭐ Quản trị viên</option>
           </select>
 
+          {/* Shift Filter */}
           <select
-            value={shiftFilter}
-            onChange={e => setShiftFilter(e.target.value)}
-            style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#fff' }}
+            value={selectedShiftFilter}
+            onChange={e => setSelectedShiftFilter(e.target.value)}
+            style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontWeight: 700, fontSize: '0.85rem', background: '#f8fafc', outline: 'none', cursor: 'pointer' }}
           >
-            <option value="ALL">Tất cả Ca trực</option>
+            <option value="ALL">Tất cả ca trực</option>
             <option value="CA_SANG">Ca Sáng (06:00 - 14:00)</option>
             <option value="CA_CHIEU">Ca Chiều (14:00 - 22:00)</option>
             <option value="CA_DEM">Ca Đêm (22:00 - 06:00)</option>
             <option value="HANH_CHINH">Hành chính (08:00 - 17:00)</option>
           </select>
 
+          {/* Status Filter */}
           <select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-            style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#fff' }}
+            value={selectedStatusFilter}
+            onChange={e => setSelectedStatusFilter(e.target.value)}
+            style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontWeight: 700, fontSize: '0.85rem', background: '#f8fafc', outline: 'none', cursor: 'pointer' }}
           >
-            <option value="ALL">Tất cả Trạng thái</option>
-            <option value="ACTIVE">🟢 Đang trong ca</option>
+            <option value="ALL">Tất cả trạng thái</option>
+            <option value="ACTIVE">🟢 Đang hoạt động</option>
             <option value="ON_LEAVE">🟡 Nghỉ phép</option>
-            <option value="OFF_DUTY">⚪ Đã tan ca</option>
+            <option value="INACTIVE">🔴 Tạm khóa</option>
           </select>
         </div>
       </div>
 
-      {/* Main Staff Table */}
-      <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.03)', overflow: 'hidden' }}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-            📋 Danh Sách Nhân Sự Vận Hành Kho ({filteredStaff.length} nhân viên)
-          </h3>
-          <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-            Hiển thị nhân sự trực thuộc <b>{selectedWarehouse === 'WH-006' ? 'Kho Gò Vấp' : selectedWarehouse}</b>
-          </span>
-        </div>
-
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-            <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
+      {/* Staff Table */}
+      <div style={{ background: '#fff', borderRadius: '18px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+          <thead>
+            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontWeight: 800, textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.5px' }}>
+              <th style={{ padding: '14px 20px' }}>Mã NV & Họ Tên</th>
+              <th style={{ padding: '14px 16px' }}>Chức Vụ & Quyền Hạn</th>
+              <th style={{ padding: '14px 16px' }}>Kho Trực Thuộc</th>
+              <th style={{ padding: '14px 16px' }}>Phân Khu / Phương Tiện</th>
+              <th style={{ padding: '14px 16px' }}>Ca Trực</th>
+              <th style={{ padding: '14px 16px' }}>Trạng Thái</th>
+              <th style={{ padding: '14px 20px', textAlign: 'right' }}>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
               <tr>
-                <th style={{ padding: '12px 14px', width: '85px' }}>Mã NV</th>
-                <th style={{ padding: '12px 14px' }}>Họ và Tên</th>
-                <th style={{ padding: '12px 14px' }}>Vị Trí / Chức Vụ</th>
-                <th style={{ padding: '12px 14px' }}>Khu Vực / Kệ Phụ Trách</th>
-                <th style={{ padding: '12px 14px' }}>Ca Trực</th>
-                <th style={{ padding: '12px 14px' }}>Liên Hệ</th>
-                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Trạng Thái</th>
-                <th style={{ padding: '12px 14px', textAlign: 'center', width: '110px' }}>Hành Động</th>
+                <td colSpan={7} style={{ padding: '60px', textAlign: 'center', color: '#64748b' }}>
+                  <RefreshCw size={28} style={{ animation: 'spin 1s linear infinite', color: '#0f766e', margin: '0 auto 10px' }} />
+                  <div>Đang tải dữ liệu nhân sự từ máy chủ...</div>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {filteredStaff.length === 0 ? (
-                <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
-                    Không tìm thấy nhân viên nào phù hợp với bộ lọc tìm kiếm.
-                  </td>
-                </tr>
-              ) : (
-                filteredStaff.map((stf) => {
-                  const shiftConfig = SHIFT_MAP[stf.shift];
-                  const statusConfig = STATUS_MAP[stf.status];
+            ) : filteredStaff.length === 0 ? (
+              <tr>
+                <td colSpan={7} style={{ padding: '60px', textAlign: 'center', color: '#64748b' }}>
+                  <Users size={40} style={{ color: '#cbd5e1', margin: '0 auto 10px' }} />
+                  <div style={{ fontWeight: 700, color: '#0f172a' }}>Không tìm thấy nhân viên nào</div>
+                  <div style={{ fontSize: '12px', marginTop: '4px' }}>Thử thay đổi bộ lọc hoặc cấp tài khoản mới.</div>
+                </td>
+              </tr>
+            ) : (
+              filteredStaff.map((staff, idx) => {
+                const whName = warehouses.find(w => w.code === staff.warehouseCode)?.name || staff.warehouseCode || 'Kho Tổng';
+                const isActive = staff.status === 'ACTIVE';
 
-                  return (
-                    <tr key={stf.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '12px 14px', fontWeight: 800, color: '#0f766e', fontFamily: 'monospace' }}>
-                        {stf.code}
-                      </td>
-
-                      <td style={{ padding: '12px 14px' }}>
-                        <div style={{ fontWeight: 700, color: '#0f172a' }}>{stf.name}</div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
-                          Ngày vào: {stf.joinedDate} • ⭐ {stf.rating}/5
+                return (
+                  <tr
+                    key={staff.id}
+                    style={{
+                      borderBottom: idx === filteredStaff.length - 1 ? 'none' : '1px solid #f1f5f9',
+                      backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fcfdfd',
+                      transition: 'background-color 0.15s ease',
+                    }}
+                  >
+                    {/* Name & Contact */}
+                    <td style={{ padding: '14px 20px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#f1f5f9', color: '#0f766e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '13px', border: '1px solid #e2e8f0' }}>
+                          {staff.name.slice(0, 2).toUpperCase()}
                         </div>
-                      </td>
-
-                      <td style={{ padding: '12px 14px' }}>
-                        <span style={{
-                          fontWeight: 700,
-                          fontSize: '0.8rem',
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          background: stf.roleTitle === 'Thủ kho' ? '#fef3c7' : '#f1f5f9',
-                          color: stf.roleTitle === 'Thủ kho' ? '#b45309' : '#334155',
-                          display: 'inline-block'
-                        }}>
-                          {stf.roleTitle}
-                        </span>
-                        <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '3px' }}>
-                          {stf.department}
+                        <div>
+                          <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '13px' }}>{staff.name}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px', fontSize: '11.5px', color: '#64748b' }}>
+                            <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0f766e', background: '#f0fdfa', padding: '1px 5px', borderRadius: '4px' }}>
+                              {staff.code || `NV-${staff.id.slice(0, 4)}`}
+                            </span>
+                            <span>{staff.email}</span>
+                            {staff.phone && <span>• {staff.phone}</span>}
+                          </div>
                         </div>
-                      </td>
+                      </div>
+                    </td>
 
-                      <td style={{ padding: '12px 14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#0f172a', fontWeight: 600 }}>
-                          <MapPin size={13} color="#0f766e" />
-                          <span>{stf.assignedZone}</span>
-                        </div>
-                        <div style={{ fontSize: '0.72rem', color: '#059669', marginTop: '2px' }}>
-                          Hoàn thành: {stf.tasksCompleted} lượt tác vụ
-                        </div>
-                      </td>
+                    {/* Role */}
+                    <td style={{ padding: '14px 16px' }}>
+                      {getRoleBadge(staff.role)}
+                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>{staff.department || 'Vận hành'}</div>
+                    </td>
 
-                      <td style={{ padding: '12px 14px' }}>
-                        <span style={{
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          background: shiftConfig.bg,
-                          color: shiftConfig.color
-                        }}>
-                          {shiftConfig.label}
-                        </span>
-                      </td>
+                    {/* Warehouse */}
+                    <td style={{ padding: '14px 16px' }}>
+                      <div style={{ fontWeight: 800, color: '#0f172a' }}>{staff.warehouseCode || 'Tất cả kho'}</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>{whName}</div>
+                    </td>
 
-                      <td style={{ padding: '12px 14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#334155' }}>
-                          <Phone size={12} color="#64748b" />
-                          <span style={{ fontFamily: 'monospace' }}>{stf.phone}</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#64748b', fontSize: '0.75rem', marginTop: '2px' }}>
-                          <Mail size={11} />
-                          <span>{stf.email}</span>
-                        </div>
-                      </td>
+                    {/* Assigned Zone */}
+                    <td style={{ padding: '14px 16px' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f8fafc', padding: '3px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontWeight: 700, color: '#334155', fontSize: '11.5px' }}>
+                        <MapPin size={12} color="#0f766e" />
+                        {staff.assignedZone || 'Toàn bộ kho'}
+                      </span>
+                    </td>
 
-                      <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                    {/* Shift */}
+                    <td style={{ padding: '14px 16px' }}>
+                      {getShiftBadge(staff.shift)}
+                    </td>
+
+                    {/* Status */}
+                    <td style={{ padding: '14px 16px' }}>
+                      <span
+                        onClick={() => handleToggleStatus(staff)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '3px 10px',
+                          borderRadius: '20px',
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          backgroundColor: isActive ? '#ecfdf5' : '#fee2e2',
+                          color: isActive ? '#059669' : '#dc2626',
+                          border: `1px solid ${isActive ? '#a7f3d0' : '#fecaca'}`,
+                        }}
+                        title="Bấm để bật/tắt trạng thái hoạt động"
+                      >
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: isActive ? '#10b981' : '#ef4444' }} />
+                        {isActive ? 'Hoạt động' : staff.status === 'ON_LEAVE' ? 'Nghỉ phép' : 'Tạm khóa'}
+                      </span>
+                    </td>
+
+                    {/* Actions */}
+                    <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
                         <button
-                          type="button"
-                          onClick={() => handleToggleStatus(stf.id, stf.status)}
-                          title="Bấm để đổi trạng thái nhanh"
+                          onClick={() => handleOpenEdit(staff)}
                           style={{
-                            border: 'none',
+                            padding: '6px 10px',
+                            borderRadius: '8px',
+                            border: '1px solid #cbd5e1',
+                            background: '#f8fafc',
+                            color: '#334155',
                             cursor: 'pointer',
-                            fontSize: '0.75rem',
-                            fontWeight: 800,
-                            padding: '4px 10px',
-                            borderRadius: '20px',
-                            background: statusConfig.bg,
-                            color: statusConfig.color,
-                            display: 'inline-flex',
+                            fontSize: '11.5px',
+                            fontWeight: 700,
+                            display: 'flex',
                             alignItems: 'center',
-                            gap: '4px'
+                            gap: '4px',
                           }}
+                          title="Sửa thông tin / Cấp lại mật khẩu"
                         >
-                          <span>{statusConfig.icon}</span> {statusConfig.label}
+                          <Edit size={13} />
+                          <span>Sửa</span>
                         </button>
-                      </td>
 
-                      <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', justifyContent: 'center', gap: '6px' }}>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEdit(stf)}
-                            style={{
-                              background: '#f0fdfa',
-                              border: '1px solid #99f6e4',
-                              color: '#0f766e',
-                              borderRadius: '6px',
-                              padding: '5px 8px',
-                              cursor: 'pointer'
-                            }}
-                            title="Chỉnh sửa thông tin"
-                          >
-                            <Edit size={14} />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteStaff(stf.id, stf.name)}
-                            style={{
-                              background: '#fff1f2',
-                              border: '1px solid #fecdd3',
-                              color: '#e11d48',
-                              borderRadius: '6px',
-                              padding: '5px 8px',
-                              cursor: 'pointer'
-                            }}
-                            title="Xóa nhân viên"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                        <button
+                          onClick={() => handleDeleteStaff(staff)}
+                          style={{
+                            padding: '6px 8px',
+                            borderRadius: '8px',
+                            border: '1px solid #fecaca',
+                            background: '#fef2f2',
+                            color: '#dc2626',
+                            cursor: 'pointer',
+                            fontSize: '11.5px',
+                          }}
+                          title="Xóa tài khoản"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* Create / Edit Staff Modal */}
+      {/* ───────────────────────────────────────────────────────── */}
+      {/*  MODAL: CREATE & EDIT STAFF / PROVISION ACCOUNT           */}
+      {/* ───────────────────────────────────────────────────────── */}
       {isModalOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(15, 23, 42, 0.65)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 2000,
-          padding: '20px'
-        }}>
-          <div style={{
-            background: '#fff',
-            borderRadius: '16px',
-            maxWidth: '600px',
-            width: '100%',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-            border: '1px solid #e2e8f0'
-          }}>
-            <div style={{
-              padding: '16px 20px',
-              background: '#0f766e',
-              color: '#fff',
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#fff',
+              borderRadius: '20px',
+              maxWidth: '560px',
+              width: '100%',
+              padding: '24px',
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
               display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              borderRadius: '16px 16px 0 0'
-            }}>
-              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Users size={20} /> {editingStaff ? 'Cập Nhật Thông Tin Nhân Viên' : 'Thêm Nhân Viên Kho Mới'}
-              </h3>
-              <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
+              flexDirection: 'column',
+              gap: '16px',
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#ccfbf1', color: '#0f766e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {editingStaff ? <Edit size={18} /> : <UserPlus size={18} />}
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 900, color: '#0f172a' }}>
+                    {editingStaff ? 'Cập Nhật Nhân Viên & Cấp Mật Khẩu' : 'Cấp Tài Khoản Nhân Viên Trực Kho'}
+                  </h3>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                    Tài khoản được cấp sẽ dùng để đăng nhập vào Staff App / Driver App
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}
+              >
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveStaff} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px' }}>
+            {/* Form */}
+            <form onSubmit={handleSubmitForm} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-                    Mã Nhân Viên *
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginBottom: '4px' }}>
+                    Mã Nhân Viên
                   </label>
                   <input
-                    required
                     type="text"
                     value={formData.code}
                     onChange={e => setFormData({ ...formData, code: e.target.value })}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontFamily: 'monospace', fontWeight: 700 }}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 700, fontFamily: 'monospace' }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginBottom: '4px' }}>
                     Họ và Tên Nhân Viên *
                   </label>
                   <input
@@ -808,77 +798,126 @@ export const StaffManagement = () => {
                     type="text"
                     value={formData.name}
                     onChange={e => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Ví dụ: Nguyễn Văn An"
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 600 }}
+                    placeholder="Ví dụ: Trần Văn Bình"
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 700 }}
                   />
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-                    Số Điện Thoại *
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginBottom: '4px' }}>
+                    Email Đăng Nhập (Tài Khoản) *
                   </label>
                   <input
                     required
-                    type="text"
-                    value={formData.phone}
-                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="0908xxxxxx"
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                    type="email"
+                    value={formData.email}
+                    onChange={e => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="binh.tran@sfwms.vn"
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 600 }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-                    Email Tài Khoản
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginBottom: '4px' }}>
+                    Số Điện Thoại
                   </label>
                   <input
-                    type="email"
-                    value={formData.email}
-                    onChange={e => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="ten.nguyen@smartlogistics.vn"
+                    type="text"
+                    value={formData.phone}
+                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="0912345678"
                     style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
                   />
                 </div>
               </div>
 
+              {/* Password */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginBottom: '4px' }}>
+                  {editingStaff ? 'Mật Khẩu Mới (Để trống nếu không muốn đổi)' : 'Mật Khẩu Khởi Tạo *'}
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required={!editingStaff}
+                    value={formData.password}
+                    onChange={e => setFormData({ ...formData, password: e.target.value })}
+                    placeholder={editingStaff ? 'Nhập mật khẩu mới để đổi...' : 'Mặc định: password123'}
+                    style={{ width: '100%', padding: '8px 36px 8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 600 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-                    Vị Trí / Chức Vụ *
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginBottom: '4px' }}>
+                    Vai Trò Quyền Hạn *
                   </label>
                   <select
-                    value={formData.roleTitle}
+                    value={formData.role}
                     onChange={e => {
-                      const role = e.target.value as any;
-                      const dept = 
-                        role === 'Thủ kho' ? 'Quản trị kho' :
-                        role === 'Nhân viên Soạn hàng' ? 'Soạn hàng (Picking)' :
-                        role === 'Nhân viên Đóng gói' ? 'Đóng gói (Packing)' :
-                        role === 'Nhân viên Kiểm định (QC)' ? 'Kiểm định chất lượng' :
-                        role === 'Tài xế giao hàng' ? 'Vận chuyển (Fleet)' : 'Bốc xếp & Nhập hàng';
-                      setFormData({ ...formData, roleTitle: role, department: dept as any });
+                      const r = e.target.value as any;
+                      const dept = r === 'DRIVER' ? 'Vận chuyển (Fleet)' : r === 'WAREHOUSE_MANAGER' ? 'Quản trị kho' : 'Vận hành kho';
+                      setFormData({ ...formData, role: r, department: dept });
                     }}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 600, background: '#fff' }}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 700, background: '#fff' }}
                   >
-                    <option value="Thủ kho">Thủ kho</option>
-                    <option value="Nhân viên Soạn hàng">Nhân viên Soạn hàng (Picker)</option>
-                    <option value="Nhân viên Đóng gói">Nhân viên Đóng gói (Packer)</option>
-                    <option value="Nhân viên Kiểm định (QC)">Nhân viên Kiểm định (QC)</option>
-                    <option value="Tài xế giao hàng">Tài xế giao hàng (Driver)</option>
-                    <option value="Nhân viên Bốc xếp">Nhân viên Bốc xếp (Loader)</option>
+                    <option value="WAREHOUSE_STAFF">📦 Nhân viên trực kho (Đa năng: Soạn/Đóng/Nhập/Kiểm kê)</option>
+                    <option value="WAREHOUSE_MANAGER">👑 Thủ kho / Quản lý kho</option>
+                    <option value="DRIVER">🚚 Tài xế giao hàng (Driver App)</option>
+                    <option value="ADMIN">⭐ Quản trị viên hệ thống</option>
                   </select>
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-                    Ca Trực Phân Công *
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginBottom: '4px' }}>
+                    Kho Làm Việc (Khóa Cố Định) *
+                  </label>
+                  <select
+                    value={formData.warehouseCode}
+                    onChange={e => setFormData({ ...formData, warehouseCode: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 700, background: '#fff' }}
+                  >
+                    {warehouses.map(w => (
+                      <option key={w.code} value={w.code}>
+                        📍 {w.name} ({w.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginBottom: '4px' }}>
+                    Phân Khu Phụ Trách / Phương Tiện
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.assignedZone}
+                    onChange={e => setFormData({ ...formData, assignedZone: e.target.value })}
+                    placeholder="Ví dụ: Khu Khô C & Soạn hàng"
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginBottom: '4px' }}>
+                    Ca Trực
                   </label>
                   <select
                     value={formData.shift}
-                    onChange={e => setFormData({ ...formData, shift: e.target.value as any })}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 600, background: '#fff' }}
+                    onChange={e => setFormData({ ...formData, shift: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 700, background: '#fff' }}
                   >
                     <option value="CA_SANG">Ca Sáng (06:00 - 14:00)</option>
                     <option value="CA_CHIEU">Ca Chiều (14:00 - 22:00)</option>
@@ -889,49 +928,58 @@ export const StaffManagement = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-                  Khu Vực Kệ / Phương Tiện Phân Công Phụ Trách
-                </label>
-                <input
-                  type="text"
-                  value={formData.assignedZone}
-                  onChange={e => setFormData({ ...formData, assignedZone: e.target.value })}
-                  placeholder="Ví dụ: Khu Mát A (Cold-A1 -> A3) hoặc Xe tải 59C-888.99"
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-                  Trạng Thái Làm Việc
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginBottom: '4px' }}>
+                  Trạng Thái Hoạt Động
                 </label>
                 <select
                   value={formData.status}
-                  onChange={e => setFormData({ ...formData, status: e.target.value as any })}
+                  onChange={e => setFormData({ ...formData, status: e.target.value })}
                   style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 700, background: '#fff' }}
                 >
-                  <option value="ACTIVE">🟢 Đang trong ca làm việc</option>
+                  <option value="ACTIVE">🟢 Đang hoạt động / Đang trong ca trực</option>
                   <option value="ON_LEAVE">🟡 Đang nghỉ phép</option>
-                  <option value="OFF_DUTY">⚪ Đã tan ca / Chờ ca</option>
+                  <option value="INACTIVE">🔴 Tạm khóa tài khoản</option>
                 </select>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #f1f5f9' }}>
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', fontWeight: 700 }}
+                  disabled={isSubmitting}
+                  style={{ padding: '8px 16px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#fff', fontWeight: 700, cursor: 'pointer' }}
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
+                  disabled={isSubmitting}
                   style={{
-                    padding: '8px 20px', borderRadius: '8px', border: 'none',
-                    background: '#0f766e', color: '#fff', cursor: 'pointer', fontWeight: 800
+                    padding: '8px 20px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: '#0f766e',
+                    color: '#fff',
+                    fontWeight: 800,
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 4px 12px rgba(15,118,110,0.3)',
                   }}
                 >
-                  {editingStaff ? 'Lưu Thay Đổi' : 'Thêm Nhân Viên'}
+                  {isSubmitting ? (
+                    <>
+                      <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                      <span>Đang lưu...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck size={16} />
+                      <span>{editingStaff ? 'Lưu Thay Đổi' : 'Xác Nhận Cấp Tài Khoản'}</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

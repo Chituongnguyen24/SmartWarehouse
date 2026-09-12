@@ -5,6 +5,8 @@ import { InventoryModule } from './inventory/inventory.module';
 import { Lot } from './inventory/entities/lot.entity';
 import { Supplier } from './inventory/entities/supplier.entity';
 import { StockMovement } from './inventory/entities/stock-movement.entity';
+import { InventoryOutboxEvent } from './outbox/outbox.entity';
+import { InventoryOutboxModule } from './outbox/outbox.module';
 import { AuthModule } from './auth/auth.module';
 
 @Module({
@@ -20,10 +22,11 @@ import { AuthModule } from './auth/auth.module';
         username: config.get<string>('DB_USER', 'postgres'),
         password: config.get<string>('DB_PASSWORD', 'postgres'),
         database: config.get<string>('DB_NAME', 'sfwms_inventory'),
-        entities: [Lot, Supplier, StockMovement],
+        entities: [Lot, Supplier, StockMovement, InventoryOutboxEvent],
         synchronize: true,
       }),
     }),
+    InventoryOutboxModule,
     InventoryModule,
     AuthModule,
   ],

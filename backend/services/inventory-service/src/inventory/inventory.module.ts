@@ -8,10 +8,12 @@ import { InventoryController } from './inventory.controller';
 import { InventoryInternalController } from './inventory-internal.controller';
 import { ProductService } from '../product/product.service';
 import { MLSpoilageService } from './ml-spoilage.service';
+import { InventoryOutboxModule } from '../outbox/outbox.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Lot, Supplier, StockMovement]),
+    InventoryOutboxModule,
   ],
   providers: [InventoryService, ProductService, MLSpoilageService],
   controllers: [InventoryController, InventoryInternalController],

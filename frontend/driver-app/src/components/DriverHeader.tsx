@@ -26,6 +26,9 @@ export const DriverHeader: React.FC = () => {
                 </View>
               </View>
               <Text style={styles.vehicleType}>🚚 {driverProfile.vehicleType}</Text>
+              <View style={styles.warehouseBadgeRow}>
+                <Text style={styles.warehouseBadgeText}>🏬 {driverProfile.warehouseName || 'Kho Gò Vấp (WH-006)'}</Text>
+              </View>
             </View>
           </View>
 
@@ -157,7 +160,22 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 11,
     fontWeight: '600',
+    marginTop: 2,
+  },
+  warehouseBadgeRow: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
     marginTop: 3,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  warehouseBadgeText: {
+    color: '#34d399',
+    fontSize: 10,
+    fontWeight: '700',
   },
   onlineBtn: {
     flexDirection: 'row',

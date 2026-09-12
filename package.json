@@ -19,6 +19,7 @@
     "customer:start": "npm run start -w frontend/customer-app",
     "driver:start": "npm run start -w frontend/driver-app",
     "staff:start": "npm run start -w frontend/staff-app",
+    "staff-web:start": "npm run dev -w frontend/staff-app",
     "auth:start": "npm run start:dev -w backend/services/auth-service",
     "user:start": "npm run start:dev -w backend/services/user-service",
     "product:start": "npm run start:dev -w backend/services/product-service",

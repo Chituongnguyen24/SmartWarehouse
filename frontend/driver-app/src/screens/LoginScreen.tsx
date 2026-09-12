@@ -2,385 +2,430 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
+  StyleSheet,
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
-  ActivityIndicator,
 } from 'react-native';
-import { COLORS } from '../theme/colors';
 import { useDriverTask } from '../context/DriverTaskContext';
-import { 
-  Lock, Phone, Eye, EyeOff, LogIn, 
-  ShieldCheck, Truck, CheckCircle2, MapPin
-} from 'lucide-react-native';
-
-const DEMO_ACCOUNTS = [
-  {
-    code: 'NV-GV05',
-    name: 'Võ Minh Trí',
-    phone: '0977112233',
-    plate: '59-V1 888.99',
-    type: '🛵 Xe Máy Thùng Lạnh',
-    warehouse: 'Kho Gò Vấp (WH-006)'
-  },
-  {
-    code: 'NV-GV06',
-    name: 'Nguyễn Văn Hùng',
-    phone: '0909888111',
-    plate: '59-G2 688.39',
-    type: '🛵 Xe Máy Giao Siêu Tốc',
-    warehouse: 'Kho Gò Vấp (WH-006)'
-  },
-  {
-    code: 'NV-GV07',
-    name: 'Trần Quốc Bảo',
-    phone: '0933445566',
-    plate: '59-P1 456.78',
-    type: '🛵 Xe Máy Thùng Mát',
-    warehouse: 'Kho Gò Vấp (WH-006)'
-  }
-];
+import { Lock, Mail, LogIn, AlertCircle, Eye, EyeOff, Truck, ShieldCheck } from 'lucide-react-native';
 
 export const LoginScreen: React.FC = () => {
   const { login } = useDriverTask();
-
-  const [phoneOrCode, setPhoneOrCode] = useState('0977112233');
-  const [password, setPassword] = useState('123456');
+  const [email, setEmail] = useState('driver@sfwms.vn');
+  const [password, setPassword] = useState('password123');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleLogin = async () => {
-    if (!phoneOrCode.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập Số điện thoại hoặc Mã nhân viên!');
-      return;
-    }
-    if (!password.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập Mật khẩu!');
+    if (!email.trim() || !password.trim()) {
+      setErrorMessage('Vui lòng nhập đầy đủ Email/Gmail được cấp và Mật khẩu');
       return;
     }
 
     setLoading(true);
-    const success = await login(phoneOrCode.trim(), password);
-    setLoading(false);
+    setErrorMessage(null);
 
-    if (!success) {
-      Alert.alert('Đăng nhập thất bại', 'Số điện thoại hoặc Mật khẩu không chính xác!');
+    try {
+      const success = await login(email.trim(), password);
+      if (!success) {
+        setErrorMessage('Email hoặc Mật khẩu không chính xác. Vui lòng thử lại!');
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại kết nối mạng.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSelectDemo = (acc: typeof DEMO_ACCOUNTS[0]) => {
-    setPhoneOrCode(acc.phone);
-    setPassword('123456');
-  };
-
   return (
-    <SafeAreaView style={styles.safeContainer}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          
-          {/* Brand Header */}
-          <View style={styles.brandHeader}>
-            <View style={styles.logoBadge}>
-              <Truck size={32} color="#10b981" />
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Brand Header */}
+        <View style={styles.header}>
+          <View style={styles.brandLogoRow}>
+            <View style={styles.brandIconBox}>
+              <Truck size={28} color="#ffffff" />
             </View>
-            <Text style={styles.brandName}>C.T MART</Text>
-            <View style={styles.appTypeBadge}>
-              <Text style={styles.appTypeText}>DRIVER PARTNER • LOGISTICS</Text>
+            <View style={{ marginLeft: 10 }}>
+              <Text style={styles.brandTitle}>C.T MART</Text>
+              <Text style={styles.brandSubtitle}>SMART FOOD LOGISTICS</Text>
             </View>
-            <Text style={styles.welcomeTitle}>Đăng Nhập Tài Xế</Text>
-            <Text style={styles.welcomeSub}>
-              Hệ thống điều phối giao nhận thực phẩm tươi sạch & chuỗi cung ứng lạnh
+          </View>
+
+          <View style={styles.subBadge}>
+            <Text style={styles.subBadgeText}>ỨNG DỤNG TÀI XẾ GIAO HÀNG • LOGISTICS</Text>
+          </View>
+          <Text style={styles.welcomeText}>Đăng Nhập Ca Giao Hàng</Text>
+          <Text style={styles.headerDesc}>
+            Hệ thống phân bổ lộ trình VRP & giám sát chuỗi lạnh 0-4°C thời gian thực
+          </Text>
+        </View>
+
+        {/* Form Card */}
+        <View style={styles.card}>
+          {errorMessage && (
+            <View style={styles.errorBox}>
+              <AlertCircle size={16} color="#dc2626" />
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            </View>
+          )}
+
+          {/* Email Field */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>TÀI KHOẢN GMAIL / EMAIL ĐƯỢC CẤP</Text>
+            <View style={styles.inputWrap}>
+              <Mail size={18} color="#64748b" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Nhập email tài xế (ví dụ: driver@sfwms.vn)..."
+                placeholderTextColor="#94a3b8"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+            </View>
+          </View>
+
+          {/* Password Field */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>MẬT KHẨU</Text>
+            <View style={styles.inputWrap}>
+              <Lock size={18} color="#64748b" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Nhập mật khẩu..."
+                placeholderTextColor="#94a3b8"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={{ padding: 6 }}
+                activeOpacity={0.7}
+              >
+                {showPassword ? (
+                  <EyeOff size={18} color="#94a3b8" />
+                ) : (
+                  <Eye size={18} color="#94a3b8" />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Quick Switch Driver Accounts */}
+          <View style={styles.quickDriverSection}>
+            <Text style={styles.quickDriverLabel}>⚡ CHỌN NHANH TÀI XẾ THỬ NGHIỆM:</Text>
+            <View style={styles.quickDriverGrid}>
+              <TouchableOpacity
+                style={[
+                  styles.quickDriverCard,
+                  email.includes('phuc') || email.includes('0944778899') ? styles.quickDriverCardActive : null
+                ]}
+                onPress={() => {
+                  setEmail('phuc.dang@sfwms.vn');
+                  setPassword('password123');
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.quickDriverEmoji}>🚛</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.quickDriverName}>Đặng Hoàng Phúc</Text>
+                  <Text style={styles.quickDriverRole}>Xe Tải Lạnh 2.5T • Tiêu Hủy (NV-TK01)</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.quickDriverCard,
+                  email.includes('driver') || email.includes('tri') || email.includes('0977112233') ? styles.quickDriverCardActive : null
+                ]}
+                onPress={() => {
+                  setEmail('driver@sfwms.vn');
+                  setPassword('password123');
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.quickDriverEmoji}>🛵</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.quickDriverName}>Võ Minh Trí</Text>
+                  <Text style={styles.quickDriverRole}>Xe Máy Thùng Lạnh (NV-GV05)</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.quickDriverCard,
+                  email.includes('van') || email.includes('nam') || email.includes('0918776655') ? styles.quickDriverCardActive : null
+                ]}
+                onPress={() => {
+                  setEmail('van@sfwms.vn');
+                  setPassword('password123');
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.quickDriverEmoji}>🚐</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.quickDriverName}>Phan Hữu Nam</Text>
+                  <Text style={styles.quickDriverRole}>Xe Bán Tải 1.5T (NV-VAN01)</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Security Notice */}
+          <View style={styles.securityNotice}>
+            <ShieldCheck size={14} color="#059669" />
+            <Text style={styles.securityNoticeText}>
+              Tài khoản được phân quyền và tự động đồng bộ đơn hàng tức thời qua WebSocket.
             </Text>
           </View>
 
-          {/* Form Card */}
-          <View style={styles.card}>
-            {/* Phone/Code Input */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>SỐ ĐIỆN THOẠI / MÃ NHÂN VIÊN</Text>
-              <View style={styles.inputWrapper}>
-                <Phone size={18} color={COLORS.textMuted} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ví dụ: 0977112233 hoặc NV-GV05"
-                  placeholderTextColor="#64748b"
-                  value={phoneOrCode}
-                  onChangeText={setPhoneOrCode}
-                  autoCapitalize="none"
-                />
+          {/* Login Button */}
+          <TouchableOpacity
+            style={[styles.loginBtn, loading && { opacity: 0.7 }]}
+            onPress={handleLogin}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading ? (
+              <ActivityIndicator color="#ffffff" size="small" />
+            ) : (
+              <View style={styles.btnContent}>
+                <LogIn size={18} color="#ffffff" style={{ marginRight: 8 }} />
+                <Text style={styles.loginBtnText}>ĐĂNG NHẬP VÀO CA GIAO HÀNG</Text>
               </View>
-            </View>
+            )}
+          </TouchableOpacity>
+        </View>
 
-            {/* Password Input */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>MẬT KHẨU</Text>
-              <View style={styles.inputWrapper}>
-                <Lock size={18} color={COLORS.textMuted} style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.input, { flex: 1 }]}
-                  placeholder="Nhập mật khẩu..."
-                  placeholderTextColor="#64748b"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                />
-                <TouchableOpacity
-                  onPress={() => setShowPassword(!showPassword)}
-                  style={styles.eyeBtn}
-                  activeOpacity={0.7}
-                >
-                  {showPassword ? (
-                    <EyeOff size={18} color={COLORS.textMuted} />
-                  ) : (
-                    <Eye size={18} color={COLORS.textMuted} />
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Options Row */}
-            <View style={styles.optionsRow}>
-              <TouchableOpacity
-                style={styles.rememberRow}
-                onPress={() => setRememberMe(!rememberMe)}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.checkbox, rememberMe && styles.checkboxActive]}>
-                  {rememberMe && <CheckCircle2 size={12} color="#fff" />}
-                </View>
-                <Text style={styles.rememberText}>Ghi nhớ đăng nhập</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity activeOpacity={0.8}>
-                <Text style={styles.forgotText}>Quên mật khẩu?</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Submit Button */}
-            <TouchableOpacity
-              style={[styles.loginBtn, loading && { opacity: 0.7 }]}
-              onPress={handleLogin}
-              disabled={loading}
-              activeOpacity={0.85}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <View style={styles.btnContent}>
-                  <LogIn size={18} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={styles.loginBtnText}>ĐĂNG NHẬP VÀO CA TRỰC</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-
-            {/* Security Badge */}
-            <View style={styles.securityRow}>
-              <ShieldCheck size={14} color="#10b981" />
-              <Text style={styles.securityText}>Bảo mật tiêu chuẩn Chuỗi Cung Ứng C.T Mart</Text>
-            </View>
-          </View>
-
-          {/* Quick Demo Accounts Selection */}
-          <View style={styles.demoSection}>
-            <Text style={styles.demoTitle}>TÀI KHOẢN TÀI XẾ TEST NHANH (KHO GÒ VẤP WH-006):</Text>
-            
-            {DEMO_ACCOUNTS.map((acc) => {
-              const isSelected = phoneOrCode === acc.phone;
-              return (
-                <TouchableOpacity
-                  key={acc.code}
-                  style={[styles.demoCard, isSelected && styles.demoCardActive]}
-                  onPress={() => handleSelectDemo(acc)}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.demoHeader}>
-                    <View style={styles.demoAvatar}>
-                      <Text style={styles.demoAvatarText}>{acc.name.slice(0, 2).toUpperCase()}</Text>
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 10 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Text style={styles.demoName}>{acc.name} ({acc.code})</Text>
-                        <View style={styles.demoPlateBadge}>
-                          <Text style={styles.demoPlateText}>{acc.plate}</Text>
-                        </View>
-                      </View>
-                      <Text style={styles.demoType}>{acc.type}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                        <MapPin size={10} color="#94a3b8" />
-                        <Text style={styles.demoWh}>{acc.warehouse}</Text>
-                      </View>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        {/* Support Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            Cần hỗ trợ phân quyền kho hoặc cấp tài khoản? Liên hệ Điều phối viên Hub: <Text style={{ color: '#059669', fontWeight: '700' }}>1900 8888</Text>
+          </Text>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeContainer: {
+  container: {
     flex: 1,
-    backgroundColor: '#090d16',
+    backgroundColor: '#f8fafc',
   },
   scrollContent: {
     padding: 20,
     paddingBottom: 40,
-  },
-  brandHeader: {
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 24,
-  },
-  logoBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
-    alignItems: 'center',
+    flexGrow: 1,
     justifyContent: 'center',
+  },
+  header: {
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  brandLogoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 12,
   },
-  brandName: {
-    fontSize: 24,
+  brandIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#059669',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  brandTitle: {
+    fontSize: 22,
     fontWeight: '900',
-    color: '#ffffff',
-    letterSpacing: 1.5,
+    color: '#059669',
+    letterSpacing: 1,
   },
-  appTypeBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  brandSubtitle: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#64748b',
+    letterSpacing: 0.8,
+  },
+  subBadge: {
+    backgroundColor: '#ecfdf5',
     paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 6,
-    marginTop: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#a7f3d0',
   },
-  appTypeText: {
-    color: '#10b981',
+  subBadgeText: {
+    color: '#059669',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
-  welcomeTitle: {
-    fontSize: 20,
+  welcomeText: {
+    fontSize: 18,
     fontWeight: '800',
-    color: '#f8fafc',
-    marginTop: 16,
+    color: '#0f172a',
+    marginTop: 12,
   },
-  welcomeSub: {
+  headerDesc: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#64748b',
     textAlign: 'center',
     marginTop: 4,
     paddingHorizontal: 20,
     lineHeight: 18,
   },
   card: {
-    backgroundColor: '#111827',
-    borderRadius: 24,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#e2e8f0',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
   },
-  inputGroup: {
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#fef2f2',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  errorText: {
+    color: '#dc2626',
+    fontSize: 12,
+    flex: 1,
+    fontWeight: '600',
+  },
+  fieldGroup: {
     marginBottom: 16,
   },
   label: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#94a3b8',
+    color: '#475569',
     marginBottom: 6,
     letterSpacing: 0.5,
   },
-  inputWrapper: {
+  inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1f2937',
-    borderRadius: 14,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: '#cbd5e1',
     paddingHorizontal: 14,
-    height: 50,
+    height: 48,
   },
   inputIcon: {
     marginRight: 10,
   },
   input: {
     flex: 1,
-    color: '#ffffff',
+    color: '#0f172a',
     fontSize: 14,
     fontWeight: '600',
   },
-  eyeBtn: {
-    padding: 6,
+  quickDriverSection: {
+    marginBottom: 16,
+    backgroundColor: '#f1f5f9',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
-  optionsRow: {
+  quickDriverLabel: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#334155',
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+  quickDriverGrid: {
+    gap: 6,
+  },
+  quickDriverCard: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
-    marginTop: 4,
-  },
-  rememberRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  checkbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 5,
+    backgroundColor: '#ffffff',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
     borderWidth: 1.5,
-    borderColor: '#64748b',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: '#e2e8f0',
+  },
+  quickDriverCardActive: {
+    borderColor: '#059669',
+    backgroundColor: '#ecfdf5',
+  },
+  quickDriverEmoji: {
+    fontSize: 20,
     marginRight: 8,
   },
-  checkboxActive: {
-    backgroundColor: '#10b981',
-    borderColor: '#10b981',
+  quickDriverName: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0f172a',
   },
-  rememberText: {
-    color: '#cbd5e1',
-    fontSize: 12,
+  quickDriverRole: {
+    fontSize: 10.5,
     fontWeight: '600',
+    color: '#64748b',
+    marginTop: 1,
   },
-  forgotText: {
-    color: '#10b981',
-    fontSize: 12,
-    fontWeight: '700',
+  securityNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ecfdf5',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 6,
+  },
+  securityNoticeText: {
+    color: '#059669',
+    fontSize: 11,
+    fontWeight: '600',
+    flex: 1,
   },
   loginBtn: {
     backgroundColor: '#059669',
-    borderRadius: 14,
-    height: 52,
+    borderRadius: 12,
+    height: 50,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#10b981',
+    marginTop: 2,
+    shadowColor: '#059669',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 6,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   },
   btnContent: {
     flexDirection: 'row',
@@ -393,83 +438,15 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.5,
   },
-  securityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 16,
-    gap: 6,
-  },
-  securityText: {
-    color: '#64748b',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  demoSection: {
+  footer: {
     marginTop: 24,
-  },
-  demoTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#94a3b8',
-    marginBottom: 10,
-    letterSpacing: 0.5,
-  },
-  demoCard: {
-    backgroundColor: '#111827',
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#1f2937',
-  },
-  demoCardActive: {
-    borderColor: '#10b981',
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
-  },
-  demoHeader: {
-    flexDirection: 'row',
     alignItems: 'center',
   },
-  demoAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: '#065f46',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  demoAvatarText: {
-    color: '#a7f3d0',
-    fontWeight: '900',
-    fontSize: 13,
-  },
-  demoName: {
-    color: '#f8fafc',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  demoPlateBadge: {
-    backgroundColor: '#1e293b',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  demoPlateText: {
-    color: '#38bdf8',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  demoType: {
-    color: '#94a3b8',
-    fontSize: 11,
-    marginTop: 1,
-  },
-  demoWh: {
+  footerText: {
+    fontSize: 11.5,
     color: '#64748b',
-    fontSize: 10,
-    marginLeft: 3,
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 16,
   },
 });

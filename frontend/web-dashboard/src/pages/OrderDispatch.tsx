@@ -24,12 +24,14 @@ import {
   LayoutGrid,
   List,
   Printer,
+  FileText,
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { useAuth } from '../contexts/AuthContext';
 import { GOVAP_DRIVERS } from './OrderManagement';
 import { ControlTowerMap } from '../components/ControlTowerMap';
-import { PrintOrderSlipModal } from '../components/PrintOrderSlipModal';
+import { PrintOrderSlipModal, detectSlipClassification } from '../components/PrintOrderSlipModal';
+import { OutboundReceiptModal } from '../components/OutboundReceiptModal';
 
 const ORDER_API = 'http://localhost:3004/orders';
 const OUTBOUND_API = 'http://localhost:3007';
@@ -123,6 +125,8 @@ export default function OrderDispatch() {
   const [reverseLogisticsModalOrder, setReverseLogisticsModalOrder] = useState<UnifiedOrder | null>(null);
   const [podPreviewModalOrder, setPodPreviewModalOrder] = useState<UnifiedOrder | null>(null);
   const [printModalOrder, setPrintModalOrder] = useState<UnifiedOrder | null>(null);
+  const [receiptModalOrder, setReceiptModalOrder] = useState<UnifiedOrder | null>(null);
+  const [classificationFilter, setClassificationFilter] = useState<'ALL' | 'SALE' | 'DISPOSAL' | 'RETURN' | 'TRANSFER'>('ALL');
   const [autoPickingLoading, setAutoPickingLoading] = useState(false);
   const [autoDispatchLoading, setAutoDispatchLoading] = useState(false);
   const [toast, setToast] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
@@ -156,6 +160,17 @@ export default function OrderDispatch() {
     if (showSpinner) setIsRefreshing(true);
     const savedDriverMap = getSavedDriverMap();
 
+    const inTransitIds = new Set<string>();
+    const completedIds = new Set<string>();
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const rawInTransit = window.localStorage.getItem('sfwms_driver_intransit_ids');
+        if (rawInTransit) JSON.parse(rawInTransit).forEach((id: string) => inTransitIds.add(id.toLowerCase()));
+        const rawCompleted = window.localStorage.getItem('sfwms_driver_completed_ids');
+        if (rawCompleted) JSON.parse(rawCompleted).forEach((id: string) => completedIds.add(id.toLowerCase()));
+      } catch (e) {}
+    }
+
     try {
       // 1. Fetch E-commerce orders (3004)
       const ecomRes = await fetch(ORDER_API).catch(() => null);
@@ -170,6 +185,18 @@ export default function OrderDispatch() {
             const driverPlate = o.assignedDriverPlate || savedDriver?.plate;
             const driverId = o.assignedDriverId || savedDriver?.id;
 
+            const cleanId = (o.id || '').toLowerCase();
+            const cleanCode = (o.orderCode || `ECOMM-${(o.id || '').slice(0, 8).toUpperCase()}`).toLowerCase();
+            const isIntransit = inTransitIds.has(cleanId) || inTransitIds.has(cleanCode) || Array.from(inTransitIds).some(id => (id.length >= 6 && cleanId.includes(id)) || (id.length >= 6 && cleanCode.includes(id)));
+            const isDelivered = completedIds.has(cleanId) || completedIds.has(cleanCode) || o.status === 'COMPLETED' || o.status === 'DELIVERED';
+
+            let finalStatus = o.status || 'PENDING';
+            if (isDelivered) {
+              finalStatus = 'COMPLETED';
+            } else if (isIntransit || o.status === 'DELIVERING' || o.status === 'SHIPPED' || o.status === 'IN_TRANSIT') {
+              finalStatus = 'DELIVERING';
+            }
+
             return {
               id: o.id,
               orderCode: `ECOMM-${o.id.slice(0, 8).toUpperCase()}`,
@@ -179,7 +206,7 @@ export default function OrderDispatch() {
               totalAmount: Number(o.totalAmount || 0),
               paymentMethod: o.paymentMethod || 'cod',
               deliveryMethod: o.deliveryMethod || 'Hỏa tốc 1-2h',
-              status: o.status || 'PENDING',
+              status: finalStatus,
               createdAt: new Date(o.createdAt || Date.now()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
               items: (o.items || []).map((i: any) => ({
                 sku: i.sku || i.productId || 'SKU-01',
@@ -196,8 +223,8 @@ export default function OrderDispatch() {
               assignedDriverPhone: driverPhone,
               assignedDriverPlate: driverPlate,
               tripNumber: (idx % 2) + 1,
-              podPhotoUrl: o.podPhotoUrl || (o.status === 'COMPLETED' ? 'https://citymart-coldchain-pod.s3.ap-southeast-1.amazonaws.com/proof-of-delivery/sample.jpg' : undefined),
-              failureReason: o.failureReason || (o.status === 'FAILED_DELIVERY' || o.status === 'RETURN_TO_WAREHOUSE' ? 'Khách không nghe máy (Đã gọi 3 lần)' : undefined),
+              podPhotoUrl: o.podPhotoUrl || (finalStatus === 'COMPLETED' ? 'https://citymart-coldchain-pod.s3.ap-southeast-1.amazonaws.com/proof-of-delivery/sample.jpg' : undefined),
+              failureReason: o.failureReason || (finalStatus === 'FAILED_DELIVERY' || finalStatus === 'RETURN_TO_WAREHOUSE' ? 'Khách không nghe máy (Đã gọi 3 lần)' : undefined),
               failurePhotoUrl: o.failurePhotoUrl,
               note: o.note,
               isEcommerce: true,
@@ -219,22 +246,59 @@ export default function OrderDispatch() {
             const driverPlate = o.assignedDriverPlate || savedDriver?.plate;
             const driverId = o.assignedDriverId || savedDriver?.id;
 
+            const rawCode = (o.orderCode || o.id || '').toUpperCase();
+            const rawNote = (o.notes || o.note || '').toLowerCase();
+            const rawDest = (o.destination || o.deliveryAddress || '').toLowerCase();
+            const rawType = (o.orderType || o.type || '').toUpperCase();
+            const isDisposal = 
+              rawCode.includes('DISPOSAL') || 
+              rawCode.includes('HUY') || 
+              rawType === 'DISPOSAL' || 
+              rawNote.includes('tiêu hủy') || 
+              rawNote.includes('hủy') || 
+              rawNote.includes('hết hạn') || 
+              rawDest.includes('tiêu hủy') || 
+              rawDest.includes('đa phước');
+
+            const finalCustomerName = isDisposal 
+              ? 'Khu Liên Hợp Xử Lý Môi Trường Đa Phước (Trạm QC Tiêu Hủy)' 
+              : (o.requesterName || o.customerName || 'Chi nhánh / Khách mua sắm');
+
+            const finalAddress = isDisposal
+              ? 'Khu Liên Hợp Xử Lý Chất Thải Đa Phước, Xã Đa Phước, Huyện Bình Chánh, TP.HCM'
+              : (o.destination || o.deliveryAddress || 'Kho Gò Vấp, TP.HCM');
+
+            const finalAmount = isDisposal ? 0 : Number(o.totalAmount || 0);
+            const finalPaymentMethod = isDisposal ? 'Xuất Hủy Xử Lý Chất Thải (COD 0đ)' : (o.paymentMethod || 'Chuyển khoản kho');
+
+            const cleanId = (o.id || '').toLowerCase();
+            const cleanCode = (o.orderCode || `OB-${o.id.slice(0, 8).toUpperCase()}`).toLowerCase();
+            const isIntransit = inTransitIds.has(cleanId) || inTransitIds.has(cleanCode) || Array.from(inTransitIds).some(id => (id.length >= 6 && cleanId.includes(id)) || (id.length >= 6 && cleanCode.includes(id)));
+            const isDelivered = completedIds.has(cleanId) || completedIds.has(cleanCode) || o.status === 'COMPLETED' || o.status === 'DELIVERED';
+
+            let finalStatus = o.status;
+            if (isDelivered) {
+              finalStatus = 'DELIVERED';
+            } else if (isIntransit || o.status === 'SHIPPED' || o.status === 'DELIVERING' || o.status === 'IN_TRANSIT') {
+              finalStatus = 'SHIPPED';
+            }
+
             return {
               id: o.id,
               orderCode: o.orderCode || `OB-${o.id.slice(0, 8).toUpperCase()}`,
-              customerName: o.requesterName || o.customerName || 'Chi nhánh / Khách mua sắm',
-              customerPhone: o.customerPhone || '0977112233',
-              customerAddress: o.destination || o.deliveryAddress || 'Kho Gò Vấp, TP.HCM',
-              totalAmount: Number(o.totalAmount || 180000),
-              paymentMethod: o.paymentMethod || 'Chuyển khoản kho',
-              status: o.status === 'SHIPPED' ? 'READY_FOR_DELIVERY' : o.status,
+              customerName: finalCustomerName,
+              customerPhone: isDisposal ? '1900 6868' : (o.customerPhone || '0977112233'),
+              customerAddress: finalAddress,
+              totalAmount: finalAmount,
+              paymentMethod: finalPaymentMethod,
+              status: finalStatus,
               createdAt: new Date(o.createdAt || Date.now()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
               items: (o.items || []).map((i: any) => ({
                 sku: i.sku || 'SKU-01',
                 productName: i.productName || 'Hàng xuất kho',
                 requestedQuantity: i.requestedQuantity || i.quantity || 1,
                 quantity: i.requestedQuantity || 1,
-                price: Number(i.price || 50000),
+                price: isDisposal ? 0 : Number(i.price || 50000),
                 unit: i.unit || 'Kg',
               })),
               warehouseCode: o.warehouseCode || 'WH-006',
@@ -244,7 +308,7 @@ export default function OrderDispatch() {
               assignedDriverPhone: driverPhone,
               assignedDriverPlate: driverPlate,
               tripNumber: 1,
-              note: o.notes,
+              note: isDisposal ? `[BIÊN BẢN TIÊU HỦY MÔI TRƯỜNG] ${o.notes || 'Thực phẩm hết hạn/hư hỏng chuyển trạm xử lý Đa Phước'}` : o.notes,
               isEcommerce: false,
             };
           });
@@ -276,8 +340,13 @@ export default function OrderDispatch() {
 
   useEffect(() => {
     fetchAllData();
-    const interval = setInterval(() => fetchAllData(false), 4000);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => fetchAllData(false), 2500);
+    const onStorage = () => fetchAllData(false);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', onStorage);
+    };
   }, [fetchAllData]);
 
   // WebSocket Live Updates (Instant in-place state update + fetchAllData)
@@ -397,49 +466,138 @@ export default function OrderDispatch() {
     }
   };
 
-  // 2. SMART AUTOMATION: 1-Chạm AI Gom Chuyến & Điều Phối VRP (Auto-Dispatch)
+  // 2. SMART AUTOMATION: 1-Chạm AI Gom Chuyến & Điều Phối VRP Đa Phương Tiện (Auto-Dispatch)
   const handleAIAutoDispatch = async () => {
-    const unassignedOrders = orders.filter(
-      o => (o.status === 'READY_FOR_DELIVERY' || o.status === 'PACKED') && !o.assignedDriverName
+    // CHỈ gán cho đơn nào ĐÃ CÓ LỆNH XUẤT KHO XÁC NHẬN (CONFIRMED, SHIPPED, READY_FOR_DELIVERY)
+    // Đơn mới chỉ Đang soạn (PROCESSING/PICKING) hoặc Đã đóng gói (PACKED) thì CHƯA ĐƯỢC PHÂN TÀI XẾ
+    const candidateOrders = orders.filter(
+      o => (o.status === 'CONFIRMED' || o.status === 'SHIPPED' || o.status === 'READY_FOR_DELIVERY') &&
+           o.status !== 'COMPLETED' && 
+           o.status !== 'DELIVERED' && 
+           o.status !== 'CANCELLED' && 
+           o.status !== 'FAILED_DELIVERY'
     );
 
-    if (unassignedOrders.length === 0) {
-      showToast('Tất cả các đơn đã đóng gói đều đã được phân bổ cho tài xế.', 'info');
+    if (candidateOrders.length === 0) {
+      showToast('⚠️ Không có đơn hàng nào ĐÃ XUẤT KHO (CONFIRMED / READY_FOR_DELIVERY) để gán tài xế. Đơn "Đã đóng gói (PACKED)" cần xác nhận xuất kho trước!', 'info');
       return;
     }
 
     setAutoDispatchLoading(true);
     try {
-      const res = await fetch(`${ORDER_API}/auto-dispatch`, {
+      // 1. Gọi backend AI VRP clustering
+      await fetch(`${ORDER_API}/auto-dispatch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ warehouseCode: selectedWarehouseCode }),
-      });
+      }).catch(() => {});
 
-      if (res.ok) {
-        const data = await res.json();
-        showToast(`🤖 AI VRP đã tối ưu xong ${data.totalDispatched || unassignedOrders.length} đơn vào các chuyến xe!`, 'success');
-      } else {
-        let driverIdx = 0;
-        for (const ord of unassignedOrders) {
-          const drv = GOVAP_DRIVERS[driverIdx % GOVAP_DRIVERS.length];
-          driverIdx++;
-          saveDriverAssignmentToStorage(ord.id, drv);
-          await fetch(`${ORDER_API}/assign-driver/${ord.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              driverId: drv.id,
-              driverName: drv.name,
-              driverPhone: drv.phone,
-              driverPlate: drv.plate,
-              status: 'READY_FOR_DELIVERY',
-            }),
-          }).catch(() => {});
+      // 2. Lọc các nhóm tài xế theo loại phương tiện
+      const truckDrivers = GOVAP_DRIVERS.filter(d => (d as any).vehicleCategory === 'TRUCK' || (d as any).vehicleCategory === 'VAN');
+      const bikeDrivers = GOVAP_DRIVERS.filter(d => (d as any).vehicleCategory === 'MOTORBIKE' && ((d as any).warehouseCode === 'WH-006' || !(d as any).warehouseCode));
+      const crossHubDrivers = GOVAP_DRIVERS.filter(d => (d as any).warehouseCode && (d as any).warehouseCode !== 'WH-006');
+
+      let truckIdx = 0;
+      let bikeIdx = 0;
+      let crossIdx = 0;
+
+      let truckCount = 0;
+      let bikeCount = 0;
+      let crossHubCount = 0;
+
+      for (const ord of candidateOrders) {
+        const rawCode = (ord.orderCode || ord.id || '').toUpperCase();
+        const rawNote = (ord.note || '').toLowerCase();
+        const rawAddr = (ord.customerAddress || '').toLowerCase();
+
+        const isDisposal = 
+          rawCode.includes('DISPOSAL') || 
+          rawCode.includes('HUY') || 
+          rawNote.includes('tiêu hủy') || 
+          rawNote.includes('hết hạn') || 
+          rawAddr.includes('tiêu hủy') || 
+          rawAddr.includes('đa phước');
+
+        // Tính tổng trọng lượng ước tính
+        let totalWeightKg = isDisposal ? 150 : 0;
+        if (!isDisposal) {
+          (ord.items || []).forEach(item => {
+            const qty = item.requestedQuantity || item.quantity || 1;
+            const unit = (item.unit || '').toLowerCase();
+            if (unit.includes('kg') || unit.includes('kí')) totalWeightKg += qty;
+            else if (unit.includes('thùng') || unit.includes('két')) totalWeightKg += qty * 10;
+            else if (unit.includes('bao') || unit.includes('gói lớn')) totalWeightKg += qty * 5;
+            else totalWeightKg += qty * 0.6;
+          });
+          totalWeightKg = Math.max(2.0, Number(totalWeightKg.toFixed(1)));
         }
-        showToast(`🚀 Đã phân bổ ${unassignedOrders.length} đơn cho Đội xe Gò Vấp!`, 'success');
+
+        const isHeavyOrBulk = isDisposal || totalWeightKg >= 25 || (ord.items && ord.items.length >= 8);
+        const isCrossZone = rawAddr.includes('bình thạnh') || rawAddr.includes('tân bình') || rawAddr.includes('phú nhuận') || rawAddr.includes('thủ đức');
+
+        let assignedDrv = GOVAP_DRIVERS[0];
+
+        if (isHeavyOrBulk && truckDrivers.length > 0) {
+          // Gán Xe Tải Lạnh 2.5 Tấn / Xe Bán Tải 1.5 Tấn
+          assignedDrv = truckDrivers[truckIdx % truckDrivers.length];
+          truckIdx++;
+          truckCount++;
+        } else if (isCrossZone && crossHubDrivers.length > 0 && Math.random() > 0.5) {
+          // Gán Tài xế Liên Kho lân cận hỗ trợ tuyến giáp ranh để giảm chuyến xe rỗng (Empty Miles)
+          assignedDrv = crossHubDrivers[crossIdx % crossHubDrivers.length];
+          crossIdx++;
+          crossHubCount++;
+        } else if (bikeDrivers.length > 0) {
+          // Gán Xe Máy Thùng Lạnh tiêu chuẩn
+          assignedDrv = bikeDrivers[bikeIdx % bikeDrivers.length];
+          bikeIdx++;
+          bikeCount++;
+        }
+
+        saveDriverAssignmentToStorage(ord.id, assignedDrv);
+        saveDriverAssignmentToStorage(ord.orderCode, assignedDrv);
+
+        const newStatus = (ord.status === 'PENDING' || ord.status === 'PROCESSING' || ord.status === 'PICKING') 
+          ? 'READY_FOR_DELIVERY' 
+          : ord.status;
+
+        const isOutbound = ord.orderCode?.startsWith('OB-') || !ord.isEcommerce;
+        const targetEndpoint = isOutbound 
+          ? `${OUTBOUND_API}/outbound-orders/${ord.id}/assign-driver` 
+          : `${ORDER_API}/assign-driver/${ord.id}`;
+
+        await fetch(targetEndpoint, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            driverId: assignedDrv.id,
+            driverName: assignedDrv.name,
+            driverPhone: assignedDrv.phone,
+            driverPlate: assignedDrv.plate,
+            status: newStatus,
+          }),
+        }).catch(() => {});
+
+        await fetch(`${ORDER_API}/sync-status/${ord.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            driverId: assignedDrv.id,
+            driverName: assignedDrv.name,
+            driverPhone: assignedDrv.phone,
+            driverPlate: assignedDrv.plate,
+            status: newStatus,
+          }),
+        }).catch(() => {});
       }
+
+      showToast(
+        `🤖 AI VRP đã phân bổ thông minh ${candidateOrders.length} đơn: 🚛 ${truckCount} đơn Xe Tải Lạnh/Tiêu hủy, 🛵 ${bikeCount} đơn Xe Máy Thùng Lạnh, 🔄 ${crossHubCount} đơn Liên Kho!`,
+        'success'
+      );
       await fetchAllData(true);
+    } catch (e) {
+      showToast('Có lỗi trong quá trình tự động phân bổ tài xế', 'error');
     } finally {
       setAutoDispatchLoading(false);
     }
@@ -450,7 +608,12 @@ export default function OrderDispatch() {
     if (!manualDriverModalOrder || !selectedDriverForAssign) return;
     saveDriverAssignmentToStorage(manualDriverModalOrder.id, selectedDriverForAssign);
 
-    await fetch(`${ORDER_API}/assign-driver/${manualDriverModalOrder.id}`, {
+    const isOutbound = manualDriverModalOrder.orderCode?.startsWith('OB-') || !manualDriverModalOrder.isEcommerce;
+    const targetEndpoint = isOutbound
+      ? `${OUTBOUND_API}/outbound-orders/${manualDriverModalOrder.id}/assign-driver`
+      : `${ORDER_API}/assign-driver/${manualDriverModalOrder.id}`;
+
+    await fetch(targetEndpoint, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -511,6 +674,11 @@ export default function OrderDispatch() {
 
       if (!matchSearch) return false;
 
+      if (classificationFilter !== 'ALL') {
+        const cls = detectSlipClassification(o as any);
+        if (cls !== classificationFilter) return false;
+      }
+
       if (activePipelineStep === 'STEP_1_PICKING') {
         return o.status === 'PENDING' || o.status === 'PROCESSING' || o.status === 'PICKING';
       }
@@ -529,7 +697,7 @@ export default function OrderDispatch() {
 
       return true;
     });
-  }, [orders, searchQuery, activePipelineStep]);
+  }, [orders, searchQuery, classificationFilter, activePipelineStep]);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -932,20 +1100,84 @@ export default function OrderDispatch() {
             </button>
           </div>
 
-          <button
-            onClick={() => setActivePipelineStep('ALL')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '10px',
-              fontSize: '12px',
-              fontWeight: 800,
-              backgroundColor: activePipelineStep === 'ALL' ? '#0f172a' : '#f1f5f9',
-              color: activePipelineStep === 'ALL' ? '#ffffff' : '#475569',
-              border: 'none',
-            }}
-          >
-            Tất Cả ({orders.length})
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setClassificationFilter('ALL')}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '11px',
+                fontWeight: 800,
+                backgroundColor: classificationFilter === 'ALL' ? '#0f172a' : '#f1f5f9',
+                color: classificationFilter === 'ALL' ? '#ffffff' : '#475569',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              Tất Cả Loại
+            </button>
+            <button
+              onClick={() => setClassificationFilter('SALE')}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '11px',
+                fontWeight: 800,
+                backgroundColor: classificationFilter === 'SALE' ? '#1d4ed8' : '#eff6ff',
+                color: classificationFilter === 'SALE' ? '#ffffff' : '#1d4ed8',
+                border: '1px solid #bfdbfe',
+                cursor: 'pointer',
+              }}
+            >
+              🛒 Mua Bán Lẻ
+            </button>
+            <button
+              onClick={() => setClassificationFilter('DISPOSAL')}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '11px',
+                fontWeight: 800,
+                backgroundColor: classificationFilter === 'DISPOSAL' ? '#7c3aed' : '#faf5ff',
+                color: classificationFilter === 'DISPOSAL' ? '#ffffff' : '#7c3aed',
+                border: '1px solid #e9d5ff',
+                cursor: 'pointer',
+              }}
+            >
+              ☣️ Xuất Tiêu Hủy
+            </button>
+            <button
+              onClick={() => setClassificationFilter('RETURN')}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '11px',
+                fontWeight: 800,
+                backgroundColor: classificationFilter === 'RETURN' ? '#b91c1c' : '#fef2f2',
+                color: classificationFilter === 'RETURN' ? '#ffffff' : '#b91c1c',
+                border: '1px solid #fecaca',
+                cursor: 'pointer',
+              }}
+            >
+              ↩️ Trả Hàng NCC / Hoàn
+            </button>
+            <button
+              onClick={() => setClassificationFilter('TRANSFER')}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '11px',
+                fontWeight: 800,
+                backgroundColor: classificationFilter === 'TRANSFER' ? '#15803d' : '#f0fdf4',
+                color: classificationFilter === 'TRANSFER' ? '#ffffff' : '#15803d',
+                border: '1px solid #bbf7d0',
+                cursor: 'pointer',
+              }}
+            >
+              🔄 Điều Chuyển Liên Kho
+            </button>
+          </div>
+
           <span style={{ fontSize: '12px', color: '#cbd5e1' }}>|</span>
           <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>
             Đang hiển thị: <b style={{ color: '#2563eb', fontWeight: 900 }}>{filteredOrders.length}</b> đơn hàng
@@ -1161,7 +1393,7 @@ export default function OrderDispatch() {
 
                             <button
                               onClick={() => setPrintModalOrder(order)}
-                              title="In phiếu giao hàng siêu thị"
+                              title="In phiếu giao hàng / vận chuyển"
                               style={{
                                 backgroundColor: '#f8fafc',
                                 color: '#0f172a',
@@ -1173,10 +1405,32 @@ export default function OrderDispatch() {
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '3px',
+                                cursor: 'pointer',
                               }}
                             >
-                              <Printer size={11} />
-                              <span>In</span>
+                              <Printer size={11} color="#2563eb" />
+                              <span>Phiếu Giao</span>
+                            </button>
+
+                            <button
+                              onClick={() => setReceiptModalOrder(order)}
+                              title="In phiếu xuất kho chuẩn Mẫu 02 - VT (Bộ Tài Chính)"
+                              style={{
+                                backgroundColor: '#f0fdfa',
+                                color: '#0f766e',
+                                padding: '5px 8px',
+                                borderRadius: '8px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                border: '1px solid #99f6e4',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <FileText size={11} color="#0f766e" />
+                              <span>Phiếu 02-VT</span>
                             </button>
 
                             <button
@@ -1189,9 +1443,10 @@ export default function OrderDispatch() {
                                 fontSize: '11px',
                                 fontWeight: 700,
                                 border: '1px solid #cbd5e1',
+                                cursor: 'pointer',
                               }}
                             >
-                              Chi Tiết
+                              Chi tiết
                             </button>
                           </div>
                         </td>
@@ -1224,20 +1479,44 @@ export default function OrderDispatch() {
                     }}
                   >
                     <div>
-                      {/* Card Top: Code + Status Badge */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                        <span style={{
-                          fontSize: '11px',
-                          fontFamily: 'monospace',
-                          fontWeight: 800,
-                          color: '#1d4ed8',
-                          backgroundColor: '#eff6ff',
-                          padding: '4px 8px',
-                          borderRadius: '8px',
-                          border: '1px solid #dbeafe',
-                        }}>
-                          #{order.orderCode}
-                        </span>
+                      {/* Card Top: Code + Classification + Status Badge */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', gap: '6px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{
+                            fontSize: '11px',
+                            fontFamily: 'monospace',
+                            fontWeight: 800,
+                            color: '#1d4ed8',
+                            backgroundColor: '#eff6ff',
+                            padding: '3px 7px',
+                            borderRadius: '6px',
+                            border: '1px solid #dbeafe',
+                          }}>
+                            #{order.orderCode}
+                          </span>
+                          {(() => {
+                            const cls = detectSlipClassification(order as any);
+                            const badge = {
+                              SALE: { text: '🛒 Bán Lẻ', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+                              DISPOSAL: { text: '☣️ Tiêu Hủy', bg: '#faf5ff', color: '#7c3aed', border: '#e9d5ff' },
+                              RETURN: { text: '↩️ Hoàn/Trả', bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
+                              TRANSFER: { text: '🔄 Điều Chuyển', bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
+                            }[cls];
+                            return (
+                              <span style={{
+                                fontSize: '10px',
+                                fontWeight: 800,
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                backgroundColor: badge.bg,
+                                color: badge.color,
+                                border: `1px solid ${badge.border}`,
+                              }}>
+                                {badge.text}
+                              </span>
+                            );
+                          })()}
+                        </div>
                         <span style={{
                           display: 'inline-flex',
                           alignItems: 'center',
@@ -1425,22 +1704,44 @@ export default function OrderDispatch() {
 
                         <button
                           onClick={() => setPrintModalOrder(order)}
-                          title="In phiếu giao hàng siêu thị"
+                          title="In phiếu giao hàng / vận chuyển"
                           style={{
                             backgroundColor: '#f8fafc',
                             color: '#0f172a',
-                            padding: '6px 10px',
+                            padding: '6px 8px',
                             borderRadius: '8px',
                             fontSize: '11px',
                             fontWeight: 700,
                             border: '1px solid #cbd5e1',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '4px',
+                            gap: '3px',
+                            cursor: 'pointer',
                           }}
                         >
-                          <Printer size={12} />
-                          <span>In</span>
+                          <Printer size={12} color="#2563eb" />
+                          <span>Phiếu Giao</span>
+                        </button>
+
+                        <button
+                          onClick={() => setReceiptModalOrder(order)}
+                          title="In phiếu xuất kho 02 - VT (Bộ Tài Chính)"
+                          style={{
+                            backgroundColor: '#f0fdfa',
+                            color: '#0f766e',
+                            padding: '6px 8px',
+                            borderRadius: '8px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            border: '1px solid #99f6e4',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <FileText size={12} color="#0f766e" />
+                          <span>Phiếu 02-VT</span>
                         </button>
 
                         <button
@@ -1738,11 +2039,11 @@ export default function OrderDispatch() {
             </div>
 
             {/* Bottom Actions inside Drawer */}
-            <div style={{ paddingTop: '16px', borderTop: '1px solid #f1f5f9', display: 'flex', gap: '8px' }}>
+            <div style={{ paddingTop: '16px', borderTop: '1px solid #f1f5f9', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <button
                 onClick={() => setPrintModalOrder(selectedOrder)}
                 style={{
-                  padding: '12px 14px',
+                  padding: '11px 14px',
                   backgroundColor: '#0f172a',
                   color: '#ffffff',
                   borderRadius: '12px',
@@ -1756,7 +2057,27 @@ export default function OrderDispatch() {
                 }}
               >
                 <Printer size={15} color="#38bdf8" />
-                <span>In Phiếu</span>
+                <span>Phiếu Giao Nhận</span>
+              </button>
+
+              <button
+                onClick={() => setReceiptModalOrder(selectedOrder)}
+                style={{
+                  padding: '11px 14px',
+                  backgroundColor: '#0f766e',
+                  color: '#ffffff',
+                  borderRadius: '12px',
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                }}
+              >
+                <FileText size={15} color="#99f6e4" />
+                <span>Phiếu Xuất 02-VT</span>
               </button>
 
               <button
@@ -2074,6 +2395,14 @@ export default function OrderDispatch() {
         <PrintOrderSlipModal
           order={printModalOrder}
           onClose={() => setPrintModalOrder(null)}
+        />
+      )}
+
+      {/* ── MODAL: IN PHIẾU XUẤT KHO 02 - VT (BỘ TÀI CHÍNH) ── */}
+      {receiptModalOrder && (
+        <OutboundReceiptModal
+          order={receiptModalOrder}
+          onClose={() => setReceiptModalOrder(null)}
         />
       )}
 

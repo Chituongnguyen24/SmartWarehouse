@@ -1,9 +1,12 @@
-import { Injectable, NotFoundException, BadRequestException, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OutboundOrder } from './outbound-order.entity';
 import { OutboundOrderItem } from './outbound-order-item.entity';
 import * as amqp from 'amqp-connection-manager';
+import Redis from 'ioredis';
+import { OutboxService } from '../outbox/outbox.service';
+import { OutboundSagaOrchestrator } from '../saga/outbound-saga.orchestrator';
 
 export interface CreateOutboundOrderDto {
   orderCode?: string;
@@ -18,21 +21,45 @@ export interface CreateOutboundOrderDto {
     sku: string;
     productName: string;
     requestedQuantity: number;
+    lotId?: string;
+    lotCode?: string;
+    slotId?: string;
+    expiryDate?: string;
   }>;
   notes?: string;
+  assignedDriverId?: string;
+  assignedDriverName?: string;
+  assignedDriverPhone?: string;
+  assignedDriverPlate?: string;
+  customerPhone?: string;
 }
 
 @Injectable()
 export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
   private rmqConnection: any;
   private rmqChannel: any;
+  private redisClient: Redis;
 
   constructor(
     @InjectRepository(OutboundOrder)
     private orderRepository: Repository<OutboundOrder>,
     @InjectRepository(OutboundOrderItem)
     private itemRepository: Repository<OutboundOrderItem>,
-  ) {}
+    private outboxService: OutboxService,
+    private sagaOrchestrator: OutboundSagaOrchestrator,
+  ) {
+    this.redisClient = new Redis({
+      host: process.env.REDIS_HOST || 'localhost',
+      port: Number(process.env.REDIS_PORT) || 6379,
+      maxRetriesPerRequest: null,
+      enableOfflineQueue: false,
+      retryStrategy: (times) => Math.min(times * 100, 3000),
+    });
+
+    this.redisClient.on('error', (err) => {
+      console.warn(`[OutboundOrderService] Redis warning: ${err.message}`);
+    });
+  }
 
   onModuleInit() {
     const rabbitUrl = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
@@ -43,6 +70,11 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
         return channel.assertExchange('outbound.events', 'topic', { durable: true });
       },
     });
+
+    // Auto-sync existing pending orders with correct lot locations from inventory-service
+    setTimeout(() => {
+      this.syncLotLocationsForAllPendingOrders().catch(e => console.warn('[OUTBOUND] Auto-sync lot locations error:', e.message));
+    }, 2000);
   }
 
   onModuleDestroy() {
@@ -139,6 +171,15 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    const rawDest = (dto.destination || '').toLowerCase();
+    const rawNote = (dto.notes || '').toLowerCase();
+    const isDisposal = rawDest.includes('tiêu hủy') || rawDest.includes('đa phước') || rawNote.includes('tiêu hủy') || rawNote.includes('hết hạn');
+
+    const initialDriverId = dto.assignedDriverId || (isDisposal ? 'NV-TK01' : undefined);
+    const initialDriverName = dto.assignedDriverName || (isDisposal ? 'Đặng Hoàng Phúc (Tài xế Xe Tải)' : undefined);
+    const initialDriverPhone = dto.assignedDriverPhone || (isDisposal ? '0944 778 899' : undefined);
+    const initialDriverPlate = dto.assignedDriverPlate || (isDisposal ? '51D-892.45' : undefined);
+
     const order = this.orderRepository.create({
       orderCode,
       status: 'PENDING',
@@ -152,24 +193,62 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
       totalItems: dto.items.length,
       totalQuantity: dto.items.reduce((sum, i) => sum + i.requestedQuantity, 0),
       notes: dto.notes,
+      assignedDriverId: initialDriverId,
+      assignedDriverName: initialDriverName,
+      assignedDriverPhone: initialDriverPhone,
+      assignedDriverPlate: initialDriverPlate,
+      customerPhone: dto.customerPhone || (isDisposal ? '1900 6868' : '0944778899'),
     });
 
     const savedOrder = await this.orderRepository.save(order);
 
     for (const item of dto.items) {
+      let lotInfo: any = null;
+      if (!item.lotCode && !item.lotId) {
+        lotInfo = await this.findMatchingLotForSku(item.sku, savedOrder.warehouseCode);
+      }
       await this.itemRepository.save(this.itemRepository.create({
         outboundOrderId: savedOrder.id,
         sku: item.sku,
         productName: item.productName,
         requestedQuantity: item.requestedQuantity,
         status: 'PENDING',
+        lotId: item.lotId || lotInfo?.lotId || null,
+        lotCode: item.lotCode || lotInfo?.lotCode || null,
+        slotId: item.slotId || lotInfo?.slotId || null,
+        expiryDate: item.expiryDate || lotInfo?.expiryDate || null,
+        riskScore: lotInfo?.riskScore !== undefined ? lotInfo.riskScore : null,
+        priorityScore: lotInfo?.priorityScore !== undefined ? lotInfo.priorityScore : null,
       }));
     }
 
     // Auto deduct inventory stock in inventory-service for this warehouse
-    await this.deductInventoryStock(savedOrder.warehouseCode, dto.items.map(i => ({ sku: i.sku, quantity: i.requestedQuantity })));
+    const createdOrder = await this.findOne(savedOrder.id);
+    
+    // Save to Transactional Outbox for 100% Guaranteed Delivery
+    await this.outboxService.recordEvent('OUTBOUND_ORDER', savedOrder.id, 'outbound_order_created', {
+      orderId: savedOrder.id,
+      orderCode: savedOrder.orderCode,
+      destination: savedOrder.destination,
+      warehouseCode: savedOrder.warehouseCode,
+      totalItems: savedOrder.totalItems,
+      totalQuantity: savedOrder.totalQuantity,
+      status: 'PENDING',
+      order: createdOrder,
+    });
 
-    return this.findOne(savedOrder.id);
+    this.broadcastOrderEvent('outbound_order_created', {
+      orderId: savedOrder.id,
+      orderCode: savedOrder.orderCode,
+      destination: savedOrder.destination,
+      warehouseCode: savedOrder.warehouseCode,
+      totalItems: savedOrder.totalItems,
+      totalQuantity: savedOrder.totalQuantity,
+      status: 'PENDING',
+      order: createdOrder,
+    });
+
+    return createdOrder;
   }
 
   async splitCreate(dto: CreateOutboundOrderDto): Promise<OutboundOrder[]> {
@@ -232,12 +311,19 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
         const savedOrder = await this.orderRepository.save(order);
 
         for (const item of fulfillableItems) {
+          const lotInfo = await this.findMatchingLotForSku(item.sku, savedOrder.warehouseCode);
           await this.itemRepository.save(this.itemRepository.create({
             outboundOrderId: savedOrder.id,
             sku: item.sku,
             productName: item.productName,
             requestedQuantity: item.requestedQuantity,
             status: 'PENDING',
+            lotId: lotInfo?.lotId || null,
+            lotCode: lotInfo?.lotCode || null,
+            slotId: lotInfo?.slotId || null,
+            expiryDate: lotInfo?.expiryDate || null,
+            riskScore: lotInfo?.riskScore !== undefined ? lotInfo.riskScore : null,
+            priorityScore: lotInfo?.priorityScore !== undefined ? lotInfo.priorityScore : null,
           }));
         }
         
@@ -269,17 +355,39 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
         });
         const savedOrder = await this.orderRepository.save(order);
         for (const item of remainingItems) {
+          const lotInfo = await this.findMatchingLotForSku(item.sku, savedOrder.warehouseCode);
           await this.itemRepository.save(this.itemRepository.create({
             outboundOrderId: savedOrder.id,
             sku: item.sku,
             productName: item.productName,
             requestedQuantity: item.requestedQuantity,
             status: 'PENDING',
+            lotId: lotInfo?.lotId || null,
+            lotCode: lotInfo?.lotCode || null,
+            slotId: lotInfo?.slotId || null,
+            expiryDate: lotInfo?.expiryDate || null,
+            riskScore: lotInfo?.riskScore !== undefined ? lotInfo.riskScore : null,
+            priorityScore: lotInfo?.priorityScore !== undefined ? lotInfo.priorityScore : null,
           }));
         }
         createdOrders.push(await this.findOne(savedOrder.id));
     }
     
+    for (const co of createdOrders) {
+      if (co) {
+        this.broadcastOrderEvent('outbound_order_created', {
+          orderId: co.id,
+          orderCode: co.orderCode,
+          destination: co.destination,
+          warehouseCode: co.warehouseCode,
+          totalItems: co.totalItems,
+          totalQuantity: co.totalQuantity,
+          status: 'PENDING',
+          order: co,
+        });
+      }
+    }
+
     return createdOrders;
   }
 
@@ -439,11 +547,57 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
 
   async findOne(id: string): Promise<OutboundOrder> {
     const order = await this.orderRepository.findOne({
-      where: { id },
+      where: [{ id }, { orderCode: id }],
       relations: ['items'],
     });
     if (!order) throw new NotFoundException(`OutboundOrder ${id} not found`);
     return order;
+  }
+
+  async assignDriver(id: string, body: { 
+    driverId?: string; 
+    assignedDriverId?: string; 
+    driverName?: string; 
+    assignedDriverName?: string; 
+    driverPhone?: string; 
+    assignedDriverPhone?: string; 
+    driverPlate?: string; 
+    assignedDriverPlate?: string; 
+    status?: string 
+  }): Promise<OutboundOrder> {
+    const order = await this.findOne(id);
+    const dId = body.assignedDriverId || body.driverId;
+    const dName = body.assignedDriverName || body.driverName;
+    const dPhone = body.assignedDriverPhone || body.driverPhone;
+    const dPlate = body.assignedDriverPlate || body.driverPlate;
+
+    if (dId !== undefined) order.assignedDriverId = dId;
+    if (dName !== undefined) order.assignedDriverName = dName;
+    if (dPhone !== undefined) order.assignedDriverPhone = dPhone;
+    if (dPlate !== undefined) order.assignedDriverPlate = dPlate;
+    if (body.status !== undefined) order.status = body.status;
+
+    const saved = await this.orderRepository.save(order);
+
+    // Broadcast live event to Redis/RabbitMQ/Notification
+    this.broadcastOrderEvent('order_status_updated', saved);
+
+    // Broadcast live event to Order Gateway Socket on port 3004
+    fetch(`http://localhost:3004/orders/sync-status/${saved.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: saved.id,
+        orderCode: saved.orderCode,
+        status: saved.status,
+        assignedDriverId: saved.assignedDriverId,
+        assignedDriverName: saved.assignedDriverName,
+        assignedDriverPhone: saved.assignedDriverPhone,
+        assignedDriverPlate: saved.assignedDriverPlate,
+      }),
+    }).catch(() => {});
+
+    return saved;
   }
 
   // Bước 2-3: Nhân viên kho kiểm tra và hệ thống gợi ý FEFO
@@ -494,6 +648,7 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
 
     const saved = await this.orderRepository.save(order);
     await this.syncStatusToOrderService(order, 'PROCESSING');
+    this.broadcastOrderEvent('order_status_updated', { orderId: order.id, status: 'PICKING', order: saved });
     return saved;
   }
 
@@ -518,6 +673,7 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
 
     // Call Webhook to sync status with order-service (CustomerOrder) & broadcast WebSocket
     await this.syncStatusToOrderService(savedOrder, 'PACKED');
+    this.broadcastOrderEvent('order_status_updated', { orderId: savedOrder.id, status: 'PACKED', order: savedOrder });
 
     return savedOrder;
   }
@@ -525,55 +681,29 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
   // Bước 5: Xác nhận xuất kho
   async confirm(orderId: string, confirmedBy: string): Promise<OutboundOrder> {
     const order = await this.findOne(orderId);
-    if (order.status !== 'PACKED') {
-      throw new BadRequestException(`Order ${order.orderCode} is not in PACKED status`);
+    if (!order) {
+      throw new NotFoundException(`Order ${orderId} not found`);
+    }
+
+    // Auto mark items as confirmed / picked if needed
+    for (const item of order.items) {
+      if (!item.pickedQuantity || item.pickedQuantity === 0) {
+        item.pickedQuantity = item.requestedQuantity || 1;
+      }
+      item.status = 'CONFIRMED';
+      await this.itemRepository.save(item);
     }
 
     order.status = 'CONFIRMED';
-    order.confirmedBy = confirmedBy;
+    order.confirmedBy = confirmedBy || 'Quản lý kho';
     order.confirmedAt = new Date();
 
     const confirmed = await this.orderRepository.save(order);
 
-    console.log(`[OUTBOUND] Order ${order.orderCode} CONFIRMED. Deducting inventory stock...`);
+    console.log(`[OUTBOUND] Order ${order.orderCode} CONFIRMED. Deducting and clearing inventory lots from database...`);
 
-    // Call Inventory Service to deduct stock
-    try {
-      const token = await this.getAuthToken();
-      const unassignedItems: { sku: string; quantity: number }[] = [];
-      for (const item of order.items) {
-        if (item.lotId && item.pickedQuantity > 0) {
-          const deductPayload = {
-            lotId: item.lotId,
-            quantity: item.pickedQuantity,
-            reason: `EXPORT_OUTBOUND_ORDER_${order.orderCode}`,
-          };
-
-          const res = await fetch('http://localhost:3011/inventory/lots/export', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(deductPayload),
-          });
-
-          if (!res.ok) {
-            console.error(`[OUTBOUND SERVICE] Failed to deduct stock for lot ${item.lotCode} (${item.lotId}): ${res.statusText}`);
-          } else {
-            console.log(`[OUTBOUND SERVICE] Successfully deducted ${item.pickedQuantity} from lot ${item.lotCode}`);
-          }
-        } else if (item.requestedQuantity > 0) {
-          unassignedItems.push({ sku: item.sku, quantity: item.requestedQuantity });
-        }
-      }
-
-      if (unassignedItems.length > 0) {
-        await this.deductInventoryStock(order.warehouseCode || 'WH-006', unassignedItems);
-      }
-    } catch (err) {
-      console.error('[OUTBOUND SERVICE] Error calling inventory stock deduction:', err.message);
-    }
+    // Call Inventory Service to deduct and delete lots from DB
+    await this.processOrderInventoryDeduction(confirmed);
 
     // Publish outbound.confirmed event to RabbitMQ
     try {
@@ -599,8 +729,76 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
 
     // Call Webhook to sync status with order-service (CustomerOrder) -> READY_FOR_DELIVERY (Chờ nhận chuyến)
     await this.syncStatusToOrderService(order, 'READY_FOR_DELIVERY');
+    this.broadcastOrderEvent('outbound_confirmed', { orderId: confirmed.id, status: 'CONFIRMED', order: confirmed });
+    this.broadcastOrderEvent('order_status_updated', { orderId: confirmed.id, status: 'CONFIRMED', order: confirmed });
 
     return confirmed;
+  }
+
+  private async processOrderInventoryDeduction(order: OutboundOrder) {
+    try {
+      const token = await this.getAuthToken();
+      const unassignedItems: { sku: string; quantity: number }[] = [];
+
+      for (const item of order.items) {
+        const qtyToExport = (item.pickedQuantity > 0 ? item.pickedQuantity : item.requestedQuantity) || 1;
+        const targetLot = item.lotCode || item.lotId;
+
+        if (targetLot) {
+          const deductPayload = {
+            lotId: item.lotId,
+            lotCode: item.lotCode,
+            quantity: qtyToExport,
+            reason: `EXPORT_OUTBOUND_ORDER_${order.orderCode}`,
+          };
+
+          const res = await fetch('http://localhost:3011/inventory/lots/export', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(deductPayload),
+          });
+
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            console.error(`[OUTBOUND SERVICE] Failed to deduct stock for lot ${item.lotCode || item.lotId}:`, err);
+            unassignedItems.push({ sku: item.sku, quantity: qtyToExport });
+          } else {
+            console.log(`[OUTBOUND SERVICE] ✅ Successfully exported & deducted ${qtyToExport} from lot ${item.lotCode || item.lotId}`);
+          }
+        } else if (qtyToExport > 0) {
+          unassignedItems.push({ sku: item.sku, quantity: qtyToExport });
+        }
+      }
+
+      // Also check notes for any disposal/FEFO lot code specified directly (e.g. Lô: LOT-...)
+      if (order.notes && order.notes.includes('Lô:')) {
+        const match = order.notes.match(/Lô:\s*([A-Za-z0-9-_]+)/);
+        if (match && match[1]) {
+          const noteLotCode = match[1].trim();
+          await fetch('http://localhost:3011/inventory/lots/export', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              lotCode: noteLotCode,
+              quantity: 999999, // Force clear entire lot
+              reason: `DISPOSAL_EXPORT_${order.orderCode}`,
+            }),
+          }).catch(() => {});
+        }
+      }
+
+      if (unassignedItems.length > 0) {
+        await this.deductInventoryStock(order.warehouseCode || 'WH-006', unassignedItems);
+      }
+    } catch (err) {
+      console.error('[OUTBOUND SERVICE] Error calling inventory stock deduction:', err.message);
+    }
   }
 
   private async syncStatusToOrderService(order: any, orderStatus: string) {
@@ -654,17 +852,36 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
 
   async ship(orderId: string): Promise<OutboundOrder> {
     const order = await this.findOne(orderId);
+    const prevStatus = order.status;
     order.status = 'SHIPPED';
+    if (!order.confirmedAt) {
+      order.confirmedAt = new Date();
+      order.confirmedBy = order.confirmedBy || 'Shipper';
+    }
     const saved = await this.orderRepository.save(order);
+    if (prevStatus !== 'CONFIRMED' && prevStatus !== 'SHIPPED' && prevStatus !== 'DELIVERED') {
+      await this.processOrderInventoryDeduction(saved);
+    }
     await this.syncStatusToOrderService(order, 'DELIVERING');
+    this.broadcastOrderEvent('order_status_updated', { orderId: order.id, status: 'SHIPPED', order: saved });
     return saved;
   }
 
   async updateStatus(orderId: string, status: string): Promise<OutboundOrder> {
     const order = await this.findOne(orderId);
+    const prevStatus = order.status;
     order.status = status;
+    if ((status === 'CONFIRMED' || status === 'DELIVERED') && !order.confirmedAt) {
+      order.confirmedAt = new Date();
+      order.confirmedBy = order.confirmedBy || 'Quản lý kho';
+    }
     const saved = await this.orderRepository.save(order);
     
+    // If transitioning to CONFIRMED or DELIVERED, ensure inventory lots are deducted
+    if ((status === 'CONFIRMED' || status === 'DELIVERED') && prevStatus !== 'CONFIRMED' && prevStatus !== 'DELIVERED') {
+      await this.processOrderInventoryDeduction(saved);
+    }
+
     // Map outbound status to customer order status
     const mapped = 
       status === 'DELIVERED' ? 'COMPLETED' :
@@ -674,6 +891,7 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
       status === 'CANCELLED' ? 'CANCELLED' : status;
 
     await this.syncStatusToOrderService(order, mapped);
+    this.broadcastOrderEvent('order_status_updated', { orderId: order.id, status, order: saved });
     return saved;
   }
 
@@ -685,6 +903,7 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     order.status = 'CANCELLED';
     const saved = await this.orderRepository.save(order);
     await this.syncStatusToOrderService(order, 'CANCELLED');
+    this.broadcastOrderEvent('order_status_updated', { orderId: order.id, status: 'CANCELLED', order: saved });
     return saved;
   }
 
@@ -698,4 +917,336 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
 
     return { total, pending, picking, packed, confirmed, cancelled };
   }
+
+  async updateOrder(id: string, updateDto: any): Promise<OutboundOrder> {
+    const order = await this.findOne(id);
+    if (!order) throw new NotFoundException(`OutboundOrder ${id} not found`);
+
+    if (updateDto.requesterName !== undefined) order.requesterName = updateDto.requesterName;
+    if (updateDto.destination !== undefined) order.destination = updateDto.destination;
+    if (updateDto.notes !== undefined) order.notes = updateDto.notes;
+    if (updateDto.warehouseCode !== undefined) order.warehouseCode = updateDto.warehouseCode;
+    if (updateDto.status !== undefined) order.status = updateDto.status;
+
+    if (updateDto.items && Array.isArray(updateDto.items)) {
+      for (const itemUpdate of updateDto.items) {
+        if (itemUpdate.id) {
+          const item = await this.itemRepository.findOne({ where: { id: itemUpdate.id } });
+          if (item) {
+            if (itemUpdate.requestedQuantity !== undefined) item.requestedQuantity = Number(itemUpdate.requestedQuantity);
+            if (itemUpdate.pickedQuantity !== undefined) item.pickedQuantity = Number(itemUpdate.pickedQuantity);
+            if (itemUpdate.lotCode !== undefined) item.lotCode = itemUpdate.lotCode;
+            if (itemUpdate.slotId !== undefined) item.slotId = itemUpdate.slotId;
+            if (itemUpdate.status !== undefined) item.status = itemUpdate.status;
+            await this.itemRepository.save(item);
+          }
+        }
+      }
+      const refreshedItems = await this.itemRepository.find({ where: { outboundOrderId: id } });
+      order.totalItems = refreshedItems.length;
+      order.totalQuantity = refreshedItems.reduce((s, i) => s + (Number(i.requestedQuantity) || 0), 0);
+    }
+
+    await this.orderRepository.save(order);
+    return this.findOne(id);
+  }
+
+  // =========================================================================
+  // CONCURRENCY MUTEX LOCK (DISTRIBUTED REDIS LOCK)
+  // Prevents Web Manager and Mobile Staff from operating on the same order
+  // =========================================================================
+  private orderLocks = new Map<string, {
+    userId: string;
+    userName: string;
+    role: string;
+    lockedAt: string;
+    expiresAt: number;
+  }>();
+
+  async lockOrder(orderId: string, user: { userId: string; userName: string; role?: string }): Promise<any> {
+    const lockKey = `sfwms:lock:order:${orderId}`;
+    const now = Date.now();
+    const ttlSeconds = 300; // 5 minutes TTL
+
+    const lockData = {
+      userId: user.userId || 'usr-staff',
+      userName: user.userName || 'Nhân viên kho',
+      role: user.role || 'STAFF',
+      lockedAt: new Date().toISOString(),
+      expiresAt: now + ttlSeconds * 1000,
+    };
+
+    // 1. Try Redis Distributed Lock
+    if (this.redisClient && this.redisClient.status === 'ready') {
+      try {
+        const rawExisting = await this.redisClient.get(lockKey);
+        if (rawExisting) {
+          const existing = JSON.parse(rawExisting);
+          if (existing.userId !== user.userId && existing.expiresAt > now) {
+            throw new ConflictException({
+              statusCode: 409,
+              error: 'ORDER_LOCKED',
+              message: `Đơn hàng đang được thao tác bởi ${existing.userName} (${existing.role || 'Nhân viên'}). Vui lòng chờ hoàn tất!`,
+              lockedBy: existing,
+            });
+          }
+        }
+        await this.redisClient.set(lockKey, JSON.stringify(lockData), 'EX', ttlSeconds);
+      } catch (err) {
+        if (err instanceof ConflictException) throw err;
+        console.warn('[OUTBOUND] Redis lock fallback to in-memory:', err.message);
+      }
+    } else {
+      // In-memory fallback
+      const existing = this.orderLocks.get(orderId);
+      if (existing && existing.expiresAt > now && existing.userId !== user.userId) {
+        throw new ConflictException({
+          statusCode: 409,
+          error: 'ORDER_LOCKED',
+          message: `Đơn hàng đang được thao tác bởi ${existing.userName} (${existing.role || 'Nhân viên'}). Vui lòng chờ hoàn tất!`,
+          lockedBy: existing,
+        });
+      }
+    }
+
+    this.orderLocks.set(orderId, lockData);
+
+    // Broadcast to Notification/WebSocket Gateway & Redis PubSub
+    this.broadcastOrderEvent('order_locked', { orderId, lock: lockData });
+
+    return { success: true, orderId, lock: lockData };
+  }
+
+  async unlockOrder(orderId: string, userId?: string): Promise<any> {
+    const lockKey = `sfwms:lock:order:${orderId}`;
+
+    if (this.redisClient && this.redisClient.status === 'ready') {
+      try {
+        const rawExisting = await this.redisClient.get(lockKey);
+        if (rawExisting) {
+          const existing = JSON.parse(rawExisting);
+          if (!userId || existing.userId === userId) {
+            await this.redisClient.del(lockKey);
+          }
+        } else {
+          await this.redisClient.del(lockKey);
+        }
+      } catch (e) {
+        console.warn('[OUTBOUND] Redis unlock warning:', e.message);
+      }
+    }
+
+    const existing = this.orderLocks.get(orderId);
+    if (existing) {
+      if (!userId || existing.userId === userId || existing.expiresAt <= Date.now()) {
+        this.orderLocks.delete(orderId);
+      }
+    }
+
+    this.broadcastOrderEvent('order_unlocked', { orderId, unlockedBy: userId });
+    return { success: true, orderId };
+  }
+
+  async getActiveLocks(): Promise<Record<string, any>> {
+    const now = Date.now();
+    const active: Record<string, any> = {};
+
+    if (this.redisClient && this.redisClient.status === 'ready') {
+      try {
+        const keys = await this.redisClient.keys('sfwms:lock:order:*');
+        if (keys && keys.length > 0) {
+          const values = await this.redisClient.mget(...keys);
+          keys.forEach((k, idx) => {
+            const orderId = k.replace('sfwms:lock:order:', '');
+            const raw = values[idx];
+            if (raw) {
+              try {
+                const parsed = JSON.parse(raw);
+                if (parsed.expiresAt > now) {
+                  active[orderId] = parsed;
+                }
+              } catch (e) {}
+            }
+          });
+          return active;
+        }
+      } catch (e) {
+        console.warn('[OUTBOUND] Redis getActiveLocks warning:', e.message);
+      }
+    }
+
+    for (const [orderId, lock] of this.orderLocks.entries()) {
+      if (lock.expiresAt > now) {
+        active[orderId] = lock;
+      } else {
+        this.orderLocks.delete(orderId);
+      }
+    }
+    return active;
+  }
+
+  private async findMatchingLotForSku(sku: string, warehouseCode?: string): Promise<any | null> {
+    try {
+      const cleanSku = (sku || '').replace(/^LOT-/, '').trim();
+
+      // 1. Try smart FEFO endpoint first
+      if (cleanSku) {
+        const fefoUrl = `http://localhost:3011/inventory/fefo?sku=${encodeURIComponent(cleanSku)}&quantity=1${warehouseCode ? `&warehouseId=${encodeURIComponent(warehouseCode)}` : ''}`;
+        const fefoRes = await fetch(fefoUrl);
+        if (fefoRes.ok) {
+          const fefoData = await fefoRes.json();
+          if (fefoData?.suggestions && fefoData.suggestions.length > 0) {
+            const top = fefoData.suggestions[0];
+            return {
+              lotId: top.lotId,
+              lotCode: top.lotCode,
+              slotId: top.location,
+              expiryDate: top.expiryDate ? new Date(top.expiryDate) : undefined,
+              riskScore: top.riskScore || 0,
+              priorityScore: top.priorityScore || 0,
+            };
+          }
+        }
+      }
+
+      // 2. Query lots by search pattern from inventory-service
+      const lotsUrl = `http://localhost:3011/inventory/lots?limit=5000${warehouseCode ? `&warehouseCode=${encodeURIComponent(warehouseCode)}` : ''}`;
+      const lotsRes = await fetch(lotsUrl);
+      if (lotsRes.ok) {
+        const lots = await lotsRes.json();
+        if (Array.isArray(lots) && lots.length > 0) {
+          let matched = lots.find((l: any) => 
+            (cleanSku && l.lotCode && l.lotCode.includes(cleanSku)) ||
+            l.sku === sku ||
+            l.productId === sku
+          );
+          if (!matched) {
+            matched = lots[0];
+          }
+          if (matched) {
+            return {
+              lotId: matched.id,
+              lotCode: matched.lotCode,
+              slotId: matched.location,
+              expiryDate: matched.expiryDate ? new Date(matched.expiryDate) : undefined,
+              riskScore: matched.riskScore || 0,
+              priorityScore: matched.priorityScore || 0,
+            };
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`[OUTBOUND] Error fetching matching lot for SKU ${sku}:`, e.message);
+    }
+    return null;
+  }
+
+  async syncLotLocationsForAllPendingOrders(): Promise<{ updatedOrders: number; updatedItems: number }> {
+    try {
+      const orders = await this.orderRepository.find({
+        relations: ['items'],
+      });
+
+      let updatedOrdersCount = 0;
+      let updatedItemsCount = 0;
+
+      // Fetch all lots from inventory-service
+      let allLots: any[] = [];
+      try {
+        const res = await fetch('http://localhost:3011/inventory/lots?limit=10000');
+        if (res.ok) {
+          allLots = await res.json();
+        }
+      } catch (e) {
+        console.error('[OUTBOUND SYNC] Failed to fetch inventory lots:', e.message);
+      }
+
+      if (allLots.length === 0) {
+        console.warn('[OUTBOUND SYNC] No inventory lots found to sync.');
+        return { updatedOrders: 0, updatedItems: 0 };
+      }
+
+      for (const order of orders) {
+        let orderModified = false;
+        if (!order.items || order.items.length === 0) continue;
+
+        for (const item of order.items) {
+          const cleanSku = (item.sku || '').replace(/^LOT-/, '').trim();
+          
+          // Match lot:
+          // 1. Direct SKU match in lotCode / sku / productId in the same warehouse
+          let matchedLot = allLots.find(l => 
+            (l.warehouseCode === order.warehouseCode || l.warehouseId === order.warehouseId) &&
+            ((cleanSku && l.lotCode && l.lotCode.includes(cleanSku)) || l.sku === item.sku || l.productId === item.sku)
+          );
+
+          // 2. Global SKU match across all warehouses
+          if (!matchedLot) {
+            matchedLot = allLots.find(l => 
+              (cleanSku && l.lotCode && l.lotCode.includes(cleanSku)) || l.sku === item.sku || l.productId === item.sku
+            );
+          }
+
+          // 3. Fallback to any lot in that warehouse or global lot
+          if (!matchedLot && order.warehouseCode) {
+            matchedLot = allLots.find(l => l.warehouseCode === order.warehouseCode);
+          }
+          if (!matchedLot) {
+            matchedLot = allLots[0];
+          }
+
+          if (matchedLot) {
+            item.lotId = matchedLot.id;
+            item.lotCode = matchedLot.lotCode;
+            item.slotId = matchedLot.location;
+            item.expiryDate = matchedLot.expiryDate ? new Date(matchedLot.expiryDate) : (item.expiryDate || new Date(Date.now() + 30 * 86400000));
+            item.riskScore = matchedLot.riskScore !== undefined ? matchedLot.riskScore : (item.riskScore || 0);
+            await this.itemRepository.save(item);
+            orderModified = true;
+            updatedItemsCount++;
+          }
+        }
+
+        if (orderModified) {
+          updatedOrdersCount++;
+        }
+      }
+
+      console.log(`[OUTBOUND SYNC] Successfully synced ${updatedItemsCount} items across ${updatedOrdersCount} orders.`);
+      return { updatedOrders: updatedOrdersCount, updatedItems: updatedItemsCount };
+    } catch (err) {
+      console.error('[OUTBOUND SYNC] Error syncing lot locations:', err.message);
+      return { updatedOrders: 0, updatedItems: 0 };
+    }
+  }
+
+  async executeSaga(orderId: string) {
+    return this.sagaOrchestrator.executeOrderSaga(orderId);
+  }
+
+  async getOutboxStats() {
+    return this.outboxService.getOutboxStats();
+  }
+
+  private async broadcastOrderEvent(event: string, payload: any) {
+    try {
+      // 1. Publish event via Redis Pub/Sub for real-time instant broadcast
+      if (this.redisClient && this.redisClient.status === 'ready') {
+        await this.redisClient.publish(event, JSON.stringify(payload));
+      }
+      // 2. Publish event via RabbitMQ
+      if (this.rmqChannel) {
+        await this.rmqChannel.publish('outbound.events', event, payload);
+      }
+      // 3. Call Notification Gateway
+      fetch('http://localhost:3004/notifications/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event, payload }),
+      }).catch(() => {});
+    } catch (e) {
+      // Silent pass
+    }
+  }
 }
+

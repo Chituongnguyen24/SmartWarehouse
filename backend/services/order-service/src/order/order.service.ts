@@ -251,16 +251,12 @@ export class OrderService {
   }> {
     const orders = await this.findAll(warehouseCode);
     const readyOrders = orders.filter(
-      o =>
-        o.status !== OrderStatus.COMPLETED &&
-        o.status !== OrderStatus.FAILED_DELIVERY &&
-        o.status !== OrderStatus.RETURN_TO_WAREHOUSE &&
-        o.status !== OrderStatus.CANCELLED,
+      o => o.status === OrderStatus.CONFIRMED || o.status === OrderStatus.READY_FOR_DELIVERY,
     );
 
     if (readyOrders.length === 0) {
       return {
-        message: 'Không có đơn hàng nào đang chờ điều phối giao hàng tại kho này.',
+        message: 'Không có đơn hàng nào ĐÃ XUẤT KHO (CONFIRMED / SHIPPED / READY_FOR_DELIVERY) cần điều phối tại kho này. Đơn mới chỉ Đóng gói (PACKED) cần xác nhận xuất kho trước.',
         totalOrdersProcessed: 0,
         routes: [],
       };

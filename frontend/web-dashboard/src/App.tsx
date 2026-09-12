@@ -175,10 +175,11 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="demand-forecast" element={
-              <ProtectedRoute allowedRoles={['SALES_STAFF']}>
+              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'SALES_STAFF']}>
                 <DemandForecast />
               </ProtectedRoute>
             } />
+            <Route path="replenishment" element={<Navigate to="/demand-forecast" replace />} />
             <Route path="transport" element={
               <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'DRIVER']}>
                 <TransportOptimization />

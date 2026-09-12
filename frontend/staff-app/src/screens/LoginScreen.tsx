@@ -33,8 +33,10 @@ export const LoginScreen: React.FC = () => {
     setErrorMessage(null);
 
     try {
-      const { user, token } = await loginStaffApi(email, password);
-      login(user, token);
+      const result = await login(email, password);
+      if (result && !result.success) {
+        setErrorMessage(result.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
+      }
     } catch (err: any) {
       setErrorMessage(err.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
     } finally {

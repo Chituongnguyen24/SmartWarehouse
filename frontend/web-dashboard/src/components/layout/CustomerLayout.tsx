@@ -109,13 +109,9 @@ const CustomerLayout: React.FC = () => {
               <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Khách hàng</span>
             </div>
           </div>
-          <LogOut
-            size={18}
-            color="#ef4444"
-            style={{ marginLeft: '10px', cursor: 'pointer' }}
-            onClick={handleLogout}
-            title="Đăng xuất"
-          />
+          <span title="Đăng xuất" onClick={handleLogout} style={{ marginLeft: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+            <LogOut size={18} color="#ef4444" />
+          </span>
         </div>
       </header>
 

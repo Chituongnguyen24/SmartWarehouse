@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { OrderService } from './order.service';
 import { OrderController } from './order.controller';
+import { NotificationController } from './notification.controller';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { OrderGateway } from './order.gateway';
@@ -14,7 +15,7 @@ import { S3StorageService } from '../storage/s3-storage.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Order, OrderItem])],
-  controllers: [OrderController],
+  controllers: [OrderController, NotificationController],
   providers: [
     OrderService,
     OrderGateway,

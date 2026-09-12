@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Boxes, MapPin, RefreshCw, X, Layers, Settings, Building2, Edit2 } from 'lucide-react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { Boxes, MapPin, RefreshCw, X, Layers, Settings, Building2, Edit2, Send, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useWarehouse, type Warehouse } from '../contexts/WarehouseContext';
 import { Warehouse3DDigitalTwin } from '../components/Warehouse3DDigitalTwin';
@@ -36,10 +36,32 @@ const Inventory = () => {
     openManageModal,
   } = useWarehouse();
 
+  const navigate = useNavigate();
+
   // Tab State: Sổ tồn kho vs Bản đồ 3D Digital Twin
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState<'STOCK' | '3D_MAP'>(tabParam === '3d' ? '3D_MAP' : 'STOCK');
+
+  // Outbound Creation State & Feedback Modal
+  const [isCreatingOutbound, setIsCreatingOutbound] = useState<boolean>(false);
+  const [confirmExportModal, setConfirmExportModal] = useState<{
+    isOpen: boolean;
+    lot: any;
+    isDanger: boolean;
+    expiryStr: string;
+    quantity: number;
+    destination: string;
+    requesterName: string;
+    notes: string;
+  } | null>(null);
+
+  const [outboundSuccessModal, setOutboundSuccessModal] = useState<{
+    isOpen: boolean;
+    order?: any;
+    lot?: any;
+    isDanger?: boolean;
+  } | null>(null);
 
   useEffect(() => {
     if (tabParam === '3d') {
@@ -97,6 +119,9 @@ const Inventory = () => {
   const [hideDepletedLots, setHideDepletedLots] = useState(true);
   const [selectedZoneFilter, setSelectedZoneFilter] = useState<'ALL' | 'COLD' | 'FROZEN' | 'DRY'>('ALL');
 
+  // Map of lotCode -> existing Outbound Order (To prevent duplicate disposal / outbound orders)
+  const [outboundLotMap, setOutboundLotMap] = useState<Record<string, { orderCode: string; status: string; isDisposal: boolean; id: string }>>({});
+
   useEffect(() => {
     const targetCode = isManager ? myWarehouseCode : selectedWarehouseCode;
     if (targetCode && warehouses.length > 0) {
@@ -112,10 +137,45 @@ const Inventory = () => {
     setLoadingStock(true);
 
     try {
-      const [resLots, resProducts] = await Promise.all([
+      const [resLots, resProducts, resOutbounds] = await Promise.all([
         fetch(`${INVENTORY_API}/inventory/lots?limit=5000&warehouseCode=${wh.code}`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`http://localhost:3010/products?limit=3000`, { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch(`http://localhost:3010/products?limit=3000`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`http://localhost:3007/outbound-orders?limit=1000`, { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => null)
       ]);
+
+      // Parse existing outbound orders map
+      const outMap: Record<string, { orderCode: string; status: string; isDisposal: boolean; id: string }> = {};
+      if (resOutbounds && resOutbounds.ok) {
+        try {
+          const outData = await resOutbounds.json();
+          const outList = Array.isArray(outData) ? outData : outData.data || [];
+          outList.forEach((ord: any) => {
+            if (ord.status !== 'CANCELLED') {
+              const isDisposal = (ord.destination && ord.destination.toLowerCase().includes('tiêu hủy')) ||
+                                 (ord.notes && ord.notes.toLowerCase().includes('tiêu hủy'));
+              if (Array.isArray(ord.items)) {
+                ord.items.forEach((it: any) => {
+                  if (it.lotCode) {
+                    outMap[it.lotCode] = { orderCode: ord.orderCode, status: ord.status, isDisposal, id: ord.id };
+                  }
+                  if (it.lotId) {
+                    outMap[it.lotId] = { orderCode: ord.orderCode, status: ord.status, isDisposal, id: ord.id };
+                  }
+                });
+              }
+
+              // Also map lot codes embedded in notes
+              if (ord.notes && ord.notes.includes('Lô:')) {
+                const match = ord.notes.match(/Lô:\s*([A-Za-z0-9-_]+)/);
+                if (match && match[1]) {
+                  outMap[match[1].trim()] = { orderCode: ord.orderCode, status: ord.status, isDisposal, id: ord.id };
+                }
+              }
+            }
+          });
+        } catch (e) {}
+      }
+      setOutboundLotMap(outMap);
 
       if (resLots.ok && resProducts.ok) {
         const lots = await resLots.json();
@@ -128,36 +188,70 @@ const Inventory = () => {
           productMap[p.sku] = p;
         });
 
-        const filtered = lots.filter((l: any) => (!l.warehouseCode || l.warehouseCode === wh.code) && ((l.remainingQty !== undefined ? l.remainingQty : l.quantity) >= 0));
+        const filtered = lots.filter((l: any) => {
+          const isCorrectWh = !l.warehouseCode || l.warehouseCode === wh.code;
+          const remQty = l.remainingQty !== undefined ? l.remainingQty : l.quantity;
+          const existingOutbound = outMap[l.lotCode] || outMap[l.id];
+          const isAlreadyDelivered = existingOutbound && (existingOutbound.status === 'DELIVERED' || existingOutbound.status === 'COMPLETED');
+          return isCorrectWh && remQty > 0 && !isAlreadyDelivered;
+        });
         
         let dryCount = 0;
         let coldCount = 0;
         let frozenCount = 0;
         const grouped: Record<string, {sku: string, productName: string, qty: number}> = {};
         
-        const getFriendlyName = (productId: string, lotCode: string, p?: any) => {
-          if (p?.name) return p.name;
-          const str = `${productId || ''} ${lotCode || ''}`.toUpperCase();
-          if (str.includes('BROCCOLI')) return 'Súp lơ xanh Đà Lạt';
-          if (str.includes('MILK')) return 'Sữa tươi tiệt trùng Dalat Milk';
-          if (str.includes('NOODLE') || str.includes('HAOHAO')) return 'Mì Hảo Hảo Tôm Chua Cay';
-          if (str.includes('BEEF')) return 'Thịt bò Mỹ nhập khẩu';
-          if (str.includes('TOMATO')) return 'Cà chua sạch Đà Lạt';
-          if (str.includes('VEG')) return 'Rau củ quả tươi nông sản';
-          if (str.includes('FRUIT')) return 'Trái cây nhiệt đới tươi';
-          if (str.includes('MEAT')) return 'Thịt tươi bảo quản lạnh';
-          return p?.sku || productId || 'Sản phẩm thực phẩm';
+        const isUuid = (val?: string) => !val || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) || val.length > 30;
+
+        const getFriendlyName = (productId: string, lotCode: string, p?: any, zone?: string, location?: string) => {
+          if (p?.name && !isUuid(p.name)) return p.name;
+          const str = `${productId || ''} ${lotCode || ''} ${location || ''}`.toUpperCase();
+          
+          // 1. Specific SKU / Lot patterns
+          if (str.includes('EM-10') || str.includes('BEEF') || str.includes('PORK') || str.includes('THIT')) return 'Thịt bò Úc phi lê 500g';
+          if (str.includes('EM-20') || str.includes('MILK') || str.includes('SUA') || str.includes('BUTTER')) return 'Sữa tươi Dalat Milk 1L';
+          if (str.includes('EM-30') || str.includes('BROCCOLI') || str.includes('TOMATO') || str.includes('VEG') || str.includes('RAU')) return 'Bông cải xanh Baby VietGAP';
+          if (str.includes('EM-40') || str.includes('FRUIT') || str.includes('TRAICAY') || str.includes('APPLE') || str.includes('ORANGE')) return 'Táo Envy New Zealand Size 70';
+          if (str.includes('EM-45') || str.includes('EGG') || str.includes('TRUNG') || str.includes('PROBI')) return 'Trứng gà Ta Ba Huân hộp 10 quả';
+          if (str.includes('EM-46') || str.includes('SEAFOOD') || str.includes('CAHOI') || str.includes('TOM') || str.includes('MUC')) return 'Cá hồi Na Uy phi lê tươi sống 300g';
+          if (str.includes('EM-47') || str.includes('GIO') || str.includes('VIEN') || str.includes('SAUSAGE') || str.includes('XUCXICH')) return 'Giò lụa Vissan thượng hạng 500g';
+          if (str.includes('EM-48') || str.includes('DAUHU') || str.includes('TOFU') || str.includes('NAM')) return 'Nấm đùi gà baby VietGAP 200g';
+          if (str.includes('EM-50') || str.includes('FROZEN_FISH') || str.includes('OCTOPUS') || str.includes('CRAB')) return 'File cá hồi Nauy tươi đông lạnh 500g';
+          if (str.includes('EM-60') || str.includes('ICE_CREAM') || str.includes('KEM') || str.includes('MAGNUM') || str.includes('CELANO')) return 'Kem Häagen-Dazs Vani 473ml';
+          if (str.includes('EM-70') || str.includes('DIMSUM') || str.includes('HACAO') || str.includes('PIZZA') || str.includes('MANDU')) return 'Há cảo tôm thịt Cầu Tre 500g';
+          if (str.includes('EM-85') || str.includes('HOTATE') || str.includes('SCALLOP') || str.includes('SNOWCRAB')) return 'Sò điệp Nhật Hotate đông lạnh 500g';
+          if (str.includes('EM-86') || str.includes('POTATO') || str.includes('KHOAITAY') || str.includes('FASTFOOD')) return 'Khoai tây cọng Bỉ Lutosa đông lạnh 1kg';
+          if (str.includes('EM-87') || str.includes('BANHBAO') || str.includes('THOPHAT')) return 'Bánh bao xá xíu Thọ Phát gói 4 cái';
+          if (str.includes('EM-88') || str.includes('CHICKEN') || str.includes('DUIGA') || str.includes('CANHGA')) return 'Đùi gà góc tư nhập khẩu Mỹ 10kg';
+          if (str.includes('EM-90') || str.includes('RICE') || str.includes('GAO') || str.includes('ST25') || str.includes('NOODLE') || str.includes('HAOHAO')) return 'Gạo ST25 Ông Cua Túi 5kg';
+          if (str.includes('EM-91') || str.includes('EM-92') || str.includes('EM-93') || str.includes('OIL') || str.includes('DAUAN') || str.includes('SPICE') || str.includes('GIAVI')) return 'Dầu ăn đậu nành Simply nguyên chất 1L';
+          if (str.includes('EM-95') || str.includes('COFFEE') || str.includes('CAPHE') || str.includes('G7') || str.includes('TEA') || str.includes('TRA')) return 'Cà phê hòa tan G7 3in1 hộp 50 gói';
+          if (str.includes('EM-96') || str.includes('WATER') || str.includes('LAVIE') || str.includes('REDBULL')) return 'Nước khoáng thiên nhiên La Vie 500ml';
+          if (str.includes('EM-97') || str.includes('OAT') || str.includes('YENMACH') || str.includes('NUT') || str.includes('HATDIEU')) return 'Yến mạch Quaker Oats Quick 1kg';
+          if (str.includes('EM-98') || str.includes('CHINSU') || str.includes('CHOLIMEX') || str.includes('TUONGOT') || str.includes('SAUCE')) return 'Tương ớt Chin-su chai 250g';
+          if (str.includes('EM-99') || str.includes('SNACK') || str.includes('RONG BIEN') || str.includes('CHOCOPIE')) return 'Bánh Chocopie Orion hộp 12 cái';
+
+          // 2. Zone-based fallback
+          const z = (zone || '').toUpperCase();
+          if (z === 'FROZEN' || str.includes('FROZEN') || str.includes('DONG-LANH')) return 'Thực phẩm đông lạnh nhập khẩu';
+          if (z === 'COLD' || str.includes('COLD') || str.includes('MAT')) return 'Nông sản thực phẩm tươi sạch';
+          if (z === 'DRY' || str.includes('DRY') || str.includes('KHO')) return 'Lương thực thực phẩm khô đóng gói';
+
+          return (p?.sku && !isUuid(p.sku)) ? p.sku : 'Thực phẩm dinh dưỡng tiêu chuẩn';
         };
 
         const getFriendlySku = (productId: string, lotCode: string, p?: any) => {
-          if (p?.sku) return p.sku;
+          if (p?.sku && !isUuid(p.sku)) return p.sku;
           const str = `${productId || ''} ${lotCode || ''}`.toUpperCase();
           if (str.includes('BROCCOLI')) return 'VEG-BROCCOLI-01';
           if (str.includes('MILK')) return 'MILK-DALAT-1L';
           if (str.includes('NOODLE')) return 'NOODLE-HAOHAO';
           if (str.includes('BEEF')) return 'BEEF-STEAK-US';
           if (str.includes('TOMATO')) return 'TOMATO-DALAT';
-          return (productId && productId.length > 20) ? (lotCode.split('-WH')[0] || productId.slice(0, 12)) : (productId || 'SKU-GENERAL');
+          if (lotCode && lotCode.startsWith('LOT-')) {
+            return lotCode.split('-WH')[0];
+          }
+          return (!isUuid(productId) && productId) ? productId : (lotCode ? lotCode.split('-')[0] + '-' + lotCode.split('-')[1] : 'SKU-GENERAL');
         };
 
         // ─────────────────────────────────────────────────────────
@@ -295,7 +389,7 @@ const Inventory = () => {
 
           const p = productMap[lot.productId] || productMap[lot.sku];
           const sku = getFriendlySku(lot.productId, lot.lotCode, p);
-          const name = getFriendlyName(lot.productId, lot.lotCode, p);
+          const name = getFriendlyName(lot.productId, lot.lotCode, p, lot.zone, lot.location);
           
           if (!grouped[sku]) {
             grouped[sku] = { sku: sku, productName: name, qty: 0 };
@@ -324,7 +418,7 @@ const Inventory = () => {
         const lotMapped = filtered.map((lot: any) => {
           const p = productMap[lot.productId] || productMap[lot.sku];
           const displaySku = getFriendlySku(lot.productId, lot.lotCode, p);
-          const displayName = getFriendlyName(lot.productId, lot.lotCode, p);
+          const displayName = getFriendlyName(lot.productId, lot.lotCode, p, lot.zone, lot.location);
           const ai = getAIRiskAnalysis({ ...lot, displayName, displaySku });
           return {
             ...lot,
@@ -617,9 +711,408 @@ const Inventory = () => {
     );
   };
 
+  // Open pre-export confirmation modal
+  const handleCreateOutboundFromLot = (lot: any, isDanger: boolean, expiryStr: string) => {
+    const existing = outboundLotMap[lot.lotCode] || outboundLotMap[lot.id];
+    if (existing) {
+      const confirmView = window.confirm(
+        `⚠️ THÔNG BÁO LÔ HÀNG ĐÃ CÓ ĐƠN XUẤT:\n\nLô hàng "${lot.lotCode}" (${lot.displayName || 'Sản phẩm'}) đã được tạo hóa đơn xuất ${existing.isDisposal ? 'tiêu hủy' : 'kho'} với mã phiếu: "${existing.orderCode}" (Trạng thái: ${existing.status}).\n\nBạn không thể tạo trùng lặp đơn cho cùng một lô hàng.\n\n👉 Bạn có muốn chuyển sang màn hình "Quản Lý Xuất Kho" để xem chi tiết phiếu xuất ${existing.orderCode} không?`
+      );
+      if (confirmView) {
+        navigate(`/outbound-orders?orderCode=${existing.orderCode}`);
+      }
+      return;
+    }
+
+    const orderQty = (lot.remainingQty && lot.remainingQty > 0) ? lot.remainingQty : 1;
+    setConfirmExportModal({
+      isOpen: true,
+      lot,
+      isDanger,
+      expiryStr,
+      quantity: orderQty,
+      destination: isDanger
+        ? `Xuất tiêu hủy / Xử lý lô hết hạn - ${lot.lotCode}`
+        : `Xuất bán / Điều phối FEFO lô ${lot.lotCode}`,
+      requesterName: user?.name || 'Quản lý kho',
+      notes: `[${isDanger ? 'XUẤT TIÊU HỦY / TRẢ NCC' : 'XUẤT BÁN FEFO'}] Lô: ${lot.lotCode} | Vị trí: ${lot.location || 'N/A'} | HSD: ${expiryStr} | ${lot.riskReason ? `Lý do: ${lot.riskReason}` : ''}`
+    });
+  };
+
+  // Submit confirmed export order to API
+  const handleConfirmExportSubmit = async () => {
+    if (!confirmExportModal) return;
+    const { lot, isDanger, expiryStr, quantity, destination, requesterName, notes } = confirmExportModal;
+
+    try {
+      setIsCreatingOutbound(true);
+      const effectiveWh = viewingWh?.code || selectedWarehouseCode || lot.warehouseCode || 'WH-006';
+      const exportQty = quantity > 0 ? quantity : 1;
+
+      // 1. Tạo đơn xuất kho bên outbound-service (:3007) ở trạng thái Tạo Yêu Cầu (PENDING)
+      const payload = {
+        requestedBy: user?.name || user?.email || 'Quản lý kho (Sổ Tồn Kho)',
+        requesterName: requesterName || 'Quản lý kho',
+        destination: destination || (isDanger ? `Xuất tiêu hủy - ${lot.lotCode}` : `Xuất bán FEFO - ${lot.lotCode}`),
+        warehouseCode: effectiveWh,
+        notes: notes || `[${isDanger ? 'XUẤT TIÊU HỦY' : 'XUẤT FEFO'}] Lô: ${lot.lotCode}`,
+        items: [
+          {
+            sku: lot.displaySku || lot.productId || lot.sku,
+            productName: lot.displayName || 'Sản phẩm',
+            requestedQuantity: exportQty,
+            lotCode: lot.lotCode,
+            lotId: lot.id,
+          }
+        ]
+      };
+
+      const res = await fetch('http://localhost:3007/outbound-orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const order = await res.json();
+        
+        // Update local outboundLotMap immediately
+        setOutboundLotMap(prev => ({
+          ...prev,
+          [lot.lotCode]: { orderCode: order.orderCode, status: order.status || 'PENDING', isDisposal: isDanger, id: order.id },
+          [lot.id]: { orderCode: order.orderCode, status: order.status || 'PENDING', isDisposal: isDanger, id: order.id }
+        }));
+
+        setConfirmExportModal(null);
+        setOutboundSuccessModal({
+          isOpen: true,
+          order,
+          lot,
+          isDanger
+        });
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`❌ Lỗi tạo phiếu xuất kho: ${err.message || 'Thất bại'}`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(`❌ Lỗi kết nối máy chủ xuất kho: ${err.message}`);
+    } finally {
+      setIsCreatingOutbound(false);
+    }
+  };
+
+  const renderConfirmExportModal = () => {
+    if (!confirmExportModal || !confirmExportModal.isOpen) return null;
+    const { lot, isDanger, expiryStr } = confirmExportModal;
+
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0, left: 0, right: 0, bottom: 0,
+        background: 'rgba(15, 23, 42, 0.75)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: '20px'
+      }}>
+        <div style={{
+          background: '#ffffff',
+          borderRadius: '20px',
+          width: '560px',
+          maxWidth: '95%',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.3)',
+          border: '1px solid #e2e8f0',
+        }}>
+          {/* Header */}
+          <div style={{
+            background: isDanger ? 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)' : 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+            padding: '18px 24px', color: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Send size={18} color="#ffffff" />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '15.5px', fontWeight: 900 }}>
+                  {isDanger ? 'Xác Nhận Xuất Tiêu Hủy / Trả NCC' : 'Xác Nhận Lập Phiếu Xuất Kho'}
+                </h3>
+                <p style={{ margin: 0, fontSize: '11.5px', opacity: 0.85 }}>Lô hàng: <b>{lot.lotCode}</b></p>
+              </div>
+            </div>
+            <button
+              onClick={() => setConfirmExportModal(null)}
+              style={{ background: 'none', border: 'none', color: '#ffffff', cursor: 'pointer', opacity: 0.8 }}
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          {/* Body */}
+          <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* Info Box */}
+            <div style={{ background: isDanger ? '#fef2f2' : '#f0fdf4', border: `1px solid ${isDanger ? '#fecaca' : '#bbf7d0'}`, borderRadius: '12px', padding: '12px 14px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 900, color: '#0f172a' }}>
+                {lot.displayName || 'Sản phẩm'}
+              </div>
+              <div style={{ display: 'flex', gap: '10px', fontSize: '12px', color: '#475569', marginTop: '4px', flexWrap: 'wrap' }}>
+                <span>SKU: <b>{lot.displaySku || lot.productId}</b></span>
+                <span>• Vị trí: <b style={{ color: '#0f766e' }}>{lot.location}</b></span>
+                <span>• HSD: <b style={{ color: isDanger ? '#dc2626' : '#0284c7' }}>{expiryStr}</b></span>
+                <span>• Tồn thực tế: <b>{lot.remainingQty} SP</b></span>
+              </div>
+              {lot.riskReason && (
+                <div style={{ fontSize: '11.5px', color: isDanger ? '#991b1b' : '#15803d', marginTop: '6px', fontStyle: 'italic' }}>
+                  ⚠️ {lot.riskReason}
+                </div>
+              )}
+            </div>
+
+            {/* Inputs */}
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                Số lượng xuất kho:
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={lot.remainingQty || 99999}
+                value={confirmExportModal.quantity}
+                onChange={e => setConfirmExportModal({ ...confirmExportModal, quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: 700, color: '#0f172a' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                Điểm đến / Mục đích xuất:
+              </label>
+              <input
+                type="text"
+                value={confirmExportModal.destination}
+                onChange={e => setConfirmExportModal({ ...confirmExportModal, destination: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', color: '#0f172a' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                Người lập yêu cầu xuất:
+              </label>
+              <input
+                type="text"
+                value={confirmExportModal.requesterName}
+                onChange={e => setConfirmExportModal({ ...confirmExportModal, requesterName: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', color: '#0f172a' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                Ghi chú nghiệp vụ:
+              </label>
+              <textarea
+                rows={2}
+                value={confirmExportModal.notes}
+                onChange={e => setConfirmExportModal({ ...confirmExportModal, notes: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px', color: '#0f172a' }}
+              />
+            </div>
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <button
+                disabled={isCreatingOutbound}
+                onClick={handleConfirmExportSubmit}
+                style={{
+                  flex: 1.5,
+                  padding: '11px 16px',
+                  borderRadius: '10px',
+                  backgroundColor: isDanger ? '#dc2626' : '#0284c7',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontWeight: 800,
+                  fontSize: '13px',
+                  cursor: isCreatingOutbound ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  boxShadow: isDanger ? '0 4px 12px rgba(220, 38, 38, 0.3)' : '0 4px 12px rgba(2, 132, 199, 0.3)'
+                }}
+              >
+                {isCreatingOutbound ? <RefreshCw size={14} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                Xác Nhận Tạo Phiếu Xuất
+              </button>
+
+              <button
+                onClick={() => setConfirmExportModal(null)}
+                style={{
+                  flex: 1,
+                  padding: '11px 16px',
+                  borderRadius: '10px',
+                  backgroundColor: '#f1f5f9',
+                  color: '#475569',
+                  border: '1px solid #cbd5e1',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                Huỷ Bỏ
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderOutboundSuccessModal = () => {
+    if (!outboundSuccessModal || !outboundSuccessModal.isOpen || !outboundSuccessModal.order) return null;
+    const { order, lot, isDanger } = outboundSuccessModal;
+
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0, left: 0, right: 0, bottom: 0,
+        background: 'rgba(15, 23, 42, 0.7)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: '20px'
+      }}>
+        <div style={{
+          background: '#ffffff',
+          borderRadius: '20px',
+          width: '560px',
+          maxWidth: '95%',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          border: '1px solid #e2e8f0',
+          overflow: 'hidden'
+        }}>
+          {/* Header */}
+          <div style={{ background: isDanger ? 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)' : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', padding: '20px 24px', color: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CheckCircle2 size={22} color="#ffffff" />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 900 }}>
+                  {isDanger ? 'Đã Tạo Đơn Xuất Hủy / Xử Lý Hết Hạn' : 'Đã Tạo Đơn Xuất Kho FEFO'}
+                </h3>
+                <p style={{ margin: 0, fontSize: '12px', opacity: 0.9 }}>Mã phiếu xuất: <b>{order.orderCode}</b></p>
+              </div>
+            </div>
+            <button
+              onClick={() => setOutboundSuccessModal(null)}
+              style={{ background: 'none', border: 'none', color: '#ffffff', cursor: 'pointer', opacity: 0.8 }}
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div style={{ padding: '24px' }}>
+            <div style={{ backgroundColor: isDanger ? '#fef2f2' : '#f0fdf4', border: `1px solid ${isDanger ? '#fecaca' : '#bbf7d0'}`, borderRadius: '12px', padding: '14px', marginBottom: '16px' }}>
+              <div style={{ fontSize: '13.5px', fontWeight: 800, color: isDanger ? '#991b1b' : '#166534', marginBottom: '4px' }}>
+                🎉 Đơn xuất kho <b>{order.orderCode}</b> đã được tạo thành công!
+              </div>
+              <div style={{ fontSize: '12.5px', color: isDanger ? '#b91c1c' : '#15803d', lineHeight: '1.4' }}>
+                Lô hàng <b>{lot?.lotCode}</b> ({lot?.displayName}) đã được đưa vào quy trình xuất kho. Bạn có thể mở đơn ngay để tiếp nhận, soạn hàng, đóng gói hoặc chỉnh sửa thông tin.
+              </div>
+            </div>
+
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px', fontSize: '12.5px', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748b' }}>Trạng thái đơn:</span>
+                <span style={{ fontWeight: 800, color: '#b45309', backgroundColor: '#fef3c7', padding: '2px 8px', borderRadius: '6px' }}>
+                  ⏳ Tạo yêu cầu (PENDING)
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748b' }}>Sản phẩm / Mã Lô:</span>
+                <b style={{ color: '#0f172a' }}>{lot?.displayName} ({lot?.lotCode})</b>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748b' }}>Vị trí kệ lưu kho:</span>
+                <b style={{ color: '#0f766e' }}>{lot?.location || 'Chưa định vị'}</b>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748b' }}>Số lượng xuất:</span>
+                <b style={{ color: '#0284c7' }}>{order.totalQuantity || lot?.remainingQty} sản phẩm</b>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748b' }}>Điểm đến / Mục đích:</span>
+                <b style={{ color: '#334155' }}>{order.destination}</b>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => {
+                  const orderId = order.id;
+                  setOutboundSuccessModal(null);
+                  navigate(orderId ? `/outbound-orders?selectedId=${orderId}` : '/outbound-orders');
+                }}
+                style={{
+                  flex: 1.5,
+                  padding: '12px 18px',
+                  borderRadius: '12px',
+                  backgroundColor: isDanger ? '#dc2626' : '#0284c7',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontWeight: 800,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: isDanger ? '0 4px 12px rgba(220, 38, 38, 0.3)' : '0 4px 12px rgba(2, 132, 199, 0.3)'
+                }}
+              >
+                <ExternalLink size={16} /> Mở Đơn Xuất Kho & Chỉnh Sửa
+              </button>
+
+              <button
+                onClick={() => setOutboundSuccessModal(null)}
+                style={{
+                  flex: 1,
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  backgroundColor: '#f1f5f9',
+                  color: '#475569',
+                  border: '1px solid #cbd5e1',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                Ở lại Sổ Tồn Kho
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderStockDashboard = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', flex: 1 }}>
       {renderAdjustModal()}
+      {renderConfirmExportModal()}
+      {renderOutboundSuccessModal()}
       {/* 4 KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
         <div style={{ backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
@@ -1249,6 +1742,38 @@ const Inventory = () => {
                         </div>
                       )}
 
+                      {/* Row 5.8: Outbound / Disposal Order Badge */}
+                      {(() => {
+                        const existing = outboundLotMap[lot.lotCode] || outboundLotMap[lot.id];
+                        if (!existing) return null;
+                        return (
+                          <div
+                            onClick={() => navigate(`/outbound-orders?orderCode=${existing.orderCode}`)}
+                            style={{
+                              backgroundColor: existing.isDisposal ? '#fef2f2' : '#eff6ff',
+                              border: `1px solid ${existing.isDisposal ? '#fecaca' : '#bfdbfe'}`,
+                              color: existing.isDisposal ? '#b91c1c' : '#1d4ed8',
+                              borderRadius: '8px',
+                              padding: '6px 10px',
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              cursor: 'pointer',
+                            }}
+                            title="Bấm để xem chi tiết phiếu xuất kho này"
+                          >
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              {existing.isDisposal ? '🗑️ ĐÃ CÓ ĐƠN TIÊU HỦY' : '📦 ĐÃ CÓ ĐƠN XUẤT'}: <b>{existing.orderCode}</b>
+                            </span>
+                            <span style={{ fontSize: '0.68rem', backgroundColor: existing.isDisposal ? '#fee2e2' : '#dbeafe', padding: '1px 5px', borderRadius: '4px' }}>
+                              {existing.status}
+                            </span>
+                          </div>
+                        );
+                      })()}
+
                       {/* Row 6: Stock Qty + Audit Button */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: `1px solid ${isDanger ? '#fed7d7' : isWarning ? '#fef3c7' : '#f1f5f9'}` }}>
                         <div>
@@ -1258,32 +1783,64 @@ const Inventory = () => {
                           </div>
                         </div>
 
-                        <button 
-                          onClick={() => setAdjustModal({
-                            isOpen: true,
-                            lot,
-                            newQty: lot.remainingQty,
-                            reason: isDanger ? 'Hàng hư hỏng / Quá hạn sử dụng (FEFO Dispose)' : isWarning ? 'Hàng dập nát / Hư hỏng trong bảo quản' : 'Kiểm kê định kỳ hàng tháng',
-                            qualityStatus: isDanger ? 'EXPIRED' : isWarning ? 'DAMAGED' : 'GOOD',
-                            note: ''
-                          })}
-                          style={{ 
-                            padding: '7px 14px', 
-                            borderRadius: '8px', 
-                            backgroundColor: lot.lastAuditedAt ? '#0f766e' : isDanger ? '#dc2626' : isWarning ? '#d97706' : '#fff', 
-                            border: (lot.lastAuditedAt || isDanger || isWarning) ? 'none' : '1px solid #cbd5e1', 
-                            color: (lot.lastAuditedAt || isDanger || isWarning) ? '#fff' : '#1e293b', 
-                            fontSize: '0.78rem', 
-                            fontWeight: 800, 
-                            cursor: 'pointer', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '5px',
-                            boxShadow: isDanger ? '0 2px 8px rgba(220, 38, 38, 0.3)' : isWarning ? '0 2px 8px rgba(217, 119, 6, 0.25)' : 'none'
-                          }}
-                        >
-                          <Edit2 size={13} /> {lot.lastAuditedAt ? 'Kiểm kê lại' : isDanger ? 'Kiểm kê ngay' : 'Kiểm kê'}
-                        </button>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          {(() => {
+                            const existing = outboundLotMap[lot.lotCode] || outboundLotMap[lot.id];
+                            return (
+                              <button
+                                type="button"
+                                disabled={isCreatingOutbound}
+                                onClick={() => handleCreateOutboundFromLot(lot, isDanger, expiryStr)}
+                                style={{
+                                  padding: '7px 12px',
+                                  borderRadius: '8px',
+                                  backgroundColor: existing ? '#475569' : isDanger ? '#dc2626' : isWarning ? '#d97706' : '#0284c7',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 800,
+                                  cursor: isCreatingOutbound ? 'not-allowed' : 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                  boxShadow: existing ? 'none' : isDanger ? '0 2px 8px rgba(220, 38, 38, 0.35)' : '0 2px 8px rgba(2, 132, 199, 0.25)',
+                                  opacity: isCreatingOutbound ? 0.7 : 1
+                                }}
+                                title={existing ? `Lô này đã lập đơn ${existing.orderCode}. Bấm để xem cảnh báo & mở phiếu.` : isDanger ? 'Tự động tạo đơn xuất tiêu hủy / trả hàng' : 'Tự động tạo đơn xuất kho FEFO'}
+                              >
+                                <Send size={12} /> {existing ? `Đã Lập Đơn (${existing.orderCode})` : isDanger ? 'Xuất Tiêu Hủy' : isWarning ? 'Xuất FEFO' : 'Xuất Kho'}
+                              </button>
+                            );
+                          })()}
+
+                          <button 
+                            type="button"
+                            onClick={() => setAdjustModal({
+                              isOpen: true,
+                              lot,
+                              newQty: lot.remainingQty,
+                              reason: isDanger ? 'Hàng hư hỏng / Quá hạn sử dụng (FEFO Dispose)' : isWarning ? 'Hàng dập nát / Hư hỏng trong bảo quản' : 'Kiểm kê định kỳ hàng tháng',
+                              qualityStatus: isDanger ? 'EXPIRED' : isWarning ? 'DAMAGED' : 'GOOD',
+                              note: ''
+                            })}
+                            style={{ 
+                              padding: '7px 12px', 
+                              borderRadius: '8px', 
+                              backgroundColor: lot.lastAuditedAt ? '#0f766e' : '#f8fafc', 
+                              border: lot.lastAuditedAt ? 'none' : '1px solid #cbd5e1', 
+                              color: lot.lastAuditedAt ? '#fff' : '#1e293b', 
+                              fontSize: '0.78rem', 
+                              fontWeight: 800, 
+                              cursor: 'pointer', 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '4px',
+                              boxShadow: lot.lastAuditedAt ? '0 2px 6px rgba(15, 118, 110, 0.25)' : 'none'
+                            }}
+                          >
+                            <Edit2 size={12} /> {lot.lastAuditedAt ? 'Kiểm kê lại' : isDanger ? 'Kiểm kê ngay' : 'Kiểm kê'}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );

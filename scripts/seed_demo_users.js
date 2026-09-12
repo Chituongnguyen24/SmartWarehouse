@@ -14,7 +14,31 @@ async function run() {
     { email: 'manager@sfwms.vn', name: 'Trần Văn Bình (QL Kho Gò Vấp)', role: 'WAREHOUSE_MANAGER', wh: 'WH-006' },
     { email: 'staff@sfwms.vn', name: 'Lê Thị Hoa (Nhân viên Kho Gò Vấp)', role: 'WAREHOUSE_STAFF', wh: 'WH-006' },
     { email: 'sales@sfwms.vn', name: 'Phạm Minh Đức (Nhân viên Kinh doanh)', role: 'SALES_STAFF', wh: null },
-    { email: 'driver@sfwms.vn', name: 'Võ Thanh Tùng (Tài xế Giao vận)', role: 'DRIVER', wh: null },
+    
+    // ── 9 TÀI XẾ TOÀN HỆ THỐNG SMART FOOD LOGISTICS ──
+    // 1. Đội Xe Tải Lạnh 2.5T (Đặng Hoàng Phúc)
+    { email: 'truck@sfwms.vn', name: 'Đặng Hoàng Phúc (Tài xế Xe Tải Lạnh 2.5T)', role: 'DRIVER', wh: 'WH-006' },
+    { email: 'phuc.dang@sfwms.vn', name: 'Đặng Hoàng Phúc (Tài xế Xe Tải Lạnh 2.5T)', role: 'DRIVER', wh: 'WH-006' },
+    { email: 'danghoangphuc@sfwms.vn', name: 'Đặng Hoàng Phúc (Tài xế Xe Tải Lạnh 2.5T)', role: 'DRIVER', wh: 'WH-006' },
+    { email: 'danghoangphuc@gmail.com', name: 'Đặng Hoàng Phúc (Tài xế Xe Tải Lạnh 2.5T)', role: 'DRIVER', wh: 'WH-006' },
+    { email: 'phuc@sfwms.vn', name: 'Đặng Hoàng Phúc (Tài xế Xe Tải Lạnh 2.5T)', role: 'DRIVER', wh: 'WH-006' },
+    
+    // 2. Đội Xe Bán Tải 1.5T (Phan Hữu Nam)
+    { email: 'van@sfwms.vn', name: 'Phan Hữu Nam (Tài xế Xe Bán Tải 1.5T)', role: 'DRIVER', wh: 'WH-006' },
+    { email: 'nam.phan@sfwms.vn', name: 'Phan Hữu Nam (Tài xế Xe Bán Tải 1.5T)', role: 'DRIVER', wh: 'WH-006' },
+    
+    // 3. Đội Xe Máy Thùng Lạnh Gò Vấp (WH-006)
+    { email: 'driver@sfwms.vn', name: 'Võ Minh Trí (Tài xế Xe Máy Thùng Lạnh)', role: 'DRIVER', wh: 'WH-006' },
+    { email: 'tri.vo@sfwms.vn', name: 'Võ Minh Trí (Tài xế Xe Máy Thùng Lạnh)', role: 'DRIVER', wh: 'WH-006' },
+    { email: 'hung.nguyen@sfwms.vn', name: 'Nguyễn Văn Hùng (Tài xế Xe Máy Siêu Tốc)', role: 'DRIVER', wh: 'WH-006' },
+    { email: 'bao.tran@sfwms.vn', name: 'Trần Quốc Bảo (Tài xế Xe Máy Thùng Mát)', role: 'DRIVER', wh: 'WH-006' },
+    { email: 'nam.hoang@sfwms.vn', name: 'Phạm Hoàng Nam (Tài xế Xe Máy Thùng Mát)', role: 'DRIVER', wh: 'WH-006' },
+    { email: 'tung.le@sfwms.vn', name: 'Lê Thanh Tùng (Tài xế Xe Máy Thùng Lạnh)', role: 'DRIVER', wh: 'WH-006' },
+    
+    // 4. Đội Xe Máy Hub Bình Thạnh (WH-002) & Tân Bình (WH-003)
+    { email: 'long.bui@sfwms.vn', name: 'Bùi Hoàng Long (Tài xế Kho Bình Thạnh)', role: 'DRIVER', wh: 'WH-002' },
+    { email: 'huy.truong@sfwms.vn', name: 'Trương Gia Huy (Tài xế Kho Tân Bình)', role: 'DRIVER', wh: 'WH-003' },
+
     { email: 'customer@sfwms.vn', name: 'Khách hàng Thử Nghiệm', role: 'CUSTOMER', wh: null }
   ];
 

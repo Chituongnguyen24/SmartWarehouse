@@ -4,10 +4,12 @@ import {
   ShoppingCart, CheckCircle, Clock, Search, RefreshCw, 
   Package, MapPin, Truck, CheckCircle2, XCircle, 
   DollarSign, Copy, ChevronLeft, ChevronRight,
-  Phone, CreditCard, X
+  Phone, CreditCard, X, Printer, FileText
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { useAuth } from '../contexts/AuthContext';
+import { PrintOrderSlipModal, detectSlipClassification } from '../components/PrintOrderSlipModal';
+import { OutboundReceiptModal } from '../components/OutboundReceiptModal';
 
 const ORDER_API = 'http://localhost:3004/orders';
 
@@ -43,16 +45,55 @@ interface CustomerOrder {
 }
 
 export const GOVAP_DRIVERS = [
+  // ── 1. Đội Xe Tải & Bán Tải (Chuyên đơn sỉ, cồng kềnh, chuyển kho, xuất tiêu hủy môi trường) ──
+  {
+    id: 'NV-TK01',
+    name: 'Đặng Hoàng Phúc (Tài xế Xe Tải)',
+    phone: '0944778899',
+    plate: '51D-892.45',
+    type: '🚛 Xe Tải Lạnh 2.5 Tấn (Hàng Sỉ / Tiêu Hủy / Chuyển Kho)',
+    vehicleCategory: 'TRUCK',
+    maxCapacityKg: 2500,
+    warehouseCode: 'WH-006',
+    warehouseName: 'Kho Gò Vấp',
+    shift: 'Toàn ca (07:00 - 19:00)',
+    status: 'ACTIVE',
+    rating: 4.98,
+    activeCount: 1,
+    zone: 'Toàn TP.HCM & Trạm Tiêu Hủy Môi Trường'
+  },
+  {
+    id: 'NV-VAN01',
+    name: 'Phan Hữu Nam (Tài xế Bán Tải)',
+    phone: '0918776655',
+    plate: '51C-734.12',
+    type: '🚐 Xe Bán Tải Thùng Kín 1.5 Tấn (Đơn Lớn > 30kg)',
+    vehicleCategory: 'VAN',
+    maxCapacityKg: 1500,
+    warehouseCode: 'WH-006',
+    warehouseName: 'Kho Gò Vấp',
+    shift: 'Ca Sáng (06:00 - 14:00)',
+    status: 'ACTIVE',
+    rating: 4.90,
+    activeCount: 0,
+    zone: 'Gò Vấp - Quận 12 - Tân Bình'
+  },
+
+  // ── 2. Đội Xe Máy Thùng Lạnh & Giao Nhanh (Đơn E-commerce khách hàng lẻ < 20kg) ──
   {
     id: 'NV-GV05',
     name: 'Võ Minh Trí',
     phone: '0977112233',
     plate: '59-V1 888.99',
-    type: '🛵 Xe Máy Thùng Lạnh',
+    type: '🛵 Xe Máy Thùng Lạnh (0-4°C)',
+    vehicleCategory: 'MOTORBIKE',
+    maxCapacityKg: 30,
+    warehouseCode: 'WH-006',
+    warehouseName: 'Kho Gò Vấp',
     shift: 'Ca Sáng (06:00 - 14:00)',
     status: 'ACTIVE',
     rating: 4.95,
-    activeCount: 1,
+    activeCount: 2,
     zone: 'Gò Vấp - Bình Thạnh'
   },
   {
@@ -61,10 +102,14 @@ export const GOVAP_DRIVERS = [
     phone: '0909888111',
     plate: '59-G2 688.39',
     type: '🛵 Xe Máy Giao Siêu Tốc',
+    vehicleCategory: 'MOTORBIKE',
+    maxCapacityKg: 25,
+    warehouseCode: 'WH-006',
+    warehouseName: 'Kho Gò Vấp',
     shift: 'Ca Sáng (06:00 - 14:00)',
     status: 'ACTIVE',
     rating: 4.90,
-    activeCount: 0,
+    activeCount: 1,
     zone: 'Gò Vấp - Phú Nhuận'
   },
   {
@@ -72,24 +117,16 @@ export const GOVAP_DRIVERS = [
     name: 'Trần Quốc Bảo',
     phone: '0933445566',
     plate: '59-P1 456.78',
-    type: '🛵 Xe Máy Thùng Mát',
+    type: '🛵 Xe Máy Thùng Mát (2-8°C)',
+    vehicleCategory: 'MOTORBIKE',
+    maxCapacityKg: 25,
+    warehouseCode: 'WH-006',
+    warehouseName: 'Kho Gò Vấp',
     shift: 'Ca Chiều (14:00 - 22:00)',
     status: 'ACTIVE',
     rating: 4.85,
-    activeCount: 2,
+    activeCount: 1,
     zone: 'Gò Vấp - Tân Bình'
-  },
-  {
-    id: 'NV-GV08',
-    name: 'Phạm Hoàng Nam',
-    phone: '0918776655',
-    plate: '59-K1 234.56',
-    type: '🛵 Xe Máy Thực Phẩm Tươi',
-    shift: 'Ca Chiều (14:00 - 22:00)',
-    status: 'ACTIVE',
-    rating: 4.80,
-    activeCount: 0,
-    zone: 'Gò Vấp - Hóc Môn'
   },
   {
     id: 'NV-GV09',
@@ -97,24 +134,50 @@ export const GOVAP_DRIVERS = [
     phone: '0966332211',
     plate: '59-X1 999.11',
     type: '🛵 Xe Máy Thùng Lạnh',
+    vehicleCategory: 'MOTORBIKE',
+    maxCapacityKg: 30,
+    warehouseCode: 'WH-006',
+    warehouseName: 'Kho Gò Vấp',
     shift: 'Ca Sáng (06:00 - 14:00)',
     status: 'ACTIVE',
     rating: 4.90,
     activeCount: 1,
     zone: 'Quang Trung - Phan Văn Trị'
   },
+
+  // ── 3. Đội Xe Liên Kho (Inter-Hub Fleet Sharing - Hỗ trợ tuyến gần và hồi chuyến) ──
   {
-    id: 'NV-GV10',
-    name: 'Đặng Hữu Phúc',
-    phone: '0944778899',
-    plate: '59-T2 777.88',
-    type: '🛵 Xe Máy Giao Nhanh',
+    id: 'NV-BT01',
+    name: 'Bùi Hoàng Long (Tài xế Bình Thạnh)',
+    phone: '0988112244',
+    plate: '59-S2 555.66',
+    type: '🛵 Xe Máy Thùng Lạnh (Liên Kho BT-GV)',
+    vehicleCategory: 'MOTORBIKE',
+    maxCapacityKg: 30,
+    warehouseCode: 'WH-002',
+    warehouseName: 'Kho Bình Thạnh',
+    shift: 'Ca Sáng (06:00 - 14:00)',
+    status: 'ACTIVE',
+    rating: 4.90,
+    activeCount: 0,
+    zone: 'Bình Thạnh - Giáp ranh Gò Vấp'
+  },
+  {
+    id: 'NV-TB01',
+    name: 'Trương Gia Huy (Tài xế Tân Bình)',
+    phone: '0977223344',
+    plate: '59-H1 333.22',
+    type: '🛵 Xe Máy Thùng Lạnh (Liên Kho TB-GV)',
+    vehicleCategory: 'MOTORBIKE',
+    maxCapacityKg: 30,
+    warehouseCode: 'WH-003',
+    warehouseName: 'Kho Tân Bình',
     shift: 'Ca Chiều (14:00 - 22:00)',
     status: 'ACTIVE',
-    rating: 4.75,
+    rating: 4.88,
     activeCount: 0,
-    zone: 'Nguyễn Oanh - Lê Đức Thọ'
-  }
+    zone: 'Tân Bình - Giáp ranh Gò Vấp'
+  },
 ];
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode; border: string }> = {
@@ -162,37 +225,6 @@ const OrderManagement: React.FC = () => {
 
   // Dispatch Driver Modal State
   const [dispatchOrderModal, setDispatchOrderModal] = useState<CustomerOrder | null>(null);
-
-  const handleAssignDriverSubmit = useCallback(async (orderId: string, driver: typeof GOVAP_DRIVERS[0]) => {
-    // 1. Instant local optimistic update
-    setOrders(prev => prev.map(o => o.id === orderId ? {
-      ...o,
-      assignedDriverId: driver.id,
-      assignedDriverName: driver.name,
-      assignedDriverPhone: driver.phone,
-      assignedDriverPlate: driver.plate,
-      status: o.status === 'PENDING' ? 'PROCESSING' : o.status
-    } : o));
-
-    showToast(`🛵 Đã phân công đơn cho shipper ${driver.name} (${driver.plate})!`, 'success');
-    setDispatchOrderModal(null);
-
-    try {
-      await fetch(`http://localhost:3004/orders/sync-status/${orderId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          driverId: driver.id,
-          driverName: driver.name,
-          driverPhone: driver.phone,
-          driverPlate: driver.plate,
-          status: 'PROCESSING'
-        }),
-      });
-    } catch (e) {
-      console.error('Error assigning driver:', e);
-    }
-  }, [showToast]);
 
   // Silent fetch without resetting state or flashing spinners
   const fetchOrders = useCallback(async (showSpinner = false) => {
@@ -246,8 +278,20 @@ const OrderManagement: React.FC = () => {
       });
     });
 
+    // 2. Fast background polling fallback (every 2.5s) to guarantee instant status sync without F5
+    const interval = setInterval(() => {
+      fetchOrders(false);
+    }, 2500);
+
+    const onStorageChange = () => {
+      fetchOrders(false);
+    };
+    window.addEventListener('storage', onStorageChange);
+
     return () => {
       socket.disconnect();
+      clearInterval(interval);
+      window.removeEventListener('storage', onStorageChange);
     };
   }, [fetchOrders]);
 
@@ -335,6 +379,61 @@ const OrderManagement: React.FC = () => {
       handleUpdateStatus(orderId, 'CANCELLED');
     }
   }, [handleUpdateStatus]);
+
+  const handleAssignDriverSubmit = useCallback(async (orderId: string, driver: any) => {
+    try {
+      // 1. Optimistic local update
+      setOrders(prev => prev.map(o => o.id === orderId ? {
+        ...o,
+        assignedDriverId: driver.id,
+        assignedDriverName: driver.name,
+        assignedDriverPhone: driver.phone,
+        assignedDriverPlate: driver.plate,
+        status: o.status === 'PENDING' ? 'READY_FOR_DELIVERY' : o.status,
+      } : o));
+
+      // 2. Save to localStorage for instant cross-tab sync with Driver App
+      try {
+        const stored = localStorage.getItem('sfwms_driver_assignments') || '{}';
+        const parsed = JSON.parse(stored);
+        parsed[orderId] = driver;
+        parsed[orderId.slice(0, 8)] = driver;
+        parsed[`ECOMM-${orderId.slice(0, 8).toUpperCase()}`] = driver;
+        localStorage.setItem('sfwms_driver_assignments', JSON.stringify(parsed));
+      } catch (e) {}
+
+      // 3. Send PUT request to backend order-service :3004
+      await fetch(`${ORDER_API}/${orderId}/assign-driver`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          driverId: driver.id,
+          driverName: driver.name,
+          driverPhone: driver.phone,
+          driverPlate: driver.plate,
+          status: 'READY_FOR_DELIVERY',
+        }),
+      }).catch(() => {});
+
+      await fetch(`${ORDER_API}/sync-status/${orderId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          driverId: driver.id,
+          driverName: driver.name,
+          driverPhone: driver.phone,
+          driverPlate: driver.plate,
+          status: 'READY_FOR_DELIVERY',
+        }),
+      }).catch(() => {});
+
+      showToast(`✅ Đã phân công tài xế ${driver.name} (${driver.plate}) cho đơn #${orderId.slice(0, 8).toUpperCase()}!`, 'success');
+      setDispatchOrderModal(null);
+      fetchOrders(false);
+    } catch (err) {
+      showToast('Có lỗi khi phân công tài xế', 'error');
+    }
+  }, [fetchOrders, showToast]);
 
   const copyToClipboard = useCallback((text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -427,9 +526,15 @@ const OrderManagement: React.FC = () => {
         }
       }
 
+      // Classification filter
+      if (classificationFilter !== 'ALL') {
+        const cls = detectSlipClassification(o as any);
+        if (cls !== classificationFilter) return false;
+      }
+
       return matchSearch && matchWh && matchStatus && matchDate;
     });
-  }, [orders, searchQuery, activeWh, statusFilter, dateRangeFilter]);
+  }, [orders, searchQuery, activeWh, statusFilter, classificationFilter, dateRangeFilter]);
 
   // Selected Order memoization (maintains user selection without resetting)
   const selectedOrder = useMemo(() => {
@@ -658,6 +763,36 @@ const OrderManagement: React.FC = () => {
             ))}
           </div>
 
+          {/* Classification Filter Chips */}
+          <div style={{ display: 'flex', gap: '4px', padding: '8px 14px', borderBottom: '1px solid #f1f5f9', overflowX: 'auto', background: '#fff' }}>
+            {[
+              { key: 'ALL', label: 'Tất cả loại', color: '#0f172a' },
+              { key: 'SALE', label: '🛒 Mua bán lẻ', color: '#1d4ed8' },
+              { key: 'DISPOSAL', label: '☣️ Tiêu hủy', color: '#7c3aed' },
+              { key: 'RETURN', label: '↩️ Hoàn/Trả', color: '#b91c1c' },
+              { key: 'TRANSFER', label: '🔄 Điều chuyển', color: '#15803d' },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setClassificationFilter(tab.key as any)}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  border: classificationFilter === tab.key ? 'none' : '1px solid #e2e8f0',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  background: classificationFilter === tab.key ? tab.color : '#f8fafc',
+                  color: classificationFilter === tab.key ? '#fff' : '#64748b',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           {/* Search Bar */}
           <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f1f5f9', padding: '8px 12px', borderRadius: '10px' }}>
@@ -709,19 +844,35 @@ const OrderManagement: React.FC = () => {
                       transition: 'background 0.12s ease'
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', gap: '4px', flexWrap: 'wrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>{order.customerName}</span>
                         <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>#{order.id.slice(0, 8).toUpperCase()}</span>
                       </div>
-                      <span style={{ 
-                        fontSize: '0.72rem', padding: '3px 8px', borderRadius: '12px', 
-                        background: statusCfg.bg, color: statusCfg.color, fontWeight: 700,
-                        border: `1px solid ${statusCfg.border}`, display: 'flex', alignItems: 'center', gap: '3px'
-                      }}>
-                        {statusCfg.icon}
-                        {statusCfg.label}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {(() => {
+                          const cls = detectSlipClassification(order as any);
+                          const b = {
+                            SALE: { text: '🛒 Bán Lẻ', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+                            DISPOSAL: { text: '☣️ Tiêu Hủy', bg: '#faf5ff', color: '#7c3aed', border: '#e9d5ff' },
+                            RETURN: { text: '↩️ Hoàn/Trả', bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
+                            TRANSFER: { text: '🔄 Điều Chuyển', bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
+                          }[cls];
+                          return (
+                            <span style={{ fontSize: '0.68rem', padding: '2px 5px', borderRadius: '4px', background: b.bg, color: b.color, fontWeight: 700, border: `1px solid ${b.border}` }}>
+                              {b.text}
+                            </span>
+                          );
+                        })()}
+                        <span style={{ 
+                          fontSize: '0.72rem', padding: '3px 8px', borderRadius: '12px', 
+                          background: statusCfg.bg, color: statusCfg.color, fontWeight: 700,
+                          border: `1px solid ${statusCfg.border}`, display: 'flex', alignItems: 'center', gap: '3px'
+                        }}>
+                          {statusCfg.icon}
+                          {statusCfg.label}
+                        </span>
+                      </div>
                     </div>
 
                     <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -810,7 +961,46 @@ const OrderManagement: React.FC = () => {
                 </div>
                 
                 {/* Action Buttons based on order status */}
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {/* Print Buttons */}
+                  <button
+                    onClick={() => setPrintSlipOrder(selectedOrder)}
+                    style={{
+                      padding: '8px 12px',
+                      background: '#1e293b',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      fontSize: '0.8rem',
+                    }}
+                  >
+                    <Printer size={14} color="#38bdf8" /> In Phiếu Giao
+                  </button>
+
+                  <button
+                    onClick={() => setReceiptSlipOrder(selectedOrder)}
+                    style={{
+                      padding: '8px 12px',
+                      background: '#0f766e',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      fontSize: '0.8rem',
+                    }}
+                  >
+                    <FileText size={14} color="#99f6e4" /> In Phiếu 02-VT
+                  </button>
+
                   {/* Always show Dispatch/Assign Driver button for active orders */}
                   {selectedOrder.status !== 'CANCELLED' && selectedOrder.status !== 'COMPLETED' && (
                     <button
@@ -1192,6 +1382,59 @@ const OrderManagement: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── MODAL: IN PHIẾU GIAO HÀNG & SOẠN HÀNG SIÊU THỊ ── */}
+      {printSlipOrder && (
+        <PrintOrderSlipModal
+          order={{
+            id: printSlipOrder.id,
+            orderCode: printSlipOrder.id.startsWith('ECOMM-') ? printSlipOrder.id : `ECOMM-${printSlipOrder.id.slice(0, 8).toUpperCase()}`,
+            customerName: printSlipOrder.customerName,
+            customerPhone: printSlipOrder.customerPhone,
+            customerAddress: printSlipOrder.customerAddress,
+            totalAmount: printSlipOrder.totalAmount,
+            paymentMethod: printSlipOrder.paymentMethod,
+            status: printSlipOrder.status,
+            assignedDriverName: printSlipOrder.assignedDriverName,
+            assignedDriverPhone: printSlipOrder.assignedDriverPhone,
+            assignedDriverPlate: printSlipOrder.assignedDriverPlate,
+            createdAt: printSlipOrder.createdAt,
+            notes: printSlipOrder.note,
+            items: printSlipOrder.items.map(i => ({
+              sku: i.sku || i.productId || 'SKU-01',
+              productName: i.productName,
+              requestedQuantity: i.quantity,
+              quantity: i.quantity,
+              price: i.price,
+            })),
+          }}
+          onClose={() => setPrintSlipOrder(null)}
+        />
+      )}
+
+      {/* ── MODAL: IN PHIẾU XUẤT KHO 02 - VT (BỘ TÀI CHÍNH) ── */}
+      {receiptSlipOrder && (
+        <OutboundReceiptModal
+          order={{
+            id: receiptSlipOrder.id,
+            orderCode: receiptSlipOrder.id.startsWith('ECOMM-') ? receiptSlipOrder.id : `ECOMM-${receiptSlipOrder.id.slice(0, 8).toUpperCase()}`,
+            requesterName: receiptSlipOrder.customerName,
+            customerName: receiptSlipOrder.customerName,
+            destination: receiptSlipOrder.customerAddress,
+            warehouseCode: receiptSlipOrder.assignedWarehouseCode || 'WH-006',
+            createdAt: receiptSlipOrder.createdAt,
+            notes: receiptSlipOrder.note,
+            items: receiptSlipOrder.items.map(i => ({
+              sku: i.sku || i.productId || 'SKU-01',
+              productName: i.productName,
+              requestedQuantity: i.quantity,
+              pickedQuantity: i.quantity,
+              unitPrice: i.price,
+            })),
+          }}
+          onClose={() => setReceiptSlipOrder(null)}
+        />
       )}
     </div>
   );

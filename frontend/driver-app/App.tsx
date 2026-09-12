@@ -10,7 +10,7 @@ import { EarningsScreen } from './src/screens/EarningsScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { COLORS } from './src/theme/colors';
 import { DeliveryTask } from './src/types/driver';
-import { Navigation, Thermometer, Wallet } from 'lucide-react-native';
+import { Navigation, Thermometer, Wallet, Receipt } from 'lucide-react-native';
 
 type ActiveTab = 'ROUTE' | 'COLD_CHAIN' | 'EARNINGS';
 
@@ -112,7 +112,7 @@ const DriverMainAppContent: React.FC = () => {
               activeOpacity={0.8}
             >
               <View style={[styles.iconWrapper, currentTab === 'EARNINGS' && styles.iconWrapperActive]}>
-                <Wallet
+                <Receipt
                   size={20}
                   color={currentTab === 'EARNINGS' ? COLORS.primary : COLORS.textMuted}
                 />
@@ -123,7 +123,7 @@ const DriverMainAppContent: React.FC = () => {
                   currentTab === 'EARNINGS' && styles.tabLabelActive,
                 ]}
               >
-                Thu nhập
+                Đối soát & COD
               </Text>
             </TouchableOpacity>
           </View>

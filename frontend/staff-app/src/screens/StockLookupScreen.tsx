@@ -170,8 +170,55 @@ export const StockLookupScreen: React.FC = () => {
   const loadData = async (term: string = '') => {
     setLoading(true);
     try {
-      const data = await lookupStockApi(term, activeWarehouse);
-      setStockList(data);
+      const { lots, prods } = await lookupStockApi(activeWarehouse, term);
+      
+      const prodMap = new Map<string, any>();
+      (prods || []).forEach(p => {
+        if (p.sku) prodMap.set(p.sku, p);
+        if (p.id) prodMap.set(p.id, p);
+      });
+
+      const stockMap = new Map<string, StockInfo>();
+      (lots || []).forEach((lot: any) => {
+        const prod = prodMap.get(lot.sku) || prodMap.get(lot.productId) || {};
+        const skuKey = lot.sku || prod.sku || lot.productId || 'SKU-UNKNOWN';
+        const now = Date.now();
+        const expTime = lot.expiryDate ? new Date(lot.expiryDate).getTime() : now + 30 * 86400000;
+        const daysRemaining = Math.ceil((expTime - now) / 86400000);
+
+        if (!stockMap.has(skuKey)) {
+          stockMap.set(skuKey, {
+            sku: skuKey,
+            productName: lot.productName || prod.name || 'Sản phẩm tươi sạch',
+            unit: prod.unit || 'Kg',
+            shelfLocation: lot.location || lot.slotId || 'Kệ A1',
+            zone: lot.zone || prod.storageType || 'COOL',
+            category: prod.category || 'Thực phẩm',
+            totalStock: 0,
+            availableStock: 0,
+            lots: [],
+          });
+        }
+
+        const stock = stockMap.get(skuKey)!;
+        stock.totalStock += (lot.quantity || 0);
+        stock.availableStock += (lot.remainingQty !== undefined ? lot.remainingQty : lot.quantity || 0);
+        stock.lots.push({
+          id: lot.id,
+          lotCode: lot.lotCode,
+          quantity: lot.quantity || 0,
+          expiryDate: lot.expiryDate ? new Date(lot.expiryDate).toISOString().slice(0, 10) : '2026-09-30',
+          daysRemaining,
+          location: lot.location || lot.slotId || stock.shelfLocation,
+          lastAuditedAt: lot.lastAuditedAt,
+          lastAuditedBy: lot.lastAuditedBy,
+          lastAuditActualQty: lot.lastAuditActualQty,
+          lastAuditDiff: lot.lastAuditDiff,
+          lastAuditReason: lot.lastAuditReason,
+        } as any);
+      });
+
+      setStockList(Array.from(stockMap.values()));
     } catch (e) {
       console.error('Error loading stock lookup:', e);
     } finally {

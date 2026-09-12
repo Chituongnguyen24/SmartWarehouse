@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Query, Param, UseGuards, Request, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Query, Param, UseGuards, Request, BadRequestException } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -36,11 +36,13 @@ export class InventoryController {
   @ApiOperation({ summary: 'Get active warehouse lots with filtering and pagination' })
   getLots(
     @Query('warehouseCode') warehouseCode?: string,
+    @Query('zone') zone?: string,
     @Query('limit') limit?: number,
     @Query('search') search?: string,
   ) {
     return this.inventoryService.findAllLots({
       warehouseCode,
+      zone,
       limit: limit ? Number(limit) : undefined,
       search,
     });
@@ -66,6 +68,14 @@ export class InventoryController {
       ...body,
       performedBy: req?.user?.id || 'system-staff',
     });
+  }
+
+  @Delete('lots/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.WAREHOUSE_MANAGER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Xóa hoàn toàn lô hàng khỏi cơ sở dữ liệu và giải phóng kệ' })
+  deleteLot(@Param('id') id: string) {
+    return this.inventoryService.deleteLot(id);
   }
 
   @Get('fefo')

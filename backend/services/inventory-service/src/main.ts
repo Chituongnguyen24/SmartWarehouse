@@ -8,6 +8,14 @@ async function bootstrap() {
   app.enableCors();
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
+  // Distributed Tracing: Correlation ID Middleware
+  app.use((req: any, res: any, next: any) => {
+    const correlationId = req.headers['x-correlation-id'] || `corr-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    req.correlationId = correlationId;
+    res.setHeader('X-Correlation-ID', correlationId);
+    next();
+  });
+
   const config = new DocumentBuilder()
     .setTitle('CityMart - Inventory Service')
     .setDescription('Quản lý tồn kho, lô hàng')

@@ -25,6 +25,12 @@ export class OutboundOrderController {
     return this.service.calculateNearestWarehouse(body);
   }
 
+  @Post('sync-lot-locations')
+  @ApiOperation({ summary: 'Đồng bộ lại vị trí kệ và mã lô hàng thực tế cho toàn bộ đơn hàng' })
+  syncLotLocations() {
+    return this.service.syncLotLocationsForAllPendingOrders();
+  }
+
   @Get()
   @ApiOperation({ summary: 'Lấy danh sách đơn xuất kho' })
   @ApiQuery({ name: 'status', required: false })
@@ -37,6 +43,36 @@ export class OutboundOrderController {
   @ApiOperation({ summary: 'Thống kê đơn xuất kho' })
   getStats() {
     return this.service.getStats();
+  }
+
+  @Get('locks')
+  @ApiOperation({ summary: 'Lấy danh sách các đơn hàng đang bị khóa thao tác' })
+  getLocks() {
+    return this.service.getActiveLocks();
+  }
+
+  @Get('outbox/stats')
+  @ApiOperation({ summary: 'Lấy thống kê Transactional Outbox Events (Pending, Processed, Failed)' })
+  getOutboxStats() {
+    return this.service.getOutboxStats();
+  }
+
+  @Post(':id/saga')
+  @ApiOperation({ summary: 'Kích hoạt Distributed Saga Orchestrator cho đơn xuất kho (Reserve -> Transport -> Approve/Compensate)' })
+  executeSaga(@Param('id') id: string) {
+    return this.service.executeSaga(id);
+  }
+
+  @Post(':id/lock')
+  @ApiOperation({ summary: 'Khóa đơn hàng tránh thao tác đồng thời (Concurrency Mutex Lock)' })
+  lockOrder(@Param('id') id: string, @Body() body: { userId: string; userName: string; role?: string }) {
+    return this.service.lockOrder(id, body);
+  }
+
+  @Post(':id/unlock')
+  @ApiOperation({ summary: 'Mở khóa đơn hàng' })
+  unlockOrder(@Param('id') id: string, @Body() body?: { userId?: string }) {
+    return this.service.unlockOrder(id, body?.userId);
   }
 
   @Get(':id')
@@ -58,15 +94,24 @@ export class OutboundOrderController {
   }
 
   @Put(':id/confirm-picking')
-  @ApiOperation({ summary: 'Bước 4: Xác nhận đã lấy hàng' })
+  @Post(':id/confirm-picking')
+  @ApiOperation({ summary: 'Bước 4: Xác nhận đã lấy hàng -> Chuyển sang Đóng Gói (PACKED)' })
   confirmPicking(@Param('id') id: string) {
     return this.service.confirmPicking(id);
   }
 
   @Put(':id/confirm')
-  @ApiOperation({ summary: 'Bước 5: Xác nhận xuất kho' })
-  confirm(@Param('id') id: string, @Body() body: { confirmedBy: string }) {
-    return this.service.confirm(id, body.confirmedBy);
+  @Post(':id/confirm')
+  @ApiOperation({ summary: 'Bước 5: Xác nhận xuất kho & Trừ tồn DB' })
+  confirm(@Param('id') id: string, @Body() body?: { confirmedBy?: string }) {
+    return this.service.confirm(id, body?.confirmedBy || 'Nhân viên kho');
+  }
+
+  @Put(':id/assign-driver')
+  @Post(':id/assign-driver')
+  @ApiOperation({ summary: 'Phân công tài xế cho đơn xuất kho / tiêu hủy' })
+  assignDriver(@Param('id') id: string, @Body() body: any) {
+    return this.service.assignDriver(id, body);
   }
 
   @Put(':id/ship')
@@ -87,8 +132,21 @@ export class OutboundOrderController {
     return this.service.updateStatus(id, 'DELIVERED');
   }
 
+  @Patch(':id')
+  @ApiOperation({ summary: 'Chỉnh sửa thông tin phiếu xuất kho' })
+  update(@Param('id') id: string, @Body() body: any) {
+    return this.service.updateOrder(id, body);
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: 'Chỉnh sửa thông tin phiếu xuất kho' })
+  updatePut(@Param('id') id: string, @Body() body: any) {
+    return this.service.updateOrder(id, body);
+  }
+
   @Put(':id/cancel')
-  @ApiOperation({ summary: 'Hủy đơn xuất kho' })
+  @Post(':id/cancel')
+  @ApiOperation({ summary: 'Hủy đơn xuất kho & Hoàn kho' })
   cancel(@Param('id') id: string) {
     return this.service.cancel(id);
   }

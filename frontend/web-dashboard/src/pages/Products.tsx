@@ -321,7 +321,7 @@ const Products = () => {
             </button>
             <button className="btn btn-primary" onClick={() => {
               setEditingId(null);
-              setFormData({ sku: '', name: '', category: '', storageType: 'DRY', minTemp: 15, maxTemp: 35, maxHumidity: 70, unit: 'Thùng' });
+              setFormData({ sku: '', name: '', category: '', storageType: 'DRY', minTemp: 15, maxTemp: 35, maxHumidity: 70, unit: 'Thùng', price: 0 });
               setShowModal(true);
             }}>
               <Plus size={20} />

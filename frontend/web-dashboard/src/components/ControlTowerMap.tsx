@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ShieldAlert, Navigation, Gauge, ThermometerSnowflake, RefreshCw, AlertTriangle, Phone, Store, MapPin, Route, Layers, CheckCircle, Users, Eye, Sparkles, Clock, Check, Truck, Bike } from 'lucide-react';
+import { ShieldAlert, Navigation, Gauge, ThermometerSnowflake, RefreshCw, AlertTriangle, Phone, Store, MapPin, Route, Layers, CheckCircle, Users, Eye, Sparkles, Clock, Check, Truck, Bike, Maximize2, Building2 } from 'lucide-react';
 
 const GOONG_MAPTILES_KEY = import.meta.env.VITE_GOONG_MAPTILES_KEY || 'xR9zgCIphv0ZQ7sAS02MRDA9mouqEfatcx24BtYl';
 const GOONG_API_KEY = import.meta.env.VITE_GOONG_API_KEY || '9ZLtEkemS6YgqbCVlt5yfFCl0VdvJIN57mCXRge6';
@@ -32,7 +32,7 @@ function decodePolyline(encoded: string): [number, number][] {
   return points;
 }
 
-interface ShipperLiveState {
+export interface ShipperLiveState {
   id: string;
   name: string;
   phone: string;
@@ -42,7 +42,10 @@ interface ShipperLiveState {
   speed: number;
   temperature: number;
   status: 'DELIVERING' | 'READY_FOR_DELIVERY' | 'IDLE' | 'RETURNING' | 'CRITICAL_TEMP';
-  vehicleType: 'BIKE' | 'TRUCK';
+  vehicleType: 'BIKE' | 'TRUCK' | 'VAN';
+  warehouseCode: string;
+  warehouseName: string;
+  zone: string;
   currentOrderId?: string;
   orderCode?: string;
   currentCustomerName?: string;
@@ -50,7 +53,47 @@ interface ShipperLiveState {
   routeStops?: Array<{ id: string; name: string; address: string; lat: number; lng: number; seq: number; status?: string }>;
 }
 
+// ── TOÀN BỘ ĐỘI XE 9 TÀI XẾ TOÀN HỆ THỐNG SMARTWAREHOUSE ──
 const INITIAL_SHIPPERS: ShipperLiveState[] = [
+  // ── 1. Đội Xe Tải & Bán Tải (Tiêu Hủy Đa Phước, Chuyển Kho, Đơn Sỉ > 30kg) ──
+  {
+    id: 'NV-TK01',
+    name: 'Đặng Hoàng Phúc',
+    phone: '0944778899',
+    plate: '51D-892.45',
+    lat: 10.8250,
+    lng: 106.6720,
+    speed: 35,
+    temperature: -2.0,
+    status: 'READY_FOR_DELIVERY',
+    vehicleType: 'TRUCK',
+    warehouseCode: 'WH-006',
+    warehouseName: 'Kho Gò Vấp',
+    zone: 'Toàn TP.HCM & Trạm Tiêu Hủy Môi Trường Đa Phước',
+    routeStops: [
+      { id: 'disposal-01', name: 'Trạm Xử Lý Rác Đa Phước', address: 'Khu Liên Hợp Xử Lý Chất Thải Đa Phước, Bình Chánh', lat: 10.6850, lng: 106.6200, seq: 1 },
+    ]
+  },
+  {
+    id: 'NV-VAN01',
+    name: 'Phan Hữu Nam',
+    phone: '0918776655',
+    plate: '51C-734.12',
+    lat: 10.8380,
+    lng: 106.6450,
+    speed: 30,
+    temperature: 3.0,
+    status: 'READY_FOR_DELIVERY',
+    vehicleType: 'VAN',
+    warehouseCode: 'WH-006',
+    warehouseName: 'Kho Gò Vấp',
+    zone: 'Gò Vấp - Quận 12 - Tân Bình',
+    routeStops: [
+      { id: 'van-01', name: 'Đại Lý C.T Mart Chi Nhánh 1', address: '88 Phan Huy Ích, Gò Vấp', lat: 10.8315, lng: 106.6345, seq: 1 },
+    ]
+  },
+
+  // ── 2. Đội Xe Máy Thùng Lạnh Kho Gò Vấp (WH-006) ──
   {
     id: 'NV-GV05',
     name: 'Võ Minh Trí',
@@ -62,6 +105,9 @@ const INITIAL_SHIPPERS: ShipperLiveState[] = [
     temperature: 3.2,
     status: 'DELIVERING',
     vehicleType: 'BIKE',
+    warehouseCode: 'WH-006',
+    warehouseName: 'Kho Gò Vấp',
+    zone: 'Gò Vấp - Bình Thạnh',
     currentOrderId: 'ord-03',
     orderCode: 'ECOMM-9D6FDFA9',
     currentCustomerName: 'Hoàng Kim Ngân',
@@ -75,6 +121,25 @@ const INITIAL_SHIPPERS: ShipperLiveState[] = [
     ],
   },
   {
+    id: 'NV-GV06',
+    name: 'Nguyễn Văn Hùng',
+    phone: '0909888111',
+    plate: '59-G2 688.39',
+    lat: 10.8330,
+    lng: 106.6400,
+    speed: 0,
+    temperature: 2.8,
+    status: 'READY_FOR_DELIVERY',
+    vehicleType: 'BIKE',
+    warehouseCode: 'WH-006',
+    warehouseName: 'Kho Gò Vấp',
+    zone: 'Gò Vấp - Phú Nhuận',
+    routeStops: [
+      { id: 'ord-06', name: 'Nguyễn Hoàng Nam', address: '142 Quang Trung, Gò Vấp', lat: 10.8398, lng: 106.6582, seq: 1 },
+      { id: 'ord-07', name: 'Trần Thị Mai', address: '215 Phạm Văn Chiêu, Gò Vấp', lat: 10.8492, lng: 106.6543, seq: 2 },
+    ]
+  },
+  {
     id: 'NV-GV07',
     name: 'Trần Quốc Bảo',
     phone: '0933445566',
@@ -82,14 +147,15 @@ const INITIAL_SHIPPERS: ShipperLiveState[] = [
     lat: 10.8380,
     lng: 106.6620,
     speed: 0,
-    temperature: 2.9,
+    temperature: 3.5,
     status: 'READY_FOR_DELIVERY',
     vehicleType: 'BIKE',
+    warehouseCode: 'WH-006',
+    warehouseName: 'Kho Gò Vấp',
+    zone: 'Gò Vấp - Tân Bình',
     routeStops: [
-      { id: 'ord-06', name: 'Nguyễn Hoàng Nam', address: '142 Quang Trung, Gò Vấp', lat: 10.8398, lng: 106.6582, seq: 1 },
-      { id: 'ord-07', name: 'Trần Thị Mai', address: '215 Phạm Văn Chiêu, Gò Vấp', lat: 10.8492, lng: 106.6543, seq: 2 },
-      { id: 'ord-08', name: 'Phạm Minh Hạnh', address: '540 Lê Văn Thọ, Gò Vấp', lat: 10.8465, lng: 106.6521, seq: 3 },
-      { id: 'ord-09', name: 'Vũ Đức Thắng', address: '32/5 Cây Trâm, Gò Vấp', lat: 10.8432, lng: 106.6567, seq: 4 },
+      { id: 'ord-08', name: 'Phạm Minh Hạnh', address: '540 Lê Văn Thọ, Gò Vấp', lat: 10.8465, lng: 106.6521, seq: 1 },
+      { id: 'ord-09', name: 'Vũ Đức Thắng', address: '32/5 Cây Trâm, Gò Vấp', lat: 10.8432, lng: 106.6567, seq: 2 },
     ],
   },
   {
@@ -100,16 +166,66 @@ const INITIAL_SHIPPERS: ShipperLiveState[] = [
     lat: 10.8320,
     lng: 106.6380,
     speed: 0,
-    temperature: 3.5,
-    status: 'READY_FOR_DELIVERY',
-    vehicleType: 'TRUCK',
-    routeStops: [
-      { id: 'ord-10', name: 'Lê Quốc Bảo', address: '88 Phan Huy Ích, Gò Vấp', lat: 10.8315, lng: 106.6345, seq: 1 },
-    ],
+    temperature: 3.1,
+    status: 'IDLE',
+    vehicleType: 'BIKE',
+    warehouseCode: 'WH-006',
+    warehouseName: 'Kho Gò Vấp',
+    zone: 'Gò Vấp - Quận 12',
   },
-  { id: 'NV-GV06', name: 'Nguyễn Văn Hùng', phone: '0909888111', plate: '59-G2 688.39', lat: 10.8330, lng: 106.6400, speed: 0, temperature: 3.8, status: 'IDLE', vehicleType: 'BIKE' },
-  { id: 'NV-GV09', name: 'Lê Thanh Tùng', phone: '0966332211', plate: '59-X1 999.11', lat: 10.8510, lng: 106.6690, speed: 0, temperature: 4.1, status: 'IDLE', vehicleType: 'BIKE' },
-  { id: 'NV-GV10', name: 'Đặng Hữu Phúc', phone: '0944778899', plate: '59-T2 777.88', lat: 10.8360, lng: 106.6680, speed: 0, temperature: 2.8, status: 'IDLE', vehicleType: 'TRUCK' },
+  {
+    id: 'NV-GV09',
+    name: 'Lê Thanh Tùng',
+    phone: '0966332211',
+    plate: '59-X1 999.11',
+    lat: 10.8510,
+    lng: 106.6690,
+    speed: 0,
+    temperature: 4.1,
+    status: 'IDLE',
+    vehicleType: 'BIKE',
+    warehouseCode: 'WH-006',
+    warehouseName: 'Kho Gò Vấp',
+    zone: 'Gò Vấp - Thủ Đức',
+  },
+
+  // ── 3. Đội Xe Liên Kho (Bình Thạnh & Tân Bình) ──
+  {
+    id: 'NV-BT01',
+    name: 'Bùi Hoàng Long',
+    phone: '0988112244',
+    plate: '59-S2 555.66',
+    lat: 10.8020,
+    lng: 106.7020,
+    speed: 25,
+    temperature: 3.0,
+    status: 'READY_FOR_DELIVERY',
+    vehicleType: 'BIKE',
+    warehouseCode: 'WH-002',
+    warehouseName: 'Kho Bình Thạnh',
+    zone: 'Kho Bình Thạnh (120 Phan Đăng Lưu)',
+    routeStops: [
+      { id: 'bt-01', name: 'Lê Văn Tám', address: '120 Phan Đăng Lưu, Bình Thạnh', lat: 10.8012, lng: 106.6980, seq: 1 },
+    ]
+  },
+  {
+    id: 'NV-TB01',
+    name: 'Trương Gia Huy',
+    phone: '0977223344',
+    plate: '59-H1 333.22',
+    lat: 10.8010,
+    lng: 106.6550,
+    speed: 20,
+    temperature: 2.7,
+    status: 'READY_FOR_DELIVERY',
+    vehicleType: 'BIKE',
+    warehouseCode: 'WH-003',
+    warehouseName: 'Kho Tân Bình',
+    zone: 'Kho Tân Bình (45 Trường Chinh)',
+    routeStops: [
+      { id: 'tb-01', name: 'Trần Hưng Đạo', address: '45 Trường Chinh, Tân Bình', lat: 10.7985, lng: 106.6520, seq: 1 },
+    ]
+  },
 ];
 
 export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () => void }> = ({ activeAlert, onDismissAlert }) => {
@@ -120,26 +236,67 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
 
   const [shippers, setShippers] = useState<ShipperLiveState[]>(INITIAL_SHIPPERS);
   const [selectedShipper, setSelectedShipper] = useState<ShipperLiveState | null>(INITIAL_SHIPPERS[0]);
-  const [activeTab, setActiveTab] = useState<'route' | 'fleet'>('route');
+  const [activeTab, setActiveTab] = useState<'route' | 'fleet'>('fleet');
+  const [fleetFilter, setFleetFilter] = useState<'ALL' | 'TRUCK' | 'BIKE' | 'WH-006' | 'CROSS_HUB'>('ALL');
   const [vehicleMode, setVehicleMode] = useState<'BIKE' | 'TRUCK'>('BIKE');
 
   // 1. Fetch real orders & poll Live GPS Telemetry from connected phones
   useEffect(() => {
     async function syncRealData() {
       try {
-        const resOrders = await fetch('http://localhost:3004/orders');
-        const orders = resOrders.ok ? await resOrders.json() : [];
+        const resOrders = await fetch('http://localhost:3004/orders').catch(() => null);
+        const orders = resOrders && resOrders.ok ? await resOrders.json() : [];
 
-        const resLive = await fetch('http://localhost:3004/orders/drivers-live');
-        const liveDrivers: any[] = resLive.ok ? await resLive.json() : [];
+        const resLive = await fetch('http://localhost:3004/orders/drivers-live').catch(() => null);
+        const liveDrivers: any[] = resLive && resLive.ok ? await resLive.json() : [];
 
         setShippers(prev => {
-          const updatedList = prev.map(s => {
-            const liveMatch = liveDrivers.find(
-              ld => ld.id === s.id || (ld.phone && s.phone && ld.phone.replace(/\D/g, '') === s.phone.replace(/\D/g, ''))
+          const baseMap = new Map<string, ShipperLiveState>();
+          INITIAL_SHIPPERS.forEach(s => baseMap.set(s.id, { ...s }));
+          prev.forEach(s => baseMap.set(s.id, { ...s }));
+
+          // Merge live drivers from backend / phone telemetry
+          liveDrivers.forEach(ld => {
+            const cleanPhone = (ld.phone || '').replace(/\D/g, '');
+            const existingKey = Array.from(baseMap.keys()).find(
+              k => k === ld.id || (baseMap.get(k)?.phone.replace(/\D/g, '') === cleanPhone)
             );
 
-            // Filter ONLY active uncompleted orders (COMPLETED & CANCELLED are completely removed!)
+            if (existingKey) {
+              const cur = baseMap.get(existingKey)!;
+              baseMap.set(existingKey, {
+                ...cur,
+                lat: ld.lat || cur.lat,
+                lng: ld.lng || cur.lng,
+                speed: ld.speed ?? cur.speed,
+                temperature: ld.temperature ?? cur.temperature,
+                status: ld.status || cur.status,
+                currentCustomerName: ld.currentCustomerName || cur.currentCustomerName,
+                currentCustomerAddress: ld.currentCustomerAddress || cur.currentCustomerAddress,
+                orderCode: ld.orderCode || cur.orderCode,
+                currentOrderId: ld.currentOrderId || cur.currentOrderId,
+              });
+            } else if (ld.id && ld.name) {
+              baseMap.set(ld.id, {
+                id: ld.id,
+                name: ld.name,
+                phone: ld.phone || '0901234567',
+                plate: ld.licensePlate || '59-XX 123.45',
+                lat: ld.lat || 10.8400,
+                lng: ld.lng || 106.6600,
+                speed: ld.speed || 0,
+                temperature: ld.temperature || 3.0,
+                status: ld.status || 'READY_FOR_DELIVERY',
+                vehicleType: 'BIKE',
+                warehouseCode: ld.warehouseCode || 'WH-006',
+                warehouseName: 'Kho Gò Vấp',
+                zone: 'Toàn TP.HCM',
+              });
+            }
+          });
+
+          // Update stops for all drivers based on real DB orders
+          const allDrivers = Array.from(baseMap.values()).map(s => {
             const assignedOrders = orders.filter(
               (o: any) =>
                 (o.assignedDriverId === s.id || o.assignedDriverName === s.name) &&
@@ -148,9 +305,8 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
                 o.status !== 'CANCELLED'
             );
 
-            let stops: any[] = [];
-            if (orders.length > 0) {
-              // If DB has orders, use ONLY uncompleted assigned orders
+            let stops = s.routeStops || [];
+            if (assignedOrders.length > 0) {
               stops = assignedOrders.map((o: any, idx: number) => ({
                 id: o.id,
                 name: o.customerName || 'Khách Hàng',
@@ -160,81 +316,21 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
                 seq: idx + 1,
                 status: o.status,
               }));
-            } else {
-              // Fallback to initial uncompleted stops
-              stops = s.routeStops || [];
             }
-
-            const currentLat = liveMatch ? liveMatch.lat : s.lat;
-            const currentLng = liveMatch ? liveMatch.lng : s.lng;
-            const currentSpeed = liveMatch ? liveMatch.speed : (s.status === 'DELIVERING' ? 28 : s.speed);
-            const currentTemp = liveMatch ? liveMatch.temperature : s.temperature;
-
-            // Check if driver is actively delivering an order
-            const isDelivering = !!(
-              liveMatch?.currentCustomerName ||
-              liveMatch?.currentOrderId ||
-              liveMatch?.status === 'DELIVERING' ||
-              assignedOrders.some((o: any) => o.status === 'DELIVERING') ||
-              s.currentCustomerName
-            );
-
-            let activeOrderCode = s.orderCode;
-            let activeCustomerName = s.currentCustomerName;
-            let activeCustomerAddr = s.currentCustomerAddress;
-            let currentOrderId = s.currentOrderId;
-
-            if (isDelivering) {
-              if (liveMatch?.currentCustomerName || liveMatch?.currentOrderId) {
-                currentOrderId = liveMatch.currentOrderId || (assignedOrders[0]?.id);
-                activeOrderCode = liveMatch.orderCode || (currentOrderId ? currentOrderId.slice(0, 8).toUpperCase() : 'ECOMM-01');
-                activeCustomerName = liveMatch.currentCustomerName || assignedOrders.find((o: any) => o.status === 'DELIVERING')?.customerName;
-                activeCustomerAddr = liveMatch.currentCustomerAddress || assignedOrders.find((o: any) => o.status === 'DELIVERING')?.customerAddress;
-              } else {
-                const activeOrder = assignedOrders.find((o: any) => o.status === 'DELIVERING');
-                if (activeOrder) {
-                  currentOrderId = activeOrder.id;
-                  activeOrderCode = activeOrder.id.slice(0, 8).toUpperCase();
-                  activeCustomerName = activeOrder.customerName;
-                  activeCustomerAddr = activeOrder.customerAddress;
-                }
-              }
-            } else {
-              activeOrderCode = undefined;
-              activeCustomerName = undefined;
-              activeCustomerAddr = undefined;
-              currentOrderId = undefined;
-            }
-
-            // Status: DELIVERING only if driver pressed Start Delivery; otherwise READY_FOR_DELIVERY or IDLE
-            const currentStatus: 'DELIVERING' | 'READY_FOR_DELIVERY' | 'IDLE' = isDelivering
-              ? 'DELIVERING'
-              : stops.length > 0
-              ? 'READY_FOR_DELIVERY'
-              : 'IDLE';
 
             // Move marker on Leaflet map in real time
             const marker = markersRef.current.get(s.id);
-            if (marker && currentLat && currentLng) {
-              marker.setLatLng([currentLat, currentLng]);
+            if (marker && s.lat && s.lng) {
+              marker.setLatLng([s.lat, s.lng]);
             }
 
             return {
               ...s,
-              lat: currentLat,
-              lng: currentLng,
-              speed: currentSpeed,
-              temperature: currentTemp,
-              status: currentStatus,
-              currentOrderId,
-              orderCode: activeOrderCode,
-              currentCustomerName: activeCustomerName,
-              currentCustomerAddress: activeCustomerAddr,
               routeStops: stops,
             };
           });
 
-          return updatedList;
+          return allDrivers;
         });
       } catch (e) {}
     }
@@ -252,7 +348,7 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
     }
   }, [shippers]);
 
-  // Update Route Polyline & Waypoint Pins with Vehicle-specific Routing (Bike vs Truck)
+  // Update Route Polyline & Waypoint Pins with Vehicle-specific Routing
   useEffect(() => {
     const map = leafletInstance.current;
     const L = (window as any).L;
@@ -268,10 +364,9 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
 
     const stops = selectedShipper.routeStops || [];
     if (stops.length > 0) {
-      const isTruck = vehicleMode === 'TRUCK';
+      const isTruck = selectedShipper.vehicleType === 'TRUCK' || selectedShipper.vehicleType === 'VAN' || vehicleMode === 'TRUCK';
       const vehicle = isTruck ? 'car' : 'bike';
 
-      // 1. Fetch real road polyline from Goong Direction API
       const origin = `${selectedShipper.lat},${selectedShipper.lng}`;
       const activeStop = stops.find(st => st.id === selectedShipper.currentOrderId) || stops[0];
       const destination = `${activeStop.lat},${activeStop.lng}`;
@@ -284,7 +379,6 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
           if (data && data.routes && data.routes.length > 0 && data.routes[0].overview_polyline?.points) {
             const coordinates = decodePolyline(data.routes[0].overview_polyline.points);
 
-            // Glow Outline
             const glowLine = L.polyline(coordinates, {
               color: isTruck ? '#fb923c' : '#38bdf8',
               weight: isTruck ? 7 : 5,
@@ -298,31 +392,33 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
               color: isTruck ? '#ea580c' : '#0284c7',
               weight: isTruck ? 4 : 3,
               opacity: 0.95,
+              lineCap: 'round',
+              lineJoin: 'round',
             }).addTo(map);
 
             routeLayersRef.current.push(glowLine, mainLine);
           } else {
-            // Fallback connecting straight lines
-            const waypoints = [
-              [10.8354, 106.6668],
-              [selectedShipper.lat, selectedShipper.lng],
-              ...stops.map(st => [st.lat, st.lng]),
-            ];
-            const fbLine = L.polyline(waypoints as [number, number][], { color: '#0284c7', weight: 3, dashArray: '6,6' }).addTo(map);
-            routeLayersRef.current.push(fbLine);
+            // Direct polyline fallback
+            const polyCoords = [[selectedShipper.lat, selectedShipper.lng], ...stops.map(s => [s.lat, s.lng])];
+            const fallbackLine = L.polyline(polyCoords, {
+              color: isTruck ? '#f97316' : '#0284c7',
+              weight: 4,
+              dashArray: '8, 8',
+            }).addTo(map);
+            routeLayersRef.current.push(fallbackLine);
           }
         })
         .catch(() => {
-          const waypoints = [
-            [10.8354, 106.6668],
-            [selectedShipper.lat, selectedShipper.lng],
-            ...stops.map(st => [st.lat, st.lng]),
-          ];
-          const fbLine = L.polyline(waypoints as [number, number][], { color: '#0284c7', weight: 3, dashArray: '6,6' }).addTo(map);
-          routeLayersRef.current.push(fbLine);
+          const polyCoords = [[selectedShipper.lat, selectedShipper.lng], ...stops.map(s => [s.lat, s.lng])];
+          const fallbackLine = L.polyline(polyCoords, {
+            color: isTruck ? '#f97316' : '#0284c7',
+            weight: 4,
+            dashArray: '8, 8',
+          }).addTo(map);
+          routeLayersRef.current.push(fallbackLine);
         });
 
-      // 2. Add Stop Markers
+      // Add Waypoint Pins
       stops.forEach(st => {
         const isCurrentActive = selectedShipper.status === 'DELIVERING' && (
           (selectedShipper.currentCustomerName && st.name.toLowerCase().includes(selectedShipper.currentCustomerName.toLowerCase())) ||
@@ -362,7 +458,7 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
                 Điểm dừng #${st.seq}: ${st.name}
               </div>
               <div style="font-size:11px; color:#64748b; margin-bottom:6px;">📍 ${st.address}</div>
-              ${isCurrentActive ? '<span style="background:#dcfce7; color:#15803d; font-size:10px; font-weight:800; padding:2px 6px; borderRadius:4px;">🟢 ĐANG GIAO ĐƠN NÀY</span>' : ''}
+              ${isCurrentActive ? '<span style="background:#dcfce7; color:#15803d; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px;">🟢 ĐANG GIAO ĐƠN NÀY</span>' : ''}
             </div>
           `);
 
@@ -371,27 +467,17 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
     }
   }, [selectedShipper?.id, selectedShipper?.lat, selectedShipper?.lng, selectedShipper?.currentCustomerAddress, selectedShipper?.status, vehicleMode]);
 
-  // Leaflet Map Initialization with Goong Map Tiles
+  // Leaflet Map Initialization with Goong Map Tiles & All 9 Drivers
   useEffect(() => {
     let isCancelled = false;
 
     const initMap = async () => {
-      // 1. Load Leaflet CSS
       if (!document.getElementById('leaflet-css')) {
         const link = document.createElement('link');
         link.id = 'leaflet-css';
         link.rel = 'stylesheet';
         link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
         document.head.appendChild(link);
-      }
-
-      // 2. Load MapLibre CSS & JS for Goong Vector Tiles
-      if (!document.getElementById('maplibre-css')) {
-        const mlLink = document.createElement('link');
-        mlLink.id = 'maplibre-css';
-        mlLink.rel = 'stylesheet';
-        mlLink.href = 'https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css';
-        document.head.appendChild(mlLink);
       }
 
       const loadScript = (id: string, src: string) => {
@@ -417,10 +503,10 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
         leafletInstance.current.remove();
       }
 
-      // Center closely on Go Vap Hub
+      // Center closely on TP.HCM Hub Area
       const map = L.map(mapRef.current, {
-        center: [10.8400, 106.6620],
-        zoom: 14,
+        center: [10.8354, 106.6668],
+        zoom: 13,
         zoomControl: false,
         attributionControl: false,
       });
@@ -435,54 +521,71 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
 
       L.control.zoom({ position: 'topright' }).addTo(map);
 
-      // Warehouse Hub Marker (🏬 WH-006)
-      const whIcon = L.divIcon({
-        className: 'control-tower-wh',
-        html: `
-          <div style="
-            background: linear-gradient(135deg, #059669, #10b981);
-            color: white;
-            padding: 8px;
-            border-radius: 50%;
-            border: 3px solid white;
-            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 42px;
-            height: 42px;
-            font-size: 22px;
-          ">
-            🏬
-          </div>
-        `,
-        iconSize: [42, 42],
-        iconAnchor: [21, 21],
+      // ── 1. WAREHOUSES & HUBS MARKERS ──
+      const hubs = [
+        { code: 'WH-006', name: 'Kho Trung Tâm Gò Vấp (WH-006)', addr: '350 Quang Trung, P.10, Gò Vấp', lat: 10.8354, lng: 106.6668, icon: '🏬', color: '#059669', desc: 'Hub Điều Phối Xe Máy & Xe Tải Lạnh' },
+        { code: 'WH-002', name: 'Kho Chi Nhánh Bình Thạnh (WH-002)', addr: '120 Phan Đăng Lưu, Bình Thạnh', lat: 10.8012, lng: 106.6980, icon: '🏬', color: '#2563eb', desc: 'Hub Phân Phối Đông Sài Gòn' },
+        { code: 'WH-003', name: 'Kho Chi Nhánh Tân Bình (WH-003)', addr: '45 Trường Chinh, Tân Bình', lat: 10.7985, lng: 106.6520, icon: '🏬', color: '#7c3aed', desc: 'Hub Logistics Sân Bay' },
+        { code: 'DP-WASTE', name: 'Khu Xử Lý Môi Trường Đa Phước', addr: 'Xã Đa Phước, Huyện Bình Chánh, TP.HCM', lat: 10.6850, lng: 106.6200, icon: '☣️', color: '#dc2626', desc: 'Trạm Tiếp Nhận Tiêu Hủy Thực Phẩm Hết Hạn' },
+      ];
+
+      hubs.forEach(h => {
+        const whIcon = L.divIcon({
+          className: 'control-tower-wh',
+          html: `
+            <div style="
+              background: linear-gradient(135deg, ${h.color}, #0f172a);
+              color: white;
+              padding: 6px;
+              border-radius: 50%;
+              border: 2.5px solid white;
+              box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 38px;
+              height: 38px;
+              font-size: 18px;
+            ">
+              ${h.icon}
+            </div>
+          `,
+          iconSize: [38, 38],
+          iconAnchor: [19, 19],
+        });
+
+        L.marker([h.lat, h.lng], { icon: whIcon })
+          .addTo(map)
+          .bindPopup(`
+            <div style="font-family:sans-serif; min-width:210px; padding:3px;">
+              <div style="font-size:13px; font-weight:800; color:${h.color};">${h.name}</div>
+              <div style="font-size:11px; color:#64748b; margin-top:2px;">📍 ${h.addr}</div>
+              <div style="margin-top:6px; font-size:10px; background:#f1f5f9; color:#334155; padding:3px 6px; border-radius:4px; font-weight:700;">
+                ${h.desc}
+              </div>
+            </div>
+          `);
       });
 
-      L.marker([10.8354, 106.6668], { icon: whIcon })
-        .addTo(map)
-        .bindPopup(`
-          <div style="font-family:sans-serif; min-width:200px; padding:2px;">
-            <div style="font-size:13px; font-weight:800; color:#065f46;">🏬 Kho Hàng Gò Vấp (WH-006)</div>
-            <div style="font-size:11px; color:#64748b; margin-top:2px;">350 Quang Trung, P.10, Gò Vấp</div>
-            <div style="margin-top:6px; font-size:10px; background:#ecfdf5; color:#047857; padding:3px 6px; border-radius:4px; font-weight:700;">
-              Hub Điều Phối Xe Máy Thùng Lạnh
-            </div>
-          </div>
-        `);
-
-      // Shipper Live GPS Markers
+      // ── 2. RENDER ALL 9 DRIVERS ON MAP ──
       INITIAL_SHIPPERS.forEach(s => {
         const isCritical = s.temperature > 5.0;
         const shortName = s.name.split(' ').pop();
-        
+        const vIcon = s.vehicleType === 'TRUCK' ? '🚛' : s.vehicleType === 'VAN' ? '🚐' : '🛵';
+        const vBg = s.vehicleType === 'TRUCK' 
+          ? 'linear-gradient(135deg, #ea580c, #c2410c)' 
+          : s.vehicleType === 'VAN'
+          ? 'linear-gradient(135deg, #7c3aed, #6d28d9)'
+          : isCritical 
+          ? 'linear-gradient(135deg, #dc2626, #ef4444)' 
+          : 'linear-gradient(135deg, #0284c7, #06b6d4)';
+
         const icon = L.divIcon({
           className: 'shipper-tower-marker',
           html: `
             <div style="position:relative; display:flex; flex-direction:column; align-items:center; cursor:pointer;">
               <div style="
-                background: ${isCritical ? 'linear-gradient(135deg, #dc2626, #ef4444)' : 'linear-gradient(135deg, #0284c7, #06b6d4)'};
+                background: ${vBg};
                 color: white;
                 border-radius: 50%;
                 border: 2.5px solid white;
@@ -492,9 +595,9 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
                 align-items: center;
                 justify-content: center;
                 font-size: 18px;
-                box-shadow: 0 4px 14px ${isCritical ? 'rgba(239, 68, 68, 0.9)' : 'rgba(6, 182, 212, 0.8)'};
+                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
               ">
-                🛵
+                ${vIcon}
               </div>
               <div style="
                 margin-top: 2px;
@@ -546,6 +649,16 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
     }
   };
 
+  // Zoom to Fit All 9 Drivers & Hubs
+  const handleFitAllDrivers = () => {
+    const map = leafletInstance.current;
+    const L = (window as any).L;
+    if (!map || !L || shippers.length === 0) return;
+
+    const bounds = L.latLngBounds(shippers.map(s => [s.lat, s.lng]));
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+  };
+
   // Quick switch active delivering stop
   const handleSelectActiveStop = (st: any) => {
     if (!selectedShipper) return;
@@ -561,6 +674,15 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
     setShippers(prev => prev.map(s => s.id === updated.id ? updated : s));
   };
 
+  // Filter shippers for sidebar display
+  const displayedShippers = shippers.filter(s => {
+    if (fleetFilter === 'TRUCK') return s.vehicleType === 'TRUCK' || s.vehicleType === 'VAN';
+    if (fleetFilter === 'BIKE') return s.vehicleType === 'BIKE';
+    if (fleetFilter === 'WH-006') return s.warehouseCode === 'WH-006';
+    if (fleetFilter === 'CROSS_HUB') return s.warehouseCode !== 'WH-006';
+    return true;
+  });
+
   return (
     <div className="rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-2xl text-slate-100 mb-6">
       
@@ -571,44 +693,33 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
             <Navigation size={20} className="animate-spin" style={{ animationDuration: '10s' }} />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-base font-black text-white tracking-wide uppercase">
-                TRUNG TÂM GIÁM SÁT ĐỘI XE TMS • ĐỊNH TUYẾN VRP & IOT CHUỖI LẠNH
+                TRUNG TÂM GIÁM SÁT TOÀN BỘ ĐỘI XE TMS • ĐỊNH TUYẾN VRP & IOT
               </h2>
               <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-extrabold px-2 py-0.5 rounded-full border border-emerald-500/30">
-                WH-006 GÒ VẤP
+                9 TÀI XẾ TOÀN TP.HCM
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Định vị vệ tinh GPS thời gian thực • Giám sát nhiệt độ thùng xe lạnh • Tối ưu luồn lách ngõ hẻm
+              Định vị vệ tinh GPS thời gian thực • Giám sát nhiệt độ thùng xe lạnh • Xe Tải Lạnh 2.5T & Xe Máy Thùng Lạnh
             </p>
           </div>
         </div>
 
-        {/* Vehicle Mode Toggle & Fleet KPI Badges */}
-        <div className="flex items-center gap-2.5">
-          {/* Vehicle Mode Switcher */}
-          <div className="flex items-center p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs">
-            <button
-              onClick={() => setVehicleMode('BIKE')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold transition-all ${
-                vehicleMode === 'BIKE' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Bike size={14} />
-              <span>Xe Máy (Hẻm phố)</span>
-            </button>
-            <button
-              onClick={() => setVehicleMode('TRUCK')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold transition-all ${
-                vehicleMode === 'TRUCK' ? 'bg-amber-600 text-white shadow' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Truck size={14} />
-              <span>Xe Tải (Đường lớn)</span>
-            </button>
-          </div>
+        {/* Fleet Filter Chips & Zoom All Button */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Zoom Fit All Button */}
+          <button
+            onClick={handleFitAllDrivers}
+            title="Zoom xem toàn bộ 9 tài xế trên bản đồ TP.HCM"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-300 border border-cyan-500/40 rounded-xl text-xs font-bold transition-all shadow"
+          >
+            <Maximize2 size={13} />
+            <span>Xem Toàn Bộ ({shippers.length} Xe)</span>
+          </button>
 
+          {/* Fleet Status Indicator */}
           <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/90 rounded-xl border border-slate-700 text-xs">
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
             <span className="text-slate-300 font-medium">Trực Tuyến:</span>
@@ -617,10 +728,57 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
 
           <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/90 rounded-xl border border-slate-700 text-xs">
             <ThermometerSnowflake size={14} className="text-cyan-400" />
-            <span className="text-slate-300 font-medium">Chuẩn Lạnh (&le;4°C):</span>
+            <span className="text-slate-300 font-medium">Chuẩn Lạnh (0-4°C):</span>
             <span className="font-extrabold text-cyan-400">100% Đạt</span>
           </div>
         </div>
+      </div>
+
+      {/* Fleet Filter Bar */}
+      <div className="flex items-center gap-1.5 px-6 py-2.5 bg-slate-950 border-b border-slate-800/80 overflow-x-auto text-xs">
+        <span className="text-slate-400 font-bold mr-1">Bộ lọc đội xe:</span>
+        <button
+          onClick={() => setFleetFilter('ALL')}
+          className={`px-3 py-1 rounded-lg font-bold transition-all ${
+            fleetFilter === 'ALL' ? 'bg-cyan-600 text-white shadow' : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+          }`}
+        >
+          Tất Cả ({shippers.length})
+        </button>
+        <button
+          onClick={() => setFleetFilter('TRUCK')}
+          className={`px-3 py-1 rounded-lg font-bold transition-all flex items-center gap-1 ${
+            fleetFilter === 'TRUCK' ? 'bg-amber-600 text-white shadow' : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+          }`}
+        >
+          <Truck size={13} />
+          <span>🚛 Xe Tải & Bán Tải (2)</span>
+        </button>
+        <button
+          onClick={() => setFleetFilter('BIKE')}
+          className={`px-3 py-1 rounded-lg font-bold transition-all flex items-center gap-1 ${
+            fleetFilter === 'BIKE' ? 'bg-cyan-600 text-white shadow' : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+          }`}
+        >
+          <Bike size={13} />
+          <span>🛵 Xe Máy Thùng Lạnh (7)</span>
+        </button>
+        <button
+          onClick={() => setFleetFilter('WH-006')}
+          className={`px-3 py-1 rounded-lg font-bold transition-all ${
+            fleetFilter === 'WH-006' ? 'bg-emerald-600 text-white shadow' : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+          }`}
+        >
+          🏬 Kho Gò Vấp (7)
+        </button>
+        <button
+          onClick={() => setFleetFilter('CROSS_HUB')}
+          className={`px-3 py-1 rounded-lg font-bold transition-all ${
+            fleetFilter === 'CROSS_HUB' ? 'bg-indigo-600 text-white shadow' : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+          }`}
+        >
+          🔄 Liên Kho Bình Thạnh & Tân Bình (2)
+        </button>
       </div>
 
       {/* Emergency Cold-Chain Alert Banner if Active */}
@@ -643,7 +801,7 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
       )}
 
       {/* GIS Map & Telemetry Split Screen */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 h-[460px]">
+      <div className="grid grid-cols-1 lg:grid-cols-12 h-[500px]">
         
         {/* Main Map Box (8 cols) */}
         <div className="lg:col-span-8 relative h-full bg-slate-950">
@@ -651,29 +809,31 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
           
           {/* Quick Map Overlay: Current Selected Shipper Info Banner */}
           {selectedShipper && (
-            <div className="absolute top-4 left-4 z-[500] bg-slate-900/95 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-slate-700 shadow-2xl flex items-center gap-3 text-xs">
-              <div className="w-8 h-8 rounded-full bg-cyan-600 text-white font-black flex items-center justify-center text-sm shadow">
-                {vehicleMode === 'TRUCK' ? '🚚' : '🛵'}
+            <div className="absolute top-4 left-4 z-[500] bg-slate-900/95 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-slate-700 shadow-2xl flex items-center gap-3 text-xs max-w-md">
+              <div className={`w-9 h-9 rounded-full text-white font-black flex items-center justify-center text-sm shadow ${
+                selectedShipper.vehicleType === 'TRUCK' ? 'bg-amber-600' : selectedShipper.vehicleType === 'VAN' ? 'bg-purple-600' : 'bg-cyan-600'
+              }`}>
+                {selectedShipper.vehicleType === 'TRUCK' ? '🚛' : selectedShipper.vehicleType === 'VAN' ? '🚐' : '🛵'}
               </div>
               <div>
-                <div className="font-bold text-white flex items-center gap-1.5">
+                <div className="font-bold text-white flex items-center gap-1.5 flex-wrap">
                   <span>{selectedShipper.name}</span>
                   <span className="text-[10px] text-cyan-300 font-mono">({selectedShipper.plate})</span>
                   <span className="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded border border-slate-700">
-                    {vehicleMode === 'TRUCK' ? 'Xe Tải Lạnh' : 'Xe Máy Hẻm Phố'}
+                    {selectedShipper.warehouseName}
                   </span>
                 </div>
-                <div className="text-[11px] text-slate-300">
+                <div className="text-[11px] text-slate-300 mt-0.5">
                   {selectedShipper.status === 'DELIVERING' && selectedShipper.currentCustomerName ? (
                     <span className="text-emerald-400 font-semibold">
                       Đang giao: {selectedShipper.currentCustomerName} ➔ {selectedShipper.currentCustomerAddress?.split(',')[0]}
                     </span>
                   ) : selectedShipper.routeStops && selectedShipper.routeStops.length > 0 ? (
                     <span className="text-amber-400 font-medium">
-                      ⏳ Đã gán {selectedShipper.routeStops.length} đơn hàng • Chờ tài xế xuất phát
+                      ⏳ Đã gán {selectedShipper.routeStops.length} điểm giao • Tuyến: {selectedShipper.zone}
                     </span>
                   ) : (
-                    <span className="text-slate-400">Đã hoàn thành toàn bộ ca giao • Sẵn sàng chuyến mới</span>
+                    <span className="text-slate-400">Đã hoàn thành ca giao • Sẵn sàng chuyến mới</span>
                   )}
                 </div>
               </div>
@@ -687,32 +847,83 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
           {/* Sidebar Tab Switcher */}
           <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800 mb-3 shrink-0">
             <button
-              onClick={() => setActiveTab('route')}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                activeTab === 'route' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Route size={13} />
-              <span>Chi Tiết Chuyến</span>
-            </button>
-            <button
               onClick={() => setActiveTab('fleet')}
               className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                 activeTab === 'fleet' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-white'
               }`}
             >
               <Users size={13} />
-              <span>Đội Xe ({shippers.length})</span>
+              <span>Toàn Bộ Đội Xe ({shippers.length})</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('route')}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                activeTab === 'route' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Route size={13} />
+              <span>Lộ Trình Đang Chọn</span>
             </button>
           </div>
 
-          {activeTab === 'route' && selectedShipper ? (
+          {activeTab === 'fleet' ? (
+            /* ── TAB: TOÀN BỘ ĐỘI XE 9 TÀI XẾ ── */
+            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+              {displayedShippers.map(s => {
+                const isSelected = selectedShipper?.id === s.id;
+                const vIcon = s.vehicleType === 'TRUCK' ? '🚛' : s.vehicleType === 'VAN' ? '🚐' : '🛵';
+                return (
+                  <div
+                    key={s.id}
+                    onClick={() => handleSelectShipper(s)}
+                    className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
+                      isSelected
+                        ? 'bg-cyan-950/60 border-cyan-500 shadow-md'
+                        : 'bg-slate-950 hover:bg-slate-800/80 border-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">{vIcon}</span>
+                        <div>
+                          <div className="font-extrabold text-white text-xs flex items-center gap-1.5">
+                            <span>{s.name}</span>
+                            <span className="text-[10px] text-cyan-300 font-mono">({s.plate})</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400">{s.warehouseName} • {s.zone}</div>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded ${
+                          s.temperature > 4.5 ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'
+                        }`}>
+                          {s.temperature}°C
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1.5 border-t border-slate-800/60">
+                      <span>Vận tốc: <b className="text-slate-200">{s.speed} km/h</b></span>
+                      <span>Điểm dừng: <b className="text-cyan-400">{s.routeStops?.length || 0} trạm</b></span>
+                      <span className={`font-bold ${s.status === 'DELIVERING' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        {s.status === 'DELIVERING' ? '● Đang giao' : '○ Sẵn sàng'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : selectedShipper ? (
+            /* ── TAB: CHI TIẾT LỘ TRÌNH TÀI XẾ ĐANG CHỌN ── */
             <div className="space-y-3">
               {/* Shipper Profile Header Card */}
               <div className="flex items-center justify-between pb-2 border-b border-slate-800">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center font-black text-sm uppercase shadow">
-                    {selectedShipper.name.split(' ').pop()?.slice(0, 3)}
+                  <div className={`w-10 h-10 rounded-full text-white flex items-center justify-center font-black text-sm uppercase shadow ${
+                    selectedShipper.vehicleType === 'TRUCK' ? 'bg-amber-600' : selectedShipper.vehicleType === 'VAN' ? 'bg-purple-600' : 'bg-cyan-600'
+                  }`}>
+                    {selectedShipper.vehicleType === 'TRUCK' ? '🚛' : selectedShipper.vehicleType === 'VAN' ? '🚐' : '🛵'}
                   </div>
                   <div>
                     <div className="text-sm font-bold text-white flex items-center gap-1.5">
@@ -721,7 +932,7 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
                         {selectedShipper.plate}
                       </span>
                     </div>
-                    <div className="text-xs text-slate-400">{selectedShipper.phone} • Ca Sáng (Gò Vấp)</div>
+                    <div className="text-xs text-slate-400">{selectedShipper.phone} • {selectedShipper.warehouseName}</div>
                   </div>
                 </div>
 
@@ -736,9 +947,8 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
                 </span>
               </div>
 
-              {/* 🟢 CONDITIONAL ACTIVE ORDER SPOTLIGHT CARD */}
+              {/* Spotlight Card */}
               {selectedShipper.status === 'DELIVERING' && selectedShipper.currentCustomerName ? (
-                /* Card khi tài xế ĐÃ BẮT ĐẦU GIAO ĐƠN */
                 <div className="bg-gradient-to-br from-emerald-950/90 via-slate-900 to-slate-900 p-3.5 rounded-xl border border-emerald-500/50 shadow-inner">
                   <div className="flex items-center justify-between text-[11px] font-bold mb-1.5">
                     <span className="text-emerald-400 flex items-center gap-1.5 animate-pulse">
@@ -762,20 +972,19 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
                   </div>
 
                   <div className="flex items-center justify-between text-[11px] pt-2 border-t border-emerald-500/20 text-emerald-300">
-                    <span>Tuyến đường: <b>{vehicleMode === 'TRUCK' ? 'Trục đường lớn' : 'Ngõ hẻm tối ưu'}</b></span>
+                    <span>Tuyến đường: <b>{selectedShipper.vehicleType === 'TRUCK' ? 'Trục đường lớn' : 'Ngõ hẻm tối ưu'}</b></span>
                     <span>Vận tốc: <b>{selectedShipper.speed} km/h</b></span>
                   </div>
                 </div>
               ) : selectedShipper.routeStops && selectedShipper.routeStops.length > 0 ? (
-                /* Card khi đã phân công lộ trình VRP nhưng TÀI XẾ CHƯA BẤM BẮT ĐẦU GIAO */
                 <div className="bg-slate-950 p-3.5 rounded-xl border border-amber-500/40 text-xs shadow-inner">
                   <div className="flex items-center justify-between font-bold text-amber-400 mb-1">
                     <span className="flex items-center gap-1.5">
                       <Clock size={14} className="text-amber-400" />
-                      LỘ TRÌNH ĐÃ PHÂN BỔ ({selectedShipper.routeStops.length} ĐƠN)
+                      LỘ TRÌNH ĐÃ PHÂN BỔ ({selectedShipper.routeStops.length} ĐIỂM)
                     </span>
                     <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-bold">
-                      Chờ tài xế bắt đầu
+                      Tuyến: {selectedShipper.zone}
                     </span>
                   </div>
                   <div className="text-slate-300 text-[11px] mt-1">
@@ -783,7 +992,6 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
                   </div>
                 </div>
               ) : (
-                /* Card khi tài xế rảnh / đã giao hết đơn */
                 <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs text-slate-400 text-center">
                   <Check size={18} className="mx-auto mb-1 text-emerald-400" />
                   <span className="text-emerald-400 font-bold">Đã hoàn thành toàn bộ đơn hàng!</span>
@@ -812,13 +1020,13 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
                 </div>
               </div>
 
-              {/* Route Stops Sequence (Remaining active uncompleted stops) */}
+              {/* Route Stops Sequence */}
               {selectedShipper.routeStops && selectedShipper.routeStops.length > 0 && (
                 <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-xs">
                   <div className="text-[10px] text-cyan-400 font-bold mb-1.5 flex items-center justify-between">
                     <div className="flex items-center gap-1">
                       <Route size={12} />
-                      <span>Các điểm dừng chưa giao ({selectedShipper.routeStops.length} điểm):</span>
+                      <span>Các điểm dừng ({selectedShipper.routeStops.length} điểm):</span>
                     </div>
                     <span className="text-[9px] text-slate-500">Bấm để chọn</span>
                   </div>
@@ -843,16 +1051,16 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
                             <span className={`w-4 h-4 rounded-full font-black text-[9px] flex items-center justify-center shrink-0 ${
                               isCurrentActive ? 'bg-emerald-500 text-slate-950' : 'bg-cyan-600 text-white'
                             }`}>
-                              {st.seq}
+                              ${st.seq}
                             </span>
                             <span className="truncate">{st.name} - {st.address.split(',')[0]}</span>
                           </div>
                           {isCurrentActive ? (
-                            <span className="text-[9px] bg-emerald-500/30 text-emerald-300 px-1.5 py-0.5 rounded font-black shrink-0 animate-pulse">
-                              ĐANG ĐẾN
+                            <span className="text-[9px] bg-emerald-500 text-slate-950 font-black px-1.5 py-0.5 rounded shrink-0">
+                              ĐANG GIAO
                             </span>
                           ) : (
-                            <span className="text-[9px] text-slate-500 shrink-0">Chưa giao</span>
+                            <span className="text-[9px] text-slate-500 shrink-0">Trạm #{st.seq}</span>
                           )}
                         </div>
                       );
@@ -860,69 +1068,28 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
                   </div>
                 </div>
               )}
-
-              {/* Action Contact Button */}
-              <a
-                href={`tel:${selectedShipper.phone}`}
-                className="w-full flex items-center justify-center gap-2 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95"
-              >
-                <Phone size={13} />
-                <span>Gọi Tài Xế ({selectedShipper.phone})</span>
-              </a>
             </div>
           ) : (
-            /* Fleet List View */
-            <div className="space-y-2 overflow-y-auto max-h-[350px] pr-1">
-              <div className="text-[11px] font-bold text-slate-400 mb-1">CHỌN XE MÁY ĐỂ THEO DÕI:</div>
-              {shippers.map(s => {
-                const isSelected = selectedShipper?.id === s.id;
-                return (
-                  <div
-                    key={s.id}
-                    onClick={() => handleSelectShipper(s)}
-                    className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
-                      isSelected ? 'bg-cyan-950/80 border-cyan-500 shadow-md' : 'bg-slate-950 border-slate-800 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-cyan-600 text-white font-black text-xs flex items-center justify-center">
-                        {s.vehicleType === 'TRUCK' ? '🚚' : '🛵'}
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-white flex items-center gap-1">
-                          <span>{s.name}</span>
-                          <span className="text-[10px] text-cyan-400 font-mono">({s.plate})</span>
-                        </div>
-                        <div className="text-[10px] text-slate-400">
-                          {s.status === 'DELIVERING' && s.currentCustomerName
-                            ? `Đang giao: ${s.currentCustomerName}`
-                            : s.routeStops && s.routeStops.length > 0
-                            ? `Đã phân ${s.routeStops.length} đơn`
-                            : 'Đã hoàn thành'}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <div className="text-xs font-black text-emerald-400">{s.temperature}°C</div>
-                      <div className="text-[10px] text-slate-400">{s.speed} km/h</div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="text-center py-10 text-slate-500 text-xs">
+              Chọn một tài xế trong danh sách hoặc bấm vào xe trên bản đồ để xem chi tiết.
             </div>
           )}
 
-          {/* Quick Hub summary footer */}
-          <div className="pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between shrink-0">
-            <span className="flex items-center gap-1 font-semibold text-slate-300">
-              <Store size={13} className="text-emerald-400" /> Hub Gò Vấp (WH-006)
+          {/* Quick Footer Action Button */}
+          <div className="pt-3 border-t border-slate-800/80 mt-3 flex items-center justify-between text-xs text-slate-400">
+            <span className="flex items-center gap-1">
+              <Sparkles size={13} className="text-amber-400" />
+              <span>AI VRP tối ưu đa điểm</span>
             </span>
-            <span className="text-slate-400 font-mono text-[10px]">10.8354, 106.6668</span>
+            <button
+              onClick={handleFitAllDrivers}
+              className="text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1 transition-colors"
+            >
+              <span>Fit Bản Đồ</span>
+              <Maximize2 size={12} />
+            </button>
           </div>
-
         </div>
-
       </div>
     </div>
   );

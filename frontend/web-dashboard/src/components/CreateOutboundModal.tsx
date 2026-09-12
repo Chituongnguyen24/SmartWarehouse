@@ -658,7 +658,7 @@ export const CreateOutboundModal: React.FC<CreateOutboundModalProps> = ({
                   type="button"
                   onClick={handleAddItem}
                   style={{
-                    padding: '6px 14px', borderRadius: '8px', border: 'none',
+                    padding: '6px 14px', borderRadius: '8px',
                     background: '#f0fdfa', color: '#0f766e', fontWeight: 800, fontSize: '0.85rem',
                     cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #99f6e4'
                   }}

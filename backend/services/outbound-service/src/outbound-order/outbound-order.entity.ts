@@ -52,6 +52,21 @@ export class OutboundOrder {
   @Column({ name: 'confirmed_at', type: 'timestamp', nullable: true })
   confirmedAt: Date;
 
+  @Column({ name: 'assigned_driver_id', nullable: true })
+  assignedDriverId: string;
+
+  @Column({ name: 'assigned_driver_name', nullable: true })
+  assignedDriverName: string;
+
+  @Column({ name: 'assigned_driver_phone', nullable: true })
+  assignedDriverPhone: string;
+
+  @Column({ name: 'assigned_driver_plate', nullable: true })
+  assignedDriverPlate: string;
+
+  @Column({ name: 'customer_phone', nullable: true })
+  customerPhone: string;
+
   @OneToMany(() => OutboundOrderItem, (item) => item.outboundOrder)
   items: OutboundOrderItem[];
 

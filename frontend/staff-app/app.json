@@ -6,7 +6,13 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Ứng dụng cần quyền Camera để quét mã vạch và QR code của sản phẩm khi lấy hàng trong kho."
+      }
+    },
+    "android": {
+      "permissions": ["CAMERA"]
     },
     "web": {
       "bundler": "metro"

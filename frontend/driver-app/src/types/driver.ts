@@ -35,6 +35,7 @@ export interface DeliveryTask {
   storageType: StorageType;
   items: DeliveryItem[];
   packageType: string;           // "Thùng xốp bảo quản lạnh 0-4°C + Gel đá"
+  packageCount?: number;         // Số lượng thùng đóng gói từ khâu đóng gói QC
   notes?: string;
   deliveredAt?: string;
   proofImageUri?: string;
@@ -46,6 +47,8 @@ export interface DriverProfile {
   phone: string;
   licensePlate: string;
   vehicleType: string;
+  warehouseCode: string;         // 'WH-006'
+  warehouseName: string;         // 'Kho Gò Vấp (350 Quang Trung)'
   isOnline: boolean;
   currentTemp: number;           // Cảm biến nhiệt độ hiện tại (°C)
   targetTempMin: number;
@@ -53,4 +56,5 @@ export interface DriverProfile {
   rating: number;
   completedTasksToday: number;
   totalEarningsToday: number;
+  token?: string;
 }

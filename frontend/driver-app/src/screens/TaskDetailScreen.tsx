@@ -25,6 +25,7 @@ import {
   MessageSquare,
 } from 'lucide-react-native';
 import { openSingleGoogleMapsNavigation } from '../utils/locationHelper';
+import { resolveProductUnit, calculatePackingBoxes } from '../utils/productUnitHelper';
 
 interface TaskDetailScreenProps {
   task: DeliveryTask;
@@ -141,27 +142,53 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task, onBack
         </View>
 
         {/* Items List Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardSectionTitle}>Danh sách bàn giao ({task.items.length})</Text>
+        {(() => {
+          const totalQty = (task.items || []).reduce((s, it) => s + (it.quantity || 1), 0);
+          const boxCount = task.packageCount || calculatePackingBoxes(totalQty);
 
-          {task.items.map((it, idx) => (
-            <View key={idx} style={styles.itemRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.itemName}>{it.name}</Text>
-                <Text style={styles.itemMeta}>Quy cách: {it.unit}</Text>
+          return (
+            <View style={styles.card}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, borderBottomWidth: 1, borderColor: COLORS.border, paddingBottom: 6 }}>
+                <Text style={[styles.cardSectionTitle, { marginBottom: 0, borderBottomWidth: 0, paddingBottom: 0 }]}>
+                  Danh sách bàn giao ({task.items.length} mặt hàng)
+                </Text>
+                <View style={{ backgroundColor: '#ecfdf5', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: '#a7f3d0' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#059669' }}>
+                    {boxCount} Thùng đóng gói
+                  </Text>
+                </View>
               </View>
-              <Text style={styles.itemQty}>x{it.quantity}</Text>
-            </View>
-          ))}
 
-          {/* COD Summary */}
-          <View style={styles.codSummaryRow}>
-            <Text style={styles.codSummaryLabel}>Thu hộ COD:</Text>
-            <Text style={[styles.codSummaryVal, task.codAmount > 0 ? { color: COLORS.danger } : { color: COLORS.primary }]}>
-              {task.codAmount > 0 ? formatPrice(task.codAmount) : 'Đã thanh toán Online'}
-            </Text>
-          </View>
-        </View>
+              {/* Packaging Specification Banner */}
+              <View style={{ backgroundColor: '#f8fafc', padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 10 }}>
+                <Text style={{ fontSize: 11, color: '#475569', fontWeight: '600' }}>
+                  📦 Quy cách: <Text style={{ color: '#0f172a', fontWeight: '800' }}>{task.packageType || `${boxCount} Thùng carton tiêu chuẩn`}</Text>
+                </Text>
+              </View>
+
+              {task.items.map((it, idx) => {
+                const unitName = resolveProductUnit(it.name, it.unit);
+                return (
+                  <View key={idx} style={styles.itemRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.itemName}>{it.name}</Text>
+                      <Text style={styles.itemMeta}>Đơn vị tính: {unitName} • Bảo quản: {it.temperatureNote || 'Lạnh 0-4°C'}</Text>
+                    </View>
+                    <Text style={styles.itemQty}>x{it.quantity} {unitName}</Text>
+                  </View>
+                );
+              })}
+
+              {/* COD Summary */}
+              <View style={styles.codSummaryRow}>
+                <Text style={styles.codSummaryLabel}>Thu hộ COD:</Text>
+                <Text style={[styles.codSummaryVal, task.codAmount > 0 ? { color: COLORS.danger } : { color: COLORS.primary }]}>
+                  {task.codAmount > 0 ? formatPrice(task.codAmount) : 'Đã thanh toán Online (0đ)'}
+                </Text>
+              </View>
+            </View>
+          );
+        })()}
       </ScrollView>
 
       {/* Bottom Sticky Action Bar */}
@@ -172,14 +199,6 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task, onBack
             activeOpacity={0.88}
             onPress={() => {
               startDelivery(task.id);
-              Alert.alert(
-                '🚀 Đã Bắt Đầu Giao Đơn!',
-                `Hệ thống trung tâm đã ghi nhận bạn đang đi giao đơn #${task.orderCode} cho khách hàng ${task.customerName}. Bạn có muốn mở Google Maps dẫn đường ngay không?`,
-                [
-                  { text: 'Để sau', style: 'cancel' },
-                  { text: '🧭 Mở Bản Đồ', onPress: handleOpenMap },
-                ]
-              );
             }}
           >
             <Navigation size={20} color={COLORS.surface} style={{ marginRight: 8 }} />

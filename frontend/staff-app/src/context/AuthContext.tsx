@@ -1,12 +1,30 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { StaffUser } from '../types';
 import { setAuthToken } from '../services/api';
+
+// Dynamic host detection: If accessed from mobile on LAN (e.g. 192.168.4.32), route requests to that LAN IP
+const getBackendHost = () => {
+  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+    const host = window.location.hostname;
+    if (host !== 'localhost' && host !== '127.0.0.1' && host !== '') {
+      return host;
+    }
+  }
+  return 'localhost';
+};
+
+const USER_API = `http://${getBackendHost()}:3012`;
+
+const SESSION_DURATION_MS = 24 * 60 * 60 * 1000; // Exactly 24 hours
 
 interface AuthContextType {
   user: StaffUser | null;
   token: string | null;
   isAuthenticated: boolean;
-  login: (user: StaffUser, token: string) => void;
+  isInitializing: boolean;
+  isLoading: boolean;
+  isWarehouseLocked: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   activeWarehouse: string;
   setActiveWarehouse: (code: string) => void;
@@ -17,7 +35,10 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   token: null,
   isAuthenticated: false,
-  login: () => {},
+  isInitializing: true,
+  isLoading: true,
+  isWarehouseLocked: true,
+  login: async () => ({ success: false }),
   logout: () => {},
   activeWarehouse: 'WH-006',
   setActiveWarehouse: () => {},
@@ -27,23 +48,175 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<StaffUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState<boolean>(true);
   const [activeWarehouse, setActiveWarehouse] = useState<string>('WH-006');
 
-  const login = (userData: StaffUser, authToken: string) => {
-    setUser(userData);
-    setToken(authToken);
-    setActiveWarehouse(userData.warehouseCode || 'WH-006');
-    setAuthToken(authToken);
+  // Load saved session on initial app mount with 24-hour expiration check
+  useEffect(() => {
+    try {
+      const savedUserStr = localStorage.getItem('sfwms_staff_user');
+      const savedToken = localStorage.getItem('sfwms_staff_token');
+      const expiresAtStr = localStorage.getItem('sfwms_staff_expires_at');
+
+      if (savedUserStr && savedToken && savedToken !== 'undefined' && savedToken !== 'null') {
+        const expiresAt = expiresAtStr ? Number(expiresAtStr) : 0;
+        const isExpired = expiresAt > 0 && Date.now() > expiresAt;
+
+        if (isExpired) {
+          console.warn('Staff session expired (24h limit reached). Logging out.');
+          logout();
+        } else {
+          const parsedUser: StaffUser = JSON.parse(savedUserStr);
+          setUser(parsedUser);
+          setToken(savedToken);
+          setActiveWarehouse(parsedUser.warehouseCode || 'WH-006');
+          setAuthToken(savedToken);
+        }
+      } else {
+        setUser(null);
+        setToken(null);
+        setAuthToken(null);
+      }
+    } catch (e) {
+      console.warn('Failed to load saved staff session:', e);
+      setUser(null);
+      setToken(null);
+      setAuthToken(null);
+    } finally {
+      setIsInitializing(false);
+    }
+  }, []);
+
+  const login = async (
+    emailOrUser: string | any,
+    passwordOrToken?: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    try {
+      const warehouseNames: Record<string, string> = {
+        'WH-006': 'Kho Hàng Gò Vấp (WH-006)',
+        'WH-001': 'Kho Hàng Quận 12 (WH-001)',
+        'WH-002': 'Kho Hàng Thủ Đức (WH-002)',
+        'WH-003': 'Kho Hàng Bình Chánh (WH-003)',
+        'WH-004': 'Kho Hàng Quận 7 (WH-004)',
+        'WH-005': 'Kho Hàng Bình Thạnh (WH-005)',
+        'WH-007': 'Kho Hàng Quận 1 (WH-007)',
+        'WH-008': 'Kho Hàng Quận 5 (WH-008)',
+      };
+
+      // Case A: Direct user object passed (e.g. login(user, token))
+      if (typeof emailOrUser === 'object' && emailOrUser !== null) {
+        const apiUser = emailOrUser;
+        const authToken = passwordOrToken || apiUser.token || apiUser.access_token || 'mock-staff-jwt-token';
+        const staffUser: StaffUser = {
+          id: apiUser.id || 'usr-staff',
+          code: apiUser.code || (apiUser.warehouseCode ? `NV-${apiUser.warehouseCode.replace('WH-', '')}01` : 'NV-01'),
+          name: apiUser.name || 'Nhân viên trực kho',
+          email: apiUser.email || 'staff@sfwms.vn',
+          role: apiUser.role || 'WAREHOUSE_STAFF',
+          warehouseCode: apiUser.warehouseCode || 'WH-006',
+          warehouseName: warehouseNames[apiUser.warehouseCode || 'WH-006'] || `Kho ${apiUser.warehouseCode || 'WH-006'}`,
+          shift: apiUser.shift || 'CA_SANG',
+          assignedZone: apiUser.assignedZone || 'Toàn bộ kho',
+          status: apiUser.status || 'ACTIVE',
+        };
+
+        const expiresAt = Date.now() + SESSION_DURATION_MS;
+        setUser(staffUser);
+        setToken(authToken);
+        setActiveWarehouse(staffUser.warehouseCode);
+        setAuthToken(authToken);
+
+        if (typeof window !== 'undefined' && window.localStorage) {
+          localStorage.setItem('sfwms_staff_user', JSON.stringify(staffUser));
+          localStorage.setItem('sfwms_staff_token', authToken);
+          localStorage.setItem('sfwms_staff_expires_at', String(expiresAt));
+        }
+        return { success: true };
+      }
+
+      // Case B: Email and password strings
+      const email = String(emailOrUser || '').trim();
+      const password = String(passwordOrToken || '').trim();
+
+      const res = await fetch(`${USER_API}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          return { success: false, message: 'Tài khoản hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại!' };
+        }
+        const err = await res.json().catch(() => ({}));
+        return {
+          success: false,
+          message: err.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin!',
+        };
+      }
+
+      const data = await res.json();
+      const authToken = data.access_token || data.accessToken || data.token;
+      const apiUser = data.user || {};
+
+      if (!authToken) {
+        return { success: false, message: 'Máy chủ không trả về JWT Token hợp lệ!' };
+      }
+
+      const staffUser: StaffUser = {
+        id: apiUser.id || 'usr-staff',
+        code: apiUser.code || (apiUser.warehouseCode ? `NV-${apiUser.warehouseCode.replace('WH-', '')}01` : 'NV-01'),
+        name: apiUser.name || 'Nhân viên trực kho',
+        email: apiUser.email || email,
+        role: apiUser.role || 'WAREHOUSE_STAFF',
+        warehouseCode: apiUser.warehouseCode || 'WH-006',
+        warehouseName: warehouseNames[apiUser.warehouseCode || 'WH-006'] || `Kho ${apiUser.warehouseCode || 'WH-006'}`,
+        shift: apiUser.shift || 'CA_SANG',
+        assignedZone: apiUser.assignedZone || 'Toàn bộ kho',
+        status: apiUser.status || 'ACTIVE',
+      };
+
+      const expiresAt = Date.now() + SESSION_DURATION_MS;
+
+      setUser(staffUser);
+      setToken(authToken);
+      setActiveWarehouse(staffUser.warehouseCode);
+      setAuthToken(authToken);
+
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('sfwms_staff_user', JSON.stringify(staffUser));
+        localStorage.setItem('sfwms_staff_token', authToken);
+        localStorage.setItem('sfwms_staff_expires_at', String(expiresAt));
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      console.error('Login network error:', err);
+      return {
+        success: false,
+        message: 'Không thể kết nối đến máy chủ xác thực (Port 3012). Vui lòng kiểm tra lại mạng!',
+      };
+    }
   };
 
   const logout = () => {
     setUser(null);
     setToken(null);
     setAuthToken(null);
+    localStorage.removeItem('sfwms_staff_user');
+    localStorage.removeItem('sfwms_staff_token');
+    localStorage.removeItem('sfwms_staff_expires_at');
   };
 
+  // Enforce warehouse scope: Staff can only access the warehouse assigned to their account
+  const isWarehouseLocked = user?.role !== 'SUPER_ADMIN';
+
   const switchWarehouse = (code: string) => {
-    setActiveWarehouse(code);
+    if (isWarehouseLocked && user?.warehouseCode) {
+      setActiveWarehouse(user.warehouseCode);
+      return;
+    }
+    setActiveWarehouse(code || 'WH-006');
   };
 
   return (
@@ -51,7 +224,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         token,
-        isAuthenticated: !!user && !!token,
+        isAuthenticated: !!user,
+        isInitializing,
+        isLoading: isInitializing,
+        isWarehouseLocked,
         login,
         logout,
         activeWarehouse,
@@ -65,3 +241,4 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export const useAuth = () => useContext(AuthContext);
+

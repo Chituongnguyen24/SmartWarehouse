@@ -68,10 +68,15 @@ const FEFOExport = () => {
 
         const fefoScore = Math.round((lot.riskScore * 0.6) + (expiryScore * 0.4));
 
+        const p = productMap.get(lot.productId) || (lot.sku ? productMap.get(lot.sku) : undefined);
+        const isUuid = (val?: string) => !val || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) || val.length > 30;
+        const productName = (p?.name && !isUuid(p.name)) ? p.name : (lot.lotCode ? 'Sản phẩm ' + (lot.lotCode.split('-WH')[0] || lot.lotCode) : 'Sản phẩm tiêu chuẩn');
+        const sku = (p?.sku && !isUuid(p.sku)) ? p.sku : (lot.lotCode && lot.lotCode.startsWith('LOT-') ? lot.lotCode.split('-WH')[0] : (lot.sku || 'SKU-GENERAL'));
+
         return {
           ...lot,
-          productName: productMap.get(lot.productId)?.name || 'Unknown',
-          sku: productMap.get(lot.productId)?.sku || 'Unknown',
+          productName,
+          sku,
           fefoScore,
           daysLeft: Math.round(daysLeft)
         };

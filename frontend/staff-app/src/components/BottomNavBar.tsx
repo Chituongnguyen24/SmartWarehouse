@@ -1,23 +1,104 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
-  Boxes,
-  Download,
   PackageCheck,
+  Download,
   Search,
+  Compass,
 } from 'lucide-react';
+import { fetchOutboundOrders, fetchInboundOrdersApi } from '../services/api';
+import { useStaffWebSocket } from '../context/WebSocketContext';
 
 export const BottomNavBar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { lastEvent } = useStaffWebSocket();
+
+  const [packingCount, setPackingCount] = useState<number>(0);
+  const [pickingCount, setPickingCount] = useState<number>(0);
+  const [inboundCount, setInboundCount] = useState<number>(0);
+
+  const loadBadgeCounts = async () => {
+    try {
+      const [outbounds, inbounds] = await Promise.all([
+        fetchOutboundOrders(),
+        fetchInboundOrdersApi(),
+      ]);
+
+      if (Array.isArray(outbounds)) {
+        const isReadyOrDonePacking = (ord: any) => {
+          const s = (ord.status || '').toUpperCase();
+          if (['PICKED', 'PACKING', 'PACKED', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'COMPLETED'].includes(s)) return true;
+          if (localStorage.getItem(`citymart_order_ready_pack_${ord.id}`) === 'true') return true;
+          if (localStorage.getItem(`citymart_order_ready_pack_${ord.orderCode}`) === 'true') return true;
+          if (Array.isArray(ord.items) && ord.items.length > 0) {
+            const allPicked = ord.items.every((it: any) => Number(it.pickedQuantity || 0) >= Number(it.quantity || it.requestedQuantity || 1) && Number(it.quantity || it.requestedQuantity || 1) > 0);
+            if (allPicked) return true;
+          }
+          return false;
+        };
+
+        const isPackingCompleted = (status?: string) => {
+          const s = (status || '').toUpperCase();
+          return ['PACKED', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'COMPLETED', 'CANCELLED'].includes(s);
+        };
+
+        const picking = outbounds.filter(o => 
+          (o.status === 'PENDING' || o.status === 'PICKING') && !isReadyOrDonePacking(o)
+        ).length;
+
+        const pendingPacking = outbounds.filter(o => 
+          isReadyOrDonePacking(o) && !isPackingCompleted(o.status)
+        ).length;
+
+        setPickingCount(picking);
+        setPackingCount(pendingPacking);
+      }
+
+      if (Array.isArray(inbounds)) {
+        const pendingInbound = inbounds.filter((i: any) => i.status !== 'STORED').length;
+        setInboundCount(pendingInbound);
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    loadBadgeCounts();
+  }, []);
+
+  useEffect(() => {
+    if (lastEvent) {
+      loadBadgeCounts();
+    }
+  }, [lastEvent]);
 
   const NAV_ITEMS = [
     { path: '/', label: 'Tổng Quan', icon: <LayoutDashboard size={20} /> },
-    { path: '/picking', label: 'Soạn Hàng', icon: <Boxes size={20} />, badge: '5' },
-    { path: '/inbound', label: 'Nhập Kho', icon: <Download size={20} />, badge: '2' },
-    { path: '/packing', label: 'Đóng Gói', icon: <PackageCheck size={20} /> },
-    { path: '/lookup', label: 'Tra Cứu', icon: <Search size={20} /> },
+    {
+      path: '/picking',
+      label: 'Lấy Hàng',
+      icon: <Compass size={20} />,
+      badge: pickingCount > 0 ? String(pickingCount) : undefined,
+      badgeColor: '#ea580c',
+    },
+    {
+      path: '/packing',
+      label: 'Đóng Gói',
+      icon: <PackageCheck size={20} />,
+      badge: packingCount > 0 ? String(packingCount) : undefined,
+      badgeColor: '#9333ea',
+    },
+    {
+      path: '/inbound',
+      label: 'Nhập Kho',
+      icon: <Download size={20} />,
+      badge: inboundCount > 0 ? String(inboundCount) : undefined,
+      badgeColor: '#059669',
+    },
+    { path: '/lookup', label: 'Kiểm Kê', icon: <Search size={20} /> },
   ];
 
   return (
@@ -27,15 +108,15 @@ export const BottomNavBar: React.FC = () => {
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+        backgroundColor: 'rgba(255, 255, 255, 0.96)',
         backdropFilter: 'blur(12px)',
-        borderTop: '1px solid #1e293b',
+        borderTop: '1px solid #e2e8f0',
         display: 'flex',
         justifyContent: 'space-around',
         alignItems: 'center',
-        padding: '8px 12px 16px 12px',
+        padding: '8px 10px 16px 10px',
         zIndex: 5000,
-        boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.4)',
+        boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.05)',
       }}
     >
       {NAV_ITEMS.map(item => {
@@ -53,9 +134,9 @@ export const BottomNavBar: React.FC = () => {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '4px',
-              padding: '6px 12px',
+              padding: '6px 8px',
               borderRadius: '12px',
-              color: isActive ? '#38bdf8' : '#94a3b8',
+              color: isActive ? '#008848' : '#64748b',
               cursor: 'pointer',
               position: 'relative',
               transition: 'all 0.15s ease',
@@ -74,14 +155,19 @@ export const BottomNavBar: React.FC = () => {
                   style={{
                     position: 'absolute',
                     top: '-6px',
-                    right: '-8px',
-                    backgroundColor: '#ef4444',
+                    right: '-10px',
+                    backgroundColor: item.badgeColor || '#0284c7',
                     color: '#ffffff',
-                    fontSize: '10px',
+                    fontSize: '9.5px',
                     fontWeight: 900,
                     borderRadius: '999px',
-                    padding: '1px 5px',
-                    boxShadow: '0 0 6px rgba(239, 68, 68, 0.6)',
+                    minWidth: '16px',
+                    height: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0 4px',
+                    boxShadow: '0 0 6px rgba(0, 0, 0, 0.2)',
                   }}
                 >
                   {item.badge}
@@ -90,7 +176,7 @@ export const BottomNavBar: React.FC = () => {
             </div>
             <span
               style={{
-                fontSize: '10px',
+                fontSize: '11px',
                 fontWeight: isActive ? 800 : 600,
                 letterSpacing: '-0.1px',
               }}
@@ -103,3 +189,4 @@ export const BottomNavBar: React.FC = () => {
     </nav>
   );
 };
+

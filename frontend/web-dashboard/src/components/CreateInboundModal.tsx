@@ -5,16 +5,22 @@ import {
   Search, ChevronDown
 } from 'lucide-react';
 
-interface CreateInboundModalProps {
+export interface CreateInboundModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (newOrder: any) => void;
   token: string | null;
   user: any;
   defaultWarehouse?: string;
+  initialData?: {
+    supplierName?: string;
+    items?: InboundItemInput[];
+    notes?: string;
+    reason?: string;
+  };
 }
 
-interface InboundItemInput {
+export interface InboundItemInput {
   sku: string;
   productName: string;
   unit: string;
@@ -66,7 +72,8 @@ export const CreateInboundModal: React.FC<CreateInboundModalProps> = ({
   onSuccess,
   token,
   user,
-  defaultWarehouse = 'WH-006'
+  defaultWarehouse = 'WH-006',
+  initialData
 }) => {
   const [activeTab, setActiveTab] = useState<'MANUAL' | 'FILE'>('MANUAL');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -127,6 +134,18 @@ export const CreateInboundModal: React.FC<CreateInboundModalProps> = ({
       })
       .catch(() => {});
   }, []);
+
+  // Sync initialData when provided (e.g. from AI Demand Forecast 1-click creation)
+  useEffect(() => {
+    if (isOpen && initialData) {
+      if (initialData.supplierName) setSupplierName(initialData.supplierName);
+      if (initialData.notes) setNotes(initialData.notes);
+      if (initialData.reason) setReason(initialData.reason);
+      if (initialData.items && initialData.items.length > 0) {
+        setItems(initialData.items);
+      }
+    }
+  }, [isOpen, initialData]);
 
   // Lazy Search: When query is empty, do NOT show all items!
   const filteredCatalog = useMemo(() => {
@@ -602,7 +621,7 @@ export const CreateInboundModal: React.FC<CreateInboundModalProps> = ({
                   type="button"
                   onClick={handleAddItem}
                   style={{
-                    padding: '6px 14px', borderRadius: '8px', border: 'none',
+                    padding: '6px 14px', borderRadius: '8px',
                     background: '#f0fdfa', color: '#0f766e', fontWeight: 800, fontSize: '0.85rem',
                     cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #99f6e4'
                   }}

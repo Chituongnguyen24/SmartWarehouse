@@ -8,6 +8,8 @@ import { ProductService } from '../product/product.service';
 import { MLSpoilageService, MLPredictionResult } from './ml-spoilage.service';
 import Redis from 'ioredis';
 
+import { InventoryOutboxService } from '../outbox/outbox.service';
+
 @Injectable()
 export class InventoryService implements OnModuleInit {
   private redisClient: Redis;
@@ -21,6 +23,7 @@ export class InventoryService implements OnModuleInit {
     private movementRepository: Repository<StockMovement>,
     private productService: ProductService,
     private mlSpoilageService: MLSpoilageService,
+    private outboxService: InventoryOutboxService,
   ) {
     // Connect to Redis for publishing events with safe error handling
     this.redisClient = new Redis({
@@ -215,17 +218,49 @@ export class InventoryService implements OnModuleInit {
     return this.supplierRepository.save(this.supplierRepository.create(dto));
   }
 
-  async findAllLots(options?: { warehouseCode?: string; limit?: number; search?: string }): Promise<Lot[]> {
+  private async invalidateLotsCache() {
+    try {
+      if (this.redisClient && this.redisClient.status === 'ready') {
+        const keys = await this.redisClient.keys('cache:lots:*');
+        if (keys.length > 0) {
+          await this.redisClient.del(...keys);
+          console.log(`[INVENTORY REDIS CACHE] 🧹 Invalidated ${keys.length} lots cache keys`);
+        }
+      }
+    } catch (e) {
+      console.warn('[INVENTORY REDIS CACHE] Failed to invalidate cache:', e.message);
+    }
+  }
+
+  async findAllLots(options?: { warehouseCode?: string; zone?: string; limit?: number; search?: string }): Promise<Lot[]> {
+    const cacheKey = `cache:lots:${options?.warehouseCode || 'ALL'}:${options?.zone || 'ALL'}:${options?.limit || 5000}:${options?.search || ''}`;
+
+    // 1. Check Redis Cache
+    try {
+      if (this.redisClient && this.redisClient.status === 'ready') {
+        const cached = await this.redisClient.get(cacheKey);
+        if (cached) {
+          return JSON.parse(cached);
+        }
+      }
+    } catch (e) {
+      // Fallback directly to DB
+    }
+
     const query = this.lotRepository.createQueryBuilder('lot')
       .where('lot.remainingQty > :minQty', { minQty: 0 });
 
     if (options?.warehouseCode) {
-      query.andWhere('lot.warehouseCode = :wh', { wh: options.warehouseCode });
+      query.andWhere('(lot.warehouseCode = :wh OR lot.warehouseId = :wh)', { wh: options.warehouseCode });
+    }
+
+    if (options?.zone) {
+      query.andWhere('lot.zone = :zone', { zone: options.zone.toUpperCase() });
     }
 
     if (options?.search) {
       const searchPattern = `%${options.search}%`;
-      query.andWhere('(lot.lotCode ILIKE :search OR lot.location ILIKE :search)', { search: searchPattern });
+      query.andWhere('(lot.lotCode ILIKE :search OR lot.location ILIKE :search OR lot.productId ILIKE :search)', { search: searchPattern });
     }
 
     query.orderBy('lot.expiryDate', 'ASC');
@@ -233,13 +268,23 @@ export class InventoryService implements OnModuleInit {
     if (options?.limit && options.limit > 0) {
       query.take(options.limit);
     } else if (options?.warehouseCode) {
-      // Khi lọc theo kho cụ thể (như WH-006 Kho Gò Vấp), tải toàn bộ lô hàng của kho đó (lên đến 5000)
       query.take(5000);
     } else {
-      query.take(3000);
+      query.take(5000);
     }
 
-    return query.getMany();
+    const results = await query.getMany();
+
+    // 2. Store in Redis with TTL 60 seconds
+    try {
+      if (this.redisClient && this.redisClient.status === 'ready') {
+        await this.redisClient.set(cacheKey, JSON.stringify(results), 'EX', 60);
+      }
+    } catch (e) {
+      // Ignore cache write error
+    }
+
+    return results;
   }
 
   async findLotsByProduct(productId: string): Promise<Lot[]> {
@@ -249,43 +294,65 @@ export class InventoryService implements OnModuleInit {
   async importLot(dto: {
     lotCode: string;
     sku: string;
-    supplierId: string;
-    expiryDate: Date | string;
+    supplierId?: string;
+    expiryDate?: Date | string;
     quantity: number;
-    zone: string;
-    location: string;
+    zone?: string;
+    location?: string;
     riskScore?: number;
     status?: LotStatus;
-    createdBy: string;
+    createdBy?: string;
     warehouseId?: string;
     warehouseCode?: string;
   }): Promise<Lot> {
-    const product = await this.productService.findOneBySku(dto.sku);
-    if (!product) {
-      throw new NotFoundException(`Product with SKU ${dto.sku} not found`);
+    let canonicalSku = dto.sku;
+    try {
+      const product = await this.productService.findOneBySku(dto.sku);
+      if (product?.sku) canonicalSku = product.sku;
+    } catch (e) {
+      // Keep dto.sku if lookup throws
     }
 
-    const supplier = await this.supplierRepository.findOneBy({ id: dto.supplierId });
-    if (!supplier) {
-      throw new NotFoundException(`Supplier with ID ${dto.supplierId} not found`);
+    let supplierId = dto.supplierId || 'SUP-001';
+    if (dto.supplierId) {
+      try {
+        const supplier = await this.supplierRepository.findOneBy({ id: dto.supplierId });
+        if (supplier?.id) supplierId = supplier.id;
+      } catch (e) {
+        // Safe fallback
+      }
     }
+
+    // Check if lot with this lotCode already exists -> Update instead of duplicate key error
+    let existingLot = await this.lotRepository.findOneBy({ lotCode: dto.lotCode });
+    if (existingLot) {
+      existingLot.remainingQty += dto.quantity;
+      existingLot.quantity += dto.quantity;
+      if (dto.location) existingLot.location = dto.location;
+      if (dto.zone) existingLot.zone = dto.zone;
+      if (dto.warehouseCode) existingLot.warehouseCode = dto.warehouseCode;
+      return this.lotRepository.save(existingLot);
+    }
+
+    // Default expiry 90 days if missing
+    const expDate = dto.expiryDate ? new Date(dto.expiryDate) : new Date(Date.now() + 90 * 86400000);
 
     // Create lot record
     const lot = this.lotRepository.create({
       lotCode: dto.lotCode,
-      productId: product.sku,
-      supplierId: supplier.id,
+      productId: canonicalSku,
+      supplierId: supplierId,
       importDate: new Date(),
-      expiryDate: new Date(dto.expiryDate),
+      expiryDate: expDate,
       quantity: dto.quantity,
       remainingQty: dto.quantity,
-      zone: dto.zone,
-      location: dto.location,
+      zone: dto.zone || 'DRY',
+      location: dto.location || 'shelf-C1',
       riskScore: dto.riskScore || 0,
       status: dto.status || LotStatus.NORMAL,
-      createdBy: dto.createdBy,
+      createdBy: dto.createdBy || 'system-staff',
       warehouseId: dto.warehouseId,
-      warehouseCode: dto.warehouseCode,
+      warehouseCode: dto.warehouseCode || 'WH-006',
     });
 
     const savedLot = await this.lotRepository.save(lot);
@@ -296,7 +363,7 @@ export class InventoryService implements OnModuleInit {
       movementType: MovementType.IN,
       quantity: dto.quantity,
       reason: 'IMPORT',
-      performedBy: dto.createdBy,
+      performedBy: dto.createdBy || 'system-staff',
     });
     await this.movementRepository.save(movement);
 
@@ -305,7 +372,7 @@ export class InventoryService implements OnModuleInit {
       eventId: Math.random().toString(36).substring(7),
       timestamp: new Date().toISOString(),
       lotId: savedLot.id,
-      sku: product.sku,
+      sku: canonicalSku,
       zone: savedLot.zone,
       quantity: savedLot.quantity,
     };
@@ -317,62 +384,131 @@ export class InventoryService implements OnModuleInit {
       console.warn('[INVENTORY SERVICE] Failed to publish lot_imported event:', e.message);
     }
 
+    // Save to Transactional Outbox
+    await this.outboxService.recordEvent('INVENTORY_LOT', savedLot.id, 'lot_imported', eventPayload);
+
+    this.invalidateLotsCache();
+
     return savedLot;
   }
 
   async exportStock(dto: {
-    lotId: string;
+    lotId?: string;
+    lotCode?: string;
     quantity: number;
-    reason: string;
-    performedBy: string;
-  }): Promise<Lot> {
-    const lot = await this.lotRepository.findOneBy({ id: dto.lotId });
+    reason?: string;
+    performedBy?: string;
+  }): Promise<Lot | null> {
+    let lot: Lot | null = null;
+    if (dto.lotId) {
+      if (dto.lotId.startsWith('LOT-')) {
+        lot = await this.lotRepository.findOneBy({ lotCode: dto.lotId });
+      } else {
+        lot = await this.lotRepository.findOneBy({ id: dto.lotId });
+      }
+    }
+    if (!lot && dto.lotCode) {
+      lot = await this.lotRepository.findOneBy({ lotCode: dto.lotCode });
+    }
     if (!lot) {
-      throw new NotFoundException(`Lot with ID ${dto.lotId} not found`);
+      throw new NotFoundException(`Lot with ID/Code '${dto.lotId || dto.lotCode}' not found in database`);
     }
 
-    if (lot.remainingQty < dto.quantity) {
-      throw new BadRequestException(`Insufficient stock in lot ${lot.lotCode}. Available: ${lot.remainingQty}, Requested: ${dto.quantity}`);
-    }
+    const requestedQty = Math.max(1, Number(dto.quantity) || 1);
+    const exportQty = Math.min(requestedQty, lot.remainingQty);
 
-    lot.remainingQty -= dto.quantity;
+    const initialLotId = lot.id;
+    const initialLotCode = lot.lotCode;
+    const initialProductId = lot.productId;
+    const initialLocation = lot.location;
+
+    lot.remainingQty -= exportQty;
+    let isDeleted = false;
+
     if (lot.remainingQty <= 0) {
-      await this.lotRepository.delete(lot.id);
+      // Khi xuất hết toàn bộ số lượng: Xóa hoàn toàn lô hàng khỏi database và giải phóng kệ
+      await this.lotRepository.delete(initialLotId);
+      isDeleted = true;
+      console.log(`[INVENTORY SERVICE] 🗑️ Lot ${initialLotCode} (ID: ${initialLotId}, Shelf: ${initialLocation}) completely exported (remainingQty <= 0). Deleted from database.`);
     } else {
       await this.lotRepository.save(lot);
+      console.log(`[INVENTORY SERVICE] 📦 Lot ${initialLotCode} remainingQty updated to ${lot.remainingQty}`);
     }
 
-    // Save Stock Movement
-    const movement = this.movementRepository.create({
-      lotId: lot.id,
-      movementType: MovementType.OUT,
-      quantity: dto.quantity,
-      reason: dto.reason,
-      performedBy: dto.performedBy,
-    });
-    await this.movementRepository.save(movement);
+    // Save Stock Movement record
+    try {
+      const movement = this.movementRepository.create({
+        lotId: initialLotId,
+        movementType: MovementType.OUT,
+        quantity: exportQty,
+        reason: dto.reason || 'EXPORT_OUTBOUND',
+        performedBy: dto.performedBy || 'system-staff',
+      });
+      await this.movementRepository.save(movement);
+    } catch (e) {
+      console.warn('[INVENTORY SERVICE] Warning saving stock movement:', e.message);
+    }
 
-    // Check low stock
-    const product = await this.productService.findOne(lot.productId);
-    if (product) {
-      const activeLots = await this.lotRepository.findBy({ productId: product.id });
-      const totalStock = activeLots.reduce((sum, l) => sum + l.remainingQty, 0);
-      
-      const minStockThreshold = 50;
-      try {
+    // Check low stock & publish redis events
+    try {
+      const product = await this.productService.findOne(initialProductId);
+      if (product) {
+        const activeLots = await this.lotRepository.findBy({ productId: product.id });
+        const totalStock = activeLots.reduce((sum, l) => sum + l.remainingQty, 0);
+        
+        const minStockThreshold = 50;
         if (this.redisClient && this.redisClient.status === 'ready') {
           if (totalStock === 0) {
             await this.redisClient.publish('stock_depleted', JSON.stringify({ sku: product.sku, timestamp: new Date().toISOString() }));
           } else if (totalStock < minStockThreshold) {
             await this.redisClient.publish('low_stock', JSON.stringify({ sku: product.sku, currentStock: totalStock, timestamp: new Date().toISOString() }));
           }
+          const exportPayload = {
+            lotId: initialLotId,
+            lotCode: initialLotCode,
+            quantity: exportQty,
+            remainingQty: isDeleted ? 0 : lot.remainingQty,
+            isDeleted,
+            shelfLocation: initialLocation,
+            timestamp: new Date().toISOString()
+          };
+          await this.redisClient.publish('lot_exported', JSON.stringify(exportPayload));
+          await this.outboxService.recordEvent('INVENTORY_LOT', initialLotId, 'lot_exported', exportPayload);
         }
-      } catch (e) {
-        console.warn('[INVENTORY SERVICE] Failed to publish stock alert event:', e.message);
       }
+    } catch (e) {
+      console.warn('[INVENTORY SERVICE] Failed to publish stock alert event:', e.message);
     }
 
-    return lot;
+    this.invalidateLotsCache();
+
+    return {
+      success: true,
+      deleted: isDeleted,
+      remainingQty: isDeleted ? 0 : lot.remainingQty,
+      lotCode: initialLotCode,
+      location: initialLocation,
+      lot: isDeleted ? null : lot,
+    } as any;
+  }
+
+  async deleteLot(idOrCode: string): Promise<{ success: boolean; message: string }> {
+    let lot: Lot | null = null;
+    if (idOrCode.startsWith('LOT-')) {
+      lot = await this.lotRepository.findOneBy({ lotCode: idOrCode });
+    } else {
+      lot = await this.lotRepository.findOneBy({ id: idOrCode });
+    }
+    if (!lot) {
+      throw new NotFoundException(`Lot with ID/Code '${idOrCode}' not found`);
+    }
+
+    const lotCode = lot.lotCode;
+    const location = lot.location;
+    await this.lotRepository.delete(lot.id);
+    console.log(`[INVENTORY SERVICE] 🗑️ Manually deleted lot ${lotCode} from location ${location}`);
+    this.invalidateLotsCache();
+    return { success: true, message: `Đã xóa lô hàng ${lotCode} và giải phóng vị trí ${location}` };
   }
 
   async adjustLotQuantity(dto: {
@@ -423,6 +559,7 @@ export class InventoryService implements OnModuleInit {
     // Nếu số lượng về 0: Xóa lô hàng khỏi bảng để giải phóng vị trí kệ kho hoàn toàn
     if (dto.actualQuantity <= 0) {
       await this.lotRepository.delete(lot.id);
+      this.invalidateLotsCache();
       return {
         ...lot,
         remainingQty: 0,
@@ -437,6 +574,7 @@ export class InventoryService implements OnModuleInit {
     lot.lastAuditActualQty = dto.actualQuantity;
     const updatedLot = await this.lotRepository.save(lot);
 
+    this.invalidateLotsCache();
     return updatedLot;
   }
 
@@ -512,6 +650,7 @@ export class InventoryService implements OnModuleInit {
       }
 
       await queryRunner.commitTransaction();
+      this.invalidateLotsCache();
       return true;
     } catch (err) {
       await queryRunner.rollbackTransaction();

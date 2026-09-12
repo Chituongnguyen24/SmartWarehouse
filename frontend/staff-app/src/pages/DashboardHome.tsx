@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Boxes,
@@ -6,274 +6,569 @@ import {
   PackageCheck,
   Search,
   ScanBarcode,
-  Sparkles,
   MapPin,
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
   ChevronRight,
   Snowflake,
+  LogOut,
   ShieldCheck,
+  User,
+  Clock,
+  FileSpreadsheet,
+  AlertTriangle,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { fetchOutboundOrders, fetchInboundOrdersApi } from '../services/api';
+import { useStaffWebSocket } from '../context/WebSocketContext';
+import { ShiftHandoverModal } from '../components/ShiftHandoverModal';
+import { IncidentReportModal } from '../components/IncidentReportModal';
 
 export const DashboardHome: React.FC = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { lastEvent } = useStaffWebSocket();
+
+  const [pickingCount, setPickingCount] = useState<number>(0);
+  const [packingCount, setPackingCount] = useState<number>(0);
+  const [inboundCount, setInboundCount] = useState<number>(0);
+
+  // Modals state
+  const [isShiftModalOpen, setIsShiftModalOpen] = useState<boolean>(false);
+  const [isIncidentModalOpen, setIsIncidentModalOpen] = useState<boolean>(false);
+
+  const loadCounts = async () => {
+    try {
+      const [outbounds, inbounds] = await Promise.all([
+        fetchOutboundOrders(),
+        fetchInboundOrdersApi(),
+      ]);
+
+      if (Array.isArray(outbounds)) {
+        const isReadyOrDonePacking = (ord: any) => {
+          const s = (ord.status || '').toUpperCase();
+          if (['PICKED', 'PACKING', 'PACKED', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'COMPLETED'].includes(s)) return true;
+          if (localStorage.getItem(`citymart_order_ready_pack_${ord.id}`) === 'true') return true;
+          if (localStorage.getItem(`citymart_order_ready_pack_${ord.orderCode}`) === 'true') return true;
+          if (Array.isArray(ord.items) && ord.items.length > 0) {
+            const allPicked = ord.items.every((it: any) => Number(it.pickedQuantity || 0) >= Number(it.quantity || it.requestedQuantity || 1) && Number(it.quantity || it.requestedQuantity || 1) > 0);
+            if (allPicked) return true;
+          }
+          return false;
+        };
+
+        const isPackingCompleted = (status?: string) => {
+          const s = (status || '').toUpperCase();
+          return ['PACKED', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'COMPLETED', 'CANCELLED'].includes(s);
+        };
+
+        const pCount = outbounds.filter(o => 
+          (o.status === 'PENDING' || o.status === 'PICKING') && !isReadyOrDonePacking(o)
+        ).length;
+
+        const pkCount = outbounds.filter(o => 
+          isReadyOrDonePacking(o) && !isPackingCompleted(o.status)
+        ).length;
+
+        setPickingCount(pCount);
+        setPackingCount(pkCount);
+      }
+
+      if (Array.isArray(inbounds)) {
+        const inbPending = inbounds.filter((i: any) => i.status !== 'STORED').length;
+        setInboundCount(inbPending);
+      }
+    } catch (e) {
+      console.warn('Failed to load dashboard counts:', e);
+    }
+  };
+
+  useEffect(() => {
+    loadCounts();
+  }, []);
+
+  useEffect(() => {
+    if (lastEvent) {
+      loadCounts();
+    }
+  }, [lastEvent]);
+
+  // Generate initials
+  const initials = user?.name
+    ? user.name
+        .split(' ')
+        .map(w => w[0])
+        .slice(-2)
+        .join('')
+        .toUpperCase()
+    : 'NV';
 
   return (
     <div style={{ padding: '16px', paddingBottom: '90px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
       
-      {/* Header Profile Bar */}
+      {/* Header Profile Bar - Light Theme */}
       <div
         style={{
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          backgroundColor: '#0f172a',
-          padding: '16px 18px',
+          flexDirection: 'column',
+          gap: '12px',
+          backgroundColor: '#ffffff',
+          padding: '18px 20px',
           borderRadius: '20px',
-          border: '1px solid #1e293b',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                width: '46px',
+                height: '46px',
+                borderRadius: '14px',
+                background: 'linear-gradient(135deg, #008848 0%, #059669 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 900,
+                fontSize: '16px',
+                color: '#ffffff',
+                boxShadow: '0 4px 12px rgba(0, 136, 72, 0.25)',
+              }}
+            >
+              {initials}
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 900, color: '#0f172a' }}>
+                  {user?.name || 'Nhân Viên Trực Kho'}
+                </h2>
+                {user?.code && (
+                  <span style={{ fontSize: '10px', backgroundColor: '#f0fdf4', color: '#008848', padding: '2px 7px', borderRadius: '6px', fontWeight: 800, border: '1px solid #bbf7d0' }}>
+                    {user.code}
+                  </span>
+                )}
+              </div>
+              <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                <span style={{ color: '#059669', fontWeight: 700 }}>
+                  {user?.role === 'WAREHOUSE_STAFF' ? 'Nhân Viên Vận Hành Kho' : user?.role || 'Nhân Viên Kho'}
+                </span>
+                {user?.assignedZone && ` • ${user.assignedZone}`}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              if (window.confirm('Bạn có chắc muốn đăng xuất khỏi ca làm việc?')) {
+                logout();
+              }
+            }}
+            title="Đăng xuất"
             style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: '50%',
-              backgroundColor: '#0369a1',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontWeight: 900,
-              fontSize: '16px',
-              color: '#ffffff',
-              border: '2px solid #38bdf8',
+              width: '38px',
+              height: '38px',
+              backgroundColor: '#fee2e2',
+              border: '1px solid #fecaca',
+              borderRadius: '12px',
+              color: '#dc2626',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
             }}
           >
-            VK
-          </div>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 900, color: '#ffffff' }}>
-              {user?.name || 'Nhân Viên Kho Trực Ca'}
-            </h2>
-            <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <MapPin size={11} color="#38bdf8" /> {user?.warehouseName || 'Kho Siêu Thị Gò Vấp'}
-            </p>
-          </div>
+            <LogOut size={17} />
+          </button>
         </div>
 
-        <div style={{ textAlign: 'right' }}>
-          <span style={{ fontSize: '10px', backgroundColor: '#064e3b', color: '#34d399', padding: '3px 8px', borderRadius: '999px', fontWeight: 800 }}>
-            🟢 Ca 1
-          </span>
-          <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '3px' }}>06:00 - 14:00</div>
+        {/* Warehouse Locking & Shift Info Sub-bar */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            backgroundColor: '#f8fafc',
+            padding: '10px 14px',
+            borderRadius: '14px',
+            border: '1px solid #e2e8f0',
+            fontSize: '11.5px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#0369a1', fontWeight: 800 }}>
+            <MapPin size={14} color="#0284c7" />
+            <span>🔒 Kho trực thuộc: <b>{user?.warehouseName || 'Kho Gò Vấp'} ({user?.warehouseCode || 'WH-006'})</b></span>
+          </div>
+
+          <button
+            onClick={() => setIsShiftModalOpen(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              backgroundColor: '#ecfdf5',
+              border: '1px solid #a7f3d0',
+              borderRadius: '8px',
+              padding: '4px 8px',
+              color: '#059669',
+              fontWeight: 800,
+              fontSize: '11px',
+              cursor: 'pointer',
+            }}
+          >
+            <Clock size={12} color="#059669" />
+            <span>{user?.shift || 'Ca 1 (06:00 - 14:00)'}</span>
+            <ChevronRight size={12} />
+          </button>
         </div>
       </div>
 
-      {/* Quick Action Large Barcode Scanner Card */}
-      <div
-        onClick={() => navigate('/lookup')}
-        style={{
-          background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-          borderRadius: '20px',
-          padding: '18px 20px',
-          color: '#ffffff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          cursor: 'pointer',
-          boxShadow: '0 10px 25px -5px rgba(2, 132, 199, 0.4)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+      {/* Quick Action Large Barcode Scanner & 3D Twin Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+        <div
+          onClick={() => navigate('/lookup')}
+          style={{
+            background: 'linear-gradient(135deg, #008848 0%, #059669 100%)',
+            borderRadius: '20px',
+            padding: '16px 14px',
+            color: '#ffffff',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            boxShadow: '0 8px 25px -5px rgba(0, 136, 72, 0.35)',
+            minHeight: '110px',
+            transition: 'transform 0.15s ease',
+          }}
+        >
           <div
             style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: '14px',
+              width: '38px',
+              height: '38px',
+              borderRadius: '12px',
               backgroundColor: 'rgba(255, 255, 255, 0.2)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <ScanBarcode size={28} color="#ffffff" />
+            <ScanBarcode size={22} color="#ffffff" />
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 900 }}>Quét Mã Vạch Tra Cứu Kho</h3>
-            <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', opacity: 0.9 }}>
-              Kiểm tra tồn thực tế & hạn dùng Lô FEFO &lt;100ms
+            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 900 }}>Quét mã tra cứu</h3>
+            <p style={{ margin: '2px 0 0 0', fontSize: '11px', opacity: 0.9 }}>
+              Kiểm tra tồn kho & vị trí kệ
             </p>
           </div>
         </div>
-        <ChevronRight size={22} />
+
+        <div
+          onClick={() => navigate('/lookup?view=3d')}
+          style={{
+            background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+            borderRadius: '20px',
+            padding: '16px 14px',
+            color: '#ffffff',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            boxShadow: '0 8px 25px -5px rgba(2, 132, 199, 0.35)',
+            minHeight: '110px',
+            transition: 'transform 0.15s ease',
+          }}
+        >
+          <div
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '12px',
+              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Boxes size={22} color="#ffffff" />
+          </div>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 900 }}>Kho 3D Digital Twin</h3>
+            <p style={{ margin: '2px 0 0 0', fontSize: '11px', opacity: 0.9 }}>
+              Mô phỏng kệ 3 phân khu
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Daily Shift Task Overview Grid */}
       <div>
-        <div style={{ fontSize: '13px', fontWeight: 800, color: '#94a3b8', marginBottom: '10px' }}>
-          ⚡ NHIỆM VỤ CA LÀM VIỆC HÔM NAY:
+        <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#64748b', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+          ⚡ CHỨC NĂNG VẬN HÀNH KHO:
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
           
-          {/* Card 1: Soạn hàng FEFO */}
+          {/* Card 1: Soạn hàng */}
           <div
             onClick={() => navigate('/picking')}
             style={{
-              backgroundColor: '#0f172a',
-              borderRadius: '16px',
-              padding: '16px',
-              border: '1px solid #1e293b',
+              backgroundColor: '#ffffff',
+              borderRadius: '18px',
+              padding: '18px 16px',
+              border: '1.5px solid #e2e8f0',
               cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              gap: '12px',
+              minHeight: '100px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+              transition: 'all 0.15s ease',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: 'rgba(56, 189, 248, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Boxes size={20} color="#38bdf8" />
+              <div style={{ width: '42px', height: '42px', borderRadius: '12px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Boxes size={24} color="#0284c7" />
               </div>
-              <span style={{ fontSize: '11px', backgroundColor: '#ef4444', color: '#fff', padding: '2px 8px', borderRadius: '999px', fontWeight: 900 }}>
-                5 Đơn Gấp
-              </span>
+              {pickingCount > 0 && (
+                <span style={{ fontSize: '11px', backgroundColor: '#0284c7', color: '#fff', padding: '3px 9px', borderRadius: '999px', fontWeight: 900 }}>
+                  {pickingCount} đơn
+                </span>
+              )}
             </div>
             <div>
-              <div style={{ fontSize: '14px', fontWeight: 900, color: '#ffffff' }}>Soạn Hàng FEFO</div>
-              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>Đợt sóng gom đơn TMĐT</div>
+              <div style={{ fontSize: '16px', fontWeight: 900, color: '#0f172a', marginTop: '12px' }}>Soạn hàng</div>
+              <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>Theo lộ trình kệ tối ưu</div>
             </div>
           </div>
 
-          {/* Card 2: Nhập kho QC */}
-          <div
-            onClick={() => navigate('/inbound')}
-            style={{
-              backgroundColor: '#0f172a',
-              borderRadius: '16px',
-              padding: '16px',
-              border: '1px solid #1e293b',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              gap: '12px',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: 'rgba(52, 211, 153, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Download size={20} color="#34d399" />
-              </div>
-              <span style={{ fontSize: '11px', backgroundColor: '#f59e0b', color: '#fff', padding: '2px 8px', borderRadius: '999px', fontWeight: 900 }}>
-                2 Xe Đến
-              </span>
-            </div>
-            <div>
-              <div style={{ fontSize: '14px', fontWeight: 900, color: '#ffffff' }}>Nhập Kho & QC</div>
-              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>Kiểm định nhiệt độ lạnh</div>
-            </div>
-          </div>
-
-          {/* Card 3: Đóng gói */}
+          {/* Card 2: Đóng gói */}
           <div
             onClick={() => navigate('/packing')}
             style={{
-              backgroundColor: '#0f172a',
-              borderRadius: '16px',
-              padding: '16px',
-              border: '1px solid #1e293b',
+              backgroundColor: '#ffffff',
+              borderRadius: '18px',
+              padding: '18px 16px',
+              border: '1.5px solid #e2e8f0',
               cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              gap: '12px',
+              minHeight: '100px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+              transition: 'all 0.15s ease',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: 'rgba(168, 85, 247, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <PackageCheck size={20} color="#c084fc" />
+              <div style={{ width: '42px', height: '42px', borderRadius: '12px', backgroundColor: '#f3e8ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <PackageCheck size={24} color="#9333ea" />
               </div>
-              <span style={{ fontSize: '11px', backgroundColor: '#1e293b', color: '#cbd5e1', padding: '2px 8px', borderRadius: '999px', fontWeight: 800 }}>
-                3 Kiện
-              </span>
+              {packingCount > 0 && (
+                <span style={{ fontSize: '11px', backgroundColor: '#9333ea', color: '#fff', padding: '3px 9px', borderRadius: '999px', fontWeight: 900 }}>
+                  {packingCount} đơn
+                </span>
+              )}
             </div>
             <div>
-              <div style={{ fontSize: '14px', fontWeight: 900, color: '#ffffff' }}>Đóng Gói Chuỗi Lạnh</div>
-              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>Dán nhãn Shipping QR</div>
+              <div style={{ fontSize: '16px', fontWeight: 900, color: '#0f172a', marginTop: '12px' }}>Đóng gói</div>
+              <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>Niêm phong & dán tem</div>
             </div>
           </div>
 
-          {/* Card 4: Kiểm kê kệ */}
+          {/* Card 3: Kiểm kê */}
           <div
             onClick={() => navigate('/lookup')}
             style={{
-              backgroundColor: '#0f172a',
-              borderRadius: '16px',
-              padding: '16px',
-              border: '1px solid #1e293b',
+              backgroundColor: '#ffffff',
+              borderRadius: '18px',
+              padding: '18px 16px',
+              border: '1.5px solid #e2e8f0',
               cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              gap: '12px',
+              minHeight: '100px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+              transition: 'all 0.15s ease',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: 'rgba(251, 146, 60, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Search size={20} color="#fb923c" />
+              <div style={{ width: '42px', height: '42px', borderRadius: '12px', backgroundColor: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Search size={24} color="#ea580c" />
               </div>
-              <span style={{ fontSize: '11px', backgroundColor: '#064e3b', color: '#34d399', padding: '2px 8px', borderRadius: '999px', fontWeight: 800 }}>
-                Kệ A1
-              </span>
             </div>
             <div>
-              <div style={{ fontSize: '14px', fontWeight: 900, color: '#ffffff' }}>Kiểm Kê 1-Chạm</div>
-              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>Đối soát thừa thiếu</div>
+              <div style={{ fontSize: '16px', fontWeight: 900, color: '#0f172a', marginTop: '12px' }}>Kiểm kê</div>
+              <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>Tra cứu FEFO & hạn dùng</div>
             </div>
           </div>
 
+          {/* Card 4: Nhập kho */}
+          <div
+            onClick={() => navigate('/inbound')}
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '18px',
+              padding: '18px 16px',
+              border: '1.5px solid #e2e8f0',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              minHeight: '100px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ width: '42px', height: '42px', borderRadius: '12px', backgroundColor: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Download size={24} color="#16a34a" />
+              </div>
+              {inboundCount > 0 && (
+                <span style={{ fontSize: '11px', backgroundColor: '#16a34a', color: '#fff', padding: '3px 9px', borderRadius: '999px', fontWeight: 900 }}>
+                  {inboundCount} phiếu
+                </span>
+              )}
+            </div>
+            <div>
+              <div style={{ fontSize: '16px', fontWeight: 900, color: '#0f172a', marginTop: '12px' }}>Nhập kho</div>
+              <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>Kiểm tra & xếp kệ mới</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* Shift Handover & Incident Management Section */}
+      <div>
+        <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#64748b', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+          📋 QUẢN LÝ CA TRỰC & AN TOÀN KHO:
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+          {/* Action 1: Giao Ca Trực */}
+          <div
+            onClick={() => setIsShiftModalOpen(true)}
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '18px',
+              padding: '16px 14px',
+              border: '1.5px solid #a7f3d0',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              boxShadow: '0 4px 12px rgba(5, 150, 105, 0.06)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <div
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #008848 0%, #059669 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                flexShrink: 0,
+              }}
+            >
+              <FileSpreadsheet size={22} />
+            </div>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 900, color: '#0f172a' }}>Giao ca trực</div>
+              <div style={{ fontSize: '11px', color: '#059669', fontWeight: 700, marginTop: '2px' }}>Tổng kết KPI ca</div>
+            </div>
+          </div>
+
+          {/* Action 2: Báo Cáo Sự Cố */}
+          <div
+            onClick={() => setIsIncidentModalOpen(true)}
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '18px',
+              padding: '16px 14px',
+              border: '1.5px solid #fed7aa',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              boxShadow: '0 4px 12px rgba(234, 88, 12, 0.06)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <div
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                flexShrink: 0,
+              }}
+            >
+              <AlertTriangle size={22} />
+            </div>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 900, color: '#0f172a' }}>Báo sự cố</div>
+              <div style={{ fontSize: '11px', color: '#ea580c', fontWeight: 700, marginTop: '2px' }}>Nhiệt độ / Rách hỏng</div>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Real-time Cold Chain Warning Card */}
       <div
         style={{
-          backgroundColor: '#0f172a',
+          backgroundColor: '#ffffff',
           borderRadius: '18px',
-          padding: '16px',
-          border: '1px solid #334155',
+          padding: '16px 18px',
+          border: '1px solid #e2e8f0',
           display: 'flex',
           alignItems: 'center',
           gap: '12px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.03)',
         }}
       >
         <div
           style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '10px',
-            backgroundColor: 'rgba(56, 189, 248, 0.15)',
+            width: '42px',
+            height: '42px',
+            borderRadius: '12px',
+            backgroundColor: '#e0f2fe',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
           }}
         >
-          <Snowflake size={22} color="#38bdf8" />
+          <Snowflake size={22} color="#0284c7" />
         </div>
         <div>
-          <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#ffffff' }}>
-            Nhiệt Độ Kho Lạnh Gò Vấp: <b style={{ color: '#34d399' }}>+2.4°C</b> (Chuẩn)
+          <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
+            Nhiệt Độ Kho Lạnh: <b style={{ color: '#059669' }}>+2.4°C (Đạt chuẩn)</b>
           </div>
-          <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
-            Hầm đông: <b>-19.1°C</b> • Cảm biến IoT kết nối 100%
+          <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
+            Hầm đông: <b>-19.1°C</b> • Cảm biến IoT kết nối ổn định
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      <ShiftHandoverModal
+        isOpen={isShiftModalOpen}
+        onClose={() => setIsShiftModalOpen(false)}
+        onSuccess={() => loadCounts()}
+      />
+
+      <IncidentReportModal
+        isOpen={isIncidentModalOpen}
+        onClose={() => setIsIncidentModalOpen(false)}
+      />
 
     </div>
   );

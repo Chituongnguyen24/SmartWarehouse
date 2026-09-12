@@ -3,7 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { 
   Download, PackageCheck, AlertCircle, ArrowRight, CheckCircle2, 
   Layers, Plus, X, Search, FileText, ScanBarcode, Printer,
-  ChevronLeft, ChevronRight, RefreshCw, Warehouse, ShieldCheck
+  ChevronLeft, ChevronRight, RefreshCw, Warehouse, ShieldCheck,
+  Sparkles, MapPin, Check, Box
 } from 'lucide-react';
 import BarcodeScannerMock from '../components/BarcodeScannerMock';
 import WarehouseMap3D from '../components/WarehouseMap3D';
@@ -11,6 +12,7 @@ import { InboundReceiptModal } from '../components/InboundReceiptModal';
 import { CreateInboundModal } from '../components/CreateInboundModal';
 
 const API_BASE = 'http://localhost:3006'; // inbound-service
+const INVENTORY_API = 'http://localhost:3011'; // inventory-service
 
 interface InboundOrderItem {
   id: string;
@@ -58,6 +60,132 @@ export const INBOUND_TYPE_CONFIG: Record<InboundTransactionType, { label: string
   KIEM_KE_THUA: { label: 'Kiểm kê thừa', bg: '#faf5ff', color: '#7c3aed', border: '#e9d5ff', debitTk: 'Nợ 1561', creditTk: 'Có 3381, 711' },
 };
 
+// ── DANH MỤC 26 DÃY KỆ THỰC TẾ TRONG KHO (8 KHO MÁT, 8 KHO ĐÔNG, 10 KHO KHÔ) ──
+export interface WarehouseStorageShelf {
+  id: string;
+  name: string;
+  zone: 'COOL' | 'FROZEN' | 'DRY';
+  zoneLabel: string;
+  temperature: string;
+  freePct: number;
+}
+
+export const WAREHOUSE_SHELVES: WarehouseStorageShelf[] = [
+  // 1. KHO KHÔ THƯỜNG (+25°C) - Kệ C1 đến C10
+  { id: 'shelf-C5', name: 'Kệ C5 (Bánh Kẹo, Chocolate & Snack Giòn)', zone: 'DRY', zoneLabel: 'Kho Khô (+25°C)', temperature: '+24.5°C', freePct: 85 },
+  { id: 'shelf-C9', name: 'Kệ C9 (Nước Tương, Tương Ớt & Sốt Ướp, Cốt Lẩu)', zone: 'DRY', zoneLabel: 'Kho Khô (+25°C)', temperature: '+25.5°C', freePct: 78 },
+  { id: 'shelf-C1', name: 'Kệ C1 (Mì Ăn Liền, Phở & Miến Khô)', zone: 'DRY', zoneLabel: 'Kho Khô (+25°C)', temperature: '+25.2°C', freePct: 65 },
+  { id: 'shelf-C2', name: 'Kệ C2 (Gạo Thơm ST25, Nếp & Đậu Hạt)', zone: 'DRY', zoneLabel: 'Kho Khô (+25°C)', temperature: '+24.8°C', freePct: 70 },
+  { id: 'shelf-C3', name: 'Kệ C3 (Dầu Ăn & Nước Mắm Truyền Thống)', zone: 'DRY', zoneLabel: 'Kho Khô (+25°C)', temperature: '+25.0°C', freePct: 75 },
+  { id: 'shelf-C4', name: 'Kệ C4 (Đường, Muối & Bột Nêm Gia Vị)', zone: 'DRY', zoneLabel: 'Kho Khô (+25°C)', temperature: '+25.1°C', freePct: 80 },
+  { id: 'shelf-C6', name: 'Kệ C6 (Cà Phê Hòa Tan & Trà Khô Túi Lọc)', zone: 'DRY', zoneLabel: 'Kho Khô (+25°C)', temperature: '+25.3°C', freePct: 72 },
+  { id: 'shelf-C7', name: 'Kệ C7 (Nước Giải Khát & Nước Suối Đóng Chai)', zone: 'DRY', zoneLabel: 'Kho Khô (+25°C)', temperature: '+25.0°C', freePct: 68 },
+  { id: 'shelf-C8', name: 'Kệ C8 (Bột Làm Bánh, Ngũ Cốc & Hạt)', zone: 'DRY', zoneLabel: 'Kho Khô (+25°C)', temperature: '+25.0°C', freePct: 67 },
+  { id: 'shelf-C10', name: 'Kệ C10 (Đồ Ăn Liền, Rong Biển & Bánh Quy)', zone: 'DRY', zoneLabel: 'Kho Khô (+25°C)', temperature: '+25.3°C', freePct: 88 },
+
+  // 2. KHO MÁT (0°C ~ +4°C) - Kệ A1 đến A8
+  { id: 'shelf-A1', name: 'Kệ A1 (Thịt Tươi Sống & Gia Cầm CP)', zone: 'COOL', zoneLabel: 'Kho Mát (0°C ~ +4°C)', temperature: '+2.4°C', freePct: 68 },
+  { id: 'shelf-A2', name: 'Kệ A2 (Sữa Tươi TH, Đà Lạt Milk & Bơ Sữa)', zone: 'COOL', zoneLabel: 'Kho Mát (0°C ~ +4°C)', temperature: '+3.1°C', freePct: 63 },
+  { id: 'shelf-A3', name: 'Kệ A3 (Rau Củ Quả Hữu Cơ & Thủy Canh)', zone: 'COOL', zoneLabel: 'Kho Mát (0°C ~ +4°C)', temperature: '+4.0°C', freePct: 58 },
+  { id: 'shelf-A4', name: 'Kệ A4 (Trái Cây Nhập Khẩu & Nội Địa)', zone: 'COOL', zoneLabel: 'Kho Mát (0°C ~ +4°C)', temperature: '+3.5°C', freePct: 72 },
+  { id: 'shelf-A5', name: 'Kệ A5 (Sữa Chua, Váng Sữa & Probiotic)', zone: 'COOL', zoneLabel: 'Kho Mát (0°C ~ +4°C)', temperature: '+2.8°C', freePct: 75 },
+  { id: 'shelf-A6', name: 'Kệ A6 (Đậu Hũ, Bún Tươi & Kim Chi)', zone: 'COOL', zoneLabel: 'Kho Mát (0°C ~ +4°C)', temperature: '+3.0°C', freePct: 80 },
+  { id: 'shelf-A7', name: 'Kệ A7 (Nước Ép Trái Cây & Trà Lạnh)', zone: 'COOL', zoneLabel: 'Kho Mát (0°C ~ +4°C)', temperature: '+3.2°C', freePct: 70 },
+  { id: 'shelf-A8', name: 'Kệ A8 (Salad Đóng Gói & Sốt Lạnh)', zone: 'COOL', zoneLabel: 'Kho Mát (0°C ~ +4°C)', temperature: '+2.5°C', freePct: 65 },
+
+  // 3. HẦM ĐÔNG LẠNH (-18°C ~ -22°C) - Kệ B1 đến B8
+  { id: 'shelf-B1', name: 'Kệ B1 (Thịt Bò Mỹ & Úc Cắt Sẵn)', zone: 'FROZEN', zoneLabel: 'Hầm Đông (-18°C ~ -22°C)', temperature: '-19.5°C', freePct: 75 },
+  { id: 'shelf-B2', name: 'Kệ B2 (Hải Sản Đông Lạnh, Cá Hồi, Tôm)', zone: 'FROZEN', zoneLabel: 'Hầm Đông (-18°C ~ -22°C)', temperature: '-20.2°C', freePct: 82 },
+  { id: 'shelf-B3', name: 'Kệ B3 (Kem Hộp & Kem Cây Nhập Khẩu)', zone: 'FROZEN', zoneLabel: 'Hầm Đông (-18°C ~ -22°C)', temperature: '-21.0°C', freePct: 60 },
+  { id: 'shelf-B4', name: 'Kệ B4 (Viên Thả Lẩu & Bánh Xếp Mandu)', zone: 'FROZEN', zoneLabel: 'Hầm Đông (-18°C ~ -22°C)', temperature: '-18.8°C', freePct: 70 },
+  { id: 'shelf-B5', name: 'Kệ B5 (Khoai Tây Chiên & Thực Phẩm Chế Biến)', zone: 'FROZEN', zoneLabel: 'Hầm Đông (-18°C ~ -22°C)', temperature: '-19.0°C', freePct: 85 },
+  { id: 'shelf-B6', name: 'Kệ B6 (Cá & Thủy Sản Tươi Đông Lạnh)', zone: 'FROZEN', zoneLabel: 'Hầm Đông (-18°C ~ -22°C)', temperature: '-20.0°C', freePct: 78 },
+  { id: 'shelf-B7', name: 'Kệ B7 (Pizza & Bánh Đông Lạnh Nướng Sẵn)', zone: 'FROZEN', zoneLabel: 'Hầm Đông (-18°C ~ -22°C)', temperature: '-18.5°C', freePct: 90 },
+  { id: 'shelf-B8', name: 'Kệ B8 (Rau Củ Hỗn Hợp Đông Lạnh)', zone: 'FROZEN', zoneLabel: 'Hầm Đông (-18°C ~ -22°C)', temperature: '-19.2°C', freePct: 68 },
+];
+
+export const getRecommendedShelfForItem = (productName: string = '', sku: string = ''): WarehouseStorageShelf => {
+  const q = `${productName} ${sku}`.toLowerCase();
+
+  // Bánh kẹo, Snack, Xylitol, Mochi, Chocolate -> Kệ C5 (Kho Khô)
+  if (q.includes('kẹo') || q.includes('xylitol') || q.includes('mochi') || q.includes('bánh') || q.includes('snack') || q.includes('chocolate') || q.includes('chocopie')) {
+    return WAREHOUSE_SHELVES[0]; // shelf-C5
+  }
+  // Cốt lẩu, sốt ướp, tương ớt, nước tương -> Kệ C9 (Kho Khô)
+  if (q.includes('lẩu') || q.includes('haidilao') || q.includes('sốt') || q.includes('tương') || q.includes('nước mắm') || q.includes('chin-su') || q.includes('cholimex')) {
+    return WAREHOUSE_SHELVES[1]; // shelf-C9
+  }
+  // Mì, phở, miến -> Kệ C1 (Kho Khô)
+  if (q.includes('mì') || q.includes('phở') || q.includes('miến') || q.includes('hảo hảo')) {
+    return WAREHOUSE_SHELVES[2]; // shelf-C1
+  }
+  // Gạo, nếp, đậu -> Kệ C2 (Kho Khô)
+  if (q.includes('gạo') || q.includes('st25') || q.includes('nếp') || q.includes('đậu hạt')) {
+    return WAREHOUSE_SHELVES[3]; // shelf-C2
+  }
+  // Dầu ăn -> Kệ C3 (Kho Khô)
+  if (q.includes('dầu ăn') || q.includes('simply') || q.includes('neptune')) {
+    return WAREHOUSE_SHELVES[4]; // shelf-C3
+  }
+  // Đường, muối, bột ngọt -> Kệ C4 (Kho Khô)
+  if (q.includes('đường') || q.includes('muối') || q.includes('bột nêm') || q.includes('gia vị') || q.includes('knoor')) {
+    return WAREHOUSE_SHELVES[5]; // shelf-C4
+  }
+  // Cà phê, trà -> Kệ C6 (Kho Khô)
+  if (q.includes('cà phê') || q.includes('coffee') || q.includes('trà') || q.includes('lipton') || q.includes('nescafe')) {
+    return WAREHOUSE_SHELVES[6]; // shelf-C6
+  }
+  // Nước ngọt, nước khoáng -> Kệ C7 (Kho Khô)
+  if (q.includes('nước ngọt') || q.includes('coca') || q.includes('pepsi') || q.includes('aquafina') || q.includes('nước suối')) {
+    return WAREHOUSE_SHELVES[7]; // shelf-C7
+  }
+  // Bột, ngũ cốc -> Kệ C8 (Kho Khô)
+  if (q.includes('bột') || q.includes('ngũ cốc') || q.includes('yến mạch') || q.includes('hạt điều')) {
+    return WAREHOUSE_SHELVES[8]; // shelf-C8
+  }
+
+  // Thịt tươi sống, gia cầm -> Kệ A1 (Kho Mát 0-4°C)
+  if (q.includes('thịt tươi') || q.includes('thịt heo') || q.includes('gà tươi') || q.includes('cp') || q.includes('sườn non')) {
+    return WAREHOUSE_SHELVES[10]; // shelf-A1
+  }
+  // Sữa tươi, bơ sữa thanh trùng -> Kệ A2 (Kho Mát 0-4°C)
+  if (q.includes('sữa tươi') || q.includes('th true') || q.includes('đà lạt milk') || q.includes('vinamilk') || q.includes('bơ nhạt') || q.includes('anchor') || q.includes('phô mai')) {
+    return WAREHOUSE_SHELVES[11]; // shelf-A2
+  }
+  // Rau củ quả hữu cơ -> Kệ A3 (Kho Mát 0-4°C)
+  if (q.includes('rau') || q.includes('xà lách') || q.includes('cà chua') || q.includes('nấm') || q.includes('bông cải') || q.includes('dưa leo') || q.includes('ớt chuông')) {
+    return WAREHOUSE_SHELVES[12]; // shelf-A3
+  }
+  // Trái cây -> Kệ A4 (Kho Mát 0-4°C)
+  if (q.includes('trái cây') || q.includes('táo') || q.includes('cam') || q.includes('nho') || q.includes('chuối') || q.includes('dưa hấu')) {
+    return WAREHOUSE_SHELVES[13]; // shelf-A4
+  }
+  // Sữa chua, váng sữa -> Kệ A5 (Kho Mát 0-4°C)
+  if (q.includes('sữa chua') || q.includes('váng sữa') || q.includes('probi') || q.includes('monte') || q.includes('yogurt')) {
+    return WAREHOUSE_SHELVES[14]; // shelf-A5
+  }
+
+  // Thịt bò đông lạnh -> Kệ B1 (Hầm Đông -18°C)
+  if (q.includes('bò mỹ') || q.includes('bò úc') || q.includes('thịt đông') || q.includes('thăn bò') || q.includes('dẻ sườn')) {
+    return WAREHOUSE_SHELVES[18]; // shelf-B1
+  }
+  // Hải sản đông lạnh -> Kệ B2 (Hầm Đông -18°C)
+  if (q.includes('hải sản') || q.includes('cá hồi') || q.includes('tôm') || q.includes('mực') || q.includes('bạch tuộc') || q.includes('cua')) {
+    return WAREHOUSE_SHELVES[19]; // shelf-B2
+  }
+  // Kem -> Kệ B3 (Hầm Đông -18°C)
+  if (q.includes('kem') || q.includes('celano') || q.includes('merino') || q.includes('haagen-dazs')) {
+    return WAREHOUSE_SHELVES[20]; // shelf-B3
+  }
+  // Viên thả lẩu, mandu -> Kệ B4 (Hầm Đông -18°C)
+  if (q.includes('viên thả lẩu') || q.includes('bò viên') || q.includes('cá viên') || q.includes('mandu') || q.includes('há cảo') || q.includes('sủi cảo')) {
+    return WAREHOUSE_SHELVES[21]; // shelf-B4
+  }
+
+  // Mặc định: Kho Khô Kệ C1
+  return WAREHOUSE_SHELVES[2]; // shelf-C1
+};
+
 const STEPS = [
   { key: 'PENDING', label: '1. Lập chứng từ', icon: <FileText size={16} /> },
   { key: 'RECEIVING', label: '2. Nhận hàng', icon: <Download size={16} /> },
@@ -103,8 +231,8 @@ const InboundOrders: React.FC = () => {
   const [showScanner, setShowScanner] = useState(false);
   const [showMapModal, setShowMapModal] = useState<string | null>(null);
 
-  // Storage Assignment config
-  const storeForm: Record<string, { zone: string; slotId: string; lotCode: string }> = {};
+  // Storage Assignment state per SKU (itemId -> assignment info)
+  const [itemAssignments, setItemAssignments] = useState<Record<string, { shelfId: string; zone: string; slotLabel: string; lotCode: string; expiryDate: string }>>({});
 
   const isManager = user?.role === 'WAREHOUSE_MANAGER';
   const managerWh = user?.warehouseCode || (user?.email?.includes('govap') ? 'WH-006' : null);
@@ -139,6 +267,41 @@ const InboundOrders: React.FC = () => {
     fetchOrders(false);
   }, [fetchOrders]);
 
+  // Selected Order memo
+  const selectedOrder = useMemo(() => {
+    if (!selectedOrderId) return null;
+    return orders.find(o => o.id === selectedOrderId) || null;
+  }, [orders, selectedOrderId]);
+
+  // Initialize and keep item assignments in sync with selected order
+  useEffect(() => {
+    if (!selectedOrder?.items || selectedOrder.items.length === 0) return;
+    setItemAssignments(prev => {
+      const next = { ...prev };
+      selectedOrder.items.forEach((item, idx) => {
+        if (!next[item.id]) {
+          const rec = getRecommendedShelfForItem(item.productName, item.sku);
+          const zoneKey = rec.zone === 'DRY' ? 'Z-DRY' : rec.zone === 'COOL' ? 'Z-COOL' : 'Z-FROZEN';
+          const defaultSlot = item.assignedSlotId || `${rec.id.replace('shelf-', '')}-01`;
+          const defaultLot = item.lotCode || `LOT-2026-${(idx + 1).toString().padStart(3, '0')}`;
+          const defaultDays = rec.zone === 'COOL' ? 14 : rec.zone === 'FROZEN' ? 180 : 365;
+          const defaultExpiry = item.expiryDate 
+            ? new Date(item.expiryDate).toISOString().split('T')[0]
+            : new Date(Date.now() + defaultDays * 86400000).toISOString().split('T')[0];
+          
+          next[item.id] = {
+            shelfId: item.assignedSlotId ? (WAREHOUSE_SHELVES.find(s => item.assignedSlotId?.includes(s.id.replace('shelf-', '')))?.id || rec.id) : rec.id,
+            zone: item.assignedZone || zoneKey,
+            slotLabel: defaultSlot,
+            lotCode: defaultLot,
+            expiryDate: defaultExpiry
+          };
+        }
+      });
+      return next;
+    });
+  }, [selectedOrder]);
+
   // Advance Inbound state
   const advanceState = useCallback(async (orderId: string, action: string, body?: any) => {
     const nextStatus = 
@@ -151,27 +314,86 @@ const InboundOrders: React.FC = () => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: nextStatus } : o));
 
     if (action === 'complete') {
-      showToast('🎉 Đã hoàn tất nhập kho! Hàng hóa đã sẵn sàng để xuất kho & bán hàng.', 'success');
+      showToast('🎉 Đã hoàn tất nhập kho! Hàng hóa & Lô đã được ghi sổ vào Tồn Kho & Bản Đồ 3D.', 'success');
     } else if (action === 'quality-check') {
       showToast('✅ Kiểm định chất lượng (QC) Đạt chuẩn 100%!', 'success');
     } else {
       showToast(`Đã chuyển trạng thái: ${STATUS_CONFIG[nextStatus]?.label || nextStatus}`, 'info');
     }
 
+    // If completing, sync all items to inventory-service (:3011) so they exist in food_lots and 3D map!
+    if (action === 'complete') {
+      const currentOrder = orders.find(o => o.id === orderId);
+      if (currentOrder?.items) {
+        for (let idx = 0; idx < currentOrder.items.length; idx++) {
+          const item = currentOrder.items[idx];
+          const rec = getRecommendedShelfForItem(item.productName, item.sku);
+          const asgn = itemAssignments[item.id] || {
+            shelfId: rec.id,
+            zone: rec.zone === 'DRY' ? 'Z-DRY' : rec.zone === 'COOL' ? 'Z-COOL' : 'Z-FROZEN',
+            slotLabel: item.assignedSlotId || `${rec.id.replace('shelf-', '')}-01`,
+            lotCode: item.lotCode || `LOT-2026-${(idx + 1).toString().padStart(3, '0')}`
+          };
+
+          // 1. Update inbound_order_items
+          try {
+            await fetch(`${API_BASE}/inbound-orders/items/${item.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({
+                assignedZone: asgn.zone,
+                assignedSlotId: asgn.slotLabel,
+                lotCode: asgn.lotCode,
+                status: 'STORED'
+              })
+            });
+          } catch (err) {
+            console.error(err);
+          }
+
+          // 2. Sync lot to inventory-service (:3011) for 3D map & Inventory search
+          try {
+            await fetch(`${INVENTORY_API}/inventory/lots/import`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+              body: JSON.stringify({
+                lotCode: asgn.lotCode,
+                sku: item.sku,
+                quantity: item.receivedQuantity || item.expectedQuantity || 10,
+                zone: asgn.zone?.replace('Z-', '') || 'DRY',
+                location: asgn.slotLabel || item.assignedSlotId || 'shelf-C1',
+                warehouseCode: currentOrder.warehouseCode || 'WH-006',
+                expiryDate: item.expiryDate || new Date(Date.now() + 90 * 86400000).toISOString(),
+                supplierId: currentOrder.supplierId || 'SUP-001'
+              })
+            });
+          } catch (invErr) {
+            console.warn('[INVENTORY SYNC] Error importing lot:', invErr);
+          }
+        }
+      }
+    }
+
     try {
-      const res = await fetch(`${API_BASE}/inbound-orders/${orderId}/${action}`, {
-        method: 'PUT',
+      const res = await fetch(`${API_BASE}/inbound-orders/${orderId}/status`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: body ? JSON.stringify(body) : undefined
+        body: JSON.stringify({ status: nextStatus, qualityCheckPassed: true })
       });
       if (res.ok) {
         const updated = await res.json();
-        setOrders(prev => prev.map(o => o.id === orderId ? updated : o));
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...updated } : o));
+      } else {
+        await fetch(`${API_BASE}/inbound-orders/${orderId}/${action}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: body ? JSON.stringify(body) : undefined
+        });
       }
     } catch (error) {
       console.error(error);
     }
-  }, [token, showToast]);
+  }, [token, showToast, orders, itemAssignments]);
 
   const handleScan = useCallback(async (barcode: string) => {
     if (!selectedOrderId) return;
@@ -191,24 +413,138 @@ const InboundOrders: React.FC = () => {
     }
   }, [selectedOrderId, token, showToast]);
 
-  // Assign item storage
+  // Assign single item storage
   const assignStorage = useCallback(async (orderId: string, itemId: string) => {
-    const config = storeForm[itemId] || { zone: 'Z-COOL', slotId: 'S-A1-01', lotCode: `LOT-${Date.now().toString().slice(-4)}` };
+    const item = selectedOrder?.items?.find(i => i.id === itemId);
+    const rec = getRecommendedShelfForItem(item?.productName, item?.sku);
+    const assignment = itemAssignments[itemId] || {
+      shelfId: rec.id,
+      zone: rec.zone === 'DRY' ? 'Z-DRY' : rec.zone === 'COOL' ? 'Z-COOL' : 'Z-FROZEN',
+      slotLabel: `${rec.id.replace('shelf-', '')}-01`,
+      lotCode: `LOT-2026-${Date.now().toString().slice(-4)}`
+    };
+
     try {
-      const res = await fetch(`${API_BASE}/inbound-orders/${orderId}/items/${itemId}/store`, {
-        method: 'PUT',
+      const res = await fetch(`${API_BASE}/inbound-orders/items/${itemId}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(config)
+        body: JSON.stringify({
+          assignedZone: assignment.zone,
+          assignedSlotId: assignment.slotLabel,
+          lotCode: assignment.lotCode,
+          status: 'STORED'
+        })
       });
       if (res.ok) {
-        const updated = await res.json();
-        setOrders(prev => prev.map(o => o.id === orderId ? updated : o));
-        showToast(`Đã lưu hàng vào vị trí ${config.slotId} (${config.zone})`, 'success');
+        const updatedItem = await res.json();
+        setOrders(prev => prev.map(o => {
+          if (o.id !== orderId) return o;
+          return {
+            ...o,
+            items: o.items?.map(it => it.id === itemId ? { ...it, ...updatedItem, assignedSlotId: assignment.slotLabel, assignedZone: assignment.zone, lotCode: assignment.lotCode } : it)
+          };
+        }));
+
+        // Immediately sync lot to inventory-service for instant 3D search
+        try {
+          await fetch(`${INVENTORY_API}/inventory/lots/import`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            body: JSON.stringify({
+              lotCode: assignment.lotCode,
+              sku: item?.sku,
+              quantity: item?.receivedQuantity || item?.expectedQuantity || 10,
+              zone: assignment.zone?.replace('Z-', '') || 'DRY',
+              location: assignment.slotLabel || 'shelf-C1',
+              warehouseCode: selectedOrder?.warehouseCode || 'WH-006',
+              expiryDate: item?.expiryDate || new Date(Date.now() + 90 * 86400000).toISOString(),
+              supplierId: selectedOrder?.supplierId || 'SUP-001'
+            })
+          });
+        } catch (invErr) {
+          console.warn('[INVENTORY SYNC] Error importing lot:', invErr);
+        }
+
+        showToast(`Đã lưu "${item?.productName || itemId}" vào ${assignment.slotLabel} & cập nhật Tồn Kho 3D!`, 'success');
       }
     } catch (error) {
       console.error(error);
+      showToast('Lỗi khi lưu vị trí kệ!', 'error');
     }
-  }, [storeForm, token, showToast]);
+  }, [selectedOrder, itemAssignments, token, showToast]);
+
+  // 1-Click Batch auto-assign all items to matching vacant shelves
+  const handleBatchAutoAssign = useCallback(async (order: InboundOrder) => {
+    if (!order.items || order.items.length === 0) return;
+    
+    let updatedCount = 0;
+    const updatedAssignments = { ...itemAssignments };
+
+    for (let idx = 0; idx < order.items.length; idx++) {
+      const item = order.items[idx];
+      const rec = getRecommendedShelfForItem(item.productName, item.sku);
+      const zoneKey = rec.zone === 'DRY' ? 'Z-DRY' : rec.zone === 'COOL' ? 'Z-COOL' : 'Z-FROZEN';
+      const slot = `${rec.id.replace('shelf-', '')}-${(idx + 1).toString().padStart(2, '0')}`;
+      const defaultExp = item.expiryDate ? (typeof item.expiryDate === 'string' && item.expiryDate.includes('T') ? item.expiryDate.split('T')[0] : item.expiryDate) : new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0];
+      const lot = item.lotCode || `LOT-${item.sku || 'SKU'}-${Date.now().toString().slice(-4)}`;
+
+      updatedAssignments[item.id] = {
+        shelfId: rec.id,
+        zone: zoneKey,
+        slotLabel: slot,
+        lotCode: lot,
+        expiryDate: defaultExp
+      };
+
+      try {
+        await fetch(`${API_BASE}/inbound-orders/items/${item.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            assignedZone: zoneKey,
+            assignedSlotId: slot,
+            lotCode: lot,
+            status: 'STORED'
+          })
+        });
+
+        // Sync to inventory-service
+        await fetch(`${INVENTORY_API}/inventory/lots/import`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({
+            lotCode: lot,
+            sku: item.sku,
+            quantity: item.receivedQuantity || item.expectedQuantity || 10,
+            zone: zoneKey.replace('Z-', ''),
+            location: slot,
+            warehouseCode: order.warehouseCode || 'WH-006',
+            expiryDate: item.expiryDate || new Date(Date.now() + 90 * 86400000).toISOString(),
+            supplierId: order.supplierId || 'SUP-001'
+          })
+        });
+
+        updatedCount++;
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    setItemAssignments(updatedAssignments);
+    
+    setOrders(prev => prev.map(o => {
+      if (o.id !== order.id) return o;
+      return {
+        ...o,
+        items: o.items?.map(it => {
+          const asgn = updatedAssignments[it.id];
+          return asgn ? { ...it, assignedSlotId: asgn.slotLabel, assignedZone: asgn.zone, lotCode: asgn.lotCode } : it;
+        })
+      };
+    }));
+
+    showToast(`⚡ Đã phân bổ tối ưu ${updatedCount} mặt hàng vào các kệ kho & cập nhật Tồn Kho 3D!`, 'success');
+  }, [itemAssignments, token, showToast]);
 
   // Memoized KPIs
   const kpiStats = useMemo(() => {
@@ -268,12 +604,6 @@ const InboundOrders: React.FC = () => {
       return matchSearch && matchWh && matchStatus && matchDate;
     });
   }, [orders, searchQuery, activeWh, statusTab, dateFilter]);
-
-  // Selected Order
-  const selectedOrder = useMemo(() => {
-    if (!selectedOrderId) return null;
-    return orders.find(o => o.id === selectedOrderId) || null;
-  }, [orders, selectedOrderId]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredOrders.length / pageSize));
@@ -753,6 +1083,55 @@ const InboundOrders: React.FC = () => {
                   </button>
                 )}
               </div>
+
+              {/* Step 4 Smart AI Allocation Banner */}
+              {selectedOrder.status === 'STORING' && (
+                <div style={{
+                  marginBottom: '1rem',
+                  padding: '12px 16px',
+                  background: 'linear-gradient(135deg, #ecfdf5 0%, #f0fdfa 100%)',
+                  borderRadius: '12px',
+                  border: '1px solid #a7f3d0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  flexWrap: 'wrap'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#059669', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Sparkles size={20} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 800, color: '#065f46', fontSize: '0.9rem' }}>
+                        Phân Bổ Kệ Lưu Kho & Gán Lô Tự Động Theo Từng Loại Hàng
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: '#047857' }}>
+                        Hệ thống tự động đề xuất dải nhiệt độ bảo quản chuẩn (Kho Khô / Mát / Đông) và chọn dãy kệ còn trống dung lượng cao nhất.
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleBatchAutoAssign(selectedOrder)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      background: '#059669',
+                      color: '#fff',
+                      border: 'none',
+                      fontWeight: 700,
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 6px rgba(5,150,105,0.3)'
+                    }}
+                  >
+                    <Sparkles size={16} /> ⚡ Tự Động Gán Tất Cả Vào Kệ Trống
+                  </button>
+                </div>
+              )}
               
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
@@ -766,33 +1145,226 @@ const InboundOrders: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedOrder.items?.map((item, idx) => (
-                      <tr key={item.id || idx} style={{ borderTop: idx > 0 ? '1px solid #f1f5f9' : 'none' }}>
-                        <td style={{ padding: '12px 14px' }}>
-                          <div style={{ fontWeight: 700, color: '#0f172a' }}>{item.productName}</div>
-                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontFamily: 'monospace' }}>{item.sku}</div>
-                        </td>
-                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>{item.expectedQuantity}</td>
-                        <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 800, color: '#0f766e' }}>
-                          {item.receivedQuantity || item.expectedQuantity}
-                        </td>
-                        <td style={{ padding: '12px 14px', fontWeight: 600, color: '#0f766e' }}>
-                          {item.assignedSlotId ? `${item.assignedSlotId} (${item.assignedZone || 'Z-COOL'})` : (
-                            selectedOrder.status === 'STORING' ? (
-                              <button 
-                                onClick={() => assignStorage(selectedOrder.id, item.id)}
-                                style={{ padding: '4px 10px', background: '#0f766e', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}
-                              >
-                                Lưu vào Kệ A1-01
-                              </button>
-                            ) : 'Chờ phân vị trí'
-                          )}
-                        </td>
-                        <td style={{ padding: '12px 14px', color: '#64748b' }}>
-                          {item.lotCode ? <span style={{ fontWeight: 700, color: '#0f766e' }}>{item.lotCode}</span> : 'LOT-IN-2026'}
-                        </td>
-                      </tr>
-                    ))}
+                    {selectedOrder.items?.map((item, idx) => {
+                      const recShelf = getRecommendedShelfForItem(item.productName, item.sku);
+                      const curAssign = itemAssignments[item.id] || {
+                        shelfId: recShelf.id,
+                        zone: recShelf.zone === 'DRY' ? 'Z-DRY' : recShelf.zone === 'COOL' ? 'Z-COOL' : 'Z-FROZEN',
+                        slotLabel: item.assignedSlotId || `${recShelf.id.replace('shelf-', '')}-01`,
+                        lotCode: item.lotCode || `LOT-2026-${(idx + 1).toString().padStart(3, '0')}`
+                      };
+
+                      return (
+                        <tr key={item.id || idx} style={{ borderTop: idx > 0 ? '1px solid #f1f5f9' : 'none' }}>
+                          <td style={{ padding: '12px 14px' }}>
+                            <div style={{ fontWeight: 700, color: '#0f172a' }}>{item.productName}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b', fontFamily: 'monospace' }}>{item.sku}</span>
+                              <span style={{
+                                fontSize: '0.65rem',
+                                fontWeight: 700,
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                background: recShelf.zone === 'DRY' ? '#fef3c7' : recShelf.zone === 'COOL' ? '#e0f2fe' : '#f3e8ff',
+                                color: recShelf.zone === 'DRY' ? '#92400e' : recShelf.zone === 'COOL' ? '#0369a1' : '#6b21a8',
+                                border: `1px solid ${recShelf.zone === 'DRY' ? '#fde68a' : recShelf.zone === 'COOL' ? '#bae6fd' : '#e9d5ff'}`
+                              }}>
+                                {recShelf.zoneLabel}
+                              </span>
+                            </div>
+                          </td>
+                          <td style={{ padding: '12px 14px', textAlign: 'center' }}>{item.expectedQuantity}</td>
+                          <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 800, color: '#0f766e' }}>
+                            {item.receivedQuantity || item.expectedQuantity}
+                          </td>
+                          <td style={{ padding: '12px 14px', fontWeight: 600, color: '#0f766e' }}>
+                            {selectedOrder.status === 'STORING' ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <select
+                                    value={curAssign.shelfId}
+                                    onChange={(e) => {
+                                      const targetShelf = WAREHOUSE_SHELVES.find(s => s.id === e.target.value) || recShelf;
+                                      const zoneKey = targetShelf.zone === 'DRY' ? 'Z-DRY' : targetShelf.zone === 'COOL' ? 'Z-COOL' : 'Z-FROZEN';
+                                      const newSlot = `${targetShelf.id.replace('shelf-', '')}-01`;
+                                      setItemAssignments(prev => ({
+                                        ...prev,
+                                        [item.id]: {
+                                          ...curAssign,
+                                          shelfId: targetShelf.id,
+                                          zone: zoneKey,
+                                          slotLabel: newSlot
+                                        }
+                                      }));
+                                    }}
+                                    style={{
+                                      padding: '6px 10px',
+                                      borderRadius: '6px',
+                                      border: curAssign.shelfId === recShelf.id ? '1.5px solid #059669' : '1px solid #cbd5e1',
+                                      background: '#fff',
+                                      fontSize: '0.78rem',
+                                      fontWeight: 600,
+                                      color: '#0f172a',
+                                      maxWidth: '230px'
+                                    }}
+                                  >
+                                    <optgroup label="📦 KHO KHÔ (+25°C) — Kệ C1 đến C10">
+                                      {WAREHOUSE_SHELVES.filter(s => s.zone === 'DRY').map(s => (
+                                        <option key={s.id} value={s.id}>
+                                          {s.id.replace('shelf-', 'Kệ ')}: {s.name.split('(')[1]?.replace(')', '') || s.name} (Trống {s.freePct}%){s.id === recShelf.id ? ' ✨ [Gợi ý]' : ''}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                    <optgroup label="❄️ KHO MÁT (0°C ~ +4°C) — Kệ A1 đến A8">
+                                      {WAREHOUSE_SHELVES.filter(s => s.zone === 'COOL').map(s => (
+                                        <option key={s.id} value={s.id}>
+                                          {s.id.replace('shelf-', 'Kệ ')}: {s.name.split('(')[1]?.replace(')', '') || s.name} (Trống {s.freePct}%){s.id === recShelf.id ? ' ✨ [Gợi ý]' : ''}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                    <optgroup label="🧊 HẦM ĐÔNG LẠNH (-18°C) — Kệ B1 đến B8">
+                                      {WAREHOUSE_SHELVES.filter(s => s.zone === 'FROZEN').map(s => (
+                                        <option key={s.id} value={s.id}>
+                                          {s.id.replace('shelf-', 'Kệ ')}: {s.name.split('(')[1]?.replace(')', '') || s.name} (Trống {s.freePct}%){s.id === recShelf.id ? ' ✨ [Gợi ý]' : ''}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  </select>
+
+                                  <input 
+                                    type="text"
+                                    value={curAssign.slotLabel}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setItemAssignments(prev => ({
+                                        ...prev,
+                                        [item.id]: { ...curAssign, slotLabel: val }
+                                      }));
+                                    }}
+                                    placeholder="Vị trí ô"
+                                    style={{ width: '60px', padding: '5px 6px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.75rem', fontWeight: 700, textAlign: 'center' }}
+                                    title="Mã ô kệ lưu kho (Ví dụ: C5-01, A1-02)"
+                                  />
+
+                                  <button
+                                    onClick={() => assignStorage(selectedOrder.id, item.id)}
+                                    style={{
+                                      padding: '5px 8px',
+                                      borderRadius: '6px',
+                                      background: item.assignedSlotId ? '#f0fdf4' : '#0f766e',
+                                      color: item.assignedSlotId ? '#15803d' : '#fff',
+                                      border: item.assignedSlotId ? '1px solid #86efac' : 'none',
+                                      fontSize: '0.72rem',
+                                      fontWeight: 700,
+                                      cursor: 'pointer',
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                    title="Lưu vị trí kệ này vào hệ thống"
+                                  >
+                                    {item.assignedSlotId ? '✓ Đã Lưu' : '💾 Lưu Kệ'}
+                                  </button>
+                                </div>
+
+                                {curAssign.shelfId === recShelf.id && (
+                                  <div style={{ fontSize: '0.7rem', color: '#059669', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                    <Sparkles size={11} /> Đã khớp dải nhiệt độ & khoang kệ tối ưu
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              item.assignedSlotId ? (
+                                <span style={{ padding: '3px 8px', borderRadius: '6px', background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', fontWeight: 700 }}>
+                                  🏢 {item.assignedSlotId} ({item.assignedZone || 'Z-DRY'})
+                                </span>
+                              ) : (
+                                <span style={{ color: '#94a3b8' }}>Chờ phân vị trí</span>
+                              )
+                            )}
+                          </td>
+                          <td style={{ padding: '12px 14px', color: '#64748b' }}>
+                            {selectedOrder.status === 'STORING' ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#334155' }}>HSD:</span>
+                                  <input
+                                    type="date"
+                                    value={curAssign.expiryDate || ''}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setItemAssignments(prev => ({
+                                        ...prev,
+                                        [item.id]: { ...curAssign, expiryDate: val }
+                                      }));
+                                    }}
+                                    style={{
+                                      padding: '4px 6px',
+                                      borderRadius: '6px',
+                                      border: '1px solid #cbd5e1',
+                                      fontSize: '0.75rem',
+                                      fontWeight: 700,
+                                      color: '#0f172a'
+                                    }}
+                                  />
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#334155' }}>Mã Lô:</span>
+                                  <input
+                                    type="text"
+                                    value={curAssign.lotCode}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setItemAssignments(prev => ({
+                                        ...prev,
+                                        [item.id]: { ...curAssign, lotCode: val }
+                                      }));
+                                    }}
+                                    placeholder="LOT-2026-..."
+                                    style={{
+                                      width: '110px',
+                                      padding: '4px 6px',
+                                      borderRadius: '6px',
+                                      border: '1px solid #cbd5e1',
+                                      fontSize: '0.75rem',
+                                      fontWeight: 700,
+                                      color: '#0f766e',
+                                      fontFamily: 'monospace'
+                                    }}
+                                  />
+                                </div>
+
+                                {curAssign.expiryDate && (() => {
+                                  const diffDays = Math.ceil((new Date(curAssign.expiryDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+                                  const isNear = diffDays <= 7 && diffDays >= 0;
+                                  const isExpired = diffDays < 0;
+                                  return (
+                                    <div style={{
+                                      fontSize: '0.68rem',
+                                      fontWeight: 700,
+                                      color: isExpired ? '#be123c' : isNear ? '#d97706' : '#15803d',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '3px'
+                                    }}>
+                                      {isExpired ? `❌ Đã hết hạn (${Math.abs(diffDays)} ngày trước)` : isNear ? `⚠️ Cận Date (${diffDays} ngày)` : `✓ Hạn tốt: Còn ${diffDays} ngày`}
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            ) : (
+                              <div>
+                                <div style={{ fontWeight: 700, color: '#0f766e', fontFamily: 'monospace' }}>
+                                  {item.lotCode || 'LOT-IN-2026'}
+                                </div>
+                                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                  HSD: {item.expiryDate ? new Date(item.expiryDate).toLocaleDateString('vi-VN') : '31/12/2026'}
+                                </div>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

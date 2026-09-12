@@ -4,16 +4,19 @@
   "main": "index.js",
   "scripts": {
     "start": "expo start --offline --port 8083",
-    "start:lan": "expo start --offline --lan --port 8083",
+    "start:lan": "expo start --lan --port 8083",
     "start:tunnel": "expo start --tunnel --port 8083",
-    "android": "expo start --android --offline --port 8083",
-    "ios": "expo start --ios --offline --port 8083",
-    "web": "expo start --web --offline --port 8083"
+    "android": "expo start --android --port 8083",
+    "ios": "expo start --ios --port 8083",
+    "web": "expo start --web --port 8083",
+    "dev": "vite",
+    "build": "vite build"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
     "expo": "~54.0.0",
     "expo-status-bar": "~3.0.9",
+    "lucide-react": "^0.359.0",
     "lucide-react-native": "^0.395.0",
     "react": "19.1.4",
     "react-dom": "19.1.4",
@@ -21,12 +24,18 @@
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-svg": "^15.12.1",
-    "react-native-web": "^0.21.2"
+    "react-native-web": "^0.21.2",
+    "react-router-dom": "^6.22.3",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
     "@types/react": "~19.1.10",
-    "typescript": "^5.3.3"
+    "@types/react-dom": "~19.1.10",
+    "@types/three": "^0.185.0",
+    "@vitejs/plugin-react": "^6.0.1",
+    "typescript": "^5.3.3",
+    "vite": "^8.0.12"
   },
   "private": true
 }

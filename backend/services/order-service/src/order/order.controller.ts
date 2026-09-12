@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Put, Body, Param, Patch, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { OrderService } from './order.service';
+import { OrderGateway } from './order.gateway';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderStatus } from './entities/order.entity';
 import { ColdChainTelemetry } from '../dispatch/cold-chain-monitor.service';
@@ -8,7 +9,19 @@ import { ColdChainTelemetry } from '../dispatch/cold-chain-monitor.service';
 @ApiTags('Orders')
 @Controller('orders')
 export class OrderController {
-  constructor(private readonly orderService: OrderService) {}
+  constructor(
+    private readonly orderService: OrderService,
+    private readonly orderGateway: OrderGateway,
+  ) {}
+
+  @Post('broadcast')
+  @ApiOperation({ summary: 'Phát sóng sự kiện WebSocket qua Gateway (realtime)' })
+  broadcast(@Body() body: any) {
+    const eventName = body.event || body.type || 'outbound_order_created';
+    const payload = body.payload || body.data || body;
+    this.orderGateway.broadcastEvent(eventName, payload);
+    return { success: true, event: eventName, payload };
+  }
 
   @Post()
   @ApiOperation({ summary: 'Create a new order' })
