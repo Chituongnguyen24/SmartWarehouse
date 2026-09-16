@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users as UsersIcon, UserPlus, CheckCircle, Trash2, Shield } from 'lucide-react';
+import { Users as UsersIcon, UserPlus, CheckCircle, Trash2, Shield, Lock, Unlock, KeyRound, ChevronDown, AlertCircle } from 'lucide-react';
 import { useAuth, ROLE_LABELS, ROLE_COLORS } from '../contexts/AuthContext';
 import type { UserRole } from '../contexts/AuthContext';
 
@@ -8,6 +8,8 @@ interface SystemUser {
   name: string;
   email: string;
   role: UserRole;
+  isLocked: boolean;
+  lockedAt: string | null;
   createdAt: string;
 }
 
@@ -24,6 +26,12 @@ const Users = () => {
   const [role, setRole] = useState<UserRole>('WAREHOUSE_STAFF');
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Reset password modal state
+  const [resetModal, setResetModal] = useState<{ userId: string; userName: string; newPassword: string } | null>(null);
+
+  // Role change dropdown
+  const [roleDropdown, setRoleDropdown] = useState<string | null>(null);
 
   const headers = {
     'Content-Type': 'application/json',
@@ -90,13 +98,65 @@ const Users = () => {
     }
   };
 
+  const handleToggleLock = async (id: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/users/${id}/toggle-lock`, {
+        method: 'PATCH',
+        headers,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSuccessMsg(data.message);
+        setTimeout(() => setSuccessMsg(''), 4000);
+        fetchUsers();
+      }
+    } catch (err) {
+      console.error('Failed to toggle lock:', err);
+    }
+  };
+
+  const handleResetPassword = async (id: string, name: string) => {
+    if (!confirm(`Bạn có chắc muốn reset mật khẩu cho "${name}"?`)) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/users/${id}/reset-password`, {
+        method: 'PATCH',
+        headers,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setResetModal({ userId: id, userName: name, newPassword: data.newPassword });
+      }
+    } catch (err) {
+      console.error('Failed to reset password:', err);
+    }
+  };
+
+  const handleUpdateRole = async (id: string, newRole: UserRole) => {
+    try {
+      const res = await fetch(`${API_BASE}/users/${id}/role`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ role: newRole }),
+      });
+      if (res.ok) {
+        setSuccessMsg(`Đã cập nhật vai trò thành công!`);
+        setTimeout(() => setSuccessMsg(''), 4000);
+        setRoleDropdown(null);
+        fetchUsers();
+      }
+    } catch (err) {
+      console.error('Failed to update role:', err);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-6)' }}>
       {/* Header */}
       <div>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.25rem' }}>Quản lý người dùng</h2>
         <p className="text-muted" style={{ fontSize: '0.875rem' }}>
-          Tạo và quản lý tài khoản nhân viên trong hệ thống. Mỗi vai trò có giao diện màu sắc và quyền hạn riêng.
+          Tạo và quản lý tài khoản nhân viên trong hệ thống. Hỗ trợ khóa/mở khóa, reset mật khẩu và phân quyền vai trò.
         </p>
       </div>
 
@@ -136,7 +196,7 @@ const Users = () => {
                     <th style={{ padding: '0.75rem 0.5rem' }}>Họ và tên</th>
                     <th style={{ padding: '0.75rem 0.5rem' }}>Email</th>
                     <th style={{ padding: '0.75rem 0.5rem' }}>Vai trò</th>
-                    <th style={{ padding: '0.75rem 0.5rem' }}>Chủ đề màu</th>
+                    <th style={{ padding: '0.75rem 0.5rem' }}>Trạng thái</th>
                     <th style={{ padding: '0.75rem 0.5rem' }}>Hành động</th>
                   </tr>
                 </thead>
@@ -145,36 +205,112 @@ const Users = () => {
                     <tr key={u.id} style={{ borderBottom: '1px solid var(--border)', fontSize: '0.875rem' }}>
                       <td style={{ padding: '0.75rem 0.5rem', fontWeight: 500 }}>{u.name}</td>
                       <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)' }}>{u.email}</td>
-                      <td style={{ padding: '0.75rem 0.5rem' }}>
-                        <span style={{
-                          padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem',
-                          backgroundColor: `${ROLE_COLORS[u.role]}15`,
-                          color: ROLE_COLORS[u.role],
-                          fontWeight: 500,
-                        }}>
-                          {ROLE_LABELS[u.role] || u.role}
-                        </span>
-                      </td>
-                      <td style={{ padding: '0.75rem 0.5rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: ROLE_COLORS[u.role] }} />
-                          <span style={{ fontSize: '0.825rem' }}>
-                            {u.role === 'ADMIN' ? 'Xanh Emerald' :
-                             u.role === 'WAREHOUSE_MANAGER' ? 'Xanh Teal' :
-                             u.role === 'WAREHOUSE_STAFF' ? 'Xanh Ocean' :
-                             u.role === 'SALES_STAFF' ? 'Amber Vàng đồng' : 'Tím Violet'}
-                          </span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '0.75rem 0.5rem' }}>
+                      <td style={{ padding: '0.75rem 0.5rem', position: 'relative' }}>
                         <button
-                          type="button"
-                          onClick={() => handleDeleteUser(u.id)}
-                          className="btn btn-outline"
-                          style={{ padding: '0.25rem 0.5rem', borderColor: 'var(--color-danger-500)', color: 'var(--color-danger-500)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                          onClick={() => setRoleDropdown(roleDropdown === u.id ? null : u.id)}
+                          style={{
+                            padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem',
+                            backgroundColor: `${ROLE_COLORS[u.role]}15`,
+                            color: ROLE_COLORS[u.role],
+                            fontWeight: 500,
+                            border: `1px solid ${ROLE_COLORS[u.role]}30`,
+                            cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '0.25rem',
+                          }}
                         >
-                          <Trash2 size={12} /> Xóa
+                          {ROLE_LABELS[u.role] || u.role}
+                          <ChevronDown size={12} />
                         </button>
+                        {roleDropdown === u.id && (
+                          <div style={{
+                            position: 'absolute', top: '100%', left: '0.5rem', zIndex: 10,
+                            backgroundColor: 'var(--bg-card, #fff)', border: '1px solid var(--border)',
+                            borderRadius: '6px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                            overflow: 'hidden', minWidth: '180px',
+                          }}>
+                            {(Object.keys(ROLE_LABELS) as UserRole[]).filter(r => r !== 'CUSTOMER').map(r => (
+                              <button
+                                key={r}
+                                onClick={() => handleUpdateRole(u.id, r)}
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                  width: '100%', padding: '0.5rem 0.75rem', border: 'none',
+                                  background: u.role === r ? `${ROLE_COLORS[r]}15` : 'transparent',
+                                  cursor: 'pointer', fontSize: '0.8rem', textAlign: 'left',
+                                  color: u.role === r ? ROLE_COLORS[r] : 'inherit',
+                                  fontWeight: u.role === r ? 600 : 400,
+                                }}
+                              >
+                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: ROLE_COLORS[r] }} />
+                                {ROLE_LABELS[r]}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '0.75rem 0.5rem' }}>
+                        {u.isLocked ? (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+                            padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem',
+                            backgroundColor: '#fef2f2', color: '#dc2626', fontWeight: 600,
+                            border: '1px solid #fecaca',
+                          }}>
+                            <Lock size={12} /> Đã khóa
+                          </span>
+                        ) : (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+                            padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem',
+                            backgroundColor: '#f0fdf4', color: '#16a34a', fontWeight: 600,
+                            border: '1px solid #bbf7d0',
+                          }}>
+                            <Unlock size={12} /> Hoạt động
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: '0.75rem 0.5rem' }}>
+                        <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleLock(u.id)}
+                            title={u.isLocked ? 'Mở khóa' : 'Khóa tài khoản'}
+                            className="btn btn-outline"
+                            style={{
+                              padding: '0.25rem 0.5rem', fontSize: '0.7rem',
+                              display: 'flex', alignItems: 'center', gap: '0.2rem',
+                              borderColor: u.isLocked ? '#16a34a' : '#f59e0b',
+                              color: u.isLocked ? '#16a34a' : '#f59e0b',
+                            }}
+                          >
+                            {u.isLocked ? <><Unlock size={12} /> Mở</> : <><Lock size={12} /> Khóa</>}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleResetPassword(u.id, u.name)}
+                            title="Reset mật khẩu"
+                            className="btn btn-outline"
+                            style={{
+                              padding: '0.25rem 0.5rem', fontSize: '0.7rem',
+                              display: 'flex', alignItems: 'center', gap: '0.2rem',
+                              borderColor: '#6366f1', color: '#6366f1',
+                            }}
+                          >
+                            <KeyRound size={12} /> Reset MK
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteUser(u.id)}
+                            className="btn btn-outline"
+                            style={{
+                              padding: '0.25rem 0.5rem', fontSize: '0.7rem',
+                              display: 'flex', alignItems: 'center', gap: '0.2rem',
+                              borderColor: 'var(--color-danger-500)', color: 'var(--color-danger-500)',
+                            }}
+                          >
+                            <Trash2 size={12} /> Xóa
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -265,6 +401,44 @@ const Users = () => {
         </div>
 
       </div>
+
+      {/* Reset Password Modal */}
+      {resetModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+        }}>
+          <div className="card" style={{ width: '420px', maxWidth: '90%', padding: '1.5rem', textAlign: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+              <KeyRound size={24} style={{ color: '#6366f1' }} />
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Mật khẩu đã được reset</h3>
+            </div>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+              Mật khẩu mới của <strong>{resetModal.userName}</strong>:
+            </p>
+            <div style={{
+              padding: '0.75rem 1rem', borderRadius: '8px', fontSize: '1.25rem',
+              fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.15em',
+              backgroundColor: '#f0fdf4', border: '2px dashed #86efac', color: '#16a34a',
+              marginBottom: '1rem', userSelect: 'all',
+            }}>
+              {resetModal.newPassword}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center', marginBottom: '1rem' }}>
+              <AlertCircle size={14} style={{ color: '#f59e0b' }} />
+              <span style={{ fontSize: '0.75rem', color: '#f59e0b' }}>Hãy sao chép và gửi mật khẩu cho người dùng. Sau khi đóng sẽ không thể xem lại.</span>
+            </div>
+            <button
+              onClick={() => setResetModal(null)}
+              className="btn btn-primary"
+              style={{ width: '100%' }}
+            >
+              Đã hiểu, đóng lại
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

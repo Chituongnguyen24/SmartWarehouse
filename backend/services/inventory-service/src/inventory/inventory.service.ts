@@ -39,29 +39,6 @@ export class InventoryService implements OnModuleInit {
     });
   }
 
-  private async getAuthToken(): Promise<string> {
-    try {
-      const response = await fetch('http://localhost:3012/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'admin@sfwms.vn',
-          password: 'password123',
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Login failed with status ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.access_token;
-    } catch (err) {
-      console.error('[INVENTORY SERVICE] Authentication failed with user-service:', err.message);
-      throw err;
-    }
-  }
-
   async onModuleInit() {
     console.log('[INVENTORY SERVICE] onModuleInit starting (async non-blocking)...');
     this.initializeData().catch((err) => {
@@ -95,7 +72,6 @@ export class InventoryService implements OnModuleInit {
     const today = new Date();
     
     // Fetch warehouses from warehouse-service to map their codes to database IDs
-    let warehouses = [];
     const warehouseIdMap = {};
     try {
       for (let attempt = 0; attempt < 3; attempt++) {
@@ -117,19 +93,12 @@ export class InventoryService implements OnModuleInit {
       console.warn('[INVENTORY SERVICE] Failed to fetch warehouses from warehouse-service during seed.', err.message);
     }
 
-    // Fetch products from product-service
-    let products = [];
-    try {
-      const token = await this.getAuthToken();
-      const res = await fetch('http://localhost:3010/products', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        products = await res.json();
-      }
-    } catch (e) {
-      console.warn('[INVENTORY SERVICE] Failed to fetch products from product-service during seed.', e.message);
-    }
+    const seedWarehouseLots = [
+      // WH-001 (HCM North - District 12)
+      { warehouseCode: 'WH-001', sku: 'MILK-DALAT-1L', quantity: 100, lotCode: 'LOT-MILK-WH1', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 5, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-001', sku: 'NOODLE-HAOHAO', quantity: 500, lotCode: 'LOT-NOODLE-WH1', zone: 'DRY', location: 'dry-shelf-A1', daysOffset: 60, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-001', sku: 'BEEF-STEAK-US', quantity: 50, lotCode: 'LOT-BEEF-WH1', zone: 'FROZEN', location: 'frozen-shelf-A1', daysOffset: 30, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-001', sku: 'TOMATO-DALAT', quantity: 60, lotCode: 'LOT-TOMATO-WH1', zone: 'COLD', location: 'cold-shelf-A3', daysOffset: 4, riskScore: 0, status: LotStatus.NORMAL },
 
     const seedWarehouseLots = [
       // WH-001 (HCM North - District 12)
@@ -211,7 +180,7 @@ export class InventoryService implements OnModuleInit {
   }
 
   async findAllSuppliers(): Promise<Supplier[]> {
-    return this.supplierRepository.find();
+    return this.supplierRepository.find({ order: { name: 'ASC' } });
   }
 
   async createSupplier(dto: Partial<Supplier>): Promise<Supplier> {
@@ -668,7 +637,7 @@ export class InventoryService implements OnModuleInit {
 
     // Get all lots with remaining stock for this product that are not expired
     const qb = this.lotRepository.createQueryBuilder('lot')
-      .where('lot.product_id = :productId', { productId: product.sku })
+      .where('lot.product_id = :productId', { productId: product.id })
       .andWhere('lot.remaining_qty > 0')
       .andWhere('lot.expiry_date > :now', { now: new Date() });
 

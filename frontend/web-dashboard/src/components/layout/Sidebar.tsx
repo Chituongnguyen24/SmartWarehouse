@@ -47,6 +47,19 @@ const menuItems: MenuItem[] = [
   { path: '/orders', label: 'Tiếp nhận & Điều phối Đơn', icon: <Send size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'SALES_STAFF'] },
   { path: '/reports', label: 'Báo cáo Thống kê', icon: <BarChart3 size={18} />, section: 'BÁO CÁO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
 
+  // QUẢN LÝ BÁN HÀNG
+  { path: '/sales', label: 'Đơn hàng E-commerce', icon: <Package size={18} />, section: 'QUẢN LÝ BÁN HÀNG', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'SALES_STAFF'] },
+  { path: '/demand-forecast', label: 'Dự báo Nhu cầu', icon: <TrendingUp size={18} />, section: 'QUẢN LÝ BÁN HÀNG', allowedRoles: ['ADMIN', 'SALES_STAFF', 'WAREHOUSE_MANAGER'] },
+
+  // BÁO CÁO
+  { path: '/reports', label: 'Báo cáo Thống kê', icon: <BarChart3 size={18} />, section: 'BÁO CÁO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
+
+  // QUẢN TRỊ HỆ THỐNG (ADMIN only)
+  { path: '/users', label: 'Quản lý Người dùng', icon: <Users size={18} />, section: 'QUẢN TRỊ HỆ THỐNG', allowedRoles: ['ADMIN'] },
+  { path: '/suppliers', label: 'Nhà cung cấp', icon: <Building2 size={18} />, section: 'QUẢN TRỊ HỆ THỐNG', allowedRoles: ['ADMIN'] },
+  { path: '/audit-log', label: 'Nhật ký Hệ thống', icon: <Activity size={18} />, section: 'QUẢN TRỊ HỆ THỐNG', allowedRoles: ['ADMIN'] },
+  { path: '/settings', label: 'Cài đặt Hệ thống', icon: <Settings size={18} />, section: 'QUẢN TRỊ HỆ THỐNG', allowedRoles: ['ADMIN'] },
+
   // NHÂN VIÊN KHO - các tab chức năng chi tiết
   { path: '/orders?tab=packing', label: 'Đơn hàng chờ đóng gói', icon: <Boxes size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
   { path: '/orders?tab=map', label: 'Vị trí sản phẩm (Sơ đồ)', icon: <Grid3X3 size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },

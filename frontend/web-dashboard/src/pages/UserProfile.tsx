@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Mail, Shield, Calendar, Activity, Save, Key, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth, ROLE_LABELS, ROLE_COLORS } from '../contexts/AuthContext';
 
@@ -10,23 +10,48 @@ interface ActivityLog {
   status: 'success' | 'warning' | 'info';
 }
 
-const mockActivityLogs: ActivityLog[] = [
-  { id: '1', time: 'Hôm nay, 14:20', action: 'Hoàn tất đơn nhập kho IB-20260630-002', module: 'Nhập kho', status: 'success' },
-  { id: '2', time: 'Hôm nay, 10:15', action: 'Xác nhận xuất kho đơn hàng OB-20260630-001', module: 'Xuất kho', status: 'success' },
-  { id: '3', time: 'Hôm qua, 16:45', action: 'Gán vị trí lưu trữ slot cold-shelf-A3 cho lô LOT-MILK-003', module: 'Sơ đồ kho', status: 'info' },
-  { id: '4', time: 'Hôm qua, 09:30', action: 'Điều chỉnh nhiệt độ mục tiêu khu COLD lên 4.5°C', module: 'Giám sát IoT', status: 'warning' },
-  { id: '5', time: '28 Th06, 11:00', action: 'Tạo tài khoản nhân viên mới cho bộ phận QC', module: 'Hệ thống', status: 'success' },
-];
+const USER_API = 'http://localhost:3012';
 
 const UserProfile = () => {
-  const { user } = useAuth();
+  const { user, token, updateProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<'info' | 'activity' | 'security'>('info');
   const [fullName, setFullName] = useState(user?.name || '');
-  const [phone, setPhone] = useState('+84 987 654 321');
+  const [phone, setPhone] = useState(user?.phone || '');
   const [bio, setBio] = useState(
     'Tham gia vận hành hệ thống kho thông minh CityMart. Chịu trách nhiệm giám sát chuỗi cung ứng lạnh, tối ưu hóa quy trình nhập xuất và vận dụng phân tích AI dự báo.'
   );
   const [isSaved, setIsSaved] = useState(false);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+
+  // Fetch activity logs from audit-log API
+  useEffect(() => {
+    if (!token) return;
+    const fetchLogs = async () => {
+      setLoadingLogs(true);
+      try {
+        const res = await fetch(`${USER_API}/audit-logs?limit=10`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const logs: ActivityLog[] = (Array.isArray(data) ? data : data.data || []).map((log: any) => ({
+            id: log.id,
+            time: new Date(log.createdAt || log.timestamp).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+            action: log.action || log.description || '',
+            module: log.service || log.module || 'Hệ thống',
+            status: log.severity === 'WARN' ? 'warning' as const : log.severity === 'CRITICAL' ? 'warning' as const : log.severity === 'INFO' ? 'success' as const : 'info' as const,
+          }));
+          setActivityLogs(logs);
+        }
+      } catch (err) {
+        console.error('Error fetching activity logs:', err);
+      } finally {
+        setLoadingLogs(false);
+      }
+    };
+    fetchLogs();
+  }, [token]);
 
   const currentRole = user?.role || 'ADMIN';
   const roleColor = ROLE_COLORS[currentRole];
@@ -36,10 +61,15 @@ const UserProfile = () => {
     ? user.name.split(' ').map(w => w.charAt(0)).slice(-2).join('')
     : 'U';
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
+    try {
+      await updateProfile({ name: fullName, phone });
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3000);
+    } catch (err) {
+      console.error('Error updating profile:', err);
+    }
   };
 
   // Permission cards per role
@@ -232,7 +262,11 @@ const UserProfile = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-4)' }}>
                 <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>Nhật ký hoạt động gần đây</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-3)' }}>
-                  {mockActivityLogs.map((log) => (
+                  {loadingLogs ? (
+                    <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--color-text-secondary)' }}>Đang tải nhật ký...</div>
+                  ) : activityLogs.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--color-text-secondary)' }}>Chưa có nhật ký hoạt động.</div>
+                  ) : activityLogs.map((log) => (
                     <div key={log.id} style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                       padding: 'var(--spacing-3)',

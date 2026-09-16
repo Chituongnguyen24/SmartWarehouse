@@ -2,7 +2,6 @@ import { Injectable, OnModuleInit, NotFoundException, ConflictException, BadRequ
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, ILike } from 'typeorm';
 import { User, UserRole } from './user.entity';
-import { Address } from './address.entity';
 import * as bcrypt from 'bcrypt';
 
 export interface CreateStaffDto {
@@ -40,8 +39,6 @@ export class UserService implements OnModuleInit {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
-    @InjectRepository(Address)
-    private addressRepository: Repository<Address>,
   ) {}
 
   async onModuleInit() {
@@ -707,27 +704,28 @@ export class UserService implements OnModuleInit {
     return savedUser;
   }
 
-  async updateProfile(userId: string, data: { name?: string; gender?: string; dob?: Date; addressStr?: string; lat?: number; lng?: number }): Promise<User> {
-    const user = await this.userRepository.findOneBy({ id: userId });
-    if (!user) throw new Error('User not found');
-
-    if (data.name) user.name = data.name;
-    if (data.gender) user.gender = data.gender;
-    if (data.dob) user.dob = data.dob;
-
-    await this.userRepository.save(user);
-
-    if (data.addressStr) {
-      let address = await this.addressRepository.findOneBy({ userId, isDefault: true });
-      if (!address) {
-        address = this.addressRepository.create({ userId, isDefault: true });
-      }
-      address.streetAddress = data.addressStr;
-      if (data.lat !== undefined) address.latitude = data.lat;
-      if (data.lng !== undefined) address.longitude = data.lng;
-      await this.addressRepository.save(address);
+  async resetPassword(id: string): Promise<{ newPassword: string }> {
+    const user = await this.findOneById(id);
+    if (!user) {
+      throw new Error('User not found');
     }
+    // Generate random 8-char password
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let newPassword = '';
+    for (let i = 0; i < 8; i++) {
+      newPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.userRepository.save(user);
+    return { newPassword };
+  }
 
-    return user;
+  async updateRole(id: string, role: UserRole): Promise<User> {
+    const user = await this.findOneById(id);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    user.role = role;
+    return this.userRepository.save(user);
   }
 }

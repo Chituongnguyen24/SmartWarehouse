@@ -46,7 +46,7 @@ const FEFOExport = () => {
       const resProducts = await fetch(`${PRODUCT_API}/products`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const products: any[] = await resProducts.json();
+      const products = await resProducts.json();
       const productMap = new Map<string, any>(products.map((p: any) => [p.id, p]));
 
       // 3. Map tên sản phẩm và Tính điểm ưu tiên xuất

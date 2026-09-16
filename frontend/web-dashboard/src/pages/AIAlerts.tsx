@@ -1,6 +1,136 @@
-import { ShieldAlert, Clock, BrainCircuit, Activity } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ShieldAlert, Clock, BrainCircuit, Activity, RefreshCw } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+
+interface Anomaly {
+  zone: string;
+  sensor: string;
+  temperature: number;
+  humidity: number;
+  threshold: string;
+  durationMinutes: number;
+  severity: 'CRITICAL' | 'WARNING';
+  message: string;
+}
+
+interface ExpiryLot {
+  lotCode: string;
+  productName: string;
+  sku: string;
+  daysLeft: number;
+  quantity: number;
+  zone: string;
+}
+
+interface AiPrediction {
+  lotCode: string;
+  productName: string;
+  riskPercent: number;
+  riskLevel: 'Cao' | 'Trung bình' | 'Thấp';
+  recommendation: string;
+  details: string;
+}
+
+const IOT_API = 'http://localhost:3002';
+const INVENTORY_API = 'http://localhost:3011';
+const AI_API = 'http://localhost:3003';
 
 const AIAlerts = () => {
+  const { token } = useAuth();
+  const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
+  const [expiryLots, setExpiryLots] = useState<ExpiryLot[]>([]);
+  const [predictions, setPredictions] = useState<AiPrediction[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      // 1. Fetch IoT anomalies
+      const anomalyRes = await fetch(`${IOT_API}/sensor/anomalies`);
+      const anomalyData = anomalyRes.ok ? await anomalyRes.json() : [];
+      setAnomalies(Array.isArray(anomalyData) ? anomalyData : []);
+
+      // 2. Fetch expiry alerts
+      const expiryRes = await fetch(`${INVENTORY_API}/inventory/expiry-alert`, { headers });
+      const expiryData = expiryRes.ok ? await expiryRes.json() : [];
+      const lots: ExpiryLot[] = (Array.isArray(expiryData) ? expiryData : []).map((l: any) => ({
+        lotCode: l.lotCode || l.code || '',
+        productName: l.productName || l.sku || '',
+        sku: l.sku || '',
+        daysLeft: l.daysLeft ?? l.daysUntilExpiry ?? 0,
+        quantity: l.quantity || 0,
+        zone: l.zone || 'COLD',
+      }));
+      setExpiryLots(lots);
+
+      // 3. AI predict spoilage for each anomaly zone
+      const aiPredictions: AiPrediction[] = [];
+      const zonesToPredict = Array.isArray(anomalyData) ? anomalyData : [];
+      for (const anomaly of zonesToPredict.slice(0, 5)) {
+        try {
+          const aiRes = await fetch(`${AI_API}/ai/predict-spoilage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...headers },
+            body: JSON.stringify({
+              zoneId: anomaly.zone || 'COLD',
+              temperature: anomaly.temperature || 5.0,
+              humidity: anomaly.humidity || 80,
+              durationMinutes: anomaly.durationMinutes || 30,
+            }),
+          });
+          if (aiRes.ok) {
+            const aiData = await aiRes.json();
+            if (aiData.affectedLots) {
+              aiData.affectedLots.forEach((lot: any) => {
+                aiPredictions.push({
+                  lotCode: lot.lotCode || '',
+                  productName: lot.productName || lot.sku || '',
+                  riskPercent: Math.round((lot.riskScore || lot.spoilageRisk || 0) * 100),
+                  riskLevel: (lot.riskScore || 0) > 0.7 ? 'Cao' : (lot.riskScore || 0) > 0.4 ? 'Trung bình' : 'Thấp',
+                  recommendation: lot.recommendation || 'Theo dõi sát',
+                  details: lot.details || `${anomaly.zone} - ${anomaly.durationMinutes} phút vượt ngưỡng`,
+                });
+              });
+            }
+          }
+        } catch {
+          // Skip individual prediction errors
+        }
+      }
+
+      // Also add expiry lots as low-risk predictions if not already in AI results
+      for (const lot of lots.slice(0, 5)) {
+        if (!aiPredictions.find(p => p.lotCode === lot.lotCode)) {
+          const risk = lot.daysLeft <= 1 ? 85 : lot.daysLeft <= 3 ? 60 : lot.daysLeft <= 5 ? 35 : 20;
+          aiPredictions.push({
+            lotCode: lot.lotCode,
+            productName: lot.productName,
+            riskPercent: risk,
+            riskLevel: risk > 70 ? 'Cao' : risk > 40 ? 'Trung bình' : 'Thấp',
+            recommendation: lot.daysLeft <= 1 ? 'Xuất ngay hôm nay' : lot.daysLeft <= 3 ? 'Ưu tiên lên kệ' : 'Theo dõi sát',
+            details: `HSD còn ${lot.daysLeft} ngày`,
+          });
+        }
+      }
+      setPredictions(aiPredictions);
+    } catch (err) {
+      console.error('Error fetching AI alerts data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [token]);
+
+  const criticalCount = anomalies.filter(a => a.severity === 'CRITICAL').length;
+  const warningCount = anomalies.filter(a => a.severity === 'WARNING').length;
+  const highRiskCount = predictions.filter(p => p.riskLevel === 'Cao').length;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-6)' }}>
       <div className="flex items-center justify-between">
@@ -8,167 +138,146 @@ const AIAlerts = () => {
           <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.25rem' }}>Cảnh báo & AI dự đoán hư hỏng</h2>
           <p className="text-muted" style={{ fontSize: '0.875rem' }}>Phát hiện bất thường trong bảo quản và đánh giá nguy cơ giảm chất lượng từng lô hàng bằng mô hình AI.</p>
         </div>
-        <button className="btn btn-outline" style={{ fontSize: '0.875rem' }}>
-          Đánh dấu đã xử lý
+        <button className="btn btn-outline" style={{ fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 6 }} onClick={fetchData}>
+          <RefreshCw size={14} /> Làm mới
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--spacing-4)' }}>
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title">Cảnh báo nghiêm trọng</div>
-            <div className="card-icon danger"><ShieldAlert size={18} /></div>
-          </div>
-          <div className="card-value text-danger">2</div>
-          <div className="card-desc">cần xử lý ngay</div>
-        </div>
-        
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title">Cảnh báo thường</div>
-            <div className="card-icon warning" style={{ backgroundColor: 'var(--color-warning-100)', color: 'var(--color-warning-500)' }}><Clock size={18} /></div>
-          </div>
-          <div className="card-value text-warning">2</div>
-          <div className="card-desc">đang theo dõi</div>
-        </div>
-
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title">Lô nguy cơ cao</div>
-            <div className="card-icon primary"><BrainCircuit size={18} /></div>
-          </div>
-          <div className="card-value">2</div>
-          <div className="card-desc">AI dự đoán hư hỏng</div>
-        </div>
-
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title">Độ chính xác AI</div>
-            <div className="card-icon primary"><Activity size={18} /></div>
-          </div>
-          <div className="card-value">92%</div>
-          <div className="card-desc">mô hình Spoilage</div>
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 'var(--spacing-6)' }}>
-        <div>
-          <h3 className="font-semibold" style={{ fontSize: '1rem', marginBottom: 'var(--spacing-4)' }}>Danh sách cảnh báo</h3>
-          
-          <div className="card" style={{ marginBottom: '1rem', borderLeft: '4px solid var(--color-danger-500)' }}>
-            <div className="flex items-center" style={{ gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--color-danger-500)' }}></div>
-              <h4 className="font-semibold text-danger">Nhiệt độ kho lạnh vượt ngưỡng</h4>
-              <span className="badge badge-danger" style={{ padding: '0.125rem 0.5rem' }}>Nghiêm trọng</span>
-              <span className="badge badge-neutral" style={{ backgroundColor: '#e0f2fe', color: '#0369a1', border: 'none' }}>Kho lạnh</span>
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-secondary)' }}>Đang tải dữ liệu cảnh báo từ IoT & AI...</div>
+      ) : (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--spacing-4)' }}>
+            <div className="card">
+              <div className="card-header">
+                <div className="card-title">Cảnh báo nghiêm trọng</div>
+                <div className="card-icon danger"><ShieldAlert size={18} /></div>
+              </div>
+              <div className="card-value text-danger">{criticalCount}</div>
+              <div className="card-desc">{criticalCount > 0 ? 'cần xử lý ngay' : 'không có'}</div>
             </div>
-            <p className="text-muted" style={{ fontSize: '0.875rem', marginBottom: '1rem' }}>Cảm biến S-CL-02 đo 5,8°C trong 42 phút (ngưỡng 2-6°C, cửa mở lâu).</p>
-            
-            <div style={{ backgroundColor: 'var(--color-primary-50)', padding: '0.75rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', display: 'flex', gap: '0.5rem' }}>
-              <BrainCircuit size={18} className="text-success" style={{ flexShrink: 0 }} />
-              <p style={{ fontSize: '0.875rem', color: 'var(--color-primary-800)' }}>
-                <strong>Phân tích AI:</strong> AI dự đoán lô LOT-24061 (cải thìa) giảm chất lượng trong 1-2 ngày. Đề xuất ưu tiên xuất kho.
-              </p>
+
+            <div className="card">
+              <div className="card-header">
+                <div className="card-title">Cảnh báo thường</div>
+                <div className="card-icon warning" style={{ backgroundColor: 'var(--color-warning-100)', color: 'var(--color-warning-500)' }}><Clock size={18} /></div>
+              </div>
+              <div className="card-value text-warning">{warningCount}</div>
+              <div className="card-desc">{warningCount > 0 ? 'đang theo dõi' : 'không có'}</div>
             </div>
-            
-            <div className="flex justify-between items-center text-muted" style={{ fontSize: '0.75rem' }}>
-              <span>AL-7781 • 08:42 hôm nay</span>
-              <button className="font-semibold" style={{ color: 'var(--color-neutral-900)' }}>Xử lý</button>
+
+            <div className="card">
+              <div className="card-header">
+                <div className="card-title">Lô nguy cơ cao</div>
+                <div className="card-icon primary"><BrainCircuit size={18} /></div>
+              </div>
+              <div className="card-value">{highRiskCount}</div>
+              <div className="card-desc">AI dự đoán hư hỏng</div>
+            </div>
+
+            <div className="card">
+              <div className="card-header">
+                <div className="card-title">Lô sắp hết hạn</div>
+                <div className="card-icon primary"><Activity size={18} /></div>
+              </div>
+              <div className="card-value">{expiryLots.length}</div>
+              <div className="card-desc">trong 7 ngày tới</div>
             </div>
           </div>
 
-          <div className="card" style={{ borderLeft: '4px solid var(--color-danger-500)' }}>
-            <div className="flex items-center" style={{ gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--color-danger-500)' }}></div>
-              <h4 className="font-semibold text-danger">Sự cố làm lạnh kho đông</h4>
-              <span className="badge badge-danger" style={{ padding: '0.125rem 0.5rem' }}>Nghiêm trọng</span>
-              <span className="badge badge-neutral" style={{ backgroundColor: '#e0e7ff', color: '#4338ca', border: 'none' }}>Kho đông lạnh</span>
-            </div>
-            <p className="text-muted" style={{ fontSize: '0.875rem', marginBottom: '1rem' }}>Cảm biến S-FZ-01 đo -15,2°C, cao hơn ngưỡng -16°C.</p>
-            
-            <div style={{ backgroundColor: 'var(--color-primary-50)', padding: '0.75rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', display: 'flex', gap: '0.5rem' }}>
-              <BrainCircuit size={18} className="text-success" style={{ flexShrink: 0 }} />
-              <p style={{ fontSize: '0.875rem', color: 'var(--color-primary-800)' }}>
-                <strong>Phân tích AI:</strong> Nguy cơ rã đông cục bộ. Kiểm tra dàn lạnh và ưu tiên kiểm tra lô cá/thịt gần cửa.
-              </p>
-            </div>
-            
-            <div className="flex justify-between items-center text-muted" style={{ fontSize: '0.75rem' }}>
-              <span>AL-7780 • 08:15 hôm nay</span>
-              <button className="font-semibold" style={{ color: 'var(--color-neutral-900)' }}>Xử lý</button>
-            </div>
-          </div>
-        </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 'var(--spacing-6)' }}>
+            <div>
+              <h3 className="font-semibold" style={{ fontSize: '1rem', marginBottom: 'var(--spacing-4)' }}>Danh sách cảnh báo</h3>
 
-        <div>
-          <div className="card" style={{ padding: '0' }}>
-            <div style={{ padding: 'var(--spacing-5)', borderBottom: '1px solid var(--color-neutral-200)' }}>
-              <h3 className="font-semibold flex items-center" style={{ gap: '0.5rem', fontSize: '1rem', marginBottom: '0.5rem' }}>
-                <BrainCircuit size={18} className="text-success" />
-                Dự đoán hư hỏng (AI)
-              </h3>
-              <p className="text-muted" style={{ fontSize: '0.75rem' }}>Random Forest + Isolation Forest dựa trên nhiệt độ, độ ẩm, số lần vượt ngưỡng và HSD.</p>
+              {anomalies.length === 0 ? (
+                <div className="card" style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-secondary)' }}>
+                  ✅ Không có cảnh báo bất thường nào. Hệ thống vận hành ổn định.
+                </div>
+              ) : (
+                anomalies.map((anomaly, idx) => (
+                  <div key={idx} className="card" style={{ marginBottom: '1rem', borderLeft: `4px solid ${anomaly.severity === 'CRITICAL' ? 'var(--color-danger-500)' : 'var(--color-warning-500)'}` }}>
+                    <div className="flex items-center" style={{ gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: anomaly.severity === 'CRITICAL' ? 'var(--color-danger-500)' : 'var(--color-warning-500)' }}></div>
+                      <h4 className={`font-semibold ${anomaly.severity === 'CRITICAL' ? 'text-danger' : 'text-warning'}`}>
+                        {anomaly.message || `Bất thường ${anomaly.zone}`}
+                      </h4>
+                      <span className={`badge ${anomaly.severity === 'CRITICAL' ? 'badge-danger' : 'badge-warning'}`} style={{ padding: '0.125rem 0.5rem' }}>
+                        {anomaly.severity === 'CRITICAL' ? 'Nghiêm trọng' : 'Cảnh báo'}
+                      </span>
+                      <span className="badge badge-neutral" style={{ backgroundColor: '#e0f2fe', color: '#0369a1', border: 'none' }}>
+                        {anomaly.zone}
+                      </span>
+                    </div>
+                    <p className="text-muted" style={{ fontSize: '0.875rem', marginBottom: '1rem' }}>
+                      Cảm biến {anomaly.sensor || 'N/A'} đo {anomaly.temperature}°C, độ ẩm {anomaly.humidity}% trong {anomaly.durationMinutes} phút.
+                    </p>
+
+                    <div style={{ backgroundColor: 'var(--color-primary-50)', padding: '0.75rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', display: 'flex', gap: '0.5rem' }}>
+                      <BrainCircuit size={18} className="text-success" style={{ flexShrink: 0 }} />
+                      <p style={{ fontSize: '0.875rem', color: 'var(--color-primary-800)' }}>
+                        <strong>Phân tích AI:</strong> Nguy cơ hư hỏng do nhiệt độ vượt ngưỡng {anomaly.durationMinutes} phút. Khuyến nghị kiểm tra và ưu tiên xuất kho lô hàng gần hết hạn.
+                      </p>
+                    </div>
+
+                    <div className="flex justify-between items-center text-muted" style={{ fontSize: '0.75rem' }}>
+                      <span>Zone {anomaly.zone} • {anomaly.durationMinutes} phút</span>
+                      <button className="font-semibold" style={{ color: 'var(--color-neutral-900)' }}>Xử lý</button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
-            <div className="table-container">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Lô hàng</th>
-                    <th>Nguy cơ</th>
-                    <th>Đề xuất</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>
-                      <div className="font-semibold">Cải thìa hữu cơ</div>
-                      <div className="text-muted" style={{ fontSize: '0.75rem' }}>LOT-24061</div>
-                      <div className="text-muted" style={{ fontSize: '0.75rem' }}>Vượt nhiệt 42 phút, HSD còn 0 ngày</div>
-                    </td>
-                    <td><span className="badge badge-danger">86% - Cao</span></td>
-                    <td className="font-medium" style={{ fontSize: '0.875rem' }}>Xuất ngay hôm nay</td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <div className="font-semibold">Xà lách Romaine</div>
-                      <div className="text-muted" style={{ fontSize: '0.75rem' }}>LOT-24058</div>
-                      <div className="text-muted" style={{ fontSize: '0.75rem' }}>Độ ẩm cao, sản phẩm dễ úng</div>
-                    </td>
-                    <td><span className="badge badge-danger">72% - Cao</span></td>
-                    <td className="font-medium" style={{ fontSize: '0.875rem' }}>Ưu tiên lên kệ</td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <div className="font-semibold">Cà chua bi</div>
-                      <div className="text-muted" style={{ fontSize: '0.75rem' }}>LOT-24033</div>
-                      <div className="text-muted" style={{ fontSize: '0.75rem' }}>HSD ngắn, nhiệt độ dao động</div>
-                    </td>
-                    <td><span className="badge badge-warning">58% - Trung bình</span></td>
-                    <td className="font-medium" style={{ fontSize: '0.875rem' }}>Theo dõi sát</td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <div className="font-semibold">Cá hồi phi lê</div>
-                      <div className="text-muted" style={{ fontSize: '0.75rem' }}>LOT-24001</div>
-                      <div className="text-muted" style={{ fontSize: '0.75rem' }}>Số lần vượt ngưỡng tăng</div>
-                    </td>
-                    <td><span className="badge badge-success">34% - Thấp</span></td>
-                    <td className="font-medium" style={{ fontSize: '0.875rem' }}>Kiểm tra dàn lạnh</td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <div className="font-semibold">Sữa tươi tiệt trùng</div>
-                      <div className="text-muted" style={{ fontSize: '0.75rem' }}>LOT-23990</div>
-                    </td>
-                    <td><span className="badge badge-success">21% - Thấp</span></td>
-                    <td className="font-medium" style={{ fontSize: '0.875rem' }}>Bình thường</td>
-                  </tr>
-                </tbody>
-              </table>
+
+            <div>
+              <div className="card" style={{ padding: '0' }}>
+                <div style={{ padding: 'var(--spacing-5)', borderBottom: '1px solid var(--color-neutral-200)' }}>
+                  <h3 className="font-semibold flex items-center" style={{ gap: '0.5rem', fontSize: '1rem', marginBottom: '0.5rem' }}>
+                    <BrainCircuit size={18} className="text-success" />
+                    Dự đoán hư hỏng (AI)
+                  </h3>
+                  <p className="text-muted" style={{ fontSize: '0.75rem' }}>Random Forest + Isolation Forest dựa trên nhiệt độ, độ ẩm, số lần vượt ngưỡng và HSD.</p>
+                </div>
+                <div className="table-container">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Lô hàng</th>
+                        <th>Nguy cơ</th>
+                        <th>Đề xuất</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {predictions.length === 0 ? (
+                        <tr>
+                          <td colSpan={3} style={{ textAlign: 'center', color: 'var(--color-text-secondary)', padding: '1.5rem' }}>
+                            Không có dữ liệu dự đoán. Chạy mô hình AI để phân tích.
+                          </td>
+                        </tr>
+                      ) : (
+                        predictions.map((pred, idx) => (
+                          <tr key={idx}>
+                            <td>
+                              <div className="font-semibold">{pred.productName}</div>
+                              <div className="text-muted" style={{ fontSize: '0.75rem' }}>{pred.lotCode}</div>
+                              <div className="text-muted" style={{ fontSize: '0.75rem' }}>{pred.details}</div>
+                            </td>
+                            <td>
+                              <span className={`badge ${pred.riskLevel === 'Cao' ? 'badge-danger' : pred.riskLevel === 'Trung bình' ? 'badge-warning' : 'badge-success'}`}>
+                                {pred.riskPercent}% - {pred.riskLevel}
+                              </span>
+                            </td>
+                            <td className="font-medium" style={{ fontSize: '0.875rem' }}>{pred.recommendation}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 };

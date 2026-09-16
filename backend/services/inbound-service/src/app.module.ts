@@ -24,7 +24,5 @@ import { InboundOrderItem } from './inbound-order/inbound-order-item.entity';
     }),
     InboundOrderModule,
   ],
-  controllers: [],
-  providers: [],
 })
 export class AppModule {}

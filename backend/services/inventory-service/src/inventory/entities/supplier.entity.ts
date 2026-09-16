@@ -1,4 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+
+export enum SupplierStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+}
 
 @Entity('suppliers')
 export class Supplier {
@@ -13,4 +18,22 @@ export class Supplier {
 
   @Column()
   address: string;
+
+  @Column({ nullable: true })
+  phone: string;
+
+  @Column({ nullable: true })
+  email: string;
+
+  @Column({ name: 'tax_code', nullable: true })
+  taxCode: string;
+
+  @Column({
+    type: 'varchar',
+    default: SupplierStatus.ACTIVE,
+  })
+  status: SupplierStatus;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
 }

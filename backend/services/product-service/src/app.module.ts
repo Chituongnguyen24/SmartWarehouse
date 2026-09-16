@@ -3,6 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Product } from './product/product.entity';
 import { ProductModule } from './product/product.module';
+import { Category } from './category/category.entity';
+import { CategoryModule } from './category/category.module';
 import { AuthModule } from './auth/auth.module';
 
 @Module({
@@ -18,12 +20,14 @@ import { AuthModule } from './auth/auth.module';
         username: config.get<string>('DB_USER', 'postgres'),
         password: config.get<string>('DB_PASSWORD', 'postgres'),
         database: config.get<string>('DB_NAME', 'sfwms_product'),
-        entities: [Product],
+        entities: [Product, Category],
         synchronize: true,
       }),
     }),
     ProductModule,
+    CategoryModule,
     AuthModule,
   ],
 })
 export class AppModule {}
+

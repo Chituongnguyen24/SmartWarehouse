@@ -41,7 +41,7 @@ const TransportOptimization = () => {
   const { token, user } = useAuth();
   const isDriver = user?.role === 'DRIVER';
 
-  const [drivers] = useState<DriverInfo[]>(EXTENDED_MOCK_DRIVERS);
+  const [drivers, setDrivers] = useState<DriverInfo[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [vrpResult, setVrpResult] = useState<VrpResponse | null>(null);
   const [batchRoutes, setBatchRoutes] = useState<any[]>([]);
