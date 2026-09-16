@@ -96,125 +96,9 @@ export interface ChatConversation {
   messages: ChatMessage[];
 }
 
-const MOCK_B2B_CUSTOMERS: B2BCustomer[] = [
-  {
-    id: 'cst-01',
-    code: 'B2B-NH-001',
-    name: 'Chuỗi Nhà Hàng Hải Sản Biển Đông',
-    type: 'Nhà hàng',
-    phone: '0903 111 222',
-    email: 'purchasing@biendong.vn',
-    address: '150 Trần Hưng Đạo, Quận 1, TP.HCM',
-    discountRate: 8,
-    creditLimit: 50000000,
-  },
-  {
-    id: 'cst-02',
-    code: 'B2B-ST-002',
-    name: 'Hệ Thống Minimart FreshMarket Q3',
-    type: 'Siêu thị',
-    phone: '0918 444 555',
-    email: 'contact@freshmarket.vn',
-    address: '88 Nguyễn Đình Chiểu, Quận 3, TP.HCM',
-    discountRate: 10,
-    creditLimit: 100000000,
-  },
-  {
-    id: 'cst-03',
-    code: 'B2B-DL-003',
-    name: 'Đại Lý Thực Phẩm Tươi Sống Nam Sài Gòn',
-    type: 'Đại lý sỉ',
-    phone: '0977 888 999',
-    email: 'namsaigon@fooddist.com',
-    address: '45 Nguyễn Hữu Thọ, Quận 7, TP.HCM',
-    discountRate: 12,
-    creditLimit: 150000000,
-  },
-];
 
-const MOCK_SALES_PRODUCTS: ProductInventoryItem[] = [
-  {
-    id: 'RAU-001',
-    sku: 'RAU-001',
-    name: 'Cà chua VietGAP Đà Lạt',
-    category: 'Rau củ quả',
-    price: 18000,
-    unit: '500g',
-    stock: 240,
-    zone: 'Kho Lạnh (0-4°C)',
-    expiryDaysLeft: 6,
-    isFefoPriority: false,
-  },
-  {
-    id: 'THIT-002',
-    sku: 'THIT-002',
-    name: 'Thăn bò Úc nhập khẩu tươi',
-    category: 'Thịt tươi',
-    price: 185000,
-    unit: '500g',
-    stock: 85,
-    zone: 'Kho Đông (-18°C)',
-    expiryDaysLeft: 3,
-    isFefoPriority: true,
-  },
-  {
-    id: 'HAI-003',
-    sku: 'HAI-003',
-    name: 'Cá hồi Na Uy phi lê tươi',
-    category: 'Hải sản',
-    price: 245000,
-    unit: '300g',
-    stock: 40,
-    zone: 'Kho Đông (-18°C)',
-    expiryDaysLeft: 2,
-    isFefoPriority: true,
-  },
-  {
-    id: 'QUA-004',
-    sku: 'QUA-004',
-    name: 'Táo Envy Mỹ nhập khẩu',
-    category: 'Trái cây',
-    price: 89000,
-    unit: 'Kg',
-    stock: 150,
-    zone: 'Kho Mát (4-8°C)',
-    expiryDaysLeft: 12,
-    isFefoPriority: false,
-  },
-];
 
-const MOCK_SALES_ORDERS: SalesOrder[] = [
-  {
-    id: 'so-101',
-    orderCode: 'ORD-884921',
-    customerName: 'Chuỗi Nhà Hàng Hải Sản Biển Đông',
-    customerPhone: '0903 111 222',
-    customerType: 'Nhà hàng B2B',
-    address: '150 Trần Hưng Đạo, Quận 1, TP.HCM',
-    totalAmount: 1450000,
-    discountAmount: 116000,
-    finalAmount: 1334000,
-    status: 'PICKING',
-    createdAt: '2026-07-20 15:30',
-    itemsCount: 4,
-    salesPerson: 'Nguyễn Văn Tường (Sales)',
-  },
-  {
-    id: 'so-102',
-    orderCode: 'ORD-884925',
-    customerName: 'Hệ Thống Minimart FreshMarket Q3',
-    customerPhone: '0918 444 555',
-    customerType: 'Siêu thị B2B',
-    address: '88 Nguyễn Đình Chiểu, Quận 3, TP.HCM',
-    totalAmount: 3200000,
-    discountAmount: 320000,
-    finalAmount: 2880000,
-    status: 'PENDING',
-    createdAt: '2026-07-20 16:10',
-    itemsCount: 8,
-    salesPerson: 'Nguyễn Văn Tường (Sales)',
-  },
-];
+
 
 const INITIAL_CONVERSATIONS: ChatConversation[] = [
   {
@@ -270,16 +154,16 @@ const INITIAL_CONVERSATIONS: ChatConversation[] = [
 ];
 
 export const SalesManagement = () => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [activeTab, setActiveTab] = useState<'CREATE_ORDER' | 'ORDER_LIST' | 'FEFO_INSIGHTS' | 'CUSTOMERS' | 'LIVE_CHAT'>('LIVE_CHAT');
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
-  const [products, setProducts] = useState<ProductInventoryItem[]>(MOCK_SALES_PRODUCTS);
-  const [customers] = useState<B2BCustomer[]>(MOCK_B2B_CUSTOMERS);
+  const [products, setProducts] = useState<ProductInventoryItem[]>([]);
+  const [customers, setCustomers] = useState<B2BCustomer[]>([]);
 
   // Form State for Order Entry
-  const [selectedCustomer, setSelectedCustomer] = useState<B2BCustomer>(MOCK_B2B_CUSTOMERS[0]);
+  const [selectedCustomer, setSelectedCustomer] = useState<B2BCustomer | null>(null);
   const [cartItems, setCartItems] = useState<Array<{ product: ProductInventoryItem; quantity: number }>>([]);
-  const [customDiscountRate, setCustomDiscountRate] = useState<number>(MOCK_B2B_CUSTOMERS[0].discountRate);
+  const [customDiscountRate, setCustomDiscountRate] = useState<number>(0);
   const [orderNotes, setOrderNotes] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -289,9 +173,68 @@ export const SalesManagement = () => {
   const [selectedConvId, setSelectedConvId] = useState<string>('conv-1');
   const [chatInputText, setChatInputText] = useState('');
 
+  // Fetch products from API
+  const fetchProducts = async () => {
+    try {
+      const res = await fetch(PRODUCT_API);
+      if (res.ok) {
+        const data = await res.json();
+        const mapped: ProductInventoryItem[] = data.map((p: any) => ({
+          id: p.id,
+          sku: p.sku,
+          name: p.name,
+          category: p.category?.name || p.categoryName || 'Thực phẩm',
+          price: p.price || 0,
+          unit: p.unit || 'Kg',
+          stock: p.stock ?? p.quantity ?? 0,
+          zone: p.storageZone || 'Kho Lạnh',
+          expiryDaysLeft: p.expiryDaysLeft,
+          isFefoPriority: p.expiryDaysLeft !== undefined && p.expiryDaysLeft <= 3,
+        }));
+        setProducts(mapped);
+      }
+    } catch (err) {
+      console.error('Error fetching products:', err);
+    }
+  };
+
+  // Fetch customers from users API
+  const fetchCustomers = async () => {
+    try {
+      if (!token) return;
+      const res = await fetch('http://localhost:3012/users', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const customerUsers = data.filter((u: any) => u.role === 'CUSTOMER' || u.role === 'SALES_STAFF');
+        const mapped: B2BCustomer[] = customerUsers.map((u: any, idx: number) => ({
+          id: u.id,
+          code: `B2B-${String(idx + 1).padStart(3, '0')}`,
+          name: u.name,
+          type: 'Khách lẻ VIP' as const,
+          phone: u.phone || '',
+          email: u.email,
+          address: '',
+          discountRate: 0,
+          creditLimit: 50000000,
+        }));
+        setCustomers(mapped);
+        if (mapped.length > 0 && !selectedCustomer) {
+          setSelectedCustomer(mapped[0]);
+          setCustomDiscountRate(mapped[0].discountRate);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching customers:', err);
+    }
+  };
+
   useEffect(() => {
     fetchLiveOrders();
-  }, []);
+    fetchProducts();
+    fetchCustomers();
+  }, [token]);
 
   const fetchLiveOrders = async () => {
     try {
@@ -401,6 +344,11 @@ export const SalesManagement = () => {
   const handleCreateSalesOrder = async () => {
     if (cartItems.length === 0) {
       alert('Vui lòng chọn ít nhất một sản phẩm vào đơn hàng kinh doanh!');
+      return;
+    }
+    
+    if (!selectedCustomer) {
+      alert('Vui lòng chọn khách hàng!');
       return;
     }
 
@@ -663,6 +611,10 @@ export const SalesManagement = () => {
                     <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>
                       {activeConversation.isOnline ? 'Đang online' : 'Ngoại tuyến'}
                     </span>
+                  </div>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-muted" style={{ fontSize: '0.875rem' }}>Khách hàng</span>
+                    <span className="font-medium" style={{ fontSize: '0.875rem' }}>{selectedCustomer?.name || 'Chưa chọn'}</span>
                   </div>
                   <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
                     SĐT: {activeConversation.customerPhone} • {activeConversation.customerType}

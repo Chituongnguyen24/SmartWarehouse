@@ -35,18 +35,18 @@ export class SystemSettingsService {
     }
   }
 
-  // Backup mock logic
+  // KLTN Demo Stub: Simulates backup trigger — actual database backup implementation is out of scope for this thesis
   async triggerBackup(): Promise<{ message: string, timestamp: string }> {
     return {
-      message: 'Backup triggered successfully',
+      message: 'Backup triggered successfully (KLTN demo)',
       timestamp: new Date().toISOString()
     };
   }
 
-  // Retrain AI mock logic
+  // KLTN Demo Stub: Simulates AI retraining trigger — actual ML pipeline integration is out of scope for this thesis
   async triggerAIRetrain(): Promise<{ message: string, jobId: string }> {
     return {
-      message: 'AI retraining started',
+      message: 'AI retraining started (KLTN demo)',
       jobId: 'job_' + Math.random().toString(36).substring(7)
     };
   }

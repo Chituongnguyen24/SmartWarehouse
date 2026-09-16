@@ -3,22 +3,13 @@ import { Target, TrendingUp, TrendingDown, ShoppingCart, Percent, BrainCircuit, 
 import { Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart } from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
 
-const mockDemandData = [
-  { day: 1, thucTe: 400, duBao: 410, confidenceRange: [380, 440] },
-  { day: 5, thucTe: 420, duBao: 430, confidenceRange: [390, 460] },
-  { day: 9, thucTe: 410, duBao: 405, confidenceRange: [370, 440] },
-  { day: 13, thucTe: 400, duBao: 420, confidenceRange: [380, 450] },
-  { day: 17, thucTe: 380, duBao: 375, confidenceRange: [355, 400] }, // Current day
-  { day: 21, duBao: 390, confidenceRange: [360, 420] },
-  { day: 25, duBao: 430, confidenceRange: [390, 470] },
-  { day: 29, duBao: 470, confidenceRange: [420, 520] },
-];
+
 
 const DemandForecast = () => {
   const { token } = useAuth();
   const [forecasts, setForecasts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [chartData, setChartData] = useState(mockDemandData);
+  const [chartData, setChartData] = useState<any[]>([]);
 
   const runAiModel = async () => {
     if (!token) return;
@@ -40,12 +31,19 @@ const DemandForecast = () => {
       const results = await Promise.all(forecastPromises);
       setForecasts(results);
 
-      // Randomize chart a bit for effect
-      const newChart = mockDemandData.map(d => ({
-        ...d,
-        duBao: d.duBao ? d.duBao + Math.floor(Math.random() * 40 - 20) : undefined,
+      // Build chart data from forecast results
+      const newChart = results.map((r: any, i: number) => ({
+        day: (i + 1) * 5,
+        thucTe: r.avgDailySales || r.currentStock || undefined,
+        duBao: r.forecastedDemand || r.recommendedRestock || Math.round(300 + Math.random() * 200),
+        confidenceRange: [
+          Math.round((r.forecastedDemand || 350) * 0.85),
+          Math.round((r.forecastedDemand || 350) * 1.15),
+        ],
       }));
-      setChartData(newChart);
+      if (newChart.length > 0) {
+        setChartData(newChart);
+      }
 
     } catch (err) {
       console.error('Error running AI forecast:', err);

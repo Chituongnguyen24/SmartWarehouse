@@ -29,16 +29,8 @@ export interface VrpResponse {
 const OUTBOUND_API = 'http://localhost:3007';
 const TRANSPORT_API = 'http://localhost:3013';
 
-const EXTENDED_MOCK_DRIVERS: DriverInfo[] = [
-  { id: 'drv-01', name: 'Nguyễn Văn Hùng', licensePlate: '59-X1 884.92', vehicleType: 'REFRIGERATED', capacityKg: 150, status: 'AVAILABLE', currentTemp: '2.5°C', phone: '0909 888 111' },
-  { id: 'drv-02', name: 'Trần Quốc Bảo', licensePlate: '59-T2 123.45', vehicleType: 'FROZEN', capacityKg: 300, status: 'AVAILABLE', currentTemp: '-19.2°C', phone: '0918 333 444' },
-  { id: 'drv-03', name: 'Lê Minh Tuấn', licensePlate: '59-K3 999.88', vehicleType: 'NORMAL', capacityKg: 100, status: 'AVAILABLE', currentTemp: 'Thường', phone: '0977 555 666' },
-  { id: 'drv-04', name: 'Võ Thanh Sơn', licensePlate: '59-P1 554.32', vehicleType: 'REFRIGERATED', capacityKg: 200, status: 'IN_TRANSIT', currentTemp: '3.1°C', phone: '0938 222 999' },
-  { id: 'drv-05', name: 'Phạm Quốc Anh', licensePlate: '59-F3 445.67', vehicleType: 'NORMAL', capacityKg: 500, status: 'AVAILABLE', currentTemp: 'Thường', phone: '0902 444 555' },
-  { id: 'drv-06', name: 'Hoàng Văn Nam', licensePlate: '59-D2 778.89', vehicleType: 'REFRIGERATED', capacityKg: 250, status: 'AVAILABLE', currentTemp: '1.8°C', phone: '0988 777 666' },
-  { id: 'drv-07', name: 'Đặng Quốc Huy', licensePlate: '59-S1 889.01', vehicleType: 'FROZEN', capacityKg: 400, status: 'AVAILABLE', currentTemp: '-18.5°C', phone: '0919 222 333' },
-  { id: 'drv-08', name: 'Bùi Minh Đức', licensePlate: '59-L2 667.12', vehicleType: 'NORMAL', capacityKg: 150, status: 'MAINTENANCE', currentTemp: 'Thường', phone: '0908 999 000' }
-];
+
+
 
 const TransportOptimization = () => {
   const { token, user } = useAuth();

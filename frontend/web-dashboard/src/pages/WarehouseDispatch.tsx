@@ -76,60 +76,15 @@ export interface Driver {
   currentTemp?: string;
 }
 
-const MOCK_DRIVERS: Driver[] = [
-  {
-    id: 'drv-01',
-    name: 'Nguyễn Văn Hùng',
-    phone: '0909 888 111',
-    licensePlate: '59-X1 884.92',
-    vehicleType: 'REFRIGERATED',
-    status: 'AVAILABLE',
-    assignedOrdersCount: 1,
-    capacityKg: 150,
-    currentTemp: '2.5°C (Kho Lạnh)',
-  },
-  {
-    id: 'drv-02',
-    name: 'Trần Quốc Bảo',
-    phone: '0918 333 444',
-    licensePlate: '59-T2 123.45',
-    vehicleType: 'FROZEN',
-    status: 'AVAILABLE',
-    assignedOrdersCount: 0,
-    capacityKg: 300,
-    currentTemp: '-19.2°C (Đông Lạnh)',
-  },
-  {
-    id: 'drv-03',
-    name: 'Lê Minh Tuấn',
-    phone: '0977 555 666',
-    licensePlate: '59-K3 999.88',
-    vehicleType: 'NORMAL',
-    status: 'AVAILABLE',
-    assignedOrdersCount: 0,
-    capacityKg: 100,
-    currentTemp: 'Thường (Giao khô)',
-  },
-  {
-    id: 'drv-04',
-    name: 'Vũ Thanh Sơn',
-    phone: '0938 222 999',
-    licensePlate: '59-P1 554.32',
-    vehicleType: 'REFRIGERATED',
-    status: 'IN_TRANSIT',
-    assignedOrdersCount: 3,
-    capacityKg: 200,
-    currentTemp: '3.1°C',
-  },
-];
+
 
 export const WarehouseDispatch = () => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [orders, setOrders] = useState<DispatchOrder[]>([]);
-  const [drivers, setDrivers] = useState<Driver[]>(MOCK_DRIVERS);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
   const [activeTab, setActiveTab] = useState<'RECEIVE_PICK' | 'PACKING_QC' | 'DISPATCH' | 'FLEET'>('RECEIVE_PICK');
   const [selectedOrder, setSelectedOrder] = useState<DispatchOrder | null>(null);
-  const [selectedDriver, setSelectedDriver] = useState<Driver | null>(MOCK_DRIVERS[0]);
+  const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showManifestModal, setShowManifestModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);

@@ -3,24 +3,7 @@ import { Download, Boxes, TrendingDown, Percent, FileText, ArrowUpRight } from '
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
 
-const mockTrendData = [
-  { name: 'T1', nhap: 4000, xuat: 2400, ton: 5000 },
-  { name: 'T2', nhap: 3000, xuat: 1398, ton: 4000 },
-  { name: 'T3', nhap: 2000, xuat: 3800, ton: 6000 },
-  { name: 'T4', nhap: 2780, xuat: 3908, ton: 5500 },
-  { name: 'T5', nhap: 1890, xuat: 4800, ton: 4500 },
-  { name: 'T6', nhap: 2390, xuat: 3800, ton: 6500 },
-  { name: 'T7', nhap: 3490, xuat: 4300, ton: 7000 },
-  { name: 'T8', nhap: 4000, xuat: 5300, ton: 8000 },
-];
 
-const mockCategoryData = [
-  { name: 'Rau củ quả', value: 35, color: '#10b981' },
-  { name: 'Thịt cá', value: 25, color: '#f59e0b' },
-  { name: 'Đông lạnh', value: 20, color: '#3b82f6' },
-  { name: 'Sữa & đồ uống', value: 10, color: '#ef4444' },
-  { name: 'Đồ khô', value: 10, color: '#064e3b' },
-];
 
 const Reports = () => {
   const { token } = useAuth();
@@ -50,14 +33,16 @@ const Reports = () => {
     fetchReports();
   }, [token]);
 
-  // Transform data for PieChart
-  const categoryData = [];
+  // Build chart data from real API
+  const trendData = summary ? [
+    { name: 'Hiện tại', nhap: summary.totalInbound || 0, xuat: summary.totalOutbound || 0, ton: summary.totalStock || 0 },
+  ] : [];
+
+  const categoryData: { name: string; value: number; color: string }[] = [];
   if (performance?.zoneBreakdown) {
-    categoryData.push({ name: 'Kho Khô (DRY)', value: performance.zoneBreakdown.DRY.stock, color: '#f59e0b' });
-    categoryData.push({ name: 'Kho Mát (COLD)', value: performance.zoneBreakdown.COLD.stock, color: '#10b981' });
-    categoryData.push({ name: 'Kho Lạnh (FROZEN)', value: performance.zoneBreakdown.FROZEN.stock, color: '#3b82f6' });
-  } else {
-    categoryData.push(...mockCategoryData);
+    categoryData.push({ name: 'Kho Khô (DRY)', value: performance.zoneBreakdown.DRY?.stock || 0, color: '#f59e0b' });
+    categoryData.push({ name: 'Kho Mát (COLD)', value: performance.zoneBreakdown.COLD?.stock || 0, color: '#10b981' });
+    categoryData.push({ name: 'Kho Lạnh (FROZEN)', value: performance.zoneBreakdown.FROZEN?.stock || 0, color: '#3b82f6' });
   }
 
   return (
@@ -117,7 +102,7 @@ const Reports = () => {
           </div>
           <div style={{ height: 300, width: '100%' }}>
             <ResponsiveContainer>
-              <AreaChart data={mockTrendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+              <AreaChart data={trendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorNhapRep" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
