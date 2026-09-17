@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { WarehouseModule } from './warehouse/warehouse.module';
 import { ZoneModule } from './zone/zone.module';
 import { ShelfModule } from './shelf/shelf.module';
+import { StorageSlotModule } from './storage-slot/storage-slot.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { ShelfModule } from './shelf/shelf.module';
     WarehouseModule,
     ZoneModule,
     ShelfModule,
+    StorageSlotModule,
   ],
 })
 export class AppModule {}

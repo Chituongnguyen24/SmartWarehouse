@@ -62,6 +62,15 @@ export class User {
   @Column({ name: 'locked_at', type: 'timestamp', nullable: true })
   lockedAt: Date;
 
+  @Column({ name: 'firebase_uid', nullable: true })
+  firebaseUid: string;
+
+  @Column({ nullable: true, default: 'Thành viên mới' })
+  tier: string;
+
+  @Column({ type: 'int', default: 0 })
+  points: number;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

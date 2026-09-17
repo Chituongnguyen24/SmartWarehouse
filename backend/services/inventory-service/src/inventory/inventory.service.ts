@@ -73,6 +73,7 @@ export class InventoryService implements OnModuleInit {
     
     // Fetch warehouses from warehouse-service to map their codes to database IDs
     const warehouseIdMap = {};
+    let warehouses: any[] = [];
     try {
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
@@ -94,13 +95,7 @@ export class InventoryService implements OnModuleInit {
     }
 
     const seedWarehouseLots = [
-      // WH-001 (HCM North - District 12)
-      { warehouseCode: 'WH-001', sku: 'MILK-DALAT-1L', quantity: 100, lotCode: 'LOT-MILK-WH1', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 5, riskScore: 0, status: LotStatus.NORMAL },
-      { warehouseCode: 'WH-001', sku: 'NOODLE-HAOHAO', quantity: 500, lotCode: 'LOT-NOODLE-WH1', zone: 'DRY', location: 'dry-shelf-A1', daysOffset: 60, riskScore: 0, status: LotStatus.NORMAL },
-      { warehouseCode: 'WH-001', sku: 'BEEF-STEAK-US', quantity: 50, lotCode: 'LOT-BEEF-WH1', zone: 'FROZEN', location: 'frozen-shelf-A1', daysOffset: 30, riskScore: 0, status: LotStatus.NORMAL },
-      { warehouseCode: 'WH-001', sku: 'TOMATO-DALAT', quantity: 60, lotCode: 'LOT-TOMATO-WH1', zone: 'COLD', location: 'cold-shelf-A3', daysOffset: 4, riskScore: 0, status: LotStatus.NORMAL },
 
-    const seedWarehouseLots = [
       // WH-001 (HCM North - District 12)
       { warehouseCode: 'WH-001', sku: 'MILK-DALAT-1L', quantity: 100, lotCode: 'LOT-MILK-WH1', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 5, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-001', sku: 'NOODLE-HAOHAO', quantity: 500, lotCode: 'LOT-NOODLE-WH1', zone: 'DRY', location: 'dry-shelf-A1', daysOffset: 60, riskScore: 0, status: LotStatus.NORMAL },
@@ -185,6 +180,15 @@ export class InventoryService implements OnModuleInit {
 
   async createSupplier(dto: Partial<Supplier>): Promise<Supplier> {
     return this.supplierRepository.save(this.supplierRepository.create(dto));
+  }
+
+  async updateSupplier(id: string, dto: Partial<Supplier>): Promise<Supplier> {
+    await this.supplierRepository.update(id, dto);
+    return this.supplierRepository.findOneByOrFail({ id });
+  }
+
+  async deleteSupplier(id: string): Promise<void> {
+    await this.supplierRepository.delete(id);
   }
 
   private async invalidateLotsCache() {

@@ -179,7 +179,8 @@ export const SalesManagement = () => {
       const res = await fetch(PRODUCT_API);
       if (res.ok) {
         const data = await res.json();
-        const mapped: ProductInventoryItem[] = data.map((p: any) => ({
+        const productsList = Array.isArray(data) ? data : (data.items || data.data || []);
+        const mapped: ProductInventoryItem[] = productsList.map((p: any) => ({
           id: p.id,
           sku: p.sku,
           name: p.name,
@@ -207,7 +208,8 @@ export const SalesManagement = () => {
       });
       if (res.ok) {
         const data = await res.json();
-        const customerUsers = data.filter((u: any) => u.role === 'CUSTOMER' || u.role === 'SALES_STAFF');
+        const usersList = Array.isArray(data) ? data : (data.items || data.data || []);
+        const customerUsers = usersList.filter((u: any) => u.role === 'CUSTOMER' || u.role === 'SALES_STAFF');
         const mapped: B2BCustomer[] = customerUsers.map((u: any, idx: number) => ({
           id: u.id,
           code: `B2B-${String(idx + 1).padStart(3, '0')}`,

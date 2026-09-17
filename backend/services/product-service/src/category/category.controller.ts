@@ -3,7 +3,7 @@ import { CategoryService } from './category.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { UserRole } from '../../../../../shared/constants/enums';
+import { UserRole } from '../auth/user-role.enum';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 
 @ApiTags('categories')

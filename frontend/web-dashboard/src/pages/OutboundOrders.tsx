@@ -8,7 +8,6 @@ import {
   ChevronLeft, ChevronRight, RefreshCw, Edit2, Save, RotateCcw,
   Lock, Wifi, WifiOff
 } from 'lucide-react';
-import BarcodeScannerMock from '../components/BarcodeScannerMock';
 import { OutboundReceiptModal } from '../components/OutboundReceiptModal';
 import { CreateOutboundModal } from '../components/CreateOutboundModal';
 import { PrintOrderSlipModal, detectSlipClassification } from '../components/PrintOrderSlipModal';

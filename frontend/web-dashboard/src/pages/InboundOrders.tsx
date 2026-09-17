@@ -6,7 +6,6 @@ import {
   ChevronLeft, ChevronRight, RefreshCw, Warehouse, ShieldCheck,
   Sparkles, MapPin, Check, Box
 } from 'lucide-react';
-import BarcodeScannerMock from '../components/BarcodeScannerMock';
 import WarehouseMap3D from '../components/WarehouseMap3D';
 import { InboundReceiptModal } from '../components/InboundReceiptModal';
 import { CreateInboundModal } from '../components/CreateInboundModal';

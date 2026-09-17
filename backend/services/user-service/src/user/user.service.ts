@@ -686,22 +686,28 @@ export class UserService implements OnModuleInit {
       if (phone) user.phone = phone;
     }
     const savedUser = await this.userRepository.save(user);
-
-    if (addressStr) {
-      let address = await this.addressRepository.findOneBy({ userId: savedUser.id, isDefault: true });
-      if (!address) {
-        address = this.addressRepository.create({
-          userId: savedUser.id,
-          isDefault: true,
-        });
-      }
-      address.streetAddress = addressStr;
-      if (lat !== undefined) address.latitude = lat;
-      if (lng !== undefined) address.longitude = lng;
-      await this.addressRepository.save(address);
-    }
-
     return savedUser;
+  }
+
+  async updateProfile(userId: string, body: any): Promise<User> {
+    const user = await this.findOneById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    Object.assign(user, body);
+    return this.userRepository.save(user);
+  }
+
+  async toggleLock(id: string): Promise<any> {
+    const user = await this.findOneById(id);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    const isLocked = user.status === 'INACTIVE';
+    user.status = isLocked ? 'ACTIVE' : 'INACTIVE';
+    user.lockedAt = isLocked ? null : new Date();
+    await this.userRepository.save(user);
+    return { isLocked: !isLocked };
   }
 
   async resetPassword(id: string): Promise<{ newPassword: string }> {

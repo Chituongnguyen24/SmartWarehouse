@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { Zone } from '../zone/zone.entity';
+import { StorageSlot } from '../storage-slot/storage-slot.entity';
 
 @Entity('shelves')
 export class Shelf {
@@ -27,6 +28,9 @@ export class Shelf {
   @ManyToOne(() => Zone, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'zone_id' })
   zone: Zone;
+
+  @OneToMany(() => StorageSlot, (slot) => slot.shelf)
+  slots: StorageSlot[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

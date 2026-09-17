@@ -22,7 +22,9 @@ import {
   Clock,
   Search,
   Grid3X3,
-  ShoppingCart
+  ShoppingCart,
+  Building2,
+  Activity
 } from 'lucide-react';
 import { useAuth, ROLE_LABELS } from '../../contexts/AuthContext';
 import type { UserRole } from '../../contexts/AuthContext';
@@ -51,8 +53,6 @@ const menuItems: MenuItem[] = [
   { path: '/sales', label: 'Đơn hàng E-commerce', icon: <Package size={18} />, section: 'QUẢN LÝ BÁN HÀNG', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'SALES_STAFF'] },
   { path: '/demand-forecast', label: 'Dự báo Nhu cầu', icon: <TrendingUp size={18} />, section: 'QUẢN LÝ BÁN HÀNG', allowedRoles: ['ADMIN', 'SALES_STAFF', 'WAREHOUSE_MANAGER'] },
 
-  // BÁO CÁO
-  { path: '/reports', label: 'Báo cáo Thống kê', icon: <BarChart3 size={18} />, section: 'BÁO CÁO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
 
   // QUẢN TRỊ HỆ THỐNG (ADMIN only)
   { path: '/users', label: 'Quản lý Người dùng', icon: <Users size={18} />, section: 'QUẢN TRỊ HỆ THỐNG', allowedRoles: ['ADMIN'] },
