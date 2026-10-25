@@ -56,8 +56,28 @@ export const ShiftHomeScreen: React.FC<ShiftHomeScreenProps> = ({ onNavigate }) 
         lookupStockApi(activeWarehouse).then(r => r.lots).catch(() => []),
       ]);
 
-      const pendingPicking = outbound.filter((o: any) => o.status === 'PENDING' || o.status === 'PICKING').length;
-      const readyToPack = outbound.filter((o: any) => o.status === 'PICKED' || o.status === 'PACKING' || o.status === 'PACKED').length;
+      const isReadyOrDonePacking = (o: any) => {
+        const s = (o.status || '').toUpperCase();
+        if (['PICKED', 'PACKING', 'PACKED', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'COMPLETED', 'CANCELLED'].includes(s)) return true;
+        if (typeof localStorage !== 'undefined') {
+          if (localStorage.getItem(`citymart_order_ready_pack_${o.id}`) === 'true') return true;
+          if (localStorage.getItem(`citymart_order_ready_pack_${o.orderCode}`) === 'true') return true;
+        }
+        return false;
+      };
+
+      const isPackingCompleted = (o: any) => {
+        const s = (o.status || '').toUpperCase();
+        if (['PACKED', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'COMPLETED', 'CANCELLED'].includes(s)) return true;
+        if (typeof localStorage !== 'undefined') {
+          if (localStorage.getItem(`citymart_order_packed_${o.id}`) === 'true') return true;
+          if (localStorage.getItem(`citymart_order_packed_${o.orderCode}`) === 'true') return true;
+        }
+        return false;
+      };
+
+      const pendingPicking = outbound.filter((o: any) => (o.status === 'PENDING' || o.status === 'PICKING') && !isReadyOrDonePacking(o)).length;
+      const readyToPack = outbound.filter((o: any) => isReadyOrDonePacking(o) && !isPackingCompleted(o)).length;
       const pendingInbound = inbound.filter((i: any) => i.status === 'PENDING' || i.status === 'RECEIVING' || i.status === 'CHECKING').length;
       const now = Date.now();
       const nearExpiryLots = lots.filter((l: any) => l.expiryDate && (new Date(l.expiryDate).getTime() - now < 7 * 86400000)).length;
@@ -114,21 +134,18 @@ export const ShiftHomeScreen: React.FC<ShiftHomeScreenProps> = ({ onNavigate }) 
 
         <View style={styles.divider} />
 
-        {/* Warehouse Selector & Shift Details */}
+        {/* Assigned Warehouse & Shift Details */}
         <View style={styles.metaRow}>
           <View style={styles.metaItem}>
             <Clock size={13} color="#64748b" />
             <Text style={styles.metaText}>{user?.shift || 'Ca Sáng (06:00 - 14:00)'}</Text>
           </View>
-          <TouchableOpacity
-            style={styles.warehousePill}
-            onPress={() => switchWarehouse(activeWarehouse === 'WH-006' ? 'WH-005' : 'WH-006')}
-          >
+          <View style={styles.warehousePill}>
             <Building2 size={13} color="#059669" />
             <Text style={styles.warehousePillText}>
-              {activeWarehouse === 'WH-006' ? 'Kho Gò Vấp' : 'Kho Tân Bình'} ⇄
+              {user?.warehouseName || `Kho ${activeWarehouse}`}
             </Text>
-          </TouchableOpacity>
+          </View>
         </View>
       </View>
 

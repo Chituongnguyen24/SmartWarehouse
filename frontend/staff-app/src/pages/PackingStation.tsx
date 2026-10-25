@@ -364,6 +364,14 @@ export const PackingStation: React.FC = () => {
         await confirmPickingApi(selectedOrder.id);
         await updateOutboundStatus(selectedOrder.id, 'PACKED');
         await unlockOrder(selectedOrder.id, user?.id || 'usr-staff');
+        localStorage.setItem(`citymart_order_packed_${selectedOrder.id}`, 'true');
+        if (selectedOrder.orderCode) {
+          localStorage.setItem(`citymart_order_packed_${selectedOrder.orderCode}`, 'true');
+        }
+      }
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('staff_badge_refresh'));
       }
 
       const updatedOrder = {

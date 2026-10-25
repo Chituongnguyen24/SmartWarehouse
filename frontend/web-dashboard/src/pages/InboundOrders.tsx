@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useWarehouse } from '../contexts/WarehouseContext';
 import { 
   Download, PackageCheck, AlertCircle, ArrowRight, CheckCircle2, 
   Layers, Plus, X, Search, FileText, ScanBarcode, Printer,
@@ -204,6 +205,7 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string; 
 
 const InboundOrders: React.FC = () => {
   const { token, user } = useAuth();
+  const { warehouses, selectedWarehouseCode } = useWarehouse();
   const [orders, setOrders] = useState<InboundOrder[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -213,13 +215,27 @@ const InboundOrders: React.FC = () => {
   // Toast state
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
 
+  const isManager = user?.role === 'WAREHOUSE_MANAGER' || user?.role === 'WAREHOUSE_STAFF';
+  const myWarehouseCode = user?.warehouseCode || (user?.email?.includes('govap') ? 'WH-006' : 'WH-006');
+
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [statusTab, setStatusTab] = useState<string>('ALL');
-  const [selectedWhFilter, setSelectedWhFilter] = useState<string>(
-    user?.role === 'WAREHOUSE_MANAGER' && user?.warehouseCode ? user.warehouseCode : 'ALL'
-  );
+  const [selectedWhFilter, setSelectedWhFilter] = useState<string>(() => {
+    if (isManager) return myWarehouseCode;
+    return selectedWarehouseCode || 'ALL';
+  });
   const [dateFilter, setDateFilter] = useState<string>('ALL');
+
+  useEffect(() => {
+    if (isManager) {
+      setSelectedWhFilter(myWarehouseCode);
+    } else if (selectedWarehouseCode) {
+      setSelectedWhFilter(selectedWarehouseCode);
+    }
+  }, [isManager, myWarehouseCode, selectedWarehouseCode]);
+
+  const activeWh = isManager ? myWarehouseCode : selectedWhFilter;
 
   // Pagination
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -233,10 +249,6 @@ const InboundOrders: React.FC = () => {
   // Storage Assignment state per SKU (itemId -> assignment info)
   const [itemAssignments, setItemAssignments] = useState<Record<string, { shelfId: string; zone: string; slotLabel: string; lotCode: string; expiryDate: string }>>({});
 
-  const isManager = user?.role === 'WAREHOUSE_MANAGER';
-  const managerWh = user?.warehouseCode || (user?.email?.includes('govap') ? 'WH-006' : null);
-  const activeWh = isManager ? (managerWh || 'WH-006') : selectedWhFilter;
-
   const showToast = useCallback((text: string, type: 'success' | 'info' | 'error' = 'success') => {
     setToastMessage({ text, type });
     setTimeout(() => {
@@ -247,7 +259,10 @@ const InboundOrders: React.FC = () => {
   const fetchOrders = useCallback(async (showSpinner = false) => {
     if (showSpinner) setIsRefreshing(true);
     try {
-      const res = await fetch(`${API_BASE}/inbound-orders`, {
+      const url = activeWh && activeWh !== 'ALL'
+        ? `${API_BASE}/inbound-orders?warehouseCode=${encodeURIComponent(activeWh)}`
+        : `${API_BASE}/inbound-orders`;
+      const res = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -260,7 +275,7 @@ const InboundOrders: React.FC = () => {
       setInitialLoading(false);
       if (showSpinner) setIsRefreshing(false);
     }
-  }, [token]);
+  }, [token, activeWh]);
 
   useEffect(() => {
     fetchOrders(false);
@@ -549,7 +564,7 @@ const InboundOrders: React.FC = () => {
   const kpiStats = useMemo(() => {
     const relevant = orders.filter(o => {
       if (!activeWh || activeWh === 'ALL') return true;
-      return !o.warehouseCode || o.warehouseCode === activeWh || o.warehouseCode.includes('WH-006');
+      return o.warehouseCode === activeWh;
     });
 
     const total = relevant.length;
@@ -577,7 +592,7 @@ const InboundOrders: React.FC = () => {
       // Warehouse filter
       let matchWh = true;
       if (activeWh && activeWh !== 'ALL') {
-        matchWh = !o.warehouseCode || o.warehouseCode === activeWh || o.warehouseCode.includes('WH-006');
+        matchWh = o.warehouseCode === activeWh;
       }
 
       // Status tab filter
@@ -705,10 +720,11 @@ const InboundOrders: React.FC = () => {
               }}
             >
               <option value="ALL">🏢 Tất cả các Kho ({orders.length} phiếu)</option>
-              <option value="WH-006">🏢 Kho Gò Vấp (WH-006)</option>
-              <option value="WH-001">🏢 Kho Quận 12 (WH-001)</option>
-              <option value="WH-002">🏢 Kho Thủ Đức (WH-002)</option>
-              <option value="WH-005">🏢 Kho Bình Thạnh (WH-005)</option>
+              {warehouses.map(w => (
+                <option key={w.id || w.code} value={w.code}>
+                  🏢 {w.name} ({w.code})
+                </option>
+              ))}
             </select>
           )}
 
@@ -1478,7 +1494,7 @@ const InboundOrders: React.FC = () => {
         }}
         token={token}
         user={user}
-        defaultWarehouse={activeWh !== 'ALL' ? activeWh : 'WH-006'}
+        defaultWarehouse={activeWh !== 'ALL' ? activeWh : (selectedWarehouseCode || 'WH-006')}
       />
 
       {/* Inbound Receipt Modal (Mẫu số 01 - VT) */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -9,39 +9,51 @@ import {
 } from 'lucide-react';
 import { fetchOutboundOrders, fetchInboundOrdersApi } from '../services/api';
 import { useStaffWebSocket } from '../context/WebSocketContext';
+import { useAuth } from '../context/AuthContext';
 
 export const BottomNavBar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, activeWarehouse } = useAuth();
   const { lastEvent } = useStaffWebSocket();
+
+  const effectiveWhCode = user?.warehouseCode || activeWarehouse || 'WH-006';
 
   const [packingCount, setPackingCount] = useState<number>(0);
   const [pickingCount, setPickingCount] = useState<number>(0);
   const [inboundCount, setInboundCount] = useState<number>(0);
 
-  const loadBadgeCounts = async () => {
+  const loadBadgeCounts = useCallback(async () => {
     try {
       const [outbounds, inbounds] = await Promise.all([
-        fetchOutboundOrders(),
-        fetchInboundOrdersApi(),
+        fetchOutboundOrders(effectiveWhCode),
+        fetchInboundOrdersApi(effectiveWhCode),
       ]);
 
       if (Array.isArray(outbounds)) {
         const isReadyOrDonePacking = (ord: any) => {
           const s = (ord.status || '').toUpperCase();
-          if (['PICKED', 'PACKING', 'PACKED', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'COMPLETED'].includes(s)) return true;
+          if (['PICKED', 'PACKING', 'PACKED', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'COMPLETED', 'CANCELLED'].includes(s)) return true;
           if (localStorage.getItem(`citymart_order_ready_pack_${ord.id}`) === 'true') return true;
           if (localStorage.getItem(`citymart_order_ready_pack_${ord.orderCode}`) === 'true') return true;
           if (Array.isArray(ord.items) && ord.items.length > 0) {
-            const allPicked = ord.items.every((it: any) => Number(it.pickedQuantity || 0) >= Number(it.quantity || it.requestedQuantity || 1) && Number(it.quantity || it.requestedQuantity || 1) > 0);
+            const allPicked = ord.items.every((it: any) => {
+              const cachedPicked = localStorage.getItem(`citymart_picked_qty_${it.id}`) || localStorage.getItem(`citymart_picked_qty_${ord.orderCode}_${it.sku}`);
+              const cur = Number(it.pickedQuantity > 0 ? it.pickedQuantity : (cachedPicked ? Number(cachedPicked) : 0));
+              const exactQty = Number((it as any).requestedQuantity !== undefined ? (it as any).requestedQuantity : it.quantity || 1);
+              return cur >= exactQty && exactQty > 0;
+            });
             if (allPicked) return true;
           }
           return false;
         };
 
-        const isPackingCompleted = (status?: string) => {
-          const s = (status || '').toUpperCase();
-          return ['PACKED', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'COMPLETED', 'CANCELLED'].includes(s);
+        const isPackingCompleted = (ord: any) => {
+          const s = (ord.status || '').toUpperCase();
+          if (['PACKED', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'COMPLETED', 'CANCELLED'].includes(s)) return true;
+          if (localStorage.getItem(`citymart_order_packed_${ord.id}`) === 'true') return true;
+          if (localStorage.getItem(`citymart_order_packed_${ord.orderCode}`) === 'true') return true;
+          return false;
         };
 
         const picking = outbounds.filter(o => 
@@ -49,7 +61,7 @@ export const BottomNavBar: React.FC = () => {
         ).length;
 
         const pendingPacking = outbounds.filter(o => 
-          isReadyOrDonePacking(o) && !isPackingCompleted(o.status)
+          isReadyOrDonePacking(o) && !isPackingCompleted(o)
         ).length;
 
         setPickingCount(picking);
@@ -57,23 +69,32 @@ export const BottomNavBar: React.FC = () => {
       }
 
       if (Array.isArray(inbounds)) {
-        const pendingInbound = inbounds.filter((i: any) => i.status !== 'STORED').length;
+        const pendingInbound = inbounds.filter((i: any) => i.status !== 'STORED' && i.status !== 'COMPLETED' && i.status !== 'CANCELLED').length;
         setInboundCount(pendingInbound);
       }
     } catch (e) {
       // ignore
     }
-  };
+  }, [effectiveWhCode]);
 
   useEffect(() => {
     loadBadgeCounts();
-  }, []);
+    const interval = setInterval(loadBadgeCounts, 2500);
+    const onRefreshEvent = () => loadBadgeCounts();
+    window.addEventListener('staff_badge_refresh', onRefreshEvent);
+    window.addEventListener('storage', onRefreshEvent);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('staff_badge_refresh', onRefreshEvent);
+      window.removeEventListener('storage', onRefreshEvent);
+    };
+  }, [loadBadgeCounts, location.pathname]);
 
   useEffect(() => {
     if (lastEvent) {
       loadBadgeCounts();
     }
-  }, [lastEvent]);
+  }, [lastEvent, loadBadgeCounts]);
 
   const NAV_ITEMS = [
     { path: '/', label: 'Tổng Quan', icon: <LayoutDashboard size={20} /> },

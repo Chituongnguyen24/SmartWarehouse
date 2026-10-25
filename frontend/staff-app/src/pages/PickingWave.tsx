@@ -25,6 +25,7 @@ import {
   Volume2,
   VolumeX,
   FileSpreadsheet,
+  Key,
 } from 'lucide-react';
 import { PickingItem } from '../types';
 import { CameraScannerModal } from '../components/CameraScannerModal';
@@ -44,6 +45,9 @@ import {
   updateOutboundStatus,
   updatePickedItemsApi,
   ApiOutboundOrder,
+  locateShelfIotApi,
+  chirpShelfIotApi,
+  completeShelfIotApi,
 } from '../services/api';
 import { useStaffWebSocket } from '../context/WebSocketContext';
 import { useAuth } from '../context/AuthContext';
@@ -75,6 +79,47 @@ export const PickingWave: React.FC = () => {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState<boolean>(true);
   const [isShiftModalOpen, setIsShiftModalOpen] = useState<boolean>(false);
   const [isIncidentModalOpen, setIsIncidentModalOpen] = useState<boolean>(false);
+  const [activeLocatingShelf, setActiveLocatingShelf] = useState<string | null>(null);
+  const [smartkeyPingingShelf, setSmartkeyPingingShelf] = useState<string | null>(null);
+
+  const handleLocateShelf = async (item: PickingItem) => {
+    if (activeLocatingShelf === item.shelfLocation) {
+      setActiveLocatingShelf(null);
+      await completeShelfIotApi({
+        warehouseCode: effectiveWhCode || 'GV',
+        shelfCode: item.shelfLocation,
+      });
+      return;
+    }
+
+    setActiveLocatingShelf(item.shelfLocation);
+    // Play radar sonar ping sound effect on mobile (default: visual LED blink on IoT)
+    voiceAssistant.playTone('LOCATE');
+
+    await locateShelfIotApi({
+      warehouseCode: effectiveWhCode || 'GV',
+      shelfCode: item.shelfLocation,
+      productName: item.productName,
+      qty: item.quantity,
+    });
+  };
+
+  // Smartkey Horn Chirp (Bóp còi tìm kệ như Smartkey ô tô / xe máy)
+  const handleSmartkeyChirp = async (item: PickingItem) => {
+    setSmartkeyPingingShelf(item.shelfLocation);
+    // Play realistic car/motorbike key-fob double chirp sound ("Pip-Pip!")
+    voiceAssistant.playTone('SMARTKEY');
+
+    // Trigger IoT Smartkey horn chirp on hardware node
+    await chirpShelfIotApi({
+      warehouseCode: effectiveWhCode || 'GV',
+      shelfCode: item.shelfLocation,
+    });
+
+    setTimeout(() => {
+      setSmartkeyPingingShelf(null);
+    }, 1200);
+  };
 
   // Helper to format shelf location from DB lot location
   const formatShelfLocation = (rawLoc?: string, zone?: string, fallbackIdx: number = 1): string => {
@@ -132,28 +177,44 @@ export const PickingWave: React.FC = () => {
     []
   );
 
+  const lotsCacheRef = React.useRef<any[]>([]);
+  const productsCacheRef = React.useRef<any[]>([]);
+
   // Sync Live Data from Backend Microservices
-  const loadLiveData = useCallback(async () => {
-    setIsLoading(true);
+  const loadLiveData = useCallback(async (isSilent: boolean = false) => {
+    if (!isSilent) {
+      setIsLoading(true);
+    }
     try {
+      const needStaticData = lotsCacheRef.current.length === 0 || productsCacheRef.current.length === 0;
+
       const [orders, lots, products] = await Promise.all([
         fetchOutboundOrders(effectiveWhCode),
-        fetchInventoryLots({ warehouseCode: effectiveWhCode, limit: 10000 }),
-        fetchProducts(),
+        needStaticData ? fetchInventoryLots({ warehouseCode: effectiveWhCode, limit: 10000 }) : Promise.resolve(lotsCacheRef.current),
+        needStaticData ? fetchProducts() : Promise.resolve(productsCacheRef.current),
       ]);
 
-      setLiveLots(Array.isArray(lots) ? lots : []);
-      setLiveProducts(Array.isArray(products) ? products : []);
+      if (Array.isArray(lots) && lots.length > 0) {
+        lotsCacheRef.current = lots;
+        setLiveLots(lots);
+      }
+      if (Array.isArray(products) && products.length > 0) {
+        productsCacheRef.current = products;
+        setLiveProducts(products);
+      }
+
+      const activeLots = lotsCacheRef.current;
+      const activeProducts = productsCacheRef.current;
 
       const prodMap = new Map<string, any>();
-      products.forEach((p: any) => {
+      activeProducts.forEach((p: any) => {
         prodMap.set(p.sku, p);
         prodMap.set(p.id, p);
       });
 
       const lotMap = new Map<string, any>();
       const skuLotsMap = new Map<string, any[]>();
-      lots.forEach((l: any) => {
+      activeLots.forEach((l: any) => {
         lotMap.set(l.lotCode, l);
         lotMap.set(l.id, l);
         if (l.sku) {
@@ -182,27 +243,34 @@ export const PickingWave: React.FC = () => {
 
       setAllWaveItems(aggregatedItems);
 
-      // If targetOrderId is specified in searchParams, select that order, else default to 'ALL'
-      const activeFilterId = targetOrderId && pendingOrders.some(o => o.id === targetOrderId || o.orderCode === targetOrderId)
-        ? targetOrderId
-        : 'ALL';
+      // Preserve current filter or apply targetOrderId
+      setSelectedOrderId(prevFilter => {
+        const activeFilterId = (targetOrderId && pendingOrders.some(o => o.id === targetOrderId || o.orderCode === targetOrderId))
+          ? targetOrderId
+          : (prevFilter !== 'ALL' && pendingOrders.some(o => o.id === prevFilter || o.orderCode === prevFilter))
+          ? prevFilter
+          : 'ALL';
 
-      setSelectedOrderId(activeFilterId);
-
-      if (activeFilterId === 'ALL') {
-        setItems(aggregatedItems);
-      } else {
-        const filtered = aggregatedItems.filter(i => i.orderId === activeFilterId || i.orderCode === activeFilterId);
-        setItems(filtered);
-      }
+        if (activeFilterId === 'ALL') {
+          setItems(aggregatedItems);
+        } else {
+          const filtered = aggregatedItems.filter(i => i.orderId === activeFilterId || i.orderCode === activeFilterId);
+          setItems(filtered);
+        }
+        return activeFilterId;
+      });
     } catch (e) {
       console.warn('Live picking load error:', e);
-      setAllWaveItems([]);
-      setItems([]);
+      if (!isSilent) {
+        setAllWaveItems([]);
+        setItems([]);
+      }
     } finally {
-      setIsLoading(false);
+      if (!isSilent) {
+        setIsLoading(false);
+      }
     }
-  }, [targetOrderId, mapOrderItems]);
+  }, [targetOrderId, effectiveWhCode, mapOrderItems]);
 
   // When selected filter changes
   const handleSelectOrderFilter = (ordId: string) => {
@@ -216,15 +284,20 @@ export const PickingWave: React.FC = () => {
     }
   };
 
+  // Initial load and silent high-speed polling every 3 seconds
   useEffect(() => {
-    loadLiveData();
+    loadLiveData(false);
+    const interval = setInterval(() => {
+      loadLiveData(true);
+    }, 3000);
+    return () => clearInterval(interval);
   }, [loadLiveData]);
 
-  // Realtime WebSocket trigger reload when new orders arrive
+  // Realtime WebSocket trigger immediate silent reload when new orders arrive
   useEffect(() => {
     if (lastEvent) {
-      if (['outbound_order_created', 'outbound_order_updated', 'order_status_updated'].includes(lastEvent.type)) {
-        loadLiveData();
+      if (['outbound_order_created', 'new_order', 'order_created', 'outbound_order_updated', 'order_status_updated', 'all_alerts'].includes(lastEvent.type)) {
+        loadLiveData(true);
       }
     }
   }, [lastEvent, loadLiveData]);
@@ -356,6 +429,15 @@ export const PickingWave: React.FC = () => {
         type: 'SUCCESS',
         text: `📦 Đã gom đủ: ${activeScanItem.productName} (${activeScanItem.quantity} ${activeScanItem.unit})`,
       });
+
+      // 💡 IoT: Quét xong sản phẩm -> Tự động gửi lệnh tắt đèn kệ!
+      completeShelfIotApi({
+        warehouseCode: effectiveWhCode || 'GV',
+        shelfCode: activeScanItem.shelfLocation,
+      });
+      if (activeLocatingShelf === activeScanItem.shelfLocation) {
+        setActiveLocatingShelf(null);
+      }
     } else {
       setToastMessage({
         type: 'SUCCESS',
@@ -387,7 +469,6 @@ export const PickingWave: React.FC = () => {
 
     if (matchItem) {
       if (matchItem.status === 'PICKED') {
-        if (isVoiceEnabled) voiceAssistant.speak(`Mặt hàng ${matchItem.productName} đã gom đủ rồi!`);
         voiceAssistant.playTone('ALERT');
         return;
       }
@@ -395,20 +476,13 @@ export const PickingWave: React.FC = () => {
       const newPickedCount = Math.min(matchItem.quantity, (matchItem.pickedQuantity || 0) + 1);
       const isDone = newPickedCount >= matchItem.quantity;
 
-      voiceAssistant.playTone('SUCCESS');
-      if (isVoiceEnabled) {
-        if (isDone) {
-          voiceAssistant.speak(`Đã gom đủ ${matchItem.quantity} ${matchItem.unit} ${matchItem.productName}!`);
-        } else {
-          voiceAssistant.speak(`Đã quét thêm 1. Còn ${matchItem.quantity - newPickedCount} ${matchItem.unit}`);
-        }
-      }
+      // Play success tone for completion, or crisp scanner beep for single increment
+      voiceAssistant.playTone(isDone ? 'SUCCESS' : 'BEEP');
 
       setActiveScanItem(matchItem);
       handleScanResult(scannedCode, true, 'ITEM', newPickedCount);
     } else {
       voiceAssistant.playTone('ERROR');
-      if (isVoiceEnabled) voiceAssistant.speak(`Cảnh báo: Mã quét không khớp!`);
       setToastMessage({
         type: 'ERROR',
         text: `⚠️ Mã quét "${scannedCode}" không khớp với bất kỳ mặt hàng nào trong đợt sóng!`,
@@ -439,6 +513,10 @@ export const PickingWave: React.FC = () => {
       }
     }
 
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('staff_badge_refresh'));
+    }
+
     const firstOrd = availableOrders.find(o => orderIdsToUnlock.includes(o.id)) || availableOrders[0];
 
     navigate(selectedOrderId !== 'ALL' ? `/packing?orderId=${selectedOrderId}` : '/packing', {
@@ -458,7 +536,15 @@ export const PickingWave: React.FC = () => {
     try {
       for (const ordId of orderIdsToConfirm) {
         await confirmOutboundOrder(ordId);
+        localStorage.setItem(`citymart_order_packed_${ordId}`, 'true');
+        const foundOrder = availableOrders.find(o => o.id === ordId);
+        if (foundOrder?.orderCode) {
+          localStorage.setItem(`citymart_order_packed_${foundOrder.orderCode}`, 'true');
+        }
         await unlockOrder(ordId, user?.id || 'usr-staff');
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('staff_badge_refresh'));
       }
       setToastMessage({
         type: 'SUCCESS',
@@ -583,7 +669,7 @@ export const PickingWave: React.FC = () => {
                 const next = !isVoiceEnabled;
                 setIsVoiceEnabled(next);
                 voiceAssistant.setEnabled(next);
-                if (next) voiceAssistant.speak('Đã bật trợ lý giọng nói nhặt hàng');
+                if (next) voiceAssistant.playTone('ALERT');
               }}
               style={{
                 display: 'flex',
@@ -598,10 +684,10 @@ export const PickingWave: React.FC = () => {
                 color: isVoiceEnabled ? '#047857' : '#64748b',
                 cursor: 'pointer',
               }}
-              title={isVoiceEnabled ? 'Tắt trợ lý giọng nói' : 'Bật trợ lý giọng nói'}
+              title={isVoiceEnabled ? 'Tắt âm thanh hiệu ứng' : 'Bật âm thanh hiệu ứng'}
             >
               {isVoiceEnabled ? <Volume2 size={14} color="#059669" /> : <VolumeX size={14} color="#94a3b8" />}
-              <span>{isVoiceEnabled ? 'Voice ON' : 'Voice OFF'}</span>
+              <span>{isVoiceEnabled ? 'Sound ON' : 'Sound OFF'}</span>
             </button>
 
             {/* Handover Shift Button */}
@@ -659,6 +745,36 @@ export const PickingWave: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* 🔊 Active IoT Shelf Finding Banner */}
+        {activeLocatingShelf && (
+          <div
+            style={{
+              marginTop: '12px',
+              backgroundColor: '#fef3c7',
+              border: '1.5px solid #fde68a',
+              borderRadius: '12px',
+              padding: '10px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#92400e', fontWeight: 700 }}>
+              <Volume2 size={18} color="#d97706" />
+              <span>
+                Đang phát tín hiệu tới <strong style={{ color: '#b45309', textDecoration: 'underline' }}>{activeLocatingShelf}</strong> (Còi kêu & Nháy đèn). Hãy tới nơi và ấn Check-in!
+              </span>
+            </div>
+            <button
+              onClick={() => setActiveLocatingShelf(null)}
+              style={{ background: 'none', border: 'none', color: '#b45309', cursor: 'pointer', fontWeight: 900, fontSize: '14px', padding: '2px 6px' }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Progress Bar (Only when items exist) */}
         {items.length > 0 && (
@@ -848,26 +964,50 @@ export const PickingWave: React.FC = () => {
                 </div>
               </div>
 
-              <button
-                disabled={isLockedByOther}
-                onClick={() => handleStartScan(currentPendingItem)}
-                style={{
-                  backgroundColor: isLockedByOther ? '#94a3b8' : '#0284c7',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '10px 14px',
-                  borderRadius: '12px',
-                  fontWeight: 900,
-                  fontSize: '12px',
-                  cursor: isLockedByOther ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)',
-                }}
-              >
-                <ScanBarcode size={16} /> {isLockedByOther ? 'Bị Khóa' : 'Quét'}
-              </button>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button
+                  onClick={() => handleLocateShelf(currentPendingItem)}
+                  style={{
+                    backgroundColor: activeLocatingShelf === currentPendingItem.shelfLocation ? '#d97706' : '#fffbeb',
+                    color: activeLocatingShelf === currentPendingItem.shelfLocation ? '#ffffff' : '#b45309',
+                    border: '1.5px solid #fde68a',
+                    padding: '10px 12px',
+                    borderRadius: '12px',
+                    fontWeight: 900,
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: activeLocatingShelf === currentPendingItem.shelfLocation ? '0 0 10px rgba(217, 119, 6, 0.4)' : 'none',
+                  }}
+                  title="Kích hoạt còi & đèn LED trên kệ hàng"
+                >
+                  <Volume2 size={16} />
+                  <span>{activeLocatingShelf === currentPendingItem.shelfLocation ? 'Đang kêu còi...' : '🔔 Định Vị Kệ'}</span>
+                </button>
+
+                <button
+                  disabled={isLockedByOther}
+                  onClick={() => handleStartScan(currentPendingItem)}
+                  style={{
+                    backgroundColor: isLockedByOther ? '#94a3b8' : '#0284c7',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '10px 14px',
+                    borderRadius: '12px',
+                    fontWeight: 900,
+                    fontSize: '12px',
+                    cursor: isLockedByOther ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)',
+                  }}
+                >
+                  <ScanBarcode size={16} /> {isLockedByOther ? 'Bị Khóa' : 'Quét'}
+                </button>
+              </div>
             </div>
           ) : (
             <div style={{ backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '16px', padding: '14px', textAlign: 'center' }}>
@@ -1022,9 +1162,68 @@ export const PickingWave: React.FC = () => {
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <MapPin size={14} color="#0284c7" />
-                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a' }}>{item.shelfLocation}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <MapPin size={14} color="#0284c7" />
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a' }}>{item.shelfLocation}</span>
+                      </div>
+
+                      {!isPicked && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {/* 💡 Nút Nháy đèn định vị */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleLocateShelf(item);
+                            }}
+                            style={{
+                              backgroundColor: activeLocatingShelf === item.shelfLocation ? '#0284c7' : '#f0f9ff',
+                              color: activeLocatingShelf === item.shelfLocation ? '#ffffff' : '#0369a1',
+                              border: '1px solid #bae6fd',
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              cursor: 'pointer',
+                            }}
+                            title="Mặc định: Bật/tắt nháy đèn LED định vị kệ (hoàn toàn không kêu còi)"
+                          >
+                            <Sparkles size={12} />
+                            <span>{activeLocatingShelf === item.shelfLocation ? 'Đang nháy' : 'Nháy đèn'}</span>
+                          </button>
+
+                          {/* 🔊 Nút Phát còi định vị kệ */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSmartkeyChirp(item);
+                            }}
+                            style={{
+                              backgroundColor: smartkeyPingingShelf === item.shelfLocation ? '#d97706' : '#fffbeb',
+                              color: smartkeyPingingShelf === item.shelfLocation ? '#ffffff' : '#b45309',
+                              border: '1px solid #fde68a',
+                              padding: '3px 9px',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              cursor: 'pointer',
+                              boxShadow: smartkeyPingingShelf === item.shelfLocation ? '0 0 10px rgba(217,119,6,0.4)' : 'none',
+                              transform: smartkeyPingingShelf === item.shelfLocation ? 'scale(1.04)' : 'scale(1)',
+                              transition: 'all 0.15s ease',
+                            }}
+                            title="Bấm để kệ phát tiếng còi bíp bíp tìm vị trí"
+                          >
+                            <Volume2 size={12} />
+                            <span>{smartkeyPingingShelf === item.shelfLocation ? 'Đang kêu...' : 'Bấm còi'}</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <div style={{ fontSize: '12.5px', fontWeight: 900, color: isPicked ? '#059669' : '#0284c7' }}>

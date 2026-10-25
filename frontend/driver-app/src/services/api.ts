@@ -98,12 +98,14 @@ export const driverApi = {
   /**
    * Lấy danh sách đơn xuất kho / tiêu hủy / chuyển kho từ Outbound Service (:3007)
    */
-  async getOutboundOrders(): Promise<any[]> {
+  async getOutboundOrders(warehouseCode?: string): Promise<any[]> {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-      const url = `${API_CONFIG.OUTBOUND_SERVICE}/outbound-orders`;
+      const url = warehouseCode && warehouseCode !== 'ALL'
+        ? `${API_CONFIG.OUTBOUND_SERVICE}/outbound-orders?warehouseCode=${encodeURIComponent(warehouseCode)}`
+        : `${API_CONFIG.OUTBOUND_SERVICE}/outbound-orders`;
       const response = await fetch(url, {
         method: 'GET',
         headers: getAuthHeaders(),

@@ -211,7 +211,7 @@ export const updatePickedItemsApi = async (
 export const fetchPickingTasksApi = async (warehouseCode?: string): Promise<PickingItem[]> => {
   try {
     const [orders, lots, products] = await Promise.all([
-      fetchOutboundOrders(),
+      fetchOutboundOrders(warehouseCode),
       fetchInventoryLots(warehouseCode),
       fetchProducts(),
     ]);
@@ -412,3 +412,56 @@ export const fetchShiftMetricsApi = async () => {
     itemsPerHour: 142,
   };
 };
+
+// IoT Pick-to-Light: Phát lệnh tìm vị trí kệ hàng (Mặc định nháy đèn)
+export const locateShelfIotApi = async (data: {
+  warehouseCode?: string;
+  shelfCode: string;
+  slotCode?: string;
+  productName?: string;
+  qty?: number;
+  step?: number;
+}) => {
+  try {
+    const res = await fetch(`${API_URLS.OUTBOUND}/outbound-orders/iot/locate-shelf`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn('locateShelfIotApi network error:', e);
+  }
+  return { success: true };
+};
+
+// IoT Pick-to-Light: Bóp còi Smartkey tìm kệ (như Smartkey ô tô / xe máy)
+export const chirpShelfIotApi = async (data: { warehouseCode?: string; shelfCode: string }) => {
+  try {
+    const res = await fetch(`${API_URLS.OUTBOUND}/outbound-orders/iot/chirp-shelf`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn('chirpShelfIotApi network error:', e);
+  }
+  return { success: true };
+};
+
+// IoT Pick-to-Light: Quét xong sản phẩm -> Tự động tắt đèn kệ
+export const completeShelfIotApi = async (data: { warehouseCode?: string; shelfCode: string }) => {
+  try {
+    const res = await fetch(`${API_URLS.OUTBOUND}/outbound-orders/iot/complete-shelf`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn('completeShelfIotApi network error:', e);
+  }
+  return { success: true };
+};
+

@@ -37,6 +37,8 @@ import {
   Calendar as IconCalendar,
 } from 'lucide-react';
 import { PrintAccountingVoucherModal, type VoucherType } from '../components/PrintAccountingVoucherModal';
+import { useAuth } from '../contexts/AuthContext';
+import { useWarehouse } from '../contexts/WarehouseContext';
 
 const ORDER_API = 'http://localhost:3004/orders';
 const OUTBOUND_API = 'http://localhost:3007/outbound-orders';
@@ -93,6 +95,12 @@ interface InventoryItemReport {
 }
 
 const Reports: React.FC = () => {
+  const { user } = useAuth();
+  const { warehouses, selectedWarehouseCode } = useWarehouse();
+  const isManager = user?.role === 'WAREHOUSE_MANAGER' || user?.role === 'WAREHOUSE_STAFF';
+  const myWarehouseCode = user?.warehouseCode || (user?.email?.includes('govap') ? 'WH-006' : 'WH-006');
+  const activeWh = isManager ? myWarehouseCode : (selectedWarehouseCode || 'WH-006');
+
   const [activeTab, setActiveTab] = useState<MainReportTab>('TAB_OPTIMIZATION');
   const [timeRange, setTimeRange] = useState<'TODAY' | 'WEEK' | 'MONTH'>('WEEK');
   const [loading, setLoading] = useState<boolean>(true);
@@ -121,7 +129,10 @@ const Reports: React.FC = () => {
     setLoading(true);
     try {
       // 1. Fetch E-commerce Orders
-      const orderRes = await fetch(ORDER_API).catch(() => null);
+      const orderUrl = activeWh && activeWh !== 'ALL'
+        ? `${ORDER_API}?warehouseCode=${encodeURIComponent(activeWh)}`
+        : ORDER_API;
+      const orderRes = await fetch(orderUrl).catch(() => null);
       let ordersList: any[] = [];
       if (orderRes && orderRes.ok) {
         const orderData = await orderRes.json();
@@ -129,7 +140,10 @@ const Reports: React.FC = () => {
       }
 
       // 2. Fetch Outbound Orders
-      const obRes = await fetch(OUTBOUND_API).catch(() => null);
+      const obUrl = activeWh && activeWh !== 'ALL'
+        ? `${OUTBOUND_API}/outbound-orders?warehouseCode=${encodeURIComponent(activeWh)}`
+        : `${OUTBOUND_API}/outbound-orders`;
+      const obRes = await fetch(obUrl).catch(() => null);
       if (obRes && obRes.ok) {
         const obData = await obRes.json();
         if (Array.isArray(obData)) {
@@ -139,7 +153,10 @@ const Reports: React.FC = () => {
       setRawOrders(ordersList);
 
       // 3. Fetch Real Inventory Lots
-      const lotsRes = await fetch(`${INVENTORY_API}/inventory/lots?warehouseCode=WH-006`).catch(() => null);
+      const lotsUrl = activeWh && activeWh !== 'ALL'
+        ? `${INVENTORY_API}/inventory/lots?warehouseCode=${encodeURIComponent(activeWh)}`
+        : `${INVENTORY_API}/inventory/lots`;
+      const lotsRes = await fetch(lotsUrl).catch(() => null);
       if (lotsRes && lotsRes.ok) {
         const lotsData = await lotsRes.json();
         if (Array.isArray(lotsData)) setRawInventoryLots(lotsData);
@@ -153,7 +170,7 @@ const Reports: React.FC = () => {
 
   useEffect(() => {
     fetchAllRealData();
-  }, []);
+  }, [activeWh]);
 
   // ── 1. DYNAMIC CALCULATIONS FROM REAL SYSTEM ORDERS ──
   const {
@@ -885,7 +902,10 @@ const Reports: React.FC = () => {
                   Sổ Báo Cáo Nhập - Xuất - Tồn Chi Tiết Hàng Hóa (Mẫu S10-DN)
                 </h3>
                 <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
-                  Theo dõi số lượng và giá trị tồn kho tại Siêu thị & Kho Gò Vấp (WH-006)
+                  Theo dõi số lượng và giá trị tồn kho tại {(() => {
+                    const whObj = warehouses.find(w => w.code === activeWh);
+                    return whObj ? `${whObj.name} (${whObj.code})` : `Kho ${activeWh}`;
+                  })()}
                 </p>
               </div>
 

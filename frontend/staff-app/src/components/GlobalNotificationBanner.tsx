@@ -65,22 +65,35 @@ export const GlobalNotificationBanner: React.FC = () => {
     };
   }, []);
 
+  const isSameWarehouse = (a?: string, b?: string) => {
+    if (!a || !b || a === 'ALL' || b === 'ALL') return true;
+    const na = a.toUpperCase().trim();
+    const nb = b.toUpperCase().trim();
+    if (na === nb) return true;
+    const isGoVapA = na === 'GV' || na === 'WH-006' || na.includes('GÒ VẤP') || na.includes('GO VAP');
+    const isGoVapB = nb === 'GV' || nb === 'WH-006' || nb.includes('GÒ VẤP') || nb.includes('GO VAP');
+    if (isGoVapA && isGoVapB) return true;
+    return false;
+  };
+
   useEffect(() => {
     if (!lastEvent) return;
 
-    const data = lastEvent.data?.order || lastEvent.data;
-    const orderWh = data?.warehouseCode || data?.warehouseId;
-    if (orderWh && effectiveWhCode && orderWh !== effectiveWhCode && orderWh !== 'ALL') {
+    const rawData = lastEvent.data;
+    const data = rawData?.order || rawData?.payload || rawData;
+    const orderWh = data?.warehouseCode || data?.assignedWarehouseCode || data?.warehouseId || data?.assignedWarehouseId || rawData?.warehouseCode || rawData?.assignedWarehouseCode;
+    
+    if (orderWh && effectiveWhCode && !isSameWarehouse(orderWh, effectiveWhCode)) {
       return; // Ignore orders belonging to other warehouses
     }
 
-    const orderCode = data?.orderCode || data?.code || 'Đơn hàng';
-    const destination = data?.destination || data?.customerName || 'Khu vực giao hàng';
-    const totalItems = data?.totalItems || data?.items?.length || 1;
+    const orderCode = data?.orderCode || data?.code || (data?.id ? `#${String(data.id).slice(0, 8)}` : 'Đơn hàng mới');
+    const destination = data?.destination || data?.customerName || data?.shippingAddress || 'Khu vực giao hàng';
+    const totalItems = data?.totalItems || data?.items?.length || (Array.isArray(data?.items) ? data.items.reduce((s: number, i: any) => s + (Number(i.quantity || i.requestedQuantity) || 1), 0) : 1);
     const orderId = data?.orderId || data?.id;
 
-    if (lastEvent.type === 'outbound_order_created') {
-      // Voice announcement in Vietnamese (zero-delay, concise)
+    if (['outbound_order_created', 'new_order', 'order_created'].includes(lastEvent.type)) {
+      // Audio cue for new picking wave/order
       voiceAssistant.announceNewPickingOrder();
 
       setNotification({
@@ -117,6 +130,25 @@ export const GlobalNotificationBanner: React.FC = () => {
           message: `${orderCode} đã soạn xong • Cần đóng gói & dán tem`,
           actionLabel: 'Đóng Gói Ngay',
           actionRoute: orderId ? `/packing?orderId=${orderId}` : '/packing',
+        });
+
+        const timer = setTimeout(() => {
+          setNotification(null);
+        }, 9000);
+        return () => clearTimeout(timer);
+      } else if (status === 'PENDING' || status === 'NEW' || status === 'ASSIGNED') {
+        voiceAssistant.announceNewPickingOrder();
+
+        setNotification({
+          orderId,
+          orderCode,
+          destination,
+          totalItems,
+          type: 'PICKING',
+          title: '🔔 ĐƠN SOẠN HÀNG MỚI ĐÃ GÁN VÀO KHO!',
+          message: `${orderCode} • ${destination} (${totalItems} món)`,
+          actionLabel: 'Soạn Hàng Ngay',
+          actionRoute: orderId ? `/picking?orderId=${orderId}` : '/picking',
         });
 
         const timer = setTimeout(() => {
@@ -266,7 +298,7 @@ export const GlobalNotificationBanner: React.FC = () => {
               {/* Quick Voice Toggle Button */}
               <button
                 onClick={() => voiceAssistant.toggle()}
-                title={isVoiceOn ? 'Trợ lý giọng nói: Đang BẬT' : 'Trợ lý giọng nói: Đang TẮT'}
+                title={isVoiceOn ? 'Âm thanh thông báo: Đang BẬT' : 'Âm thanh thông báo: Đang TẮT'}
                 style={{
                   backgroundColor: isVoiceOn ? '#f0fdf4' : '#f8fafc',
                   border: `1px solid ${isVoiceOn ? '#86efac' : '#e2e8f0'}`,

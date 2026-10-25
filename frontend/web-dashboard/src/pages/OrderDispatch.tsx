@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { useAuth } from '../contexts/AuthContext';
+import { useWarehouse } from '../contexts/WarehouseContext';
 import { GOVAP_DRIVERS } from './OrderManagement';
 import { ControlTowerMap } from '../components/ControlTowerMap';
 import { PrintOrderSlipModal, detectSlipClassification } from '../components/PrintOrderSlipModal';
@@ -102,14 +103,31 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
 
 export default function OrderDispatch() {
   const { user } = useAuth();
+  const { warehouses, selectedWarehouseCode } = useWarehouse();
 
   const [orders, setOrders] = useState<UnifiedOrder[]>([]);
-  const [, setWarehouses] = useState<Warehouse[]>([]);
-  const [selectedWarehouseCode] = useState<string>('WH-006');
   const [selectedOrder, setSelectedOrder] = useState<UnifiedOrder | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const isManager = user?.role === 'WAREHOUSE_MANAGER' || user?.role === 'WAREHOUSE_STAFF';
+  const myWarehouseCode = user?.warehouseCode || (user?.email?.includes('govap') ? 'WH-006' : 'WH-006');
+
+  const [selectedWhFilter, setSelectedWhFilter] = useState<string>(() => {
+    if (isManager) return myWarehouseCode;
+    return selectedWarehouseCode || 'ALL';
+  });
+
+  useEffect(() => {
+    if (isManager) {
+      setSelectedWhFilter(myWarehouseCode);
+    } else if (selectedWarehouseCode) {
+      setSelectedWhFilter(selectedWarehouseCode);
+    }
+  }, [isManager, myWarehouseCode, selectedWarehouseCode]);
+
+  const activeWh = isManager ? myWarehouseCode : selectedWhFilter;
 
   // Pipeline Step filter
   const [activePipelineStep, setActivePipelineStep] = useState<
@@ -173,7 +191,10 @@ export default function OrderDispatch() {
 
     try {
       // 1. Fetch E-commerce orders (3004)
-      const ecomRes = await fetch(ORDER_API).catch(() => null);
+      const ecomUrl = activeWh && activeWh !== 'ALL'
+        ? `${ORDER_API}?warehouseCode=${encodeURIComponent(activeWh)}`
+        : ORDER_API;
+      const ecomRes = await fetch(ecomUrl).catch(() => null);
       let ecomOrders: UnifiedOrder[] = [];
       if (ecomRes && ecomRes.ok) {
         const ecomData = await ecomRes.json();
@@ -197,6 +218,9 @@ export default function OrderDispatch() {
               finalStatus = 'DELIVERING';
             }
 
+            const whCode = o.assignedWarehouseCode || o.assignedWarehouseId || 'WH-006';
+            const whObj = warehouses.find(w => w.code === whCode);
+
             return {
               id: o.id,
               orderCode: `ECOMM-${o.id.slice(0, 8).toUpperCase()}`,
@@ -216,8 +240,8 @@ export default function OrderDispatch() {
                 price: Number(i.price || 45000),
                 unit: 'Món',
               })),
-              warehouseCode: o.assignedWarehouseCode || 'WH-006',
-              assignedWarehouseName: o.assignedWarehouseName || 'Kho Gò Vấp (WH-006)',
+              warehouseCode: whCode,
+              assignedWarehouseName: o.assignedWarehouseName || (whObj ? whObj.name : `Kho ${whCode}`),
               assignedDriverId: driverId,
               assignedDriverName: driverName,
               assignedDriverPhone: driverPhone,
@@ -234,7 +258,10 @@ export default function OrderDispatch() {
       }
 
       // 2. Fetch Outbound orders (3007)
-      const obRes = await fetch(`${OUTBOUND_API}/outbound-orders`).catch(() => null);
+      const obUrl = activeWh && activeWh !== 'ALL'
+        ? `${OUTBOUND_API}/outbound-orders?warehouseCode=${encodeURIComponent(activeWh)}`
+        : `${OUTBOUND_API}/outbound-orders`;
+      const obRes = await fetch(obUrl).catch(() => null);
       let obOrders: UnifiedOrder[] = [];
       if (obRes && obRes.ok) {
         const obData = await obRes.json();
@@ -283,6 +310,9 @@ export default function OrderDispatch() {
               finalStatus = 'SHIPPED';
             }
 
+            const whCode = o.warehouseCode || 'WH-006';
+            const whObj = warehouses.find(w => w.code === whCode);
+
             return {
               id: o.id,
               orderCode: o.orderCode || `OB-${o.id.slice(0, 8).toUpperCase()}`,
@@ -301,8 +331,8 @@ export default function OrderDispatch() {
                 price: isDisposal ? 0 : Number(i.price || 50000),
                 unit: i.unit || 'Kg',
               })),
-              warehouseCode: o.warehouseCode || 'WH-006',
-              assignedWarehouseName: 'Kho Gò Vấp (WH-006)',
+              warehouseCode: whCode,
+              assignedWarehouseName: (whObj ? whObj.name : `Kho ${whCode}`),
               assignedDriverId: driverId,
               assignedDriverName: driverName,
               assignedDriverPhone: driverPhone,
@@ -316,27 +346,74 @@ export default function OrderDispatch() {
       }
 
       const combinedMap = new Map<string, UnifiedOrder>();
-      ecomOrders.forEach(o => combinedMap.set(o.id.toLowerCase(), o));
+
+      // 1. Index E-commerce orders by their unique orderCode and their short UUID
+      const ecomByShortId = new Map<string, UnifiedOrder>();
+      ecomOrders.forEach(o => {
+        const fullId = (o.id || '').toLowerCase();
+        const shortId = fullId.length >= 8 ? fullId.slice(0, 8).toUpperCase() : fullId.toUpperCase();
+        const code = (o.orderCode || `ECOMM-${shortId}`).toUpperCase();
+        
+        combinedMap.set(code, o);
+        if (shortId) ecomByShortId.set(shortId, o);
+      });
+
+      // 2. Process Outbound orders: merge with corresponding E-commerce order if same, else keep as distinct order
       obOrders.forEach(o => {
-        if (!combinedMap.has(o.id.toLowerCase())) {
-          combinedMap.set(o.id.toLowerCase(), o);
+        const rawCode = (o.orderCode || '').toUpperCase().trim();
+        const rawId = (o.id || '').toLowerCase().trim();
+        const shortId = rawId.length >= 8 ? rawId.slice(0, 8).toUpperCase() : rawId.toUpperCase();
+
+        let matchingEcomKey: string | null = null;
+        if (rawCode && combinedMap.has(rawCode)) {
+          matchingEcomKey = rawCode;
+        } else if (rawCode.startsWith('ECOMM-')) {
+          const extractedShort = rawCode.replace('ECOMM-', '').slice(0, 8);
+          if (ecomByShortId.has(extractedShort)) {
+            matchingEcomKey = `ECOMM-${extractedShort}`;
+          }
+        } else if (shortId && ecomByShortId.has(shortId)) {
+          matchingEcomKey = `ECOMM-${shortId}`;
+        }
+
+        if (matchingEcomKey && combinedMap.has(matchingEcomKey)) {
+          const existing = combinedMap.get(matchingEcomKey)!;
+          const statusRanks: Record<string, number> = {
+            PENDING: 1,
+            PROCESSING: 2,
+            PICKING: 3,
+            PACKED: 4,
+            CONFIRMED: 5,
+            READY_FOR_DELIVERY: 6,
+            SHIPPED: 7,
+            DELIVERING: 8,
+            DELIVERED: 9,
+            COMPLETED: 10,
+          };
+          const isMoreAdvanced = (statusRanks[o.status] || 0) > (statusRanks[existing.status] || 0);
+
+          combinedMap.set(matchingEcomKey, {
+            ...existing,
+            status: isMoreAdvanced ? o.status : existing.status,
+            assignedDriverId: o.assignedDriverId || existing.assignedDriverId,
+            assignedDriverName: o.assignedDriverName || existing.assignedDriverName,
+            assignedDriverPhone: o.assignedDriverPhone || existing.assignedDriverPhone,
+            assignedDriverPlate: o.assignedDriverPlate || existing.assignedDriverPlate,
+          });
+        } else {
+          // Distinct outbound order (OB-20260623-001, OB-20260623-002, DISPOSAL-01...)
+          const uniqueKey = rawCode || (rawId ? `OB-${rawId}` : `OB-${Math.random()}`);
+          combinedMap.set(uniqueKey, o);
         }
       });
 
       setOrders(Array.from(combinedMap.values()));
-
-      // Fetch warehouses
-      const whRes = await fetch(`${WAREHOUSE_API}/warehouses`).catch(() => null);
-      if (whRes && whRes.ok) {
-        const whData = await whRes.json();
-        setWarehouses(Array.isArray(whData) ? whData : []);
-      }
     } catch (err) {
     } finally {
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [activeWh, warehouses]);
 
   useEffect(() => {
     fetchAllData();
@@ -437,8 +514,8 @@ export default function OrderDispatch() {
 
   // 1. SMART AUTOMATION: 1-Chạm Tiếp Nhận & Soạn Hàng Loạt (Auto-FEFO Picking)
   const handleAutoFEFOPicking = async () => {
-    const pendingOrders = orders.filter(o => o.status === 'PENDING');
-    const pickingOrders = orders.filter(o => o.status === 'PROCESSING' || o.status === 'PICKING');
+    const pendingOrders = whScopedOrders.filter(o => o.status === 'PENDING');
+    const pickingOrders = whScopedOrders.filter(o => o.status === 'PROCESSING' || o.status === 'PICKING');
 
     if (pendingOrders.length === 0 && pickingOrders.length === 0) {
       showToast('Hiện không có đơn hàng mới nào cần tiếp nhận hoặc soạn kho.', 'info');
@@ -470,12 +547,8 @@ export default function OrderDispatch() {
   const handleAIAutoDispatch = async () => {
     // CHỈ gán cho đơn nào ĐÃ CÓ LỆNH XUẤT KHO XÁC NHẬN (CONFIRMED, SHIPPED, READY_FOR_DELIVERY)
     // Đơn mới chỉ Đang soạn (PROCESSING/PICKING) hoặc Đã đóng gói (PACKED) thì CHƯA ĐƯỢC PHÂN TÀI XẾ
-    const candidateOrders = orders.filter(
-      o => (o.status === 'CONFIRMED' || o.status === 'SHIPPED' || o.status === 'READY_FOR_DELIVERY') &&
-           o.status !== 'COMPLETED' && 
-           o.status !== 'DELIVERED' && 
-           o.status !== 'CANCELLED' && 
-           o.status !== 'FAILED_DELIVERY'
+    const candidateOrders = whScopedOrders.filter(
+      o => o.status === 'CONFIRMED' || o.status === 'SHIPPED' || o.status === 'READY_FOR_DELIVERY'
     );
 
     if (candidateOrders.length === 0) {
@@ -489,7 +562,7 @@ export default function OrderDispatch() {
       await fetch(`${ORDER_API}/auto-dispatch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ warehouseCode: selectedWarehouseCode }),
+        body: JSON.stringify({ warehouseCode: activeWh !== 'ALL' ? activeWh : (selectedWarehouseCode || 'WH-006') }),
       }).catch(() => {});
 
       // 2. Lọc các nhóm tài xế theo loại phương tiện
@@ -655,16 +728,28 @@ export default function OrderDispatch() {
     fetchAllData();
   };
 
-  // Pipeline Counts
-  const step1Count = useMemo(() => orders.filter(o => o.status === 'PENDING' || o.status === 'PROCESSING' || o.status === 'PICKING').length, [orders]);
-  const step2Count = useMemo(() => orders.filter(o => o.status === 'PACKED' || o.status === 'READY_FOR_DELIVERY').length, [orders]);
-  const step3Count = useMemo(() => orders.filter(o => o.status === 'DELIVERING' || o.status === 'SHIPPED').length, [orders]);
-  const stepExceptionCount = useMemo(() => orders.filter(o => o.status === 'FAILED_DELIVERY' || o.status === 'RETURN_TO_WAREHOUSE').length, [orders]);
-  const completedCount = useMemo(() => orders.filter(o => o.status === 'COMPLETED' || o.status === 'DELIVERED').length, [orders]);
+  // Scope orders strictly by warehouse
+  const whScopedOrders = useMemo(() => {
+    if (!activeWh || activeWh === 'ALL') return orders;
+    return orders.filter(o => {
+      const code = (o.warehouseCode || (o as any).assignedWarehouseId || (o as any).assignedWarehouseCode || '').toUpperCase();
+      const name = (o.assignedWarehouseName || '').toLowerCase();
+      const isGoVapMatch = (activeWh === 'WH-006' || activeWh.toLowerCase().includes('gò vấp')) &&
+        (code === 'WH-006' || code === 'GV' || name.includes('gò vấp') || !code);
+      return code === activeWh.toUpperCase() || isGoVapMatch;
+    });
+  }, [orders, activeWh]);
+
+  // Pipeline Counts based on scoped orders
+  const step1Count = useMemo(() => whScopedOrders.filter(o => o.status === 'PENDING' || o.status === 'PROCESSING' || o.status === 'PICKING').length, [whScopedOrders]);
+  const step2Count = useMemo(() => whScopedOrders.filter(o => o.status === 'PACKED' || o.status === 'READY_FOR_DELIVERY').length, [whScopedOrders]);
+  const step3Count = useMemo(() => whScopedOrders.filter(o => o.status === 'DELIVERING' || o.status === 'SHIPPED').length, [whScopedOrders]);
+  const stepExceptionCount = useMemo(() => whScopedOrders.filter(o => o.status === 'FAILED_DELIVERY' || o.status === 'RETURN_TO_WAREHOUSE').length, [whScopedOrders]);
+  const completedCount = useMemo(() => whScopedOrders.filter(o => o.status === 'COMPLETED' || o.status === 'DELIVERED').length, [whScopedOrders]);
 
   // Filtered Orders
   const filteredOrders = useMemo(() => {
-    return orders.filter(o => {
+    return whScopedOrders.filter(o => {
       const matchSearch =
         o.orderCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
         o.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -697,7 +782,7 @@ export default function OrderDispatch() {
 
       return true;
     });
-  }, [orders, searchQuery, classificationFilter, activePipelineStep]);
+  }, [whScopedOrders, searchQuery, classificationFilter, activePipelineStep]);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -786,7 +871,12 @@ export default function OrderDispatch() {
               }}>
                 TMS CONTROL TOWER
               </span>
-              <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Kho Gò Vấp (WH-006)</span>
+              <span style={{ fontSize: '12px', color: '#0f766e', fontWeight: 700, backgroundColor: '#f0fdfa', padding: '2px 8px', borderRadius: '6px', border: '1px solid #ccfbf1' }}>
+                {(() => {
+                  const curWh = warehouses.find(w => w.code === activeWh);
+                  return activeWh === 'ALL' ? '🏢 Tất Cả Các Kho' : (curWh ? `🏢 ${curWh.name} (${curWh.code})` : `🏢 Kho ${activeWh}`);
+                })()}
+              </span>
             </div>
             <h1 style={{ fontSize: '20px', fontWeight: 900, color: '#0f172a', margin: '3px 0 0 0' }}>
               Trung Tâm Điều Phối Đơn Hàng & Giám Sát Đội Xe
@@ -798,7 +888,31 @@ export default function OrderDispatch() {
         </div>
 
         {/* Quick Action Control Bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {!isManager && (
+            <select
+              value={selectedWhFilter}
+              onChange={e => setSelectedWhFilter(e.target.value)}
+              style={{
+                padding: '9px 14px',
+                borderRadius: '12px',
+                border: '1px solid #2563eb',
+                background: '#eff6ff',
+                color: '#1e40af',
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="ALL">🏢 Tất cả các Kho ({orders.length} đơn)</option>
+              {warehouses.map(w => (
+                <option key={w.id || w.code} value={w.code}>
+                  🏢 {w.name} ({w.code})
+                </option>
+              ))}
+            </select>
+          )}
+
           {/* 1-Chạm Soạn Hàng Loạt FEFO */}
           <button
             onClick={handleAutoFEFOPicking}

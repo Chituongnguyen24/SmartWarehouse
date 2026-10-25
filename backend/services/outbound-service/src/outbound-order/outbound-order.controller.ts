@@ -31,6 +31,24 @@ export class OutboundOrderController {
     return this.service.syncLotLocationsForAllPendingOrders();
   }
 
+  @Post('iot/locate-shelf')
+  @ApiOperation({ summary: 'IoT: Phát lệnh tìm vị trí kệ hàng (Nháy đèn)' })
+  locateShelf(@Body() body: { warehouseCode?: string; shelfCode: string; slotCode?: string; productName?: string; qty?: number; step?: number }) {
+    return this.service.triggerIotLocateShelf(body);
+  }
+
+  @Post('iot/chirp-shelf')
+  @ApiOperation({ summary: 'IoT: Bóp còi Smartkey tìm kệ (như Smartkey xe máy/ô tô)' })
+  chirpShelf(@Body() body: { warehouseCode?: string; shelfCode: string }) {
+    return this.service.triggerIotChirpShelf(body);
+  }
+
+  @Post('iot/complete-shelf')
+  @ApiOperation({ summary: 'IoT: Quét xong mã sản phẩm -> Tự động tắt đèn kệ' })
+  completeShelf(@Body() body: { warehouseCode?: string; shelfCode: string }) {
+    return this.service.triggerIotCompleteShelf(body);
+  }
+
   @Get()
   @ApiOperation({ summary: 'Lấy danh sách đơn xuất kho' })
   @ApiQuery({ name: 'status', required: false })

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { useAuth } from '../contexts/AuthContext';
+import { useWarehouse } from '../contexts/WarehouseContext';
 import { 
   PackageMinus, Search, ArrowRight, CheckCircle2, FileText, 
   BrainCircuit, Box, Truck, Plus, X, ScanBarcode, Printer,
@@ -118,6 +119,7 @@ const formatShelfLocation = (slotId?: string): string => {
 
 const OutboundOrders: React.FC = () => {
   const { token, user } = useAuth();
+  const { warehouses, selectedWarehouseCode } = useWarehouse();
   const [orders, setOrders] = useState<OutboundOrder[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -128,13 +130,27 @@ const OutboundOrders: React.FC = () => {
   // Toast state
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
 
+  const isManager = user?.role === 'WAREHOUSE_MANAGER' || user?.role === 'WAREHOUSE_STAFF';
+  const myWarehouseCode = user?.warehouseCode || (user?.email?.includes('govap') ? 'WH-006' : 'WH-006');
+
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
   const [statusTab, setStatusTab] = useState<string>('ALL');
-  const [selectedWhFilter, setSelectedWhFilter] = useState<string>(
-    user?.role === 'WAREHOUSE_MANAGER' && user?.warehouseCode ? user.warehouseCode : 'ALL'
-  );
+  const [selectedWhFilter, setSelectedWhFilter] = useState<string>(() => {
+    if (isManager) return myWarehouseCode;
+    return selectedWarehouseCode || 'ALL';
+  });
   const [dateFilter, setDateFilter] = useState<string>('ALL');
+
+  useEffect(() => {
+    if (isManager) {
+      setSelectedWhFilter(myWarehouseCode);
+    } else if (selectedWarehouseCode) {
+      setSelectedWhFilter(selectedWarehouseCode);
+    }
+  }, [isManager, myWarehouseCode, selectedWarehouseCode]);
+
+  const activeWh = isManager ? myWarehouseCode : selectedWhFilter;
 
   // Pagination
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -167,10 +183,6 @@ const OutboundOrders: React.FC = () => {
     notes: '',
     items: [],
   });
-
-  const isManager = user?.role === 'WAREHOUSE_MANAGER';
-  const managerWh = user?.warehouseCode || (user?.email?.includes('govap') ? 'WH-006' : null);
-  const activeWh = isManager ? (managerWh || 'WH-006') : selectedWhFilter;
 
   const [searchParams] = useSearchParams();
   const targetId = searchParams.get('selectedId') || searchParams.get('id');
@@ -248,8 +260,11 @@ const OutboundOrders: React.FC = () => {
   const fetchOrders = useCallback(async (showSpinner = false) => {
     if (showSpinner) setIsRefreshing(true);
     try {
+      const url = activeWh && activeWh !== 'ALL'
+        ? `${API_BASE}/outbound-orders?warehouseCode=${encodeURIComponent(activeWh)}`
+        : `${API_BASE}/outbound-orders`;
       const [ordersRes, locksRes] = await Promise.all([
-        fetch(`${API_BASE}/outbound-orders`, {
+        fetch(url, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
         fetch(`${API_BASE}/outbound-orders/locks`)
@@ -268,7 +283,7 @@ const OutboundOrders: React.FC = () => {
       setInitialLoading(false);
       if (showSpinner) setIsRefreshing(false);
     }
-  }, [token]);
+  }, [token, activeWh]);
 
   // Real-time WebSocket + Background Polling for 100% Zero-F5 Real-time Sync
   useEffect(() => {
@@ -482,7 +497,7 @@ const OutboundOrders: React.FC = () => {
   const kpiStats = useMemo(() => {
     const relevantOrders = orders.filter(o => {
       if (!activeWh || activeWh === 'ALL') return true;
-      return !o.warehouseCode || o.warehouseCode === activeWh || o.warehouseCode.includes('WH-006');
+      return o.warehouseCode === activeWh;
     });
 
     const total = relevantOrders.length;
@@ -509,7 +524,7 @@ const OutboundOrders: React.FC = () => {
       // Warehouse filter
       let matchWh = true;
       if (activeWh && activeWh !== 'ALL') {
-        matchWh = !o.warehouseCode || o.warehouseCode === activeWh || o.warehouseCode.includes('WH-006');
+        matchWh = o.warehouseCode === activeWh;
       }
 
       // Status tab filter
@@ -665,10 +680,11 @@ const OutboundOrders: React.FC = () => {
               }}
             >
               <option value="ALL">🏢 Tất cả các Kho ({orders.length} phiếu)</option>
-              <option value="WH-006">🏢 Kho Gò Vấp (WH-006)</option>
-              <option value="WH-001">🏢 Kho Quận 12 (WH-001)</option>
-              <option value="WH-002">🏢 Kho Thủ Đức (WH-002)</option>
-              <option value="WH-005">🏢 Kho Bình Thạnh (WH-005)</option>
+              {warehouses.map(w => (
+                <option key={w.id || w.code} value={w.code}>
+                  🏢 {w.name} ({w.code})
+                </option>
+              ))}
             </select>
           )}
 
@@ -898,14 +914,19 @@ const OutboundOrders: React.FC = () => {
                     </td>
 
                     <td style={{ padding: '14px 18px' }}>
-                      <span style={{ 
-                        fontSize: '0.8rem', padding: '3px 8px', borderRadius: '8px',
-                        background: isGoVap ? '#f0fdfa' : '#f1f5f9',
-                        color: isGoVap ? '#0f766e' : '#475569',
-                        fontWeight: 700, border: `1px solid ${isGoVap ? '#99f6e4' : '#e2e8f0'}`
-                      }}>
-                        {o.warehouseCode === 'WH-006' ? '🏢 Kho Gò Vấp (WH-006)' : o.warehouseCode || 'Kho Hàng Gò Vấp'}
-                      </span>
+                      {(() => {
+                        const whObj = warehouses.find(w => w.code === o.warehouseCode);
+                        return (
+                          <span style={{ 
+                            fontSize: '0.8rem', padding: '3px 8px', borderRadius: '8px',
+                            background: '#f0fdfa',
+                            color: '#0f766e',
+                            fontWeight: 700, border: '1px solid #99f6e4'
+                          }}>
+                            {whObj ? `🏢 ${whObj.name} (${whObj.code})` : `🏢 Kho ${o.warehouseCode || 'Chưa gán'}`}
+                          </span>
+                        );
+                      })()}
                     </td>
 
                     <td style={{ padding: '14px 18px' }}>
@@ -1463,7 +1484,7 @@ const OutboundOrders: React.FC = () => {
         }}
         token={token}
         user={user}
-        defaultWarehouse={activeWh !== 'ALL' ? activeWh : 'WH-006'}
+        defaultWarehouse={activeWh !== 'ALL' ? activeWh : (selectedWarehouseCode || 'WH-006')}
       />
 
       {/* Outbound Receipt Modal (Mẫu số 02 - VT) */}

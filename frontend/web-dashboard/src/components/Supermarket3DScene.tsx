@@ -630,7 +630,7 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
       searchHighlightMeshesRef.current = [];
 
       const q = (query || '').trim().toLowerCase();
-      let firstMatchedWorldPos: THREE.Vector3 | null = null;
+      let firstMatchedWorldPos: any = null;
 
       boxMeshesRef.current.forEach((boxMesh) => {
         const it = boxMesh.userData?.item as ShelfItem3D | undefined;

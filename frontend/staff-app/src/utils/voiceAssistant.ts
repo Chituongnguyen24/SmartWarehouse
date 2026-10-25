@@ -72,60 +72,43 @@ class VoiceAssistant {
     const next = !this.isVoiceEnabled;
     this.setEnabled(next);
     if (next) {
-      this.speak('Đã bật trợ lý giọng nói kho hàng!');
+      this.playTone('ALERT');
     }
     return next;
   }
 
   /**
-   * Speak Vietnamese phrase with clear, brisk speech rate without delay
+   * Voice synthesis is permanently DISABLED as requested.
+   * Replaced with subtle, professional sound effects.
    */
   public speak(text: string, priority: 'HIGH' | 'NORMAL' = 'NORMAL') {
-    if (!this.isVoiceEnabled || !this.synth) return;
-
-    try {
-      if (this.synth.paused) {
-        this.synth.resume();
-      }
-      this.initVoices();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'vi-VN';
-      utterance.rate = 1.15; // Fast, clear, industrial pace
-      utterance.pitch = 1.0;
-      if (this.vietnameseVoice) {
-        utterance.voice = this.vietnameseVoice;
-      }
-      this.synth.speak(utterance);
-      if (this.synth.paused) {
-        this.synth.resume();
-      }
-    } catch (e) {
-      console.warn('Voice synthesis error:', e);
-    }
+    // Disabled text-to-speech voice completely.
+    // Instead, plays a subtle chime if sound is enabled.
+    if (!this.isVoiceEnabled) return;
+    this.playTone('BEEP');
   }
 
   /**
-   * Industrial Announcements - Concise, zero-delay
+   * Industrial Announcements - Sound effects only, zero voice
    */
   public announceNewPickingOrder() {
     this.playTone('ALERT');
-    this.speak('Bạn có đơn soạn hàng mới', 'HIGH');
   }
 
   public announceNewPackingOrder() {
     this.playTone('SUCCESS');
-    this.speak('Bạn có đơn đóng gói mới', 'HIGH');
   }
 
   public announceNewInboundOrder() {
     this.playTone('ALERT');
-    this.speak('Bạn có đơn nhập kho mới', 'HIGH');
   }
 
   /**
    * Play industrial confirmation or alert tone
    */
-  public playTone(type: 'SUCCESS' | 'ERROR' | 'ALERT' | 'COMPLETE') {
+  public playTone(type: 'SUCCESS' | 'ERROR' | 'ALERT' | 'COMPLETE' | 'LOCATE' | 'BEEP' | 'SMARTKEY') {
+    if (!this.isVoiceEnabled) return;
+
     try {
       if (!this.audioContext) {
         this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -142,7 +125,49 @@ class VoiceAssistant {
 
       const now = ctx.currentTime;
 
-      if (type === 'SUCCESS') {
+      if (type === 'SMARTKEY') {
+        // Realistic car/motorbike key-fob double chirp ("Pip-Pip!")
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(2500, now);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.07);
+
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(3200, now + 0.11);
+        gain2.gain.setValueAtTime(0.001, now);
+        gain2.gain.setValueAtTime(0.35, now + 0.11);
+        gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+
+        osc.start(now);
+        osc.stop(now + 0.08);
+        osc2.start(now + 0.11);
+        osc2.stop(now + 0.23);
+        this.vibrate([70, 40, 100]);
+      } else if (type === 'LOCATE') {
+        // Modern crystal sonar radar ping when activating shelf IoT
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1320, now);
+        osc.frequency.exponentialRampToValueAtTime(1760, now + 0.08);
+        osc.frequency.setValueAtTime(2093, now + 0.12);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.005, now + 0.35);
+        osc.start(now);
+        osc.stop(now + 0.36);
+        this.vibrate([60, 40, 80]);
+      } else if (type === 'BEEP') {
+        // Quick crisp barcode scanner beep
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1250, now);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+        osc.start(now);
+        osc.stop(now + 0.09);
+        this.vibrate([30]);
+      } else if (type === 'SUCCESS') {
         osc.type = 'sine';
         osc.frequency.setValueAtTime(880, now);
         osc.frequency.setValueAtTime(1174, now + 0.08);

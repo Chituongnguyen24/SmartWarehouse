@@ -632,7 +632,7 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       // 1. Fetch E-commerce orders (:3004) and Outbound / Disposal orders (:3007) in parallel
       const [dbOrders, obOrders] = await Promise.all([
         driverApi.getOrders(warehouseCode).catch(() => []),
-        driverApi.getOutboundOrders().catch(() => []),
+        driverApi.getOutboundOrders(warehouseCode).catch(() => []),
       ]);
 
       // 2. Read local storage assignments from Web Dashboard (cross-tab sync)
@@ -653,7 +653,8 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (!o) return;
         const code = (o.orderCode || (isOb ? `OB-${(o.id || '').slice(0, 8).toUpperCase()}` : `ECOMM-${(o.id || '').slice(0, 8).toUpperCase()}`)).trim();
         const rawId = String(o.id || code).trim();
-        const primaryKey = code || rawId;
+        const rawKey = (code || rawId).toUpperCase();
+        const primaryKey = rawKey.replace(/^ECOMM-/, '').replace(/^OB-/, '').replace(/[^A-Z0-9]/g, '').slice(0, 8) || rawKey;
 
         const saved = savedDriverMap[rawId] || savedDriverMap[code] || savedDriverMap[rawId.slice(0, 8)];
         const rawCode = (code || '').toUpperCase();

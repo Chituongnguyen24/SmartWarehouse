@@ -48,9 +48,7 @@ const DashboardIndex = () => {
   if (user?.role === 'WAREHOUSE_STAFF') {
     return <Navigate to="/orders" replace />;
   }
-  if (user?.role === 'WAREHOUSE_MANAGER') {
-    return <Navigate to="/inventory" replace />;
-  }
+  // WAREHOUSE_MANAGER and ADMIN both use the Manager Dashboard
   return <Dashboard />;
 };
 

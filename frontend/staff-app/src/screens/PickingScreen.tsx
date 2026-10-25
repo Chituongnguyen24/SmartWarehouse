@@ -27,9 +27,10 @@ import {
   Volume2,
   X,
   Sparkles,
+  Key,
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
-import { fetchPickingTasksApi, confirmPickingApi } from '../services/api';
+import { fetchPickingTasksApi, confirmPickingApi, locateShelfIotApi, chirpShelfIotApi, completeShelfIotApi } from '../services/api';
 import { PickingItem } from '../types';
 import { COLORS } from '../theme/colors';
 
@@ -39,6 +40,7 @@ export const PickingScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [completedOrders, setCompletedOrders] = useState<string[]>([]);
+  const [activeLocatingShelf, setActiveLocatingShelf] = useState<string | null>(null);
 
   // 📷 Barcode Scanner State
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -99,6 +101,16 @@ export const PickingScreen: React.FC = () => {
     if (matchedItem) {
       triggerAudioFeedback(true);
       setTasks(prev => prev.map(t => t.id === matchedItem!.id ? { ...t, status: 'PICKED' } : t));
+
+      // 💡 IoT: Quét xong sản phẩm -> Tự động gửi lệnh tắt đèn kệ!
+      completeShelfIotApi({
+        warehouseCode: activeWarehouse || 'GV',
+        shelfCode: matchedItem.shelfLocation,
+      });
+      if (activeLocatingShelf === matchedItem.shelfLocation) {
+        setActiveLocatingShelf(null);
+      }
+
       setScanFeedback({
         isMatch: true,
         message: `ĐÃ LẤY: ${matchedItem.productName} (Kệ ${matchedItem.shelfLocation})`,
@@ -118,6 +130,39 @@ export const PickingScreen: React.FC = () => {
         code: raw
       });
     }
+  };
+
+  const [smartkeyPingingShelf, setSmartkeyPingingShelf] = useState<string | null>(null);
+
+  const handleLocateShelfIot = async (item: PickingItem) => {
+    if (activeLocatingShelf === item.shelfLocation) {
+      setActiveLocatingShelf(null);
+      await completeShelfIotApi({
+        warehouseCode: activeWarehouse || 'GV',
+        shelfCode: item.shelfLocation,
+      });
+      return;
+    }
+    setActiveLocatingShelf(item.shelfLocation);
+    triggerAudioFeedback(true);
+    await locateShelfIotApi({
+      warehouseCode: activeWarehouse || 'GV',
+      shelfCode: item.shelfLocation,
+      productName: item.productName,
+      qty: item.quantity,
+    });
+  };
+
+  const handleSmartkeyChirpIot = async (item: PickingItem) => {
+    setSmartkeyPingingShelf(item.shelfLocation);
+    triggerAudioFeedback(true);
+    await chirpShelfIotApi({
+      warehouseCode: activeWarehouse || 'GV',
+      shelfCode: item.shelfLocation,
+    });
+    setTimeout(() => {
+      setSmartkeyPingingShelf(null);
+    }, 1200);
   };
 
   const loadTasks = async () => {
@@ -227,6 +272,19 @@ export const PickingScreen: React.FC = () => {
           </View>
         </View>
       </View>
+
+      {/* 🔊 Active IoT Finding Banner */}
+      {activeLocatingShelf && (
+        <View style={styles.activeLocatingBanner}>
+          <Volume2 size={16} color="#d97706" />
+          <Text style={styles.activeLocatingText}>
+            Đang phát lệnh tới <Text style={{ fontWeight: '900', color: '#b45309' }}>{activeLocatingShelf}</Text> (Kêu còi & Nháy đèn). Hãy tới nơi và ấn Check-in!
+          </Text>
+          <TouchableOpacity onPress={() => setActiveLocatingShelf(null)}>
+            <X size={16} color="#b45309" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Progress Bar */}
       <View style={styles.progressCard}>
@@ -345,6 +403,62 @@ export const PickingScreen: React.FC = () => {
                           <MapPin size={11} color="#0284c7" />
                           <Text style={styles.shelfTagText}>{item.shelfLocation}</Text>
                         </View>
+
+                        {/* 💡 Nút Bật/Tắt Nháy Đèn Kệ */}
+                        {!isItemPicked && (
+                          <TouchableOpacity
+                            style={[
+                              styles.iotLocateBtn,
+                              activeLocatingShelf === item.shelfLocation && styles.iotLocateBtnActive,
+                            ]}
+                            onPress={(e: any) => {
+                              e.stopPropagation?.();
+                              handleLocateShelfIot(item);
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <Sparkles
+                              size={11}
+                              color={activeLocatingShelf === item.shelfLocation ? '#ffffff' : '#0284c7'}
+                            />
+                            <Text
+                              style={[
+                                styles.iotLocateBtnText,
+                                activeLocatingShelf === item.shelfLocation && { color: '#ffffff' },
+                              ]}
+                            >
+                              {activeLocatingShelf === item.shelfLocation ? 'Đang nháy' : 'Nháy đèn'}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+
+                        {/* 🔑 Nút Bóp Còi Smartkey (như Smartkey xe máy / ô tô) */}
+                        {!isItemPicked && (
+                          <TouchableOpacity
+                            style={[
+                              styles.smartkeyBtn,
+                              smartkeyPingingShelf === item.shelfLocation && styles.smartkeyBtnActive,
+                            ]}
+                            onPress={(e: any) => {
+                              e.stopPropagation?.();
+                              handleSmartkeyChirpIot(item);
+                            }}
+                            activeOpacity={0.65}
+                          >
+                            <Volume2
+                              size={11}
+                              color={smartkeyPingingShelf === item.shelfLocation ? '#ffffff' : '#b45309'}
+                            />
+                            <Text
+                              style={[
+                                styles.smartkeyBtnText,
+                                smartkeyPingingShelf === item.shelfLocation && { color: '#ffffff' },
+                              ]}
+                            >
+                              {smartkeyPingingShelf === item.shelfLocation ? 'Đang kêu' : 'Bấm còi'}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
 
                         <View style={styles.lotTag}>
                           <Text style={styles.lotTagText}>Lô: {item.lotCode}</Text>
@@ -1067,5 +1181,64 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 12,
     fontWeight: '800',
+  },
+  activeLocatingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#fef3c7',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+  activeLocatingText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#92400e',
+    fontWeight: '600',
+    lineHeight: 16,
+  },
+  iotLocateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  iotLocateBtnActive: {
+    backgroundColor: '#d97706',
+    borderColor: '#b45309',
+  },
+  iotLocateBtnText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#0284c7',
+  },
+  smartkeyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    paddingVertical: 3,
+    paddingHorizontal: 7,
+    borderRadius: 6,
+  },
+  smartkeyBtnActive: {
+    backgroundColor: '#d97706',
+    borderColor: '#b45309',
+  },
+  smartkeyBtnText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#b45309',
   },
 });

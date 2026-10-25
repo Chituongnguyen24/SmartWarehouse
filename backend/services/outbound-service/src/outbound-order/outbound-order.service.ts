@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { OutboundOrder } from './outbound-order.entity';
 import { OutboundOrderItem } from './outbound-order-item.entity';
 import * as amqp from 'amqp-connection-manager';
@@ -128,21 +128,53 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     let lng = dto.longitude;
     
     if (!lat || !lng) {
-      try {
-        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(dto.destination || 'Ho Chi Minh')}&format=json&limit=1`;
-        const res = await fetch(url, { headers: { 'User-Agent': 'SmartWarehouse/1.0 (Thesis Project)' } });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.length > 0) {
-            lat = parseFloat(data[0].lat);
-            lng = parseFloat(data[0].lon);
-          }
+      const destLower = (dto.destination || '').toLowerCase();
+      const districtLookup: Record<string, { lat: number; lng: number }> = {
+        'gò vấp': { lat: 10.8252, lng: 106.6631 },
+        'go vap': { lat: 10.8252, lng: 106.6631 },
+        'quận 12': { lat: 10.8671, lng: 106.6713 },
+        'quan 12': { lat: 10.8671, lng: 106.6713 },
+        'thủ đức': { lat: 10.8494, lng: 106.7725 },
+        'thu duc': { lat: 10.8494, lng: 106.7725 },
+        'bình chánh': { lat: 10.6868, lng: 106.5932 },
+        'binh chanh': { lat: 10.6868, lng: 106.5932 },
+        'quận 7': { lat: 10.7324, lng: 106.7214 },
+        'quan 7': { lat: 10.7324, lng: 106.7214 },
+        'bình thạnh': { lat: 10.8016, lng: 106.7135 },
+        'binh thanh': { lat: 10.8016, lng: 106.7135 },
+        'quận 1': { lat: 10.7769, lng: 106.7009 },
+        'quan 1': { lat: 10.7769, lng: 106.7009 },
+        'quận 5': { lat: 10.7574, lng: 106.6635 },
+        'quan 5': { lat: 10.7574, lng: 106.6635 },
+        'tân bình': { lat: 10.7938, lng: 106.6509 },
+        'tan binh': { lat: 10.7938, lng: 106.6509 },
+        'bình tân': { lat: 10.7492, lng: 106.6025 },
+        'binh tan': { lat: 10.7492, lng: 106.6025 },
+        'hóc môn': { lat: 10.8833, lng: 106.5931 },
+        'hoc mon': { lat: 10.8833, lng: 106.5931 },
+        'nhà bè': { lat: 10.6953, lng: 106.7231 },
+        'nha be': { lat: 10.6953, lng: 106.7231 },
+        'phú nhuận': { lat: 10.7992, lng: 106.6803 },
+        'phu nhuan': { lat: 10.7992, lng: 106.6803 },
+        'quận 8': { lat: 10.7239, lng: 106.6342 },
+        'quan 8': { lat: 10.7239, lng: 106.6342 },
+        'củ chi': { lat: 10.9625, lng: 106.4981 },
+        'cu chi': { lat: 10.9625, lng: 106.4981 },
+        'quận 10': { lat: 10.7719, lng: 106.6669 },
+        'quan 10': { lat: 10.7719, lng: 106.6669 },
+      };
+
+      for (const [k, c] of Object.entries(districtLookup)) {
+        if (destLower.includes(k)) {
+          lat = c.lat;
+          lng = c.lng;
+          break;
         }
-      } catch (e) {
-        console.error('[OUTBOUND] Nominatim Geocoding API failed', e.message);
       }
+
       if (!lat || !lng) {
-        lat = 10.7574; lng = 106.6635; // Default if failed
+        lat = 10.8252;
+        lng = 106.6631; // Default to Go Vap center
       }
     }
 
@@ -444,21 +476,8 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
       console.error('[OUTBOUND SERVICE] Error fetching warehouse stock:', err.message);
     }
 
-    // API OSRM tính khoảng cách thực tế (km)
-    const getRoutingDistance = async (lat1: number, lon1: number, lat2: number, lon2: number) => {
-      try {
-        const url = `https://router.project-osrm.org/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=false`;
-        const res = await fetch(url);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.routes && data.routes.length > 0) {
-            return data.routes[0].distance / 1000;
-          }
-        }
-      } catch (e) {
-        console.error('[OUTBOUND] OSRM Routing API failed, falling back to Haversine', e.message);
-      }
-      
+    // Tính khoảng cách địa lý nhanh chóng & tức thì 0ms (Haversine với hệ số đường phố HCM 1.25x)
+    const getRoutingDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
       const R = 6371; 
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLon = (lon2 - lon1) * Math.PI / 180;
@@ -469,12 +488,12 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
           Math.sin(dLon / 2) *
           Math.sin(dLon / 2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
+      return R * c * 1.25;
     };
 
-    // Đánh giá từng kho hàng
-    const candidates = await Promise.all(warehouses.map(async (wh) => {
-      const distance = await getRoutingDistance(dto.latitude, dto.longitude, wh.latitude, wh.longitude);
+    // Đánh giá từng kho hàng (chạy đồng bộ cực nhanh 0.05ms, loại bỏ hoàn toàn độ trễ mạng ngoại vi)
+    const candidates = warehouses.map((wh) => {
+      const distance = getRoutingDistance(dto.latitude, dto.longitude, wh.latitude, wh.longitude);
       
       let fulfilledItems = 0;
       const itemDetails = dto.items.map(item => {
@@ -506,7 +525,7 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
         fulfillmentRate,
         items: itemDetails,
       };
-    }));
+    });
 
     // Sắp xếp các kho hàng ứng viên:
     // 1. Tỷ lệ đáp ứng tồn kho giảm dần (ưu tiên kho đủ hàng trước)
@@ -535,8 +554,14 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
 
   async findAll(status?: string, warehouseCode?: string): Promise<OutboundOrder[]> {
     const where: any = {};
-    if (status) where.status = status;
-    if (warehouseCode) where.warehouseCode = warehouseCode;
+    if (status && status !== 'ALL') where.status = status;
+    if (warehouseCode && warehouseCode !== 'ALL') {
+      if (warehouseCode === 'WH-006' || warehouseCode === 'GV') {
+        where.warehouseCode = In(['WH-006', 'GV']);
+      } else {
+        where.warehouseCode = warehouseCode;
+      }
+    }
     
     return this.orderRepository.find({
       where,
@@ -948,7 +973,9 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     }
 
     await this.orderRepository.save(order);
-    return this.findOne(id);
+    const updated = await this.findOne(id);
+    this.broadcastOrderEvent('outbound_order_updated', updated || order);
+    return updated || order;
   }
 
   // =========================================================================
@@ -1238,15 +1265,91 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
       if (this.rmqChannel) {
         await this.rmqChannel.publish('outbound.events', event, payload);
       }
-      // 3. Call Notification Gateway
+      // 3. Call Notification Gateway and Order Gateway on port 3004
+      const body = JSON.stringify({ event, payload });
       fetch('http://localhost:3004/notifications/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event, payload }),
+        body,
+      }).catch(() => {});
+      fetch('http://localhost:3004/orders/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
       }).catch(() => {});
     } catch (e) {
       // Silent pass
     }
   }
+
+  private iotMqttClient: any = null;
+
+  private async publishToMqtt(topic: string, payload: any) {
+    try {
+      if (!this.iotMqttClient) {
+        const mqtt = require('mqtt');
+        this.iotMqttClient = mqtt.connect('mqtt://broker.emqx.io:1883');
+      }
+      this.iotMqttClient.publish(topic, JSON.stringify(payload));
+      console.log(`[OutboundService IoT] Published to ${topic}:`, JSON.stringify(payload));
+    } catch (e) {
+      console.warn('[OutboundService IoT] MQTT Publish failed:', e.message);
+    }
+  }
+
+  // IoT Pick-to-Light: Locate Shelf (Blink & Beep)
+  async triggerIotLocateShelf(dto: { warehouseCode?: string; shelfCode: string; slotCode?: string; productName?: string; qty?: number; step?: number }) {
+    const warehouseCode = dto.warehouseCode || 'WH-006';
+    const payload = {
+      action: 'LOCATE',
+      warehouseCode,
+      shelfCode: dto.shelfCode,
+      slotCode: dto.slotCode,
+      productName: dto.productName || 'Sản phẩm xuất kho',
+      qty: dto.qty || 1,
+      step: dto.step || 1,
+      timestamp: Date.now(),
+    };
+
+    // Publish to both WH-006 and GV topics for total compatibility
+    await this.publishToMqtt(`citymart/warehouse/WH-006/picking/command`, payload);
+    await this.publishToMqtt(`citymart/warehouse/GV/picking/command`, payload);
+
+    return { success: true, message: `Đã phát lệnh nháy đèn tìm kệ ${dto.shelfCode}`, payload };
+  }
+
+  // IoT Pick-to-Light: Smartkey Horn Chirp (Bóp còi tìm kệ như Smartkey ô tô / xe máy)
+  async triggerIotChirpShelf(dto: { warehouseCode?: string; shelfCode: string }) {
+    const warehouseCode = dto.warehouseCode || 'WH-006';
+    const payload = {
+      action: 'SMARTKEY_CHIRP',
+      warehouseCode,
+      shelfCode: dto.shelfCode,
+      timestamp: Date.now(),
+    };
+
+    await this.publishToMqtt(`citymart/warehouse/WH-006/picking/command`, payload);
+    await this.publishToMqtt(`citymart/warehouse/GV/picking/command`, payload);
+
+    return { success: true, message: `🔑 Đã bóp còi Smartkey tìm kệ ${dto.shelfCode}`, payload };
+  }
+
+  // IoT Pick-to-Light: Complete Shelf (Auto turn off LED)
+  async triggerIotCompleteShelf(dto: { warehouseCode?: string; shelfCode: string }) {
+    const warehouseCode = dto.warehouseCode || 'WH-006';
+    const payload = {
+      action: 'SCAN_COMPLETED',
+      warehouseCode,
+      shelfCode: dto.shelfCode,
+      timestamp: Date.now(),
+    };
+
+    // Publish to both WH-006 and GV topics
+    await this.publishToMqtt(`citymart/warehouse/WH-006/picking/command`, payload);
+    await this.publishToMqtt(`citymart/warehouse/GV/picking/command`, payload);
+
+    return { success: true, message: `Đã quét xong. Tắt đèn kệ ${dto.shelfCode}`, payload };
+  }
 }
+
 

@@ -140,7 +140,6 @@ Xác nhận bởi CityMart WMS Smart Warehouse`;
 
   const handleConfirmHandover = () => {
     voiceAssistant.playTone('COMPLETE');
-    voiceAssistant.speak('Đã xác nhận bàn giao ca trực thành công!', 'HIGH');
 
     // Persist handover log to localStorage
     const handoverRecord = {

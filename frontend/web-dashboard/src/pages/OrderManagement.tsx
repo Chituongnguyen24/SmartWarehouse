@@ -208,6 +208,9 @@ const OrderManagement: React.FC = () => {
     user?.role === 'WAREHOUSE_MANAGER' && user?.warehouseCode ? user.warehouseCode : 'ALL'
   );
   const [dateRangeFilter, setDateRangeFilter] = useState<string>('ALL');
+  const [classificationFilter, setClassificationFilter] = useState<'ALL' | 'SALE' | 'DISPOSAL' | 'RETURN' | 'TRANSFER'>('ALL');
+  const [printSlipOrder, setPrintSlipOrder] = useState<any | null>(null);
+  const [receiptSlipOrder, setReceiptSlipOrder] = useState<any | null>(null);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -1401,7 +1404,7 @@ const OrderManagement: React.FC = () => {
             assignedDriverPlate: printSlipOrder.assignedDriverPlate,
             createdAt: printSlipOrder.createdAt,
             notes: printSlipOrder.note,
-            items: printSlipOrder.items.map(i => ({
+            items: printSlipOrder.items.map((i: any) => ({
               sku: i.sku || i.productId || 'SKU-01',
               productName: i.productName,
               requestedQuantity: i.quantity,
@@ -1425,7 +1428,7 @@ const OrderManagement: React.FC = () => {
             warehouseCode: receiptSlipOrder.assignedWarehouseCode || 'WH-006',
             createdAt: receiptSlipOrder.createdAt,
             notes: receiptSlipOrder.note,
-            items: receiptSlipOrder.items.map(i => ({
+            items: receiptSlipOrder.items.map((i: any) => ({
               sku: i.sku || i.productId || 'SKU-01',
               productName: i.productName,
               requestedQuantity: i.quantity,
