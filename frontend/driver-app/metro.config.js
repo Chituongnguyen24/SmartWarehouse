@@ -13,15 +13,6 @@ config.resolver.nodeModulesPaths = [
   path.resolve(monorepoRoot, 'node_modules'),
 ];
 
-config.resolver.extraNodeModules = new Proxy(
-  {},
-  {
-    get: (target, name) => {
-      return path.join(monorepoRoot, 'node_modules', name);
-    },
-  }
-);
-
 config.maxWorkers = 2;
 
 module.exports = config;
