@@ -13,7 +13,6 @@ import {
   Phone,
   Truck,
   Bike,
-  Sparkles,
   Route,
   RefreshCw,
   LocateFixed,
@@ -155,7 +154,7 @@ export const GoongDriverLiveMap: React.FC<GoongDriverLiveMapProps> = ({
             border: 2px solid #ffffff;
             white-space: nowrap;
           ">
-            <span>🏬 Kho Gò Vấp (WH-006)</span>
+            <span>Kho Gò Vấp (WH-006)</span>
           </div>
         `,
         iconSize: [160, 30],
@@ -188,7 +187,6 @@ export const GoongDriverLiveMap: React.FC<GoongDriverLiveMapProps> = ({
     const lng = driverLocation.lng;
     const speed = driverLocation.speedKmh || 0;
     const isTruck = vehicleType === 'TRUCK' || vehicleType === 'VAN';
-    const vehicleIconChar = isTruck ? '🚛' : '🛵';
 
     const driverHtml = `
       <div style="position: relative; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;">
@@ -253,13 +251,13 @@ export const GoongDriverLiveMap: React.FC<GoongDriverLiveMapProps> = ({
       driverMarkerRef.current.bindPopup(`
         <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 4px;">
           <div style="font-weight: 800; color: #0f172a; font-size: 12px; margin-bottom: 2px;">
-            ${vehicleIconChar} ${driverName} (${vehicleType})
+            ${driverName} (${vehicleType})
           </div>
           <div style="font-size: 11px; color: #64748b;">
             Tốc độ hiện tại: <b>${speed} km/h</b>
           </div>
           <div style="font-size: 10px; color: #0284c7; margin-top: 4px;">
-            📍 Tọa độ GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}
+            Tọa độ GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}
           </div>
         </div>
       `);
@@ -327,7 +325,7 @@ export const GoongDriverLiveMap: React.FC<GoongDriverLiveMapProps> = ({
               font-weight: 900;
               font-size: 11px;
             ">
-              ${isDelivered ? '✓' : index + 1}
+              ${isDelivered ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>' : index + 1}
             </div>
             <div style="
               background: rgba(15, 23, 42, 0.9);
@@ -359,12 +357,12 @@ export const GoongDriverLiveMap: React.FC<GoongDriverLiveMapProps> = ({
             <span style="font-size: 11px; font-weight: 800; color: #0f172a;">${task.orderCode}</span>
           </div>
           <div style="font-size: 12px; font-weight: 800; color: #0f172a; margin-bottom: 2px;">
-            👤 ${task.customerName}
+            ${task.customerName}
           </div>
           <div style="font-size: 11px; color: #475569; margin-bottom: 4px; line-height: 1.3;">
-            📍 ${geo.cleanAddress}
+            ${geo.cleanAddress}
           </div>
-          ${task.customerPhone ? `<div style="font-size: 11px; color: #0284c7; font-weight: 700;">📞 ${task.customerPhone}</div>` : ''}
+          ${task.customerPhone ? `<div style="font-size: 11px; color: #0284c7; font-weight: 700;">ĐT: ${task.customerPhone}</div>` : ''}
         </div>
       `);
 

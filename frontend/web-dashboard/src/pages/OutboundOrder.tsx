@@ -6,7 +6,9 @@ import {
   Zap, 
   Play, 
   PackageCheck,
-  CheckCircle2
+  CheckCircle2,
+  MapPin,
+  Check
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -936,8 +938,8 @@ const OutboundOrder = () => {
             {calculatedWarehouses.length > 0 && (
               <div style={{ border: '1px solid var(--color-neutral-200)', borderRadius: 'var(--radius-lg)', padding: '1rem', backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'between', alignItems: 'center' }}>
-                  <h4 style={{ fontSize: '0.875rem', fontWeight: 'bold', color: 'var(--color-neutral-800)' }}>
-                    📍 Đề xuất Kho Hàng Gần Khách Hàng Nhất
+                  <h4 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-neutral-800)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <MapPin size={16} /> Đề xuất Kho Hàng Gần Khách Hàng Nhất
                   </h4>
                   {calculating && <span style={{ fontSize: '0.75rem', color: 'var(--color-neutral-500)' }}>Đang tính...</span>}
                 </div>
@@ -963,21 +965,21 @@ const OutboundOrder = () => {
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                         <div>
-                          <span style={{ fontWeight: 'bold', fontSize: '0.875rem' }}>{whInfo.warehouse.name}</span>
+                          <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{whInfo.warehouse.name}</span>
                           <span className="badge badge-neutral" style={{ marginLeft: 6, fontSize: '0.65rem' }}>{whInfo.warehouse.code}</span>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'end' }}>
-                          <span style={{ fontWeight: 'bold', color: 'var(--color-primary-600)', fontSize: '0.875rem' }}>{whInfo.distanceKm} km</span>
+                          <span style={{ fontWeight: 600, color: 'var(--color-primary-600)', fontSize: '0.875rem' }}>{whInfo.distanceKm} km</span>
                           <span className={`badge ${whInfo.fulfillmentRate === 100 ? 'badge-success' : whInfo.fulfillmentRate > 0 ? 'badge-warning' : 'badge-danger'}`} style={{ fontSize: '0.65rem', marginTop: 2 }}>
                             Độ đáp ứng: {whInfo.fulfillmentRate}%
                           </span>
                         </div>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--color-neutral-500)', marginTop: 4 }}>
-                        <span>📍 {whInfo.warehouse.address}</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><MapPin size={12} /> {whInfo.warehouse.address}</span>
                         {whInfo.isRecommended && (
-                          <span className="badge badge-success" style={{ backgroundColor: '#d1fae5', color: '#065f46', border: 'none', fontWeight: 'bold' }}>
-                            ✓ Khuyên dùng (Gần nhất + Đủ hàng)
+                          <span className="badge badge-success" style={{ backgroundColor: '#d1fae5', color: '#065f46', border: 'none', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <Check size={12} /> Đề xuất tối ưu (Gần nhất & Đủ hàng)
                           </span>
                         )}
                       </div>

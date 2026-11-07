@@ -14,7 +14,6 @@ import {
   Clock,
   Printer,
   ChevronRight,
-  Sparkles,
   Search,
   Maximize2,
   X,
@@ -30,6 +29,9 @@ import {
   QrCode,
   ScanBarcode,
   Barcode,
+  Archive,
+  EyeOff,
+  Smartphone,
 } from 'lucide-react';
 import { Supermarket3DScene } from './Supermarket3DScene';
 import type { Rack3DData } from './Supermarket3DScene';
@@ -677,7 +679,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
   // Fetch Live Real Data from Backend (:3011 & :3010) - Scalable for 2000+ Lots per Warehouse
   const fetchLiveWarehouseData = async (targetWhCode?: string) => {
     setIsLoadingLive(true);
-    const whToQuery = isManager ? myWarehouseCode : (targetWhCode !== undefined ? targetWhCode : effectiveWhCode);
+    const whToQuery = !isAdmin ? myWarehouseCode : (targetWhCode !== undefined ? targetWhCode : effectiveWhCode);
 
     try {
       const url = whToQuery && whToQuery !== 'ALL'
@@ -828,19 +830,18 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                   // ① Category detection
                   let catKey = 'DRY';
                   let catLabel = 'Hàng khô';
-                  let catIcon = '🌾';
                   let decayRate = 1.0;
 
                   if (/cá|tôm|mực|hải sản|cua|ghẹ|sò|ốc/.test(nameLower) || /SEAFOOD|FISH|SHRIMP|SQUID/.test(code)) {
-                    catKey = 'SEAFOOD'; catLabel = 'Hải sản'; catIcon = '🐟'; decayRate = 2.8;
+                    catKey = 'SEAFOOD'; catLabel = 'Hải sản'; decayRate = 2.8;
                   } else if (/thịt|bò|heo|gà|vịt|trứng/.test(nameLower) || /BEEF|PORK|CHICKEN|MEAT|DUCK|EGG/.test(code)) {
-                    catKey = 'MEAT'; catLabel = 'Thịt & Trứng'; catIcon = '🥩'; decayRate = 2.2;
+                    catKey = 'MEAT'; catLabel = 'Thịt & Trứng'; decayRate = 2.2;
                   } else if (/sữa|phô mai|yaourt|yogurt|kem|bơ/.test(nameLower) || /MILK|DAIRY|CHEESE|YOGURT/.test(code)) {
-                    catKey = 'DAIRY'; catLabel = 'Sữa & Dairy'; catIcon = '🥛'; decayRate = 1.6;
+                    catKey = 'DAIRY'; catLabel = 'Sữa & Dairy'; decayRate = 1.6;
                   } else if (/rau|cải|súp lơ|dưa|cà|đậu|hành|ngò|cần/.test(nameLower) || /VEG|BROCCOLI|TOMATO|LETTUCE|SPINACH/.test(code)) {
-                    catKey = 'VEGETABLE'; catLabel = 'Rau củ quả'; catIcon = '🥬'; decayRate = 2.0;
+                    catKey = 'VEGETABLE'; catLabel = 'Rau củ quả'; decayRate = 2.0;
                   } else if (/táo|cam|xoài|dứa|ổi|chuối|trái cây/.test(nameLower) || /FRUIT|APPLE|MANGO|ORANGE/.test(code)) {
-                    catKey = 'FRUIT'; catLabel = 'Trái cây'; catIcon = '🍎'; decayRate = 1.7;
+                    catKey = 'FRUIT'; catLabel = 'Trái cây'; decayRate = 1.7;
                   }
 
                   // ② Shelf life consumed %
@@ -871,28 +872,28 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                   const warningDays = catKey === 'SEAFOOD' ? 7 : catKey === 'MEAT' ? 7 : catKey === 'DAIRY' ? 14 : catKey === 'VEGETABLE' ? 10 : catKey === 'FRUIT' ? 10 : 30;
 
                   let riskLevel: 'SAFE' | 'WARNING' | 'DANGER' = 'SAFE';
-                  let riskReason = daysLeft !== null ? `✅ ${catIcon} Còn ${daysLeft} ngày — An toàn` : `✅ ${catIcon} Đạt chuẩn bảo quản`;
+                  let riskReason = daysLeft !== null ? `Còn ${daysLeft} ngày — Tiêu chuẩn an toàn` : `Đạt chuẩn bảo quản`;
                   let riskRecommendation = 'Tiếp tục bảo quản theo quy trình tiêu chuẩn';
 
                   if (l.status === 'EXPIRED' || (daysLeft !== null && daysLeft <= 0)) {
                     riskLevel = 'DANGER';
-                    riskReason = `⚠️ ${catIcon} Đã hết hạn sử dụng`;
+                    riskReason = `Đã hết hạn sử dụng`;
                     riskRecommendation = 'Cần xử lý tiêu hủy hoặc trả hàng ngay lập tức';
                   } else if (l.status === 'DAMAGED') {
                     riskLevel = 'DANGER';
-                    riskReason = `🔥 ${catIcon} Hư hỏng trong bảo quản`;
+                    riskReason = `Hư hỏng trong bảo quản`;
                     riskRecommendation = 'Cách ly khỏi lô lành, kiểm tra toàn bộ lô hàng';
                   } else if (daysLeft !== null && daysLeft <= dangerDays) {
                     riskLevel = 'DANGER';
-                    riskReason = `📛 ${catIcon} Còn ${daysLeft} ngày — ngưỡng nguy hiểm`;
+                    riskReason = `Còn ${daysLeft} ngày — Ngưỡng rủi ro cao`;
                     riskRecommendation = 'Xuất kho ngay hoặc kiểm kê / thanh lý';
                   } else if (daysLeft !== null && daysLeft <= warningDays) {
                     riskLevel = 'WARNING';
-                    riskReason = `⏳ ${catIcon} Còn ${daysLeft} ngày — cận hạn với ${catLabel}`;
+                    riskReason = `Còn ${daysLeft} ngày — Cận hạn (${catLabel})`;
                     riskRecommendation = `Lên kế hoạch xuất kho trong ${daysLeft} ngày tới (FEFO)`;
                   } else if (aiScore >= 65) {
                     riskLevel = 'WARNING';
-                    riskReason = `🤖 AI: Cần theo dõi — ${catIcon} ${catLabel} (${aiScore}/100)`;
+                    riskReason = `Cần theo dõi chất lượng — ${catLabel} (${aiScore}/100)`;
                     riskRecommendation = 'Tăng tần suất kiểm tra, cân nhắc xuất kho sớm';
                   }
 
@@ -918,8 +919,8 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                     shelfLifePct,
                     riskReason,
                     riskRecommendation,
-                    riskCategory: `${catIcon} ${catLabel}`,
-                    categoryIcon: catIcon,
+                    riskCategory: catLabel,
+                    categoryIcon: '',
                     lastAuditedAt: l.lastAuditedAt,
                     lastAuditedBy: l.lastAuditedBy,
                     lastAuditDiff: l.lastAuditDiff,
@@ -1053,16 +1054,16 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
       });
 
       if (res.ok) {
-        alert('✅ Cập nhật kết quả kiểm kê lô hàng thành công!');
+        alert('Cập nhật kết quả kiểm kê lô hàng thành công.');
         setAdjustModal({ isOpen: false, lot: null, newQty: 0, reason: 'Kiểm kê định kỳ hàng tháng', qualityStatus: 'GOOD', note: '' });
         await fetchLiveWarehouseData();
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(`❌ Lỗi cập nhật kiểm kê: ${err.message || 'Thất bại'}`);
+        alert(`Lỗi cập nhật kiểm kê: ${err.message || 'Thất bại'}`);
       }
     } catch (err: any) {
       console.error(err);
-      alert(`❌ Lỗi kết nối máy chủ kiểm kê: ${err.message}`);
+      alert(`Lỗi kết nối máy chủ kiểm kê: ${err.message}`);
     }
   };
 
@@ -1268,7 +1269,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
   const handleExportSingleLot = (item: ShelfItem, rack: ShelfRack) => {
     const existing = outboundLotMap[item.lotCode] || (item.id ? outboundLotMap[item.id] : undefined);
     if (existing) {
-      if (window.confirm(`⚠️ Lô hàng ${item.lotCode} (${item.name}) đã được lập phiếu xuất [${existing.orderCode}] (Trạng thái: ${existing.status})!\n\nBạn có muốn chuyển sang trang Quản Lý Xuất Kho để xem và xử lý đơn này không?`)) {
+      if (window.confirm(`Lô hàng ${item.lotCode} (${item.name}) đã được lập phiếu xuất [${existing.orderCode}] (Trạng thái: ${existing.status}).\n\nBạn có muốn chuyển sang trang Quản Lý Xuất Kho để xem và xử lý đơn này không?`)) {
         navigate(`/outbound-orders?orderCode=${existing.orderCode}`);
       }
       return;
@@ -1301,7 +1302,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
     });
 
     if (availableItems.length === 0) {
-      alert(`⚠️ Tất cả các lô hàng trên Kệ ${rack.name} đều đã được lập phiếu xuất kho trước đó!`);
+      alert(`Tất cả các lô hàng trên Kệ ${rack.name} đều đã được lập phiếu xuất kho trước đó.`);
       return;
     }
 
@@ -1370,17 +1371,17 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
           isOpen: true,
           order,
           count: itemsPayload.length,
-          title: `📋 Đã lập Phiếu Yêu Cầu Xuất Kho: ${order.orderCode}`,
+          title: `Đã lập Phiếu Yêu Cầu Xuất Kho: ${order.orderCode}`,
           description: `Phiếu xuất kho đã được tạo thành công ở trạng thái Tạo Yêu Cầu (PENDING). Tồn kho và kệ hàng sẽ được trừ thực tế khi nhân viên kho duyệt và hoàn tất bước Xác Nhận Xuất Kho bên Quản Lý Xuất Kho.`
         });
         await fetchLiveWarehouseData();
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(`❌ Lỗi tạo phiếu xuất kho: ${err.message || 'Thất bại'}`);
+        alert(`Lỗi tạo phiếu xuất kho: ${err.message || 'Thất bại'}`);
       }
     } catch (err: any) {
       console.error(err);
-      alert(`❌ Lỗi kết nối hệ thống xuất kho: ${err.message}`);
+      alert(`Lỗi kết nối hệ thống xuất kho: ${err.message}`);
     } finally {
       setIsCreatingOutbound(false);
     }
@@ -1412,13 +1413,13 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Strict Warehouse Locking: Manager cannot change warehouse */}
           {!isAdmin ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f0fdf4', padding: '8px 14px', borderRadius: '12px', border: '1.5px solid #86efac', color: '#166534', fontWeight: 800, fontSize: '0.85rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f0fdf4', padding: '8px 14px', borderRadius: '8px', border: '1px solid #86efac', color: '#166534', fontWeight: 600, fontSize: '0.85rem' }}>
               <ShieldCheck size={16} color="#16a34a" />
-              <span>📍 {currentWhName} ({myWarehouseCode})</span>
-              <span style={{ fontSize: '10px', background: '#dcfce7', padding: '2px 6px', borderRadius: '4px', marginLeft: '4px' }}>🔒 Cố định</span>
+              <span>{currentWhName} ({myWarehouseCode})</span>
+              <span style={{ fontSize: '10px', background: '#dcfce7', padding: '2px 6px', borderRadius: '4px', marginLeft: '4px' }}>Cố định</span>
             </div>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f8fafc', padding: '6px 12px', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f8fafc', padding: '6px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
               <Building2 size={16} color="#0284c7" />
               <select
                 value={selectedWarehouseCode || 'WH-006'}
@@ -1427,12 +1428,12 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                   setSelectedWarehouseCode(val);
                   fetchLiveWarehouseData(val);
                 }}
-                style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '0.85rem', fontWeight: 800, color: '#0f172a', cursor: 'pointer' }}
+                style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '0.85rem', fontWeight: 600, color: '#0f172a', cursor: 'pointer' }}
               >
-                <option value="ALL">🏢 Toàn Hệ Thống (Tất Cả Kho)</option>
+                <option value="ALL">Toàn Hệ Thống (Tất Cả Kho)</option>
                 {warehouses.map(w => (
                   <option key={w.code} value={w.code}>
-                    📍 {w.name} ({w.code})
+                    {w.name} ({w.code})
                   </option>
                 ))}
               </select>
@@ -1467,21 +1468,21 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
           <button
             onClick={() => setShowInboundRecommendationModal(true)}
             style={{
-              padding: '10px 18px',
-              borderRadius: '12px',
+              padding: '9px 16px',
+              borderRadius: '8px',
               border: 'none',
               backgroundColor: '#0f766e',
               color: '#fff',
               fontSize: '0.85rem',
-              fontWeight: 800,
+              fontWeight: 600,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              boxShadow: '0 4px 14px rgba(15, 118, 110, 0.35)',
+              boxShadow: '0 2px 6px rgba(15, 118, 110, 0.25)',
             }}
           >
-            <Sparkles size={16} />
+            <Layers size={16} />
             <span>Đề Xuất Kệ Nhập Kho</span>
           </button>
 
@@ -1560,36 +1561,36 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
       </div>
 
       {/* Phân bổ sức chứa (Khu vực) - Exact Match with Stock Dashboard */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', background: '#fff', padding: '14px 20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '10px', background: '#f0fdfa', border: '1px solid #ccfbf1' }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0369a1', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            🧊 Kho Đông (-18°C)
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', background: '#fff', padding: '14px 20px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', background: '#f0fdfa', border: '1px solid #ccfbf1' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0369a1', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            Kho Đông (-18°C)
           </span>
-          <b style={{ fontSize: '1.05rem', fontWeight: 900, color: '#0284c7' }}>{zoneCounts.frozen.toLocaleString()} lô</b>
+          <b style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0284c7' }}>{zoneCounts.frozen.toLocaleString()} lô</b>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            ❄️ Kho Mát (0-4°C)
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            Kho Mát (0-4°C)
           </span>
-          <b style={{ fontSize: '1.05rem', fontWeight: 900, color: '#16a34a' }}>{zoneCounts.cold.toLocaleString()} lô</b>
+          <b style={{ fontSize: '1.05rem', fontWeight: 700, color: '#16a34a' }}>{zoneCounts.cold.toLocaleString()} lô</b>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '10px', background: '#fffbeb', border: '1px solid #fde68a' }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#92400e', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            🌾 Kho Khô (+25°C)
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', background: '#fffbeb', border: '1px solid #fde68a' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#92400e', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            Kho Khô (+25°C)
           </span>
-          <b style={{ fontSize: '1.05rem', fontWeight: 900, color: '#d97706' }}>{zoneCounts.dry.toLocaleString()} lô</b>
+          <b style={{ fontSize: '1.05rem', fontWeight: 700, color: '#d97706' }}>{zoneCounts.dry.toLocaleString()} lô</b>
         </div>
       </div>
 
       {/* Filter Toolbar: 3 Phân Khu Kho Riêng Biệt */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '14px 20px', borderRadius: '16px', border: '1px solid #e2e8f0', flexWrap: 'wrap', gap: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '14px 20px', borderRadius: '10px', border: '1px solid #e2e8f0', flexWrap: 'wrap', gap: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
         <div style={{ display: 'flex', gap: '10px', overflowX: 'auto' }}>
           {[
-            { key: 'COOL', label: `❄️ Kho Mát (0°C ~ +4°C) - ${racks.filter(r => r.zone === 'COOL').length} Kệ`, activeColor: '#0284c7' },
-            { key: 'FROZEN', label: `🧊 Hầm Đông Lạnh (-18°C ~ -22°C) - ${racks.filter(r => r.zone === 'FROZEN').length} Kệ`, activeColor: '#0891b2' },
-            { key: 'DRY', label: `📦 Kho Khô Thường (+25°C) - ${racks.filter(r => r.zone === 'DRY').length} Kệ`, activeColor: '#d97706' },
+            { key: 'COOL', label: `Kho Mát (0°C ~ +4°C) - ${racks.filter(r => r.zone === 'COOL').length} Kệ`, activeColor: '#0284c7' },
+            { key: 'FROZEN', label: `Hầm Đông Lạnh (-18°C ~ -22°C) - ${racks.filter(r => r.zone === 'FROZEN').length} Kệ`, activeColor: '#0891b2' },
+            { key: 'DRY', label: `Kho Khô Thường (+25°C) - ${racks.filter(r => r.zone === 'DRY').length} Kệ`, activeColor: '#d97706' },
           ].map(tab => (
             <button
               key={tab.key}
@@ -1683,9 +1684,9 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                   padding: '8px',
                 }}
               >
-                <div style={{ padding: '6px 10px', fontSize: '11px', fontWeight: 800, color: '#64748b', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ padding: '6px 10px', fontSize: '11px', fontWeight: 600, color: '#64748b', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span>KẾT QUẢ VỊ TRÍ 3D ({globalSearchResults.length})</span>
-                  <span style={{ color: '#0284c7' }}>Bấm để định vị & highlight 3D 🎯</span>
+                  <span style={{ color: '#0284c7' }}>Bấm để định vị & highlight 3D</span>
                 </div>
 
                 {globalSearchResults.map((res, rIdx) => {
@@ -1704,7 +1705,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                       }}
                       style={{
                         padding: '10px 12px',
-                        borderRadius: '10px',
+                        borderRadius: '8px',
                         cursor: 'pointer',
                         display: 'flex',
                         flexDirection: 'column',
@@ -1717,24 +1718,24 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <b style={{ fontSize: '13px', color: '#0f172a' }}>{res.item.name}</b>
-                        <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '6px', background: zoneBg, color: zoneColor, fontWeight: 800 }}>
-                          {res.zone === 'COOL' ? '❄️ Kho Mát' : res.zone === 'FROZEN' ? '🧊 Kho Đông' : '🌾 Kho Khô'}
+                        <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: zoneBg, color: zoneColor, fontWeight: 600 }}>
+                          {res.zone === 'COOL' ? 'Kho Mát' : res.zone === 'FROZEN' ? 'Kho Đông' : 'Kho Khô'}
                         </span>
                       </div>
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
-                        <span style={{ color: '#0284c7', fontWeight: 800, fontFamily: 'monospace' }}>
+                        <span style={{ color: '#0284c7', fontWeight: 600, fontFamily: 'monospace' }}>
                           Mã Lô: {res.item.lotCode}
                         </span>
-                        <span style={{ color: isNear ? '#dc2626' : '#16a34a', fontWeight: 800, fontSize: '11px' }}>
-                          {isNear ? `⚠️ Cận Date (${res.item.daysRemaining} ngày)` : `HSD: ${res.item.expiryDate}`}
+                        <span style={{ color: isNear ? '#dc2626' : '#16a34a', fontWeight: 600, fontSize: '11px' }}>
+                          {isNear ? `Cận Date (${res.item.daysRemaining} ngày)` : `HSD: ${res.item.expiryDate}`}
                         </span>
                       </div>
 
                       {/* Barcode & Precise 3D Location Tag with Quick Scan Button */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', background: '#f8fafc', padding: '5px 8px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span>📍 {res.rack.name.split('(')[0]}</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', background: '#f8fafc', padding: '5px 8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#334155', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span>{res.rack.name.split('(')[0]}</span>
                           <span>•</span>
                           <span style={{ color: '#0284c7' }}>Tầng {res.level} Cột {res.slot}</span>
                         </div>
@@ -1776,13 +1777,13 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
       </div>
 
       {/* FULL WIDTH: 3D DIGITAL TWIN SCENE */}
-      <div style={{ background: '#0f172a', borderRadius: '22px', padding: '20px', border: '1px solid #1e293b', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)', width: '100%' }}>
+      <div style={{ background: '#0f172a', borderRadius: '12px', padding: '20px', border: '1px solid #1e293b', boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)', width: '100%' }}>
         {/* Header with Switcher */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Sparkles size={18} color="#38bdf8" />
-            <span style={{ fontSize: '14px', fontWeight: 900, color: '#ffffff' }}>
-              KHÔNG GIAN SƠ ĐỒ 3D BẢN SAO SỐ (DIGITAL TWIN TOÀN CẢNH) - {filteredRacks.length} DÃY GIÀN KỆ PBR 4 TẦNG
+            <Box size={18} color="#38bdf8" />
+            <span style={{ fontSize: '13px', fontWeight: 700, color: '#f8fafc', letterSpacing: '0.3px', textTransform: 'uppercase' }}>
+              Không Gian Sơ Đồ 3D Digital Twin — {filteredRacks.length} Dãy Kệ Lưu Trữ PBR
             </span>
           </div>
 
@@ -2021,28 +2022,28 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Package size={18} color="#0284c7" />
-                <span style={{ fontSize: '15px', fontWeight: 900, color: '#0f172a' }}>
-                  DANH SÁCH LÔ HÀNG ĐANG LƯU TRÊN KỆ ({selectedRack.items.length} LÔ):
+                <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
+                  Danh Sách Lô Hàng Đang Lưu Trên Kệ ({selectedRack.items.length} Lô):
                 </span>
               </div>
 
-              {/* ML Model Active Banner */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#0f766e', backgroundColor: '#f0fdfa', border: '1px solid #99f6e4', padding: '4px 10px', borderRadius: '8px', fontWeight: 700 }}>
-                <Sparkles size={14} />
-                <span>🛡️ Giám sát chất lượng bảo quản 24/7 • Tiêu chuẩn nhiệt độ đạt chuẩn</span>
+              {/* Status Banner */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#0f766e', backgroundColor: '#f0fdfa', border: '1px solid #99f6e4', padding: '4px 10px', borderRadius: '6px', fontWeight: 600 }}>
+                <ShieldCheck size={14} />
+                <span>Giám sát điều kiện bảo quản 24/7 • Đạt tiêu chuẩn an toàn</span>
               </div>
             </div>
 
             {/* Risk & Audit Filter Tabs Bar */}
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '16px', backgroundColor: '#f8fafc', padding: '10px 12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '16px', backgroundColor: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <button
                 onClick={() => { setSelectedRiskFilter('ALL'); setRackItemPage(1); }}
                 style={{
-                  padding: '5px 12px', borderRadius: '8px', border: '1px solid',
+                  padding: '5px 12px', borderRadius: '6px', border: '1px solid',
                   borderColor: selectedRiskFilter === 'ALL' ? '#0f766e' : '#cbd5e1',
                   backgroundColor: selectedRiskFilter === 'ALL' ? '#0f766e' : '#ffffff',
                   color: selectedRiskFilter === 'ALL' ? '#fff' : '#475569',
-                  fontWeight: 800, fontSize: '0.75rem', cursor: 'pointer'
+                  fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer'
                 }}
               >
                 Tất cả ({rackStats.totalLots})
@@ -2051,90 +2052,96 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
               <button
                 onClick={() => { setSelectedRiskFilter('SAFE'); setRackItemPage(1); }}
                 style={{
-                  padding: '5px 12px', borderRadius: '8px', border: '1px solid',
+                  padding: '5px 12px', borderRadius: '6px', border: '1px solid',
                   borderColor: selectedRiskFilter === 'SAFE' ? '#16a34a' : '#bbf7d0',
                   backgroundColor: selectedRiskFilter === 'SAFE' ? '#16a34a' : '#f0fdf4',
                   color: selectedRiskFilter === 'SAFE' ? '#fff' : '#15803d',
-                  fontWeight: 800, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                  fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
                 }}
               >
-                🟢 Bình thường ({rackStats.safeCount})
+                <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: selectedRiskFilter === 'SAFE' ? '#fff' : '#16a34a' }} />
+                Bình thường ({rackStats.safeCount})
               </button>
 
               <button
                 onClick={() => { setSelectedRiskFilter('WARNING'); setRackItemPage(1); }}
                 style={{
-                  padding: '5px 12px', borderRadius: '8px', border: '1px solid',
+                  padding: '5px 12px', borderRadius: '6px', border: '1px solid',
                   borderColor: selectedRiskFilter === 'WARNING' ? '#d97706' : '#fde68a',
                   backgroundColor: selectedRiskFilter === 'WARNING' ? '#d97706' : '#fffbeb',
                   color: selectedRiskFilter === 'WARNING' ? '#fff' : '#b45309',
-                  fontWeight: 800, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                  fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
                 }}
               >
-                🟡 Có nguy cơ ({rackStats.warningCount})
+                <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: selectedRiskFilter === 'WARNING' ? '#fff' : '#d97706' }} />
+                Có nguy cơ ({rackStats.warningCount})
               </button>
 
               <button
                 onClick={() => { setSelectedRiskFilter('DANGER'); setRackItemPage(1); }}
                 style={{
-                  padding: '5px 12px', borderRadius: '8px', border: '1px solid',
+                  padding: '5px 12px', borderRadius: '6px', border: '1px solid',
                   borderColor: selectedRiskFilter === 'DANGER' ? '#dc2626' : '#fecaca',
                   backgroundColor: selectedRiskFilter === 'DANGER' ? '#dc2626' : '#fef2f2',
                   color: selectedRiskFilter === 'DANGER' ? '#fff' : '#b91c1c',
-                  fontWeight: 800, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                  fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
                 }}
               >
-                🔴 Báo động đỏ ({rackStats.dangerCount})
+                <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: selectedRiskFilter === 'DANGER' ? '#fff' : '#dc2626' }} />
+                Nguy cơ cao ({rackStats.dangerCount})
               </button>
 
               <button
                 onClick={() => { setSelectedRiskFilter('AUDITED'); setRackItemPage(1); }}
                 style={{
-                  padding: '5px 12px', borderRadius: '8px', border: '1px solid',
+                  padding: '5px 12px', borderRadius: '6px', border: '1px solid',
                   borderColor: selectedRiskFilter === 'AUDITED' ? '#0f766e' : '#99f6e4',
                   backgroundColor: selectedRiskFilter === 'AUDITED' ? '#0f766e' : '#f0fdfa',
                   color: selectedRiskFilter === 'AUDITED' ? '#fff' : '#0f766e',
-                  fontWeight: 800, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                  fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
                 }}
               >
-                ✅ Đã kiểm kê ({rackStats.auditedCount})
+                <CheckCircle2 size={13} />
+                Đã kiểm kê ({rackStats.auditedCount})
               </button>
 
               <button
                 onClick={() => { setSelectedRiskFilter('PENDING_AUDIT'); setRackItemPage(1); }}
                 style={{
-                  padding: '5px 12px', borderRadius: '8px', border: '1px solid',
+                  padding: '5px 12px', borderRadius: '6px', border: '1px solid',
                   borderColor: selectedRiskFilter === 'PENDING_AUDIT' ? '#64748b' : '#e2e8f0',
                   backgroundColor: selectedRiskFilter === 'PENDING_AUDIT' ? '#64748b' : '#ffffff',
                   color: selectedRiskFilter === 'PENDING_AUDIT' ? '#fff' : '#475569',
-                  fontWeight: 800, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                  fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
                 }}
               >
-                ⏳ Chưa kiểm kê ({rackStats.pendingAuditCount})
+                <Clock size={13} />
+                Chưa kiểm kê ({rackStats.pendingAuditCount})
               </button>
 
               <button
                 onClick={() => { setSelectedRiskFilter('DEPLETED'); setRackItemPage(1); }}
                 style={{
-                  padding: '5px 12px', borderRadius: '8px', border: '1px solid',
+                  padding: '5px 12px', borderRadius: '6px', border: '1px solid',
                   borderColor: selectedRiskFilter === 'DEPLETED' ? '#475569' : '#e2e8f0',
                   backgroundColor: selectedRiskFilter === 'DEPLETED' ? '#475569' : '#ffffff',
                   color: selectedRiskFilter === 'DEPLETED' ? '#fff' : '#64748b',
-                  fontWeight: 800, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                  fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
                 }}
               >
-                🗑️ Đã hết (0 SP: {rackStats.depletedCount})
+                <Archive size={13} />
+                Hết hàng ({rackStats.depletedCount})
               </button>
 
               <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', color: '#334155', fontWeight: 700, cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', color: '#334155', fontWeight: 600, cursor: 'pointer' }}>
                   <input
                     type="checkbox"
                     checked={hideDepletedLots}
                     onChange={e => { setHideDepletedLots(e.target.checked); setRackItemPage(1); }}
                     style={{ cursor: 'pointer' }}
                   />
-                  👁️ Tự động ẩn lô 0 tồn kho
+                  <span>Tự động ẩn lô 0 tồn kho</span>
                 </label>
 
                 {/* Page Size Selector */}
@@ -2173,19 +2180,19 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
 
                     const badgeBg = isDanger ? '#fee2e2' : isWarning ? '#fefce8' : '#f0fdf4';
                     const badgeColor = isDanger ? '#b91c1c' : isWarning ? '#b45309' : '#15803d';
-                    const badgeText = it.riskReason || (isDanger ? '🔴 Báo động đỏ' : isWarning ? '🟡 Có nguy cơ' : '🟢 An toàn');
+                    const badgeText = it.riskReason || (isDanger ? 'Báo động đỏ' : isWarning ? 'Có nguy cơ' : 'An toàn');
 
                     // Days left text
                     const daysLeftColor = it.daysRemaining <= 0 ? '#dc2626' : it.daysRemaining <= 7 ? '#dc2626' : it.daysRemaining <= 30 ? '#d97706' : '#15803d';
-                    const daysLeftText = it.daysRemaining <= 0 ? `⚠️ HẾT HẠN ${Math.abs(it.daysRemaining)} ngày trước` : `Còn ${it.daysRemaining} ngày`;
+                    const daysLeftText = it.daysRemaining <= 0 ? `Quá hạn ${Math.abs(it.daysRemaining)} ngày` : `Còn ${it.daysRemaining} ngày`;
 
-                    const zoneInfo: Record<string, { icon: string; label: string; temp: string; color: string }> = {
-                      FROZEN: { icon: '🧊', label: 'Kho Đông', temp: '-18°C', color: '#1d4ed8' },
-                      COLD:   { icon: '❄️', label: 'Kho Mát',  temp: '0–4°C',  color: '#059669' },
-                      COOL:   { icon: '❄️', label: 'Kho Mát',  temp: '0–4°C',  color: '#059669' },
-                      DRY:    { icon: '📦', label: 'Kho Khô',  temp: '25°C',   color: '#475569' },
+                    const zoneInfo: Record<string, { label: string; temp: string; color: string }> = {
+                      FROZEN: { label: 'Kho Đông', temp: '-18°C', color: '#1d4ed8' },
+                      COLD:   { label: 'Kho Mát',  temp: '0–4°C',  color: '#059669' },
+                      COOL:   { label: 'Kho Mát',  temp: '0–4°C',  color: '#059669' },
+                      DRY:    { label: 'Kho Khô',  temp: '25°C',   color: '#475569' },
                     };
-                    const zone = zoneInfo[it.zone || selectedRack.zone] || { icon: '🏭', label: selectedRack.zoneLabel, temp: selectedRack.temperature, color: '#64748b' };
+                    const zone = zoneInfo[it.zone || selectedRack.zone] || { label: selectedRack.zoneLabel, temp: selectedRack.temperature, color: '#64748b' };
 
                     return (
                       <div
@@ -2193,7 +2200,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                         style={{
                           backgroundColor: cardBg,
                           border: cardBorder,
-                          borderRadius: '14px',
+                          borderRadius: '10px',
                           padding: '1.1rem',
                           display: 'flex',
                           flexDirection: 'column',
@@ -2205,24 +2212,24 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                       >
                         {/* Row 1: Status Badge + Zone Chip */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '0.68rem', fontWeight: 800, color: badgeColor, backgroundColor: badgeBg, padding: '3px 10px', borderRadius: '6px', border: `1px solid ${isDanger ? '#fca5a5' : isWarning ? '#fef08a' : '#bbf7d0'}`, whiteSpace: 'nowrap' }}>
+                          <span style={{ fontSize: '0.68rem', fontWeight: 600, color: badgeColor, backgroundColor: badgeBg, padding: '3px 10px', borderRadius: '6px', border: `1px solid ${isDanger ? '#fca5a5' : isWarning ? '#fef08a' : '#bbf7d0'}`, whiteSpace: 'nowrap' }}>
                             {badgeText}
                           </span>
                           <span style={{
-                            fontSize: '0.7rem', fontWeight: 700, color: zone.color,
+                            fontSize: '0.7rem', fontWeight: 600, color: zone.color,
                             backgroundColor: `${zone.color}15`, padding: '3px 8px', borderRadius: '6px',
                             border: `1px solid ${zone.color}30`, display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap'
                           }}>
-                            {zone.icon} {zone.label} • {zone.temp}
+                            {zone.label} • {zone.temp}
                           </span>
                         </div>
 
                         {/* Row 2: Lot Code + Product Name */}
                         <div>
-                          <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#0f766e', letterSpacing: '0.3px' }}>
-                            📋 {it.lotCode}
+                          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0f766e', letterSpacing: '0.3px' }}>
+                            {it.lotCode}
                           </div>
-                          <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#1e293b', marginTop: '3px', lineHeight: 1.3 }}>
+                          <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', marginTop: '3px', lineHeight: 1.3 }}>
                             {it.name}
                           </div>
                           <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>
@@ -2231,31 +2238,31 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                         </div>
 
                         {/* Row 3: Dates Grid */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', backgroundColor: isDanger ? '#fef2f2' : isWarning ? '#fffbeb' : '#f8fafc', borderRadius: '8px', padding: '8px 10px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', backgroundColor: isDanger ? '#fef2f2' : isWarning ? '#fffbeb' : '#f8fafc', borderRadius: '6px', padding: '8px 10px' }}>
                           <div>
-                            <div style={{ fontSize: '0.64rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>📅 Ngày nhập</div>
-                            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#475569' }}>{it.importDate || 'N/A'}</div>
+                            <div style={{ fontSize: '0.64rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>Ngày nhập</div>
+                            <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#475569' }}>{it.importDate || 'N/A'}</div>
                           </div>
                           <div>
-                            <div style={{ fontSize: '0.64rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>⏰ Hạn sử dụng</div>
-                            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: daysLeftColor }}>{it.expiryDate}</div>
+                            <div style={{ fontSize: '0.64rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>Hạn sử dụng</div>
+                            <div style={{ fontSize: '0.78rem', fontWeight: 600, color: daysLeftColor }}>{it.expiryDate}</div>
                           </div>
                         </div>
 
-                        {/* Row 4: ML Spoilage Index Box */}
-                        <div style={{ backgroundColor: isDanger ? '#fef2f2' : isWarning ? '#fffbeb' : '#f8fafc', borderRadius: '10px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '8px', border: `1px solid ${isDanger ? '#fed7d7' : isWarning ? '#fef08a' : '#e2e8f0'}` }}>
-                          {/* ML Score & Conf */}
+                        {/* Row 4: Spoilage Index Box */}
+                        <div style={{ backgroundColor: isDanger ? '#fef2f2' : isWarning ? '#fffbeb' : '#f8fafc', borderRadius: '8px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '8px', border: `1px solid ${isDanger ? '#fed7d7' : isWarning ? '#fef08a' : '#e2e8f0'}` }}>
+                          {/* Score & Conf */}
                           <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                <span style={{ fontSize: '0.66rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-                                  🤖 ML Spoilage Index
+                                <span style={{ fontSize: '0.66rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                                  Chỉ Số Rủi Ro Bảo Quản
                                 </span>
-                                <span style={{ fontSize: '0.62rem', backgroundColor: '#e2e8f0', color: '#334155', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>
-                                  96.8% Conf.
+                                <span style={{ fontSize: '0.62rem', backgroundColor: '#e2e8f0', color: '#334155', padding: '1px 5px', borderRadius: '4px', fontWeight: 600 }}>
+                                  Độ tin cậy: 97%
                                 </span>
                               </div>
-                              <span style={{ fontSize: '0.85rem', fontWeight: 900, color: isDanger ? '#dc2626' : isWarning ? '#d97706' : '#15803d' }}>
+                              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: isDanger ? '#dc2626' : isWarning ? '#d97706' : '#15803d' }}>
                                 {it.aiScore ?? 20}/100
                               </span>
                             </div>
@@ -2273,10 +2280,10 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                           {it.shelfLifePct !== undefined && (
                             <div>
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                                <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-                                  {it.daysRemaining <= 0 ? '⚠️ ĐÃ HẾT HẠN' : `⏳ Vòng đời: Còn ${it.daysRemaining} ngày`}
+                                <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                                  {it.daysRemaining <= 0 ? 'ĐÃ QUÁ HẠN' : `Vòng đời: Còn ${it.daysRemaining} ngày`}
                                 </span>
-                                <span style={{ fontSize: '0.72rem', fontWeight: 800, color: daysLeftColor }}>{daysLeftText}</span>
+                                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: daysLeftColor }}>{daysLeftText}</span>
                               </div>
                               <div style={{ height: '5px', borderRadius: '99px', backgroundColor: '#e2e8f0', overflow: 'hidden' }}>
                                 <div style={{
@@ -2289,58 +2296,58 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                             </div>
                           )}
 
-                          {/* XAI Feature contributions */}
+                          {/* Feature contributions */}
                           <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', paddingTop: '4px', borderTop: '1px dashed #cbd5e1' }}>
                             <span style={{ fontSize: '0.6rem', color: '#64748b', backgroundColor: '#fff', padding: '2px 5px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
-                              🌡️ Nhiệt: <strong>{zone.temp}</strong>
+                              Nhiệt độ: <strong>{zone.temp}</strong>
                             </span>
                             <span style={{ fontSize: '0.6rem', color: '#64748b', backgroundColor: '#fff', padding: '2px 5px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
-                              ⏳ Đã dùng: <strong>{Math.round(it.shelfLifePct || 0)}%</strong>
+                              Đã dùng: <strong>{Math.round(it.shelfLifePct || 0)}%</strong>
                             </span>
                             <span style={{ fontSize: '0.6rem', color: '#64748b', backgroundColor: '#fff', padding: '2px 5px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
-                              🧬 Nhóm: <strong>{it.riskCategory || it.category || 'Thực phẩm'}</strong>
+                              Phân loại: <strong>{it.riskCategory || it.category || 'Thực phẩm'}</strong>
                             </span>
                           </div>
                         </div>
 
-                        {/* Row 5: AI Recommendation */}
+                        {/* Row 5: Recommendation */}
                         {it.riskRecommendation && (
                           <div style={{
                             backgroundColor: isDanger ? '#fee2e2' : isWarning ? '#fefce8' : '#ecfdf5',
                             border: `1px solid ${isDanger ? '#fca5a5' : isWarning ? '#fde68a' : '#bbf7d0'}`,
-                            borderRadius: '8px', padding: '6px 10px', fontSize: '0.7rem',
+                            borderRadius: '6px', padding: '6px 10px', fontSize: '0.7rem',
                             color: isDanger ? '#7f1d1d' : isWarning ? '#78350f' : '#14532d',
-                            fontWeight: 600, display: 'flex', alignItems: 'flex-start', gap: '5px'
+                            fontWeight: 500, display: 'flex', alignItems: 'flex-start', gap: '6px'
                           }}>
-                            <span style={{ flexShrink: 0 }}>💡</span>
+                            <ShieldCheck size={13} style={{ flexShrink: 0, marginTop: '2px' }} />
                             <span>{it.riskRecommendation}</span>
                           </div>
                         )}
 
                         {/* Row 5.5: Audit History */}
                         {it.lastAuditedAt ? (
-                          <div style={{ backgroundColor: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: '8px', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <div style={{ backgroundColor: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: '6px', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#0f766e', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                ✅ ĐÃ KIỂM KÊ
+                              <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#0f766e', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <CheckCircle2 size={12} /> ĐÃ KIỂM KÊ
                               </span>
-                              <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 600 }}>
+                              <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 500 }}>
                                 {new Date(it.lastAuditedAt).toLocaleDateString('vi-VN')} {new Date(it.lastAuditedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
                             <div style={{ fontSize: '0.72rem', color: '#334155' }}>
-                              👤 Người kiểm: <strong>{it.lastAuditedBy || 'Nhân viên trực ca'}</strong>
+                              Người kiểm: <strong>{it.lastAuditedBy || 'Nhân viên trực ca'}</strong>
                             </div>
                             <div style={{ fontSize: '0.72rem', display: 'flex', justifyContent: 'space-between', color: '#334155' }}>
                               <span>Thực đếm: <strong>{it.lastAuditActualQty ?? it.qty} SP</strong></span>
-                              <span style={{ fontWeight: 800, color: (it.lastAuditDiff ?? 0) > 0 ? '#16a34a' : (it.lastAuditDiff ?? 0) < 0 ? '#dc2626' : '#0f766e' }}>
+                              <span style={{ fontWeight: 600, color: (it.lastAuditDiff ?? 0) > 0 ? '#16a34a' : (it.lastAuditDiff ?? 0) < 0 ? '#dc2626' : '#0f766e' }}>
                                 {(it.lastAuditDiff ?? 0) > 0 ? `Lệch: +${it.lastAuditDiff} (Thừa)` : (it.lastAuditDiff ?? 0) < 0 ? `Lệch: ${it.lastAuditDiff} (Thiếu)` : 'Khớp 100%'}
                               </span>
                             </div>
                           </div>
                         ) : (
-                          <div style={{ backgroundColor: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '8px', padding: '6px 10px', fontSize: '0.7rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <span>⏳</span> <span>Chưa đối soát kiểm kê trong kỳ</span>
+                          <div style={{ backgroundColor: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '6px', padding: '6px 10px', fontSize: '0.7rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Clock size={12} /> <span>Chưa đối soát kiểm kê trong kỳ</span>
                           </div>
                         )}
 
@@ -2355,10 +2362,10 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                                 backgroundColor: existing.isDisposal ? '#fef2f2' : '#eff6ff',
                                 border: `1px solid ${existing.isDisposal ? '#fecaca' : '#bfdbfe'}`,
                                 color: existing.isDisposal ? '#b91c1c' : '#1d4ed8',
-                                borderRadius: '8px',
+                                borderRadius: '6px',
                                 padding: '6px 10px',
                                 fontSize: '0.72rem',
-                                fontWeight: 800,
+                                fontWeight: 600,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
@@ -2367,7 +2374,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                               title="Bấm để xem chi tiết phiếu xuất kho này"
                             >
                               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                {existing.isDisposal ? '🗑️ ĐÃ CÓ ĐƠN TIÊU HỦY' : '📦 ĐÃ CÓ ĐƠN XUẤT'}: <b>{existing.orderCode}</b>
+                                {existing.isDisposal ? 'ĐÃ LẬP ĐƠN TIÊU HỦY' : 'ĐÃ LẬP ĐƠN XUẤT'}: <b>{existing.orderCode}</b>
                               </span>
                               <span style={{ fontSize: '0.68rem', backgroundColor: existing.isDisposal ? '#fee2e2' : '#dbeafe', padding: '1px 5px', borderRadius: '4px' }}>
                                 {existing.status}
@@ -2495,7 +2502,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                         fontWeight: 800,
                       }}
                     >
-                      Trang Kế Tiếp ➡
+                      Trang Kế Tiếp →
                     </button>
                   </div>
                 )}
@@ -2508,34 +2515,34 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
       {/* Add Rack Modal */}
       {showAddModal && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '20px', maxWidth: '480px', width: '100%', padding: '24px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', maxWidth: '480px', width: '100%', padding: '24px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 900, color: '#0f172a' }}>Thêm Dãy Kệ Mới</h3>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#0f172a' }}>Thêm Dãy Kệ Mới</h3>
               <button onClick={() => setShowAddModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={20} /></button>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>Tên Dãy Kệ *</label>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>Tên Dãy Kệ *</label>
                 <input
                   type="text"
                   placeholder="Ví dụ: Kệ A9 (Thực Phẩm Nhập Khẩu)"
                   value={newRackName}
                   onChange={e => setNewRackName(e.target.value)}
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>Phân Vùng Nhiệt Độ *</label>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>Phân Vùng Nhiệt Độ *</label>
                 <select
                   value={newRackZone}
                   onChange={e => setNewRackZone(e.target.value as any)}
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
                 >
-                  <option value="COOL">🧊 Kho Mát (0°C ~ +4°C)</option>
-                  <option value="FROZEN">❄️ Hầm Đông Lạnh (-18°C ~ -22°C)</option>
-                  <option value="DRY">🌾 Kho Khô Thường (+25°C)</option>
+                  <option value="COOL">Kho Mát (0°C ~ +4°C)</option>
+                  <option value="FROZEN">Hầm Đông Lạnh (-18°C ~ -22°C)</option>
+                  <option value="DRY">Kho Khô Thường (+25°C)</option>
                 </select>
               </div>
 
@@ -2560,41 +2567,41 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
 
       {/* Smart Inbound Shelf Allocation & Rack Occupancy Modal */}
       {showInboundRecommendationModal && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(6px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', maxWidth: '880px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '26px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.3)', border: '1px solid #e2e8f0' }}>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', maxWidth: '880px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '24px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', border: '1px solid #cbd5e1' }}>
             
             {/* Modal Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 4px 12px rgba(15, 118, 110, 0.3)' }}>
-                  <Sparkles size={22} />
+                <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: '#0f766e', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                  <Layers size={20} />
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, color: '#0f172a' }}>
-                    Trợ Lý Đề Xuất Kệ Nhập Kho Thông Minh (Smart Putaway)
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#0f172a' }}>
+                    Đề Xuất Vị Trí Nhập Hàng (Putaway Allocation)
                   </h3>
                   <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#64748b' }}>
-                    Phân tích độ trống kệ, phân vùng nhiệt độ và đề xuất vị trí lưu kho tối ưu nhất
+                    Phân tích tỷ lệ trống kệ, tiêu chuẩn nhiệt độ và điều phối vị trí lưu kho tối ưu
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowInboundRecommendationModal(false)}
-                style={{ background: '#f1f5f9', border: 'none', borderRadius: '10px', padding: '8px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{ background: '#f1f5f9', border: 'none', borderRadius: '6px', padding: '8px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 <X size={18} />
               </button>
             </div>
 
             {/* Inbound Search / Filter Card */}
-            <div style={{ background: '#f8fafc', padding: '16px 18px', borderRadius: '16px', border: '1px solid #e2e8f0', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f766e', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ background: '#f8fafc', padding: '16px 18px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f766e', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Package size={16} /> <span>1. Thông Tin Mặt Hàng Dự Kiến Nhập Kho</span>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
                     Mặt Hàng / Loại Sản Phẩm
                   </label>
                   <input
@@ -2602,47 +2609,47 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                     placeholder="VD: Sữa tươi, Thịt bò, Rau củ, Mì tôm..."
                     value={inboundSearchProduct}
                     onChange={e => setInboundSearchProduct(e.target.value)}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none', background: '#fff' }}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none', background: '#fff' }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
                     Phân Khu Nhiệt Độ Yêu Cầu
                   </label>
                   <select
                     value={inboundSelectedZone}
                     onChange={e => setInboundSelectedZone(e.target.value as any)}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none', background: '#fff', cursor: 'pointer' }}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none', background: '#fff', cursor: 'pointer' }}
                   >
-                    <option value="AUTO">🤖 Tự Động Phân Tích Nhóm Hàng</option>
-                    <option value="COOL">❄️ Kho Mát (0°C ~ +4°C)</option>
-                    <option value="FROZEN">🧊 Hầm Đông Lạnh (-18°C ~ -22°C)</option>
-                    <option value="DRY">🌾 Kho Khô Thường (+25°C)</option>
+                    <option value="AUTO">Tự Động Phân Loại Danh Mục</option>
+                    <option value="COOL">Kho Mát (0°C ~ +4°C)</option>
+                    <option value="FROZEN">Hầm Đông Lạnh (-18°C ~ -22°C)</option>
+                    <option value="DRY">Kho Khô Thường (+25°C)</option>
                   </select>
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
                     Số Lượng Thùng Dự Kiến Nhập
                   </label>
                   <input
                     type="number"
                     value={inboundQuantity}
                     onChange={e => setInboundQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none', background: '#fff' }}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none', background: '#fff' }}
                   />
                 </div>
               </div>
             </div>
 
-            {/* AI Smart Putaway Recommendations */}
+            {/* Smart Putaway Recommendations */}
             <div style={{ marginBottom: '24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 900, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>🎯 Top 3 Kệ Được Hệ Thống Đề Xuất Nhập Hàng Tối Ưu</span>
+                <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>Top 3 Vị Trí Kệ Phù Hợp Nhất</span>
                 </h4>
-                <span style={{ fontSize: '11px', color: '#64748b' }}>Sắp xếp theo độ phù hợp & sức chứa trống</span>
+                <span style={{ fontSize: '11px', color: '#64748b' }}>Sắp xếp theo độ phù hợp và sức chứa khả dụng</span>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
@@ -2655,11 +2662,10 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                     <div
                       key={rec.rack.id}
                       style={{
-                        background: isTopPick ? 'linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%)' : '#ffffff',
+                        background: isTopPick ? '#f0fdf4' : '#ffffff',
                         padding: '16px',
-                        borderRadius: '16px',
-                        border: isTopPick ? '2px solid #22c55e' : '1px solid #e2e8f0',
-                        boxShadow: isTopPick ? '0 8px 20px rgba(34, 197, 94, 0.15)' : 'none',
+                        borderRadius: '8px',
+                        border: isTopPick ? '1px solid #16a34a' : '1px solid #e2e8f0',
                         position: 'relative',
                         display: 'flex',
                         flexDirection: 'column',
@@ -2668,8 +2674,8 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                       }}
                     >
                       {isTopPick && (
-                        <div style={{ position: 'absolute', top: '-10px', right: '14px', background: '#16a34a', color: '#fff', fontSize: '10px', fontWeight: 900, padding: '2px 8px', borderRadius: '12px', boxShadow: '0 2px 6px rgba(22, 163, 74, 0.4)' }}>
-                          🥇 ĐỀ XUẤT TỐT NHẤT
+                        <div style={{ position: 'absolute', top: '-9px', right: '12px', background: '#16a34a', color: '#fff', fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px' }}>
+                          ƯU TIÊN HÀNG ĐẦU
                         </div>
                       )}
 
@@ -2679,17 +2685,17 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                         </div>
 
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '10.5px', padding: '2px 7px', borderRadius: '6px', background: zoneBg, color: zoneColor, fontWeight: 800 }}>
-                            {rec.rack.zone === 'COOL' ? '❄️ Kho Mát (0-4°C)' : rec.rack.zone === 'FROZEN' ? '🧊 Kho Đông (-18°C)' : '🌾 Kho Khô (+25°C)'}
+                          <span style={{ fontSize: '10.5px', padding: '2px 7px', borderRadius: '4px', background: zoneBg, color: zoneColor, fontWeight: 600 }}>
+                            {rec.rack.zone === 'COOL' ? 'Kho Mát (0-4°C)' : rec.rack.zone === 'FROZEN' ? 'Kho Đông (-18°C)' : 'Kho Khô (+25°C)'}
                           </span>
-                          <span style={{ fontSize: '10.5px', padding: '2px 7px', borderRadius: '6px', background: '#f1f5f9', color: '#475569', fontWeight: 800 }}>
+                          <span style={{ fontSize: '10.5px', padding: '2px 7px', borderRadius: '4px', background: '#f1f5f9', color: '#475569', fontWeight: 600 }}>
                             Nhiệt độ: {rec.rack.temperature}
                           </span>
                         </div>
 
                         {/* Occupancy Progress */}
                         <div style={{ marginBottom: '8px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 800, color: '#475569', marginBottom: '4px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
                             <span>Còn trống: <b style={{ color: '#16a34a' }}>{rec.freeSlots.toLocaleString()} ô ({rec.freePct}%)</b></span>
                             <span>Đã chứa: {rec.filledUnits}/{rec.maxUnits}</span>
                           </div>
@@ -2713,12 +2719,12 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                           style={{
                             flex: 1,
                             padding: '8px 10px',
-                            borderRadius: '10px',
+                            borderRadius: '6px',
                             border: '1px solid #cbd5e1',
                             background: '#ffffff',
                             color: '#0f172a',
                             fontSize: '11.5px',
-                            fontWeight: 800,
+                            fontWeight: 600,
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
@@ -2726,7 +2732,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                             gap: '4px',
                           }}
                         >
-                          <span>🎯 Xem Kệ 3D</span>
+                          <span>Xem Kệ 3D</span>
                         </button>
 
                         <button
@@ -2734,7 +2740,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                             setZoneFilter(rec.rack.zone);
                             setSelectedRackId(rec.rack.id);
                             setShowInboundRecommendationModal(false);
-                            alert(`✅ Đã chỉ định ${inboundSearchProduct || 'lô hàng mới'} vào ${rec.rack.name} (Vị trí: ${rec.rack.id})!`);
+                            alert(`Đã chỉ định ${inboundSearchProduct || 'lô hàng mới'} vào ${rec.rack.name} (Vị trí: ${rec.rack.id})!`);
                           }}
                           style={{
                             flex: 1.3,
@@ -2789,7 +2795,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                     {rackOccupancyList.map((ro, rIdx) => {
                       const statusBg = ro.status === 'EMPTY_HIGH' ? '#dcfce7' : ro.status === 'AVAILABLE' ? '#e0f2fe' : ro.status === 'ALMOST_FULL' ? '#fef3c7' : '#fee2e2';
                       const statusColor = ro.status === 'EMPTY_HIGH' ? '#166534' : ro.status === 'AVAILABLE' ? '#0369a1' : ro.status === 'ALMOST_FULL' ? '#b45309' : '#b91c1c';
-                      const statusLabel = ro.status === 'EMPTY_HIGH' ? '🟢 Trống nhiều' : ro.status === 'AVAILABLE' ? '🔵 Còn chỗ' : ro.status === 'ALMOST_FULL' ? '🟠 Sắp đầy' : '🔴 Đã đầy';
+                      const statusLabel = ro.status === 'EMPTY_HIGH' ? 'Trống nhiều' : ro.status === 'AVAILABLE' ? 'Còn chỗ' : ro.status === 'ALMOST_FULL' ? 'Sắp đầy' : 'Đã đầy';
 
                       return (
                         <tr key={ro.rack.id} style={{ borderTop: rIdx > 0 ? '1px solid #f1f5f9' : 'none' }}>
@@ -3229,37 +3235,36 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px', color: '#475569', marginTop: '10px' }}>
-                  <div>🏷️ Mã SP: <b style={{ color: '#0f172a' }}>{barcodeModalItem.item.sku}</b></div>
-                  <div>📦 Mã Lô: <b style={{ color: '#0284c7' }}>{barcodeModalItem.item.lotCode || 'N/A'}</b></div>
+                  <div>Mã SP: <b style={{ color: '#0f172a' }}>{barcodeModalItem.item.sku}</b></div>
+                  <div>Mã Lô: <b style={{ color: '#0284c7' }}>{barcodeModalItem.item.lotCode || 'N/A'}</b></div>
                   {barcodeModalItem.locationText && (
-                    <div style={{ gridColumn: 'span 2' }}>📍 Vị trí: <b style={{ color: '#059669' }}>{barcodeModalItem.locationText}</b></div>
+                    <div style={{ gridColumn: 'span 2' }}>Vị trí: <b style={{ color: '#059669' }}>{barcodeModalItem.locationText}</b></div>
                   )}
                   {barcodeModalItem.item.expiryDate && (
-                    <div style={{ gridColumn: 'span 2' }}>⏳ Hạn sử dụng: <b style={{ color: '#d97706' }}>{barcodeModalItem.item.expiryDate.split('T')[0]}</b></div>
+                    <div style={{ gridColumn: 'span 2' }}>Hạn sử dụng: <b style={{ color: '#d97706' }}>{barcodeModalItem.item.expiryDate.split('T')[0]}</b></div>
                   )}
                 </div>
               </div>
 
               {/* Code Type Switcher */}
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', backgroundColor: '#f1f5f9', padding: '4px', borderRadius: '12px' }}>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', backgroundColor: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
                 <button
                   type="button"
                   onClick={() => setBarcodeTargetType('LOT')}
                   style={{
                     flex: 1,
                     padding: '8px 12px',
-                    borderRadius: '8px',
+                    borderRadius: '6px',
                     border: 'none',
-                    fontWeight: 800,
-                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    fontSize: '12px',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                     backgroundColor: barcodeTargetType === 'LOT' ? '#0284c7' : 'transparent',
                     color: barcodeTargetType === 'LOT' ? '#ffffff' : '#64748b',
-                    boxShadow: barcodeTargetType === 'LOT' ? '0 2px 8px rgba(2, 132, 199, 0.3)' : 'none'
                   }}
                 >
-                  📦 Mã Lô Hàng ({barcodeModalItem.item.lotCode || barcodeModalItem.item.sku})
+                  Mã Lô Hàng ({barcodeModalItem.item.lotCode || barcodeModalItem.item.sku})
                 </button>
                 <button
                   type="button"
@@ -3267,18 +3272,17 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                   style={{
                     flex: 1,
                     padding: '8px 12px',
-                    borderRadius: '8px',
+                    borderRadius: '6px',
                     border: 'none',
-                    fontWeight: 800,
-                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    fontSize: '12px',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                     backgroundColor: barcodeTargetType === 'SKU' ? '#0284c7' : 'transparent',
                     color: barcodeTargetType === 'SKU' ? '#ffffff' : '#64748b',
-                    boxShadow: barcodeTargetType === 'SKU' ? '0 2px 8px rgba(2, 132, 199, 0.3)' : 'none'
                   }}
                 >
-                  🏷️ Mã Barcode Sản Phẩm ({barcodeModalItem.item.sku})
+                  Mã Barcode SP ({barcodeModalItem.item.sku})
                 </button>
               </div>
 
@@ -3289,9 +3293,9 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                   : barcodeModalItem.item.sku;
 
                 return (
-                  <div style={{ background: '#ffffff', border: '2px dashed #94a3b8', borderRadius: '16px', padding: '20px', textAlign: 'center', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.02)', marginBottom: '18px' }}>
+                  <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '20px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: '18px' }}>
                     {/* 1D Barcode Container */}
-                    <div style={{ background: '#ffffff', padding: '16px 12px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'inline-block', maxWidth: '100%', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                    <div style={{ background: '#ffffff', padding: '16px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', display: 'inline-block', maxWidth: '100%' }}>
                       <img
                         src={`https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(targetCode)}&code=Code128&dpi=150`}
                         alt={`Barcode for ${targetCode}`}
@@ -3301,14 +3305,14 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                           (e.target as HTMLElement).style.display = 'none';
                         }}
                       />
-                      <div style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: '18px', color: '#0f172a', letterSpacing: '0.15em', marginTop: '6px' }}>
+                      <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '16px', color: '#0f172a', letterSpacing: '0.15em', marginTop: '6px' }}>
                         {targetCode}
                       </div>
                     </div>
 
                     {/* Dual QR Code Display */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginTop: '16px' }}>
-                      <div style={{ background: '#ffffff', padding: '8px', borderRadius: '10px', border: '1px solid #cbd5e1', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                      <div style={{ background: '#ffffff', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                         <img
                           src={`https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(targetCode)}`}
                           alt={`QR for ${targetCode}`}
@@ -3316,8 +3320,8 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                         />
                       </div>
                       <div style={{ textAlign: 'left', fontSize: '12px', color: '#475569', maxWidth: '240px' }}>
-                        <div style={{ fontWeight: 800, color: '#0284c7', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                          <Sparkles size={14} /> Quét 1D hoặc 2D QR Code
+                        <div style={{ fontWeight: 600, color: '#0284c7', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                          <QrCode size={14} /> Quét mã 1D hoặc 2D QR Code
                         </div>
                         <div>Camera điện thoại trong <b>Staff App</b> hỗ trợ nhận diện tự động cả mã vạch 1D và QR code 2D.</div>
                       </div>
@@ -3327,8 +3331,8 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
               })()}
 
               {/* Instructions Banner */}
-              <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '12px 14px', fontSize: '12px', color: '#1e40af', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-                <span style={{ fontSize: '18px' }}>📱</span>
+              <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '12px 14px', fontSize: '12px', color: '#1e40af', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                <Smartphone size={18} style={{ flexShrink: 0 }} />
                 <div>
                   Mở màn hình <b>Lấy hàng (Picking)</b> trên điện thoại tại <code style={{ background: '#dbeafe', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>http://192.168.4.32:5175</code> và hướng camera vào mã phía trên để hoàn tất lấy hàng!
                 </div>

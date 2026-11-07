@@ -87,18 +87,18 @@ export const WarehouseConfigModal: React.FC = () => {
       if (isEditing && targetWarehouseForConfig) {
         const res = await updateWarehouse(targetWarehouseForConfig.id, form);
         if (res) {
-          alert(`✅ Cập nhật cấu hình kho ${form.name} (${form.code}) thành công!`);
+          alert(`Cập nhật cấu hình kho ${form.name} (${form.code}) thành công.`);
           closeConfigModal();
         } else {
-          alert('❌ Có lỗi xảy ra khi lưu cấu hình kho.');
+          alert('Có lỗi xảy ra khi lưu cấu hình kho.');
         }
       } else {
         const res = await createWarehouse(form);
         if (res) {
-          alert(`✅ Đã thêm mới kho ${form.name} (${form.code}) vào hệ thống chuỗi lạnh thành công!`);
+          alert(`Đã thêm mới kho ${form.name} (${form.code}) vào hệ thống thành công.`);
           closeConfigModal();
         } else {
-          alert('❌ Có lỗi xảy ra khi tạo kho mới.');
+          alert('Có lỗi xảy ra khi tạo kho mới.');
         }
       }
     } catch (err) {
@@ -125,8 +125,8 @@ export const WarehouseConfigModal: React.FC = () => {
         width: '750px',
         maxWidth: '95vw',
         maxHeight: '90vh',
-        borderRadius: '20px',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+        borderRadius: '12px',
+        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -134,19 +134,19 @@ export const WarehouseConfigModal: React.FC = () => {
         {/* Modal Header */}
         <div style={{
           padding: '1.25rem 1.75rem',
-          background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)',
+          backgroundColor: '#0f766e',
           color: '#ffffff',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ background: 'rgba(255,255,255,0.2)', padding: '8px', borderRadius: '10px' }}>
+            <div style={{ background: 'rgba(255,255,255,0.2)', padding: '8px', borderRadius: '8px' }}>
               <Building2 size={22} color="#ffffff" />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>
-                {isEditing ? `⚙️ Cấu Hình Kho Hàng: ${targetWarehouseForConfig.name}` : '➕ Đăng Ký & Thiết Lập Kho Hàng Mới'}
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>
+                {isEditing ? `Cấu hình kho hàng: ${targetWarehouseForConfig.name}` : 'Đăng ký & thiết lập kho hàng mới'}
               </h3>
               <p style={{ margin: '2px 0 0', fontSize: '0.8rem', opacity: 0.9 }}>
                 {isEditing ? `Mã kho: ${targetWarehouseForConfig.code} • Chuỗi cung ứng SFWMS TP.HCM` : 'Thêm chi nhánh vệ tinh mới vào mạng lưới kho thông minh'}
@@ -352,8 +352,8 @@ export const WarehouseConfigModal: React.FC = () => {
                       onChange={e => setForm({ ...form, isActive: e.target.checked })}
                       style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                     />
-                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: form.isActive ? '#166534' : '#991b1b' }}>
-                      {form.isActive ? '🟢 ĐANG HOẠT ĐỘNG' : '🔴 TẠM DỪNG BẢO TRÌ'}
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: form.isActive ? '#166534' : '#991b1b' }}>
+                      {form.isActive ? 'Đang hoạt động' : 'Tạm dừng bảo trì'}
                     </span>
                   </label>
                 </div>
@@ -363,8 +363,8 @@ export const WarehouseConfigModal: React.FC = () => {
             {/* TAB 2: TEMPERATURE */}
             {activeTab === 'TEMP' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ backgroundColor: '#eff6ff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #bfdbfe', fontSize: '0.8rem', color: '#1e40af' }}>
-                  ℹ️ Cấu hình dải nhiệt độ chuẩn cho các phân khu chuỗi lạnh. Cảm biến IoT sẽ phát chuông cảnh báo đỏ khi nhiệt độ lệch khỏi ngưỡng này quá 5 phút.
+                <div style={{ backgroundColor: '#eff6ff', padding: '10px 14px', borderRadius: '8px', border: '1px solid #bfdbfe', fontSize: '0.8rem', color: '#1e40af' }}>
+                  Cấu hình dải nhiệt độ chuẩn cho các phân khu chuỗi lạnh. Cảm biến IoT sẽ phát chuông cảnh báo khi nhiệt độ lệch khỏi ngưỡng này quá 5 phút.
                 </div>
 
                 {/* Cool Zone */}
@@ -462,36 +462,36 @@ export const WarehouseConfigModal: React.FC = () => {
             {/* TAB 3: CAPACITY & RACKS */}
             {activeTab === 'CAPACITY' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ backgroundColor: '#f8fafc', padding: '12px 14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#1e293b' }}>📐 Cấu hình layout kệ kho & Sức chứa</div>
+                <div style={{ backgroundColor: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1e293b' }}>Cấu hình layout kệ kho & sức chứa</div>
                   <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '4px' }}>
-                    Thiết lập số lượng kệ kho và tải trọng tối đa để mô phỏng không gian kho 3D và tự động gợi ý vị trí sắp xếp hàng hóa tối ưu.
+                    Thiết lập số lượng kệ kho và tải trọng tối đa để mô phỏng không gian kho 3D và gợi ý vị trí sắp xếp hàng hóa.
                   </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155' }}>Sức chứa tối đa mỗi kệ (SP/Thùng)</label>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155' }}>Sức chứa tối đa mỗi kệ (SP/Thùng)</label>
                     <input
                       type="number"
                       min="50"
                       max="1000"
                       value={form.maxRackCapacity}
                       onChange={e => setForm({ ...form, maxRackCapacity: parseInt(e.target.value) || 350 })}
-                      style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem', fontWeight: 700 }}
+                      style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem', fontWeight: 600 }}
                     />
-                    <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Hệ thống tự đổi màu kệ 3D (Xanh ➔ Vàng ➔ Đỏ) khi đầy tải</span>
+                    <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Hệ thống tự đổi màu kệ 3D theo tải trọng</span>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155' }}>Tổng số dãy kệ hoạt động</label>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155' }}>Tổng số dãy kệ hoạt động</label>
                     <input
                       type="number"
                       min="2"
                       max="20"
                       value={form.totalRacks}
                       onChange={e => setForm({ ...form, totalRacks: parseInt(e.target.value) || 6 })}
-                      style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem', fontWeight: 700 }}
+                      style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem', fontWeight: 600 }}
                     />
                     <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Bao gồm Kệ A1-A2 (Mát), B1-B2 (Đông), C1-C2 (Khô)</span>
                   </div>
@@ -502,8 +502,8 @@ export const WarehouseConfigModal: React.FC = () => {
             {/* TAB 4: MANAGER */}
             {activeTab === 'MANAGER' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ backgroundColor: '#f0fdf4', padding: '12px 14px', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#166534' }}>👤 Phân Bổ Quản Lý Kho (Warehouse Manager)</div>
+                <div style={{ backgroundColor: '#f0fdf4', padding: '12px 14px', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#166534' }}>Phân bổ quản lý kho (Warehouse Manager)</div>
                   <div style={{ fontSize: '0.78rem', color: '#15803d', marginTop: '4px' }}>
                     Tài khoản được phân công sẽ toàn quyền phụ trách ca trực, điều phối đơn và kiểm kê tồn kho tại chi nhánh này.
                   </div>

@@ -80,23 +80,23 @@ export interface EnrichedLot extends ApiLot {
 }
 
 const WAREHOUSE_OPTIONS = [
-  { code: 'ALL', name: '🌐 Tất Cả 16 Kho Hàng (Toàn Hệ Thống)' },
-  { code: 'WH-006', name: '🏢 Kho Gò Vấp (WH-006 / GV) [Mặc định]' },
-  { code: 'WH-001', name: '🏢 Kho Quận 12 (WH-001 / Q12)' },
-  { code: 'WH-002', name: '🏢 Kho Thủ Đức (WH-002 / TD)' },
-  { code: 'WH-003', name: '🏢 Kho Bình Chánh (WH-003 / BC)' },
-  { code: 'WH-004', name: '🏢 Kho Quận 7 (WH-004 / Q7)' },
-  { code: 'WH-005', name: '🏢 Kho Bình Thạnh (WH-005 / BThanh)' },
-  { code: 'WH-007', name: '🏢 Kho Quận 1 (WH-007 / Q1)' },
-  { code: 'WH-008', name: '🏢 Kho Quận 5 (WH-008 / Q5)' },
-  { code: 'WH-009', name: '🏢 Kho Tân Bình (WH-009 / TB)' },
-  { code: 'WH-010', name: '🏢 Kho Bình Tân (WH-010 / BTan)' },
-  { code: 'WH-011', name: '🏢 Kho Hóc Môn (WH-011 / HM)' },
-  { code: 'WH-012', name: '🏢 Kho Nhà Bè (WH-012 / NB)' },
-  { code: 'WH-013', name: '🏢 Kho Phú Nhuận (WH-013 / PN)' },
-  { code: 'WH-014', name: '🏢 Kho Quận 8 (WH-014 / Q8)' },
-  { code: 'WH-015', name: '🏢 Kho Củ Chi (WH-015 / CC)' },
-  { code: 'WH-016', name: '🏢 Kho Quận 10 (WH-016 / Q10)' },
+  { code: 'ALL', name: 'Tất Cả 16 Kho Hàng (Toàn Hệ Thống)' },
+  { code: 'WH-006', name: 'Kho Gò Vấp (WH-006 / GV) [Mặc định]' },
+  { code: 'WH-001', name: 'Kho Quận 12 (WH-001 / Q12)' },
+  { code: 'WH-002', name: 'Kho Thủ Đức (WH-002 / TD)' },
+  { code: 'WH-003', name: 'Kho Bình Chánh (WH-003 / BC)' },
+  { code: 'WH-004', name: 'Kho Quận 7 (WH-004 / Q7)' },
+  { code: 'WH-005', name: 'Kho Bình Thạnh (WH-005 / BThanh)' },
+  { code: 'WH-007', name: 'Kho Quận 1 (WH-007 / Q1)' },
+  { code: 'WH-008', name: 'Kho Quận 5 (WH-008 / Q5)' },
+  { code: 'WH-009', name: 'Kho Tân Bình (WH-009 / TB)' },
+  { code: 'WH-010', name: 'Kho Bình Tân (WH-010 / BTan)' },
+  { code: 'WH-011', name: 'Kho Hóc Môn (WH-011 / HM)' },
+  { code: 'WH-012', name: 'Kho Nhà Bè (WH-012 / NB)' },
+  { code: 'WH-013', name: 'Kho Phú Nhuận (WH-013 / PN)' },
+  { code: 'WH-014', name: 'Kho Quận 8 (WH-014 / Q8)' },
+  { code: 'WH-015', name: 'Kho Củ Chi (WH-015 / CC)' },
+  { code: 'WH-016', name: 'Kho Quận 10 (WH-016 / Q10)' },
 ];
 
 import { formatStandardShelfLocation } from '../constants/warehouseRacks';
@@ -218,19 +218,18 @@ export const StockLookup: React.FC = () => {
 
     let catKey = 'DRY';
     let catLabel = 'Hàng khô';
-    let catIcon = '🌾';
     let decayRate = 1.0;
 
     if (/cá|tôm|mực|hải sản|cua|ghẹ|sò|ốc/.test(name) || /SEAFOOD|FISH|SHRIMP|SQUID/.test(code)) {
-      catKey = 'SEAFOOD'; catLabel = 'Hải sản'; catIcon = '🐟'; decayRate = 2.8;
+      catKey = 'SEAFOOD'; catLabel = 'Hải sản'; decayRate = 2.8;
     } else if (/thịt|bò|heo|gà|vịt|trứng/.test(name) || /BEEF|PORK|CHICKEN|MEAT|DUCK|EGG/.test(code)) {
-      catKey = 'MEAT'; catLabel = 'Thịt & Trứng'; catIcon = '🥩'; decayRate = 2.2;
+      catKey = 'MEAT'; catLabel = 'Thịt & Trứng'; decayRate = 2.2;
     } else if (/sữa|phô mai|yaourt|yogurt|kem|bơ/.test(name) || /MILK|DAIRY|CHEESE|YOGURT/.test(code)) {
-      catKey = 'DAIRY'; catLabel = 'Sữa & Dairy'; catIcon = '🥛'; decayRate = 1.6;
+      catKey = 'DAIRY'; catLabel = 'Sữa & Dairy'; decayRate = 1.6;
     } else if (/rau|cải|súp lơ|dưa|cà|đậu|hành|ngò|cần/.test(name) || /VEG|BROCCOLI|TOMATO|LETTUCE|SPINACH/.test(code)) {
-      catKey = 'VEGETABLE'; catLabel = 'Rau củ quả'; catIcon = '🥬'; decayRate = 2.0;
+      catKey = 'VEGETABLE'; catLabel = 'Rau củ quả'; decayRate = 2.0;
     } else if (/táo|cam|xoài|dứa|ổi|chuối|trái cây/.test(name) || /FRUIT|APPLE|MANGO|ORANGE/.test(code)) {
-      catKey = 'FRUIT'; catLabel = 'Trái cây'; catIcon = '🍎'; decayRate = 1.7;
+      catKey = 'FRUIT'; catLabel = 'Trái cây'; decayRate = 1.7;
     }
 
     let shelfLifePct = 0;
@@ -247,41 +246,41 @@ export const StockLookup: React.FC = () => {
     const dangerDays = catKey === 'SEAFOOD' ? 3 : catKey === 'MEAT' ? 3 : catKey === 'DAIRY' ? 5 : catKey === 'VEGETABLE' ? 4 : catKey === 'FRUIT' ? 5 : 7;
     const warningDays = catKey === 'SEAFOOD' ? 7 : catKey === 'MEAT' ? 7 : catKey === 'DAIRY' ? 14 : catKey === 'VEGETABLE' ? 10 : catKey === 'FRUIT' ? 10 : 30;
 
-    const category = `${catIcon} ${catLabel}`;
+    const category = catLabel;
 
     if (lot.status === 'EXPIRED' || (daysLeft !== null && daysLeft <= 0)) {
-      return { level: 'DANGER', aiScore: 100, shelfLifePct, category, categoryIcon: catIcon,
-        reason: `⚠️ ${catIcon} Đã hết hạn sử dụng`,
+      return { level: 'DANGER', aiScore: 100, shelfLifePct, category, categoryIcon: '',
+        reason: `Đã hết hạn sử dụng`,
         recommendation: 'Cần xử lý tiêu hủy hoặc trả hàng ngay lập tức' };
     }
     if (lot.status === 'DAMAGED') {
-      return { level: 'DANGER', aiScore: 95, shelfLifePct, category, categoryIcon: catIcon,
-        reason: `🔥 ${catIcon} Hư hỏng trong bảo quản`,
+      return { level: 'DANGER', aiScore: 95, shelfLifePct, category, categoryIcon: '',
+        reason: `Hư hỏng trong bảo quản`,
         recommendation: 'Cách ly khỏi lô lành, kiểm tra toàn bộ lô hàng' };
     }
     if (daysLeft !== null && daysLeft <= dangerDays) {
-      return { level: 'DANGER', aiScore, shelfLifePct, category, categoryIcon: catIcon,
-        reason: `📛 ${catIcon} Còn ${daysLeft} ngày — ngưỡng nguy hiểm của ${catLabel}`,
+      return { level: 'DANGER', aiScore, shelfLifePct, category, categoryIcon: '',
+        reason: `Còn ${daysLeft} ngày — Ngưỡng rủi ro cao (${catLabel})`,
         recommendation: `Xuất kho ngay hoặc kiểm kê / thanh lý` };
     }
     if (daysLeft !== null && daysLeft <= warningDays) {
-      return { level: 'WARNING', aiScore, shelfLifePct, category, categoryIcon: catIcon,
-        reason: `⏳ ${catIcon} Còn ${daysLeft} ngày — cận hạn với ${catLabel}`,
+      return { level: 'WARNING', aiScore, shelfLifePct, category, categoryIcon: '',
+        reason: `Còn ${daysLeft} ngày — Cận hạn (${catLabel})`,
         recommendation: `Lên kế hoạch xuất kho trong ${daysLeft} ngày tới` };
     }
     if (aiScore >= 65 || lot.status === 'EXPIRED') {
-      return { level: 'DANGER', aiScore, shelfLifePct, category, categoryIcon: catIcon,
-        reason: `🤖 AI: Rủi ro hư hỏng cao — ${catIcon} ${catLabel} (${aiScore}/100)`,
+      return { level: 'DANGER', aiScore, shelfLifePct, category, categoryIcon: '',
+        reason: `Rủi ro bảo quản cao — ${catLabel} (${aiScore}/100)`,
         recommendation: 'Kiểm tra nhiệt độ, độ ẩm và chất lượng hàng' };
     }
     if (aiScore >= 40 || lot.status === 'AT_RISK') {
-      return { level: 'WARNING', aiScore, shelfLifePct, category, categoryIcon: catIcon,
-        reason: `🤖 AI: Cần theo dõi — ${catIcon} ${catLabel} (${aiScore}/100)`,
+      return { level: 'WARNING', aiScore, shelfLifePct, category, categoryIcon: '',
+        reason: `Cần theo dõi chất lượng — ${catLabel} (${aiScore}/100)`,
         recommendation: 'Tăng tần suất kiểm tra, cân nhắc xuất kho sớm' };
     }
 
-    return { level: 'SAFE', aiScore, shelfLifePct, category, categoryIcon: catIcon,
-      reason: daysLeft !== null ? `✅ ${catIcon} Còn ${daysLeft} ngày — An toàn` : `✅ ${catIcon} Đạt chuẩn bảo quản`,
+    return { level: 'SAFE', aiScore, shelfLifePct, category, categoryIcon: '',
+      reason: daysLeft !== null ? `Còn ${daysLeft} ngày — Đạt chuẩn an toàn` : `Đạt chuẩn bảo quản`,
       recommendation: 'Tiếp tục bảo quản theo quy trình tiêu chuẩn' };
   }, []);
 
@@ -515,7 +514,7 @@ export const StockLookup: React.FC = () => {
       });
 
       const diffMsg = diff === 0 ? 'Khớp 100%' : diff > 0 ? `Lệch thừa +${diff}` : `Lệch thiếu ${diff}`;
-      setAuditSuccessMsg(`✅ Đã lưu kết quả kiểm kê: Lô ${auditModalLot.lotCode} (${countNum} ${auditModalLot.unit} — ${diffMsg})!`);
+      setAuditSuccessMsg(`Đã lưu kết quả kiểm kê: Lô ${auditModalLot.lotCode} (${countNum} ${auditModalLot.unit} — ${diffMsg})`);
 
       setTimeout(() => {
         setAuditSuccessMsg(null);
@@ -572,7 +571,7 @@ export const StockLookup: React.FC = () => {
                 }}
               >
                 <Building2 size={15} color="#0284c7" />
-                <span>🔒 Kho trực thuộc: <b>{user?.warehouseName || 'Kho Gò Vấp'} ({user?.warehouseCode || 'WH-006'})</b></span>
+                <span>Kho trực thuộc: <b>{user?.warehouseName || 'Kho Gò Vấp'} ({user?.warehouseCode || 'WH-006'})</b></span>
               </div>
             ) : (
               <div style={{ position: 'relative', minWidth: '220px', flex: '0 1 300px' }}>
@@ -655,7 +654,7 @@ export const StockLookup: React.FC = () => {
           }}
         >
           <ClipboardList size={16} color={displayMode === 'TABLE' ? '#38bdf8' : '#64748b'} />
-          <span>📋 Sổ Tồn Kho Dạng Bảng</span>
+          <span>Sổ Tồn Kho Dạng Bảng</span>
         </button>
 
         <button
@@ -666,23 +665,23 @@ export const StockLookup: React.FC = () => {
           style={{
             flex: 1,
             padding: '10px 14px',
-            borderRadius: '12px',
+            borderRadius: '8px',
             border: 'none',
-            background: displayMode === '3D_SCENE' ? 'linear-gradient(135deg, #008848 0%, #059669 100%)' : 'transparent',
+            backgroundColor: displayMode === '3D_SCENE' ? '#008848' : 'transparent',
             color: displayMode === '3D_SCENE' ? '#ffffff' : '#64748b',
-            fontSize: '12.5px',
-            fontWeight: 800,
+            fontSize: '12px',
+            fontWeight: 600,
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             gap: '8px',
-            boxShadow: displayMode === '3D_SCENE' ? '0 4px 12px rgba(0,136,72,0.25)' : 'none',
+            boxShadow: displayMode === '3D_SCENE' ? '0 2px 6px rgba(0,136,72,0.2)' : 'none',
             transition: 'all 0.15s ease',
           }}
         >
           <Compass size={16} color={displayMode === '3D_SCENE' ? '#ffffff' : '#64748b'} />
-          <span>🌐 Sơ Đồ Kho 3D</span>
+          <span>Sơ Đồ Kho 3D</span>
         </button>
       </div>
 
@@ -810,8 +809,8 @@ export const StockLookup: React.FC = () => {
             }}
             title="Bấm để lọc lô hàng Kho Đông"
           >
-            <span style={{ fontSize: '12px', fontWeight: 800, color: '#0369a1', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              🧊 Kho Đông (-18°C)
+            <span style={{ fontSize: '12px', fontWeight: 600, color: '#0369a1', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              Kho Đông (-18°C)
             </span>
             <span style={{ fontSize: '14px', fontWeight: 900, color: '#0c4a6e' }}>
               {warehouseStats.frozenCount.toLocaleString()} lô
@@ -834,8 +833,8 @@ export const StockLookup: React.FC = () => {
             }}
             title="Bấm để lọc lô hàng Kho Mát"
           >
-            <span style={{ fontSize: '12px', fontWeight: 800, color: '#047857', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              ❄️ Kho Mát (0-4°C)
+            <span style={{ fontSize: '12px', fontWeight: 600, color: '#047857', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              Kho Mát (0-4°C)
             </span>
             <span style={{ fontSize: '14px', fontWeight: 900, color: '#065f46' }}>
               {warehouseStats.coldCount.toLocaleString()} lô
@@ -858,8 +857,8 @@ export const StockLookup: React.FC = () => {
             }}
             title="Bấm để lọc lô hàng Kho Khô"
           >
-            <span style={{ fontSize: '12px', fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              📦 Kho Khô
+            <span style={{ fontSize: '12px', fontWeight: 600, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              Kho Khô
             </span>
             <span style={{ fontSize: '14px', fontWeight: 900, color: '#0f172a' }}>
               {warehouseStats.dryCount.toLocaleString()} lô
@@ -935,10 +934,10 @@ export const StockLookup: React.FC = () => {
             </span>
             {[
               { id: 'ALL', label: 'Tất cả' },
-              { id: 'DANGER', label: `🔴 Nguy cấp (${warehouseStats.dangerCount})`, activeBg: '#dc2626', activeBorder: '#b91c1c' },
-              { id: 'WARNING', label: `⚠️ Cận date (${warehouseStats.warningCount})`, activeBg: '#d97706', activeBorder: '#b45309' },
-              { id: 'SAFE', label: `✅ An toàn (${warehouseStats.safeCount})`, activeBg: '#059669', activeBorder: '#047857' },
-              { id: 'AUDITED', label: `📋 Đã kiểm kê (${warehouseStats.auditedCount})`, activeBg: '#2563eb', activeBorder: '#1d4ed8' },
+              { id: 'DANGER', label: `Nguy cơ cao (${warehouseStats.dangerCount})`, activeBg: '#dc2626', activeBorder: '#b91c1c' },
+              { id: 'WARNING', label: `Cận date (${warehouseStats.warningCount})`, activeBg: '#d97706', activeBorder: '#b45309' },
+              { id: 'SAFE', label: `An toàn (${warehouseStats.safeCount})`, activeBg: '#059669', activeBorder: '#047857' },
+              { id: 'AUDITED', label: `Đã kiểm kê (${warehouseStats.auditedCount})`, activeBg: '#2563eb', activeBorder: '#1d4ed8' },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -1077,7 +1076,7 @@ export const StockLookup: React.FC = () => {
                           }}
                         />
                       ) : (
-                        <span style={{ fontSize: '20px' }}>{lot.categoryIcon || '📦'}</span>
+                        <Package size={20} color="#64748b" />
                       )}
                     </div>
 
@@ -1124,8 +1123,8 @@ export const StockLookup: React.FC = () => {
                         </span>
 
                         {/* Zone Condition Badge */}
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 800, backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' }}>
-                          {lot.zone === 'FROZEN' ? '🧊 Hầm Đông' : isCold ? '❄️ Kho Mát' : '📦 Kho Khô'} ({lot.temperatureCondition})
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600, backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' }}>
+                          {lot.zone === 'FROZEN' ? 'Hầm Đông' : isCold ? 'Kho Mát' : 'Kho Khô'} ({lot.temperatureCondition})
                         </span>
 
                         {/* Audit Status Badge */}
@@ -1287,7 +1286,9 @@ export const StockLookup: React.FC = () => {
           <div style={{ backgroundColor: '#ffffff', borderRadius: '20px', maxWidth: '520px', width: '100%', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid #e2e8f0' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '24px' }}>{selectedLot.categoryIcon || '📦'}</span>
+                <div style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Package size={20} color="#64748b" />
+                </div>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 900, color: '#0f172a' }}>{selectedLot.productName}</h3>
                   <p style={{ margin: 0, fontSize: '11px', color: '#64748b', fontFamily: 'monospace' }}>Mã SP: {selectedLot.sku}</p>
@@ -1496,16 +1497,16 @@ export const StockLookup: React.FC = () => {
                   {actualCount !== '' && !isNaN(Number(actualCount)) && (
                     <div style={{ marginTop: '6px', fontSize: '11px', fontWeight: 800 }}>
                       {Number(actualCount) === (auditModalLot.remainingQty ?? auditModalLot.quantity ?? 0) ? (
-                        <span style={{ color: '#059669' }}>✅ Khớp 100% với hệ thống</span>
+                        <span style={{ color: '#059669' }}>Khớp 100% với hệ thống</span>
                       ) : Number(actualCount) > (auditModalLot.remainingQty ?? auditModalLot.quantity ?? 0) ? (
                         <span style={{ color: '#0284c7' }}>
-                          📈 Lệch thừa:{' '}
+                          Lệch thừa:{' '}
                           {Number(actualCount) - (auditModalLot.remainingQty ?? auditModalLot.quantity ?? 0)}{' '}
                           {auditModalLot.unit}
                         </span>
                       ) : (
                         <span style={{ color: '#dc2626' }}>
-                          📉 Lệch thiếu (Hao hụt):{' '}
+                          Lệch thiếu (Hao hụt):{' '}
                           {(auditModalLot.remainingQty ?? auditModalLot.quantity ?? 0) - Number(actualCount)}{' '}
                           {auditModalLot.unit}
                         </span>

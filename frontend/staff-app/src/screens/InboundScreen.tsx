@@ -76,12 +76,12 @@ export const InboundScreen: React.FC = () => {
 
     if (qcPassed) {
       Alert.alert(
-        '✅ QC Đạt Chuẩn - Đã Đưa Hàng Lên Kệ!',
+        'QC Đạt Chuẩn - Đã Đưa Hàng Lên Kệ!',
         `Phiếu PO ${selectedOrder.orderCode} đã kiểm định đạt chuẩn nhiệt độ ${temp}°C. Lô hàng đã được ghi nhận vào tồn kho!`
       );
     } else {
       Alert.alert(
-        '⚠️ Lô Hàng Bị Từ Chối',
+        'Lô Hàng Bị Từ Chối',
         `Nhiệt độ đo được ${temp}°C hoặc tiêu chuẩn bao bì không đạt. Đã lập biên bản gửi Nhà cung cấp.`
       );
     }
@@ -187,7 +187,7 @@ export const InboundScreen: React.FC = () => {
             <Text style={styles.tempUnit}>°C</Text>
             <View style={styles.tempStatusBadge}>
               <Text style={styles.tempStatusText}>
-                {parseFloat(tempInput) <= 4.0 ? '🟢 Đạt Chuẩn Lạnh' : '🔴 Quá Nhiệt'}
+                {parseFloat(tempInput) <= 4.0 ? 'Đạt Chuẩn Lạnh' : 'Quá Nhiệt'}
               </Text>
             </View>
           </View>
@@ -199,7 +199,7 @@ export const InboundScreen: React.FC = () => {
               onPress={() => setTempInput('2.5')}
             >
               <Text style={[styles.tempPresetBtnText, tempInput === '2.5' && styles.tempPresetBtnTextActive]}>
-                ❄️ +2.5°C (Kho Lạnh)
+                +2.5°C (Kho Lạnh)
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -207,7 +207,7 @@ export const InboundScreen: React.FC = () => {
               onPress={() => setTempInput('-18.0')}
             >
               <Text style={[styles.tempPresetBtnText, tempInput === '-18.0' && styles.tempPresetBtnTextActive]}>
-                🧊 -18°C (Kho Đông)
+                -18°C (Kho Đông)
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -215,7 +215,7 @@ export const InboundScreen: React.FC = () => {
               onPress={() => setTempInput('24.0')}
             >
               <Text style={[styles.tempPresetBtnText, tempInput === '24.0' && styles.tempPresetBtnTextActive]}>
-                📦 +24°C (Khô)
+                +24°C (Khô)
               </Text>
             </TouchableOpacity>
           </View>
@@ -257,7 +257,7 @@ export const InboundScreen: React.FC = () => {
             <ShieldCheck size={18} color="#ffffff" />
             <Text style={styles.qcSubmitBtnText}>
               {selectedOrder.status === 'COMPLETED'
-                ? '✅ ĐÃ DUYỆT QC & LÊN KỆ THÀNH CÔNG'
+                ? 'ĐÃ DUYỆT QC & LÊN KỆ THÀNH CÔNG'
                 : 'DUYỆT QC & XÁC NHẬN LÊN KỆ KHO'}
             </Text>
           </TouchableOpacity>

@@ -18,7 +18,6 @@ import {
   Box,
   ShieldCheck,
   MapPin,
-  Sparkles,
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { fetchPackingOrdersApi, confirmPackingApi } from '../services/api';
@@ -68,7 +67,7 @@ export const PackingScreen: React.FC = () => {
     if (success) {
       setConfirmedOrderIds(prev => [...prev, order.id]);
       Alert.alert(
-        '✅ Xuất kho thành công!',
+        'Xuất kho thành công!',
         `Đơn hàng ${order.orderCode} đã được đóng gói và xác nhận chuyển sang khu vực chờ tài xế lấy hàng.`
       );
       loadPackingOrders();
@@ -187,7 +186,7 @@ export const PackingScreen: React.FC = () => {
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
             <TouchableOpacity
               style={styles.printLabelBtn}
-              onPress={() => Alert.alert('🖨️ In Tem QR Vận Chuyển', `Đã gửi lệnh in tem mã vạch kiện hàng ${selectedOrder.orderCode} tới máy in nhiệt tại trạm đóng gói.`)}
+              onPress={() => Alert.alert('In Tem QR Vận Chuyển', `Đã gửi lệnh in tem mã vạch kiện hàng ${selectedOrder.orderCode} tới máy in nhiệt tại trạm đóng gói.`)}
               activeOpacity={0.8}
             >
               <QrCode size={18} color="#0284c7" />
@@ -206,8 +205,8 @@ export const PackingScreen: React.FC = () => {
               <Truck size={18} color="#ffffff" />
               <Text style={styles.exportBtnText}>
                 {confirmedOrderIds.includes(selectedOrder.id) || selectedOrder.status === 'CONFIRMED'
-                  ? '✅ ĐÃ XUẤT KHO'
-                  : '🚚 XUẤT KHO'}
+                  ? 'ĐÃ XUẤT KHO'
+                  : 'XUẤT KHO'}
               </Text>
             </TouchableOpacity>
           </View>

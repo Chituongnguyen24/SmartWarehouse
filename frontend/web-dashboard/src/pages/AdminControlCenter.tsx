@@ -21,6 +21,7 @@ import {
   Terminal,
   ShieldCheck,
   Search,
+  Save,
 } from 'lucide-react';
 import { useAuth, ROLE_LABELS, type UserRole } from '../contexts/AuthContext';
 
@@ -175,7 +176,7 @@ export const AdminControlCenter = () => {
 
   // ─── Health Check All Services ───
   const handlePingServices = async () => {
-    showToast('⚡ Đang gửi Health Check đến 11 Microservices...');
+    showToast('Đang gửi Health Check đến 11 Microservices...');
     const updated: ServiceHealth[] = await Promise.all(
       SERVICE_REGISTRY.map(async (svc) => {
         const start = performance.now();
@@ -205,7 +206,7 @@ export const AdminControlCenter = () => {
     );
     setServices(updated);
     const onlineCount = updated.filter(s => s.status === 'ONLINE').length;
-    showToast(`⚡ Health Check hoàn tất: ${onlineCount}/${updated.length} dịch vụ ONLINE`);
+    showToast(`Health Check hoàn tất: ${onlineCount}/${updated.length} dịch vụ ONLINE`);
   };
 
   // ─── Toggle User Lock via API ───
@@ -224,11 +225,11 @@ export const AdminControlCenter = () => {
           )
         );
         const target = users.find(u => u.id === userId);
-        showToast(`🔒 Đã ${result.isLocked ? 'Khóa' : 'Mở khóa'} tài khoản ${target?.username || ''}!`);
+        showToast(`Đã ${result.isLocked ? 'khóa' : 'mở khóa'} tài khoản ${target?.username || ''}!`);
       }
     } catch (err) {
       console.error('Lỗi toggle lock:', err);
-      showToast('❌ Lỗi khi thay đổi trạng thái tài khoản');
+      showToast('Lỗi khi thay đổi trạng thái tài khoản');
     }
   };
 
@@ -251,13 +252,13 @@ export const AdminControlCenter = () => {
         }),
       });
       if (res.ok) {
-        showToast('⚙️ Đã lưu cấu hình tham số nhiệt độ kho lạnh & cảnh báo hạn sử dụng thành công!');
+        showToast('Đã lưu cấu hình tham số nhiệt độ kho lạnh & cảnh báo hạn sử dụng thành công!');
       } else {
-        showToast('❌ Lỗi khi lưu cấu hình');
+        showToast('Lỗi khi lưu cấu hình');
       }
     } catch (err) {
       console.error('Lỗi lưu config:', err);
-      showToast('❌ Lỗi kết nối khi lưu cấu hình');
+      showToast('Lỗi kết nối khi lưu cấu hình');
     }
   };
 
@@ -271,10 +272,10 @@ export const AdminControlCenter = () => {
       });
       if (res.ok) {
         const result = await res.json();
-        showToast(`💾 ${result.message} (${result.timestamp})`);
+        showToast(`${result.message} (${result.timestamp})`);
       }
     } catch (err) {
-      showToast('❌ Lỗi kết nối khi sao lưu DB');
+      showToast('Lỗi kết nối khi sao lưu DB');
     }
   };
 
@@ -432,9 +433,11 @@ export const AdminControlCenter = () => {
                     <span style={{
                       backgroundColor: svc.status === 'ONLINE' ? '#DCFCE7' : svc.status === 'DEGRADED' ? '#FEF3C7' : '#FEE2E2',
                       color: svc.status === 'ONLINE' ? '#166534' : svc.status === 'DEGRADED' ? '#92400E' : '#991B1B',
-                      padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 800,
+                      padding: '3px 8px', borderRadius: 6, fontSize: '0.75rem', fontWeight: 600,
+                      display: 'inline-flex', alignItems: 'center', gap: 5
                     }}>
-                      {svc.status === 'ONLINE' ? '🟢' : svc.status === 'DEGRADED' ? '🟡' : '🔴'} {svc.status}
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: svc.status === 'ONLINE' ? '#166534' : svc.status === 'DEGRADED' ? '#92400E' : '#991B1B' }}></span>
+                      {svc.status}
                     </span>
                   </td>
                   <td style={{ padding: 10, fontWeight: 700, color: '#008848' }}>{svc.latencyMs > 0 ? `${svc.latencyMs} ms` : '—'}</td>
@@ -464,9 +467,9 @@ export const AdminControlCenter = () => {
                 <RefreshCw size={14} /> Tải lại
               </button>
               <button
-                onClick={() => showToast('👤 Chức năng tạo tài khoản — vui lòng dùng trang Quản lý Nhân viên!')}
+                onClick={() => showToast('Chức năng tạo tài khoản — vui lòng dùng trang Quản lý Nhân viên!')}
                 className="btn btn-primary"
-                style={{ backgroundColor: '#008848', color: '#fff', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6 }}
+                style={{ backgroundColor: '#008848', color: '#fff', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}
               >
                 <UserPlus size={16} /> Tạo Nhân Viên Mới
               </button>
@@ -493,19 +496,25 @@ export const AdminControlCenter = () => {
               <tbody>
                 {users.map(u => (
                   <tr key={u.id} style={{ borderBottom: '1px solid var(--color-border)', fontSize: '0.85rem' }}>
-                    <td style={{ padding: 10, fontWeight: 800, color: 'var(--color-text)' }}>{u.name}</td>
-                    <td style={{ padding: 10, fontWeight: 700 }}>{u.username}</td>
+                    <td style={{ padding: 10, fontWeight: 700, color: 'var(--color-text)' }}>{u.name}</td>
+                    <td style={{ padding: 10, fontWeight: 600 }}>{u.username}</td>
                     <td style={{ padding: 10, color: 'var(--color-text-secondary)' }}>{u.email}</td>
                     <td style={{ padding: 10 }}>
-                      <span style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 800 }}>
+                      <span style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '3px 8px', borderRadius: 6, fontSize: '0.75rem', fontWeight: 600 }}>
                         {ROLE_LABELS[u.role] || u.role}
                       </span>
                     </td>
                     <td style={{ padding: 10 }}>
                       {u.status === 'ACTIVE' ? (
-                        <span style={{ color: '#16A34A', fontWeight: 800 }}>🟢 Hoạt động</span>
+                        <span style={{ color: '#16A34A', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#16A34A' }}></span>
+                          Hoạt động
+                        </span>
                       ) : (
-                        <span style={{ color: '#EF4444', fontWeight: 800 }}>🔴 Đã khóa</span>
+                        <span style={{ color: '#EF4444', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#EF4444' }}></span>
+                          Đã khóa
+                        </span>
                       )}
                     </td>
                     <td style={{ padding: 10, color: 'var(--color-text-muted)' }}>{u.lastLogin}</td>
@@ -513,9 +522,10 @@ export const AdminControlCenter = () => {
                       <button
                         onClick={() => handleToggleUserStatus(u.id)}
                         className="btn btn-secondary"
-                        style={{ padding: '4px 10px', fontSize: '0.75rem', fontWeight: 700 }}
+                        style={{ padding: '4px 10px', fontSize: '0.75rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
                       >
-                        {u.status === 'ACTIVE' ? '🔒 Khóa' : '🔓 Mở'}
+                        {u.status === 'ACTIVE' ? <Lock size={12} /> : <Unlock size={12} />}
+                        {u.status === 'ACTIVE' ? 'Khóa' : 'Mở'}
                       </button>
                     </td>
                   </tr>
@@ -588,9 +598,9 @@ export const AdminControlCenter = () => {
           <button
             onClick={handleSaveConfig}
             className="btn btn-primary"
-            style={{ backgroundColor: '#008848', color: '#fff', fontWeight: 800, padding: '10px 20px' }}
+            style={{ backgroundColor: '#008848', color: '#fff', fontWeight: 600, padding: '10px 20px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
-            💾 Lưu Cấu Hình Tham Số
+            <Save size={16} /> Lưu Cấu Hình Tham Số
           </button>
         </div>
       )}

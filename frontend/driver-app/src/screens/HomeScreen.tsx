@@ -27,7 +27,6 @@ import {
   PackageCheck,
   Building2,
   Coins,
-  Sparkles,
   ArrowRight,
   Store,
   Layers,
@@ -81,7 +80,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
 
   const handleCallCustomer = (phone: string, name: string) => {
     Alert.alert(
-      `📞 Gọi điện cho khách hàng`,
+      'Gọi điện cho khách hàng',
       `Liên hệ ${name} qua số ${phone}?`,
       [
         { text: 'Hủy', style: 'cancel' },
@@ -162,16 +161,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
                 <Store size={18} color="#059669" />
                 <Text style={styles.hubNameText}>Kho Trung Tâm Gò Vấp (WH-006)</Text>
               </View>
-              <Text style={styles.hubAddressText}>📍 350 Quang Trung, Phường 10, Quận Gò Vấp</Text>
+              <Text style={styles.hubAddressText}>350 Quang Trung, Phường 10, Quận Gò Vấp</Text>
 
               {/* COD & Gel Ice Status */}
               <View style={styles.returnMetricsRow}>
                 <View style={styles.returnMetricItem}>
-                  <Text style={styles.returnMetricLabel}>💰 Tiền COD đã thu:</Text>
+                  <Text style={styles.returnMetricLabel}>Tiền COD đã thu:</Text>
                   <Text style={styles.returnMetricVal}>{totalCodCollectedCurrentTrip.toLocaleString('vi-VN')}đ</Text>
                 </View>
                 <View style={styles.returnMetricItem}>
-                  <Text style={styles.returnMetricLabel}>📦 Đợt tiếp theo (Chuyến #{currentTripNumber + 1}):</Text>
+                  <Text style={styles.returnMetricLabel}>Đợt tiếp theo (Chuyến #{currentTripNumber + 1}):</Text>
                   <Text style={styles.returnMetricValGreen}>
                     {nextWaveTasks.length > 0 ? `${nextWaveTasks.length} đơn (${nextTripBoxes} thùng đóng gói)` : 'Chưa có đơn mới (Chờ kho phân bổ)'}
                   </Text>
@@ -188,7 +187,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
               >
                 <QrCode size={18} color="#fff" style={{ marginRight: 8 }} />
                 <Text style={styles.vietQrPayBtnText}>
-                  💳 Nộp Tiền COD Bằng VietQR ({totalCodCollectedCurrentTrip.toLocaleString('vi-VN')}đ)
+                  Nộp Tiền COD Bằng VietQR ({totalCodCollectedCurrentTrip.toLocaleString('vi-VN')}đ)
                 </Text>
               </TouchableOpacity>
             )}
@@ -200,7 +199,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
               activeOpacity={0.85}
             >
               <Compass size={18} color="#fff" style={{ marginRight: 8 }} />
-              <Text style={styles.navigateHubBtnText}>🗺️ Dẫn Đường Quay Về Kho Gò Vấp (Google Maps)</Text>
+              <Text style={styles.navigateHubBtnText}>Dẫn Đường Quay Về Kho Gò Vấp (Google Maps)</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -211,7 +210,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
               activeOpacity={0.85}
             >
               <PackageCheck size={18} color="#fff" style={{ marginRight: 8 }} />
-              <Text style={styles.confirmArrivedBtnText}>✅ TÔI ĐÃ VỀ TỚI KHO (Nhận Chuyến #{currentTripNumber + 1})</Text>
+              <Text style={styles.confirmArrivedBtnText}>TÔI ĐÃ VỀ TỚI KHO (Nhận Chuyến #{currentTripNumber + 1})</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -221,10 +220,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
           <View style={styles.waitingAcceptCard}>
             <View style={styles.waitingHeaderRow}>
               <View style={styles.waitingIconBox}>
-                <Sparkles size={20} color="#fff" />
+                <Route size={20} color="#fff" />
               </View>
               <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={styles.waitingTitle}>📦 ĐỢT PHÂN BỔ MỚI: CHUYẾN #{currentTripNumber}</Text>
+                <Text style={styles.waitingTitle}>ĐỢT PHÂN BỔ MỚI: CHUYẾN #{currentTripNumber}</Text>
                 <Text style={styles.waitingSub}>
                   Thuật toán gom: {tasks.length} đơn ({totalTripBoxes} thùng đóng gói • {totalTripItems} sản phẩm)
                 </Text>
@@ -233,10 +232,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
 
             <View style={styles.waitingSummaryBox}>
               <Text style={styles.waitingSummaryText}>
-                📍 Xuất phát: <Text style={{ fontWeight: 'bold', color: '#0f172a' }}>Kho Gò Vấp (WH-006)</Text>
+                Xuất phát: <Text style={{ fontWeight: 'bold', color: '#0f172a' }}>Kho Gò Vấp (WH-006)</Text>
               </Text>
               <Text style={styles.waitingSummaryText}>
-                🛵 Điểm dừng giao: <Text style={{ fontWeight: 'bold', color: '#0f172a' }}>{tasks.length} đơn hàng</Text> • Quy cách: <Text style={{ fontWeight: 'bold', color: '#059669' }}>{totalTripBoxes} Thùng đóng gói ({totalTripItems} món • {totalCurrentTripWeightKg} kg)</Text>
+                Điểm dừng giao: <Text style={{ fontWeight: 'bold', color: '#0f172a' }}>{tasks.length} đơn hàng</Text> • Quy cách: <Text style={{ fontWeight: 'bold', color: '#059669' }}>{totalTripBoxes} Thùng đóng gói ({totalTripItems} món • {totalCurrentTripWeightKg} kg)</Text>
               </Text>
             </View>
 
@@ -249,7 +248,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
             >
               <PackageCheck size={18} color="#fff" style={{ marginRight: 8 }} />
               <Text style={styles.acceptBatchBtnText}>
-                🚀 NHẬN {tasks.length} ĐƠN ({totalTripBoxes} THÙNG ĐÓNG GÓI) & XUẤT PHÁT
+                NHẬN {tasks.length} ĐƠN ({totalTripBoxes} THÙNG ĐÓNG GÓI) & XUẤT PHÁT
               </Text>
             </TouchableOpacity>
           </View>
@@ -265,7 +264,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
           isBatchDeparted={tripStatus === 'IN_TRANSIT'}
         />
 
-        {/* ── 🌟 TRIP WAVE SELECTOR (ĐỢT CHẤT LÊN XE vs ĐỢT TIẾP THEO) ── */}
+        {/* ── TRIP WAVE SELECTOR (ĐỢT CHẤT LÊN XE vs ĐỢT TIẾP THEO) ── */}
         <View style={styles.waveSelectorContainer}>
           <TouchableOpacity
             style={[
@@ -326,7 +325,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
                 <PackageCheck size={20} color="#ffffff" />
               </View>
               <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={styles.hubManifestTitle}>📋 KIỂM ĐẾM GOM HÀNG CHUYẾN #{currentTripNumber}</Text>
+                <Text style={styles.hubManifestTitle}>KIỂM ĐẾM GOM HÀNG CHUYẾN #{currentTripNumber}</Text>
                 <Text style={styles.hubManifestSub}>Xác nhận đã bốc đủ hàng từ kho vào thùng lạnh</Text>
               </View>
               <View style={styles.hubManifestBadge}>
@@ -336,15 +335,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
 
             <View style={styles.hubManifestBody}>
               <View style={styles.hubManifestInfoRow}>
-                <Text style={styles.hubManifestLabel}>🏬 Điểm xuất phát gom hàng:</Text>
+                <Text style={styles.hubManifestLabel}>Điểm xuất phát gom hàng:</Text>
                 <Text style={styles.hubManifestVal}>Kho Trung Tâm Gò Vấp (WH-006)</Text>
               </View>
               <View style={styles.hubManifestInfoRow}>
-                <Text style={styles.hubManifestLabel}>📦 Tổng số kiện / đơn chất xe:</Text>
+                <Text style={styles.hubManifestLabel}>Tổng số kiện / đơn chất xe:</Text>
                 <Text style={styles.hubManifestValBold}>{tasks.length} đơn hàng ({assignedTasks.length} đơn chờ nhận)</Text>
               </View>
               <View style={styles.hubManifestInfoRow}>
-                <Text style={styles.hubManifestLabel}>❄️ Yêu cầu bảo quản lạnh:</Text>
+                <Text style={styles.hubManifestLabel}>Yêu cầu bảo quản lạnh:</Text>
                 <Text style={styles.hubManifestValGreen}>Chuẩn 0 - 4°C (Thùng Xe Lạnh + Gel đá)</Text>
               </View>
             </View>
@@ -360,7 +359,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
             >
               <CheckCheck size={18} color="#ffffff" style={{ marginRight: 8 }} />
               <Text style={styles.confirmLoadVehicleBtnText}>
-                ✓ ĐÃ XẾP ĐỦ {tasks.length} ĐƠN LÊN XE • BẮT ĐẦU XUẤT PHÁT
+                ĐÃ XẾP ĐỦ {tasks.length} ĐƠN LÊN XE • BẮT ĐẦU XUẤT PHÁT
               </Text>
             </TouchableOpacity>
           </View>
@@ -372,7 +371,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
               <Clock size={18} color="#a855f7" style={{ marginRight: 6 }} />
               <Text style={styles.nextWaveBannerTitle}>
-                ⏳ DANH SÁCH ĐỢT TIẾP THEO (CHUYẾN #{currentTripNumber + 1})
+                DANH SÁCH ĐỢT TIẾP THEO (CHUYẾN #{currentTripNumber + 1})
               </Text>
             </View>
             <Text style={styles.nextWaveBannerDesc}>
@@ -380,10 +379,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
             </Text>
             <View style={styles.nextWaveBadgeRow}>
               <View style={styles.nextWaveInfoBadge}>
-                <Text style={styles.nextWaveInfoBadgeText}>📦 {nextWaveTasks.length} Đơn hàng dự kiến</Text>
+                <Text style={styles.nextWaveInfoBadgeText}>{nextWaveTasks.length} Đơn hàng dự kiến</Text>
               </View>
               <View style={styles.nextWaveInfoBadge}>
-                <Text style={styles.nextWaveInfoBadgeText}>⚡ Khung giờ 14:00 - 16:00</Text>
+                <Text style={styles.nextWaveInfoBadgeText}>Khung giờ 14:00 - 16:00</Text>
               </View>
             </View>
           </View>
@@ -444,7 +443,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
               <Text style={styles.noActiveRouteText}>
                 {tasks.length === 0
                   ? 'Chưa có đơn hàng nào được phân bổ cho chuyến này.'
-                  : `🎉 Toàn bộ đơn hàng của Chuyến #${currentTripNumber} đã giao xong!`}
+                  : `Toàn bộ đơn hàng của Chuyến #${currentTripNumber} đã giao xong!`}
               </Text>
             )}
           </View>
@@ -457,7 +456,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
           >
             <Compass size={16} color="#fff" style={{ marginRight: 6 }} />
             <Text style={styles.openGoogleMapsMasterText} numberOfLines={1}>
-              🗺️ Mở Toàn Tuyến Trên Google Maps
+              Mở Toàn Tuyến Trên Google Maps
             </Text>
           </TouchableOpacity>
         </View>
@@ -636,7 +635,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
                 resizeMode="contain"
               />
               <Text style={styles.qrScanHint}>
-                📱 Mở app ngân hàng bất kỳ (MB, VCB, Techcombank...) để quét mã
+                Mở app ngân hàng bất kỳ (MB, VCB, Techcombank...) để quét mã
               </Text>
             </View>
 
@@ -692,7 +691,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
                 style={styles.modalDoneBtn}
                 onPress={() => {
                   setShowVietQrModal(false);
-                  Alert.alert('✅ Xác nhận nộp COD', 'Hệ thống đã ghi nhận yêu cầu đối soát tiền COD cho chuyến này.');
+                  Alert.alert('Xác nhận nộp COD', 'Hệ thống đã ghi nhận yêu cầu đối soát tiền COD cho chuyến này.');
                 }}
                 activeOpacity={0.85}
               >

@@ -18,6 +18,8 @@ import {
   Snowflake,
   ShieldCheck,
   ArrowRight,
+  Package,
+  Tag,
 } from 'lucide-react';
 import {
   BrowserMultiFormatReader,
@@ -315,7 +317,7 @@ export const CameraScannerModal: React.FC<Props> = ({
         isMatch: false,
         code: 'NO_CODE_DETECTED',
         type: 'ITEM',
-        message: '⚠️ Không nhận diện được mã Barcode/QR trong ảnh chụp! Vui lòng chụp rõ nét hoặc chọn mã mẫu bên dưới.',
+        message: 'Không nhận diện được mã Barcode/QR trong ảnh chụp! Vui lòng chụp rõ nét hoặc chọn mã mẫu bên dưới.',
       });
     } catch (err: any) {
       if (err?.message !== 'User cancelled photos app') {
@@ -361,7 +363,7 @@ export const CameraScannerModal: React.FC<Props> = ({
         isMatch: false,
         code: 'NO_CODE_DETECTED',
         type: 'ITEM',
-        message: '⚠️ Không nhận diện được mã Barcode/QR trong ảnh chụp! Vui lòng chụp rõ nét hoặc chọn mã mẫu bên dưới.',
+        message: 'Không nhận diện được mã Barcode/QR trong ảnh chụp! Vui lòng chụp rõ nét hoặc chọn mã mẫu bên dưới.',
       });
     } catch (err) {
       console.warn('Photo barcode detection error:', err);
@@ -370,7 +372,7 @@ export const CameraScannerModal: React.FC<Props> = ({
         isMatch: false,
         code: 'SCAN_ERROR',
         type: 'ITEM',
-        message: '⚠️ Lỗi xử lý ảnh chụp mã vạch! Hãy thử lại.',
+        message: 'Lỗi xử lý ảnh chụp mã vạch! Hãy thử lại.',
       });
     } finally {
       setIsProcessingPhoto(false);
@@ -401,7 +403,7 @@ export const CameraScannerModal: React.FC<Props> = ({
         isMatch: true,
         code: cleanScanned,
         type: 'ITEM',
-        message: `🔍 Đã tìm thấy thông tin tồn kho cho mã: "${cleanScanned}"!`,
+        message: `Đã tìm thấy thông tin tồn kho cho mã: "${cleanScanned}"!`,
       });
       onScanResult(cleanScanned, true, 'ITEM', 1);
       setTimeout(() => {
@@ -417,7 +419,7 @@ export const CameraScannerModal: React.FC<Props> = ({
         isMatch: true,
         code: cleanScanned,
         type: 'DOC',
-        message: `🚚 Đã quét mã phiếu giao hàng: "${cleanScanned}"! Đang tải biên bản QC...`,
+        message: `Đã quét mã phiếu giao hàng: "${cleanScanned}"! Đang tải biên bản QC...`,
       });
       onScanResult(cleanScanned, true, 'LOT', 1);
       setTimeout(() => {
@@ -433,7 +435,7 @@ export const CameraScannerModal: React.FC<Props> = ({
         isMatch: true,
         code: cleanScanned,
         type: 'ORDER',
-        message: `📦 Đã xác thực kiện hàng: "${cleanScanned}"!`,
+        message: `Đã xác thực kiện hàng: "${cleanScanned}"!`,
       });
       onScanResult(cleanScanned, true, 'LOT', 1);
       setTimeout(() => {
@@ -470,7 +472,7 @@ export const CameraScannerModal: React.FC<Props> = ({
           isMatch: true,
           code: cleanScanned,
           type: 'LOT',
-          message: `📦 Đã quét đúng MÃ LÔ / THÙNG: Lấy trọn ${expectedQty} ${unit}!`,
+          message: `Đã quét đúng MÃ LÔ / THÙNG: Lấy trọn ${expectedQty} ${unit}!`,
         });
         onScanResult(cleanScanned, true, 'LOT', expectedQty);
         setTimeout(() => {
@@ -485,8 +487,8 @@ export const CameraScannerModal: React.FC<Props> = ({
           code: cleanScanned,
           type: 'ITEM',
           message: isFullyPicked
-            ? `🎉 Đã quét đủ ${expectedQty}/${expectedQty} ${unit}!`
-            : `🏷️ Đã quét +1 sản phẩm (${newCount}/${expectedQty} ${unit})`,
+            ? `Đã quét đủ ${expectedQty}/${expectedQty} ${unit}!`
+            : `Đã quét +1 sản phẩm (${newCount}/${expectedQty} ${unit})`,
         });
         onScanResult(cleanScanned, true, 'ITEM', newCount);
         if (isFullyPicked) {
@@ -504,7 +506,7 @@ export const CameraScannerModal: React.FC<Props> = ({
         isMatch: false,
         code: cleanScanned,
         type: 'ITEM',
-        message: `⚠️ Cảnh báo: Mã quét (${cleanScanned}) KHÔNG khớp với sản phẩm cần lấy (Kỳ vọng: ${expectedSku || expectedLotCode})!`,
+        message: `Cảnh báo: Mã quét (${cleanScanned}) KHÔNG khớp với sản phẩm cần lấy (Kỳ vọng: ${expectedSku || expectedLotCode})!`,
       });
       setTimeout(() => {
         setIsScanningActive(true);
@@ -535,7 +537,7 @@ export const CameraScannerModal: React.FC<Props> = ({
       isMatch: true,
       code: expectedLotCode || 'LOT_ALL',
       type: 'LOT',
-      message: `📦 Đã lấy toàn bộ ${expectedQty} ${unit}!`,
+      message: `Đã lấy toàn bộ ${expectedQty} ${unit}!`,
     });
     setTimeout(() => {
       onClose();
@@ -550,33 +552,33 @@ export const CameraScannerModal: React.FC<Props> = ({
 
     if (scannerType === 'LOOKUP') {
       return [
-        { label: '🏷️ SKU Sữa Tươi: EM-20757', code: 'EM-20757', type: 'ITEM' },
-        { label: '📦 Lô Kho Lạnh: LOT-20260905-01', code: 'LOT-20260905-01', type: 'LOT' },
-        { label: '📍 Vị Trí: Kệ B2-01', code: 'Kệ B2-01', type: 'ITEM' },
-        { label: '📊 Barcode: 8934567890001', code: '8934567890001', type: 'ITEM' },
+        { label: 'SKU Sữa Tươi: EM-20757', code: 'EM-20757', type: 'ITEM' },
+        { label: 'Lô Kho Lạnh: LOT-20260905-01', code: 'LOT-20260905-01', type: 'LOT' },
+        { label: 'Vị Trí: Kệ B2-01', code: 'Kệ B2-01', type: 'ITEM' },
+        { label: 'Barcode: 8934567890001', code: '8934567890001', type: 'ITEM' },
       ];
     }
 
     if (scannerType === 'INBOUND') {
       return [
-        { label: '🚚 Phiếu Nhập Emart: NK-20260905-1', code: 'NK-20260905-1', type: 'DOC' },
-        { label: '📋 Phiếu Giao Vinamilk: NK-20260905-2', code: 'NK-20260905-2', type: 'DOC' },
-        { label: '🔒 Seal Xe Lạnh: SEAL-EM-8821', code: 'SEAL-EM-8821', type: 'DOC' },
+        { label: 'Phiếu Nhập Emart: NK-20260905-1', code: 'NK-20260905-1', type: 'DOC' },
+        { label: 'Phiếu Giao Vinamilk: NK-20260905-2', code: 'NK-20260905-2', type: 'DOC' },
+        { label: 'Seal Xe Lạnh: SEAL-EM-8821', code: 'SEAL-EM-8821', type: 'DOC' },
       ];
     }
 
     if (scannerType === 'PACKING') {
       return [
-        { label: '📦 Đơn Xuất: XK-20260905-1', code: 'XK-20260905-1', type: 'ORDER' },
-        { label: '🏷️ Tem Vận Đơn: CM-SHIP-9942', code: 'CM-SHIP-9942', type: 'ORDER' },
+        { label: 'Đơn Xuất: XK-20260905-1', code: 'XK-20260905-1', type: 'ORDER' },
+        { label: 'Tem Vận Đơn: CM-SHIP-9942', code: 'CM-SHIP-9942', type: 'ORDER' },
       ];
     }
 
     // PICKING presets
     return [
-      { label: `📦 Mã Lô: ${expectedLotCode || 'LOT-EM-01'}`, code: expectedLotCode || 'LOT-EM-20757-WH-006-738A3D', type: 'LOT' },
-      { label: `🏷️ Mã SKU: ${expectedSku || 'EM-20757'}`, code: expectedSku || 'EM-20757', type: 'ITEM' },
-      { label: `📊 Barcode: ${expectedBarcode || '8934567890001'}`, code: expectedBarcode || '8934567890001', type: 'ITEM' },
+      { label: `Mã Lô: ${expectedLotCode || 'LOT-EM-01'}`, code: expectedLotCode || 'LOT-EM-20757-WH-006-738A3D', type: 'LOT' },
+      { label: `Mã SKU: ${expectedSku || 'EM-20757'}`, code: expectedSku || 'EM-20757', type: 'ITEM' },
+      { label: `Barcode: ${expectedBarcode || '8934567890001'}`, code: expectedBarcode || '8934567890001', type: 'ITEM' },
     ];
   };
 
@@ -587,12 +589,12 @@ export const CameraScannerModal: React.FC<Props> = ({
   const theme = {
     headerGradient:
       scannerType === 'LOOKUP'
-        ? 'linear-gradient(135deg, #4f46e5 0%, #0284c7 100%)'
+        ? '#0284c7'
         : scannerType === 'INBOUND'
-        ? 'linear-gradient(135deg, #059669 0%, #0d9488 100%)'
+        ? '#059669'
         : scannerType === 'PACKING'
-        ? 'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)'
-        : 'linear-gradient(135deg, #008848 0%, #0284c7 100%)',
+        ? '#7c3aed'
+        : '#008848',
     icon:
       scannerType === 'LOOKUP' ? (
         <Search size={22} color="#ffffff" />
@@ -773,10 +775,9 @@ export const CameraScannerModal: React.FC<Props> = ({
                 gap: '6px',
                 backgroundColor: scanMode === 'ITEM' ? '#0284c7' : '#ffffff',
                 color: scanMode === 'ITEM' ? '#ffffff' : '#475569',
-                boxShadow: scanMode === 'ITEM' ? '0 2px 8px rgba(2, 132, 199, 0.25)' : 'none',
               }}
             >
-              🏷️ Quét Từng Món (+1)
+              <Tag size={13} /> Quét Từng Món (+1)
             </button>
 
             <button
@@ -785,10 +786,10 @@ export const CameraScannerModal: React.FC<Props> = ({
               style={{
                 flex: 1,
                 padding: '8px 12px',
-                borderRadius: '10px',
+                borderRadius: '8px',
                 border: `1.5px solid ${scanMode === 'LOT' ? '#9333ea' : '#e2e8f0'}`,
                 fontSize: '12px',
-                fontWeight: 800,
+                fontWeight: 600,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -796,10 +797,9 @@ export const CameraScannerModal: React.FC<Props> = ({
                 gap: '6px',
                 backgroundColor: scanMode === 'LOT' ? '#9333ea' : '#ffffff',
                 color: scanMode === 'LOT' ? '#ffffff' : '#475569',
-                boxShadow: scanMode === 'LOT' ? '0 2px 8px rgba(147, 51, 234, 0.25)' : 'none',
               }}
             >
-              📦 Quét Trọn Lô/Thùng
+              <Package size={13} /> Quét Trọn Lô/Thùng
             </button>
           </div>
 
@@ -1089,16 +1089,16 @@ export const CameraScannerModal: React.FC<Props> = ({
                 animation: 'laserScan 1.8s infinite alternate ease-in-out',
               }}
             />
-            <div style={{ textAlign: 'center', fontSize: '11px', color: '#cbd5e1', fontWeight: 700 }}>
+            <div style={{ textAlign: 'center', fontSize: '11px', color: '#cbd5e1', fontWeight: 500 }}>
               {scannerType === 'LOOKUP'
-                ? '🔍 Căn Mã Vạch hoặc Mã Kệ vào khung'
+                ? 'Căn Mã Vạch hoặc Mã Kệ vào khung'
                 : scannerType === 'INBOUND'
-                ? '📄 Căn Phiếu Giao Hàng vào khung quét'
+                ? 'Căn Phiếu Giao Hàng vào khung quét'
                 : scannerType === 'PACKING'
-                ? '📦 Căn Mã Kiện Hàng vào khung'
+                ? 'Căn Mã Kiện Hàng vào khung'
                 : scanMode === 'LOT'
-                ? '📦 Căn Mã Lô Hàng vào khung'
-                : '🏷️ Căn Mã Vạch Sản Phẩm vào khung'}
+                ? 'Căn Mã Lô Hàng vào khung'
+                : 'Căn Mã Vạch Sản Phẩm vào khung'}
             </div>
           </div>
         )}

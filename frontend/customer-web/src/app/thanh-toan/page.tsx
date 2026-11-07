@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, MapPin, Truck, Store, CreditCard, Banknote, ShieldCheck, Ticket, ChevronLeft, Loader2, Sparkles, Navigation } from 'lucide-react';
+import { ChevronRight, MapPin, Truck, Store, CreditCard, Banknote, ShieldCheck, Ticket, ChevronLeft, Loader2, Navigation } from 'lucide-react';
 import { useCartStore, useAuthStore } from '@/lib/store';
 
 interface AddressSuggestion {
@@ -345,7 +345,7 @@ export default function CheckoutPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between">
                       <span>Địa chỉ nhận hàng *</span>
                       <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
-                        <Sparkles size={12} /> Tự động gợi ý địa chỉ Goong.io
+                        <Navigation size={12} /> Tự động gợi ý địa chỉ Goong.io
                       </span>
                     </label>
                     

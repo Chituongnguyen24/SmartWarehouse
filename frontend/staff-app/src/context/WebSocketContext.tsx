@@ -65,18 +65,18 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
 
     s.on('connect', () => {
-      console.log('✅ [MOBILE WS] Connected to Real-time Gateway:', s.id);
+      console.log('[MOBILE WS] Connected to Real-time Gateway:', s.id);
       setIsConnected(true);
     });
 
     s.on('disconnect', () => {
-      console.log('❌ [MOBILE WS] Disconnected from Gateway');
+      console.log('[MOBILE WS] Disconnected from Gateway');
       setIsConnected(false);
     });
 
     // Real-time Event Listeners
     const handleEvent = (type: string, data: any) => {
-      console.log(`📡 [MOBILE WS EVENT] ${type}:`, data);
+      console.log(`[MOBILE WS EVENT] ${type}:`, data);
       setLastEvent({ type, data, timestamp: new Date().toISOString() });
 
       if (type === 'order_locked' && data?.orderId && data?.lock) {
@@ -136,7 +136,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return true;
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(`🔒 ${err.message || 'Đơn hàng đang được thao tác bởi người khác!'}`);
+        alert(err.message || 'Đơn hàng đang được thao tác bởi người khác!');
         return false;
       }
     } catch (e) {

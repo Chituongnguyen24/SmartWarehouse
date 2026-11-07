@@ -11,7 +11,6 @@ import {
   MapPin, 
   Phone, 
   Ticket, 
-  Sparkles, 
   ShoppingBag, 
   ShieldCheck, 
   Headphones,
@@ -75,7 +74,7 @@ function getCategoryIconConfig(name: string) {
     return { Icon: Home, color: 'text-indigo-600', bg: 'bg-indigo-50 border-indigo-100' };
   }
   if (lower.includes('hàn quốc') || lower.includes('no brand')) {
-    return { Icon: Sparkles, color: 'text-purple-600', bg: 'bg-purple-50 border-purple-100' };
+    return { Icon: Tag, color: 'text-purple-600', bg: 'bg-purple-50 border-purple-100' };
   }
   if (lower.includes('gạo') || lower.includes('bột') || lower.includes('hạt')) {
     return { Icon: Package, color: 'text-yellow-700', bg: 'bg-yellow-50 border-yellow-100' };
@@ -284,7 +283,7 @@ export default function Header() {
                         <ChevronRight size={14} className="text-gray-400" />
                       </Link>
                       <Link href="#" className="flex items-center justify-between py-2 hover:text-primary transition-colors group/item">
-                        <div className="flex items-center gap-3"><Sparkles size={16} className="text-gray-500 group-hover/item:text-primary" /> Ưu đãi đặc biệt</div>
+                        <div className="flex items-center gap-3"><Tag size={16} className="text-gray-500 group-hover/item:text-primary" /> Ưu đãi đặc biệt</div>
                         <ChevronRight size={14} className="text-gray-400" />
                       </Link>
                     </div>

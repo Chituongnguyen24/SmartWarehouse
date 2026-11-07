@@ -4,7 +4,7 @@ import {
   ShoppingCart, CheckCircle, Clock, Search, RefreshCw, 
   Package, MapPin, Truck, CheckCircle2, XCircle, 
   DollarSign, Copy, ChevronLeft, ChevronRight,
-  Phone, CreditCard, X, Printer, FileText
+  Phone, CreditCard, X, Printer, FileText, Check
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { useAuth } from '../contexts/AuthContext';
@@ -51,7 +51,7 @@ export const GOVAP_DRIVERS = [
     name: 'Đặng Hoàng Phúc (Tài xế Xe Tải)',
     phone: '0944778899',
     plate: '51D-892.45',
-    type: '🚛 Xe Tải Lạnh 2.5 Tấn (Hàng Sỉ / Tiêu Hủy / Chuyển Kho)',
+    type: 'Xe Tải Lạnh 2.5 Tấn (Hàng Sỉ / Tiêu Hủy / Chuyển Kho)',
     vehicleCategory: 'TRUCK',
     maxCapacityKg: 2500,
     warehouseCode: 'WH-006',
@@ -67,7 +67,7 @@ export const GOVAP_DRIVERS = [
     name: 'Phan Hữu Nam (Tài xế Bán Tải)',
     phone: '0918776655',
     plate: '51C-734.12',
-    type: '🚐 Xe Bán Tải Thùng Kín 1.5 Tấn (Đơn Lớn > 30kg)',
+    type: 'Xe Bán Tải Thùng Kín 1.5 Tấn (Đơn Lớn > 30kg)',
     vehicleCategory: 'VAN',
     maxCapacityKg: 1500,
     warehouseCode: 'WH-006',
@@ -85,7 +85,7 @@ export const GOVAP_DRIVERS = [
     name: 'Võ Minh Trí',
     phone: '0977112233',
     plate: '59-V1 888.99',
-    type: '🛵 Xe Máy Thùng Lạnh (0-4°C)',
+    type: 'Xe Máy Thùng Lạnh (0-4°C)',
     vehicleCategory: 'MOTORBIKE',
     maxCapacityKg: 30,
     warehouseCode: 'WH-006',
@@ -101,7 +101,7 @@ export const GOVAP_DRIVERS = [
     name: 'Nguyễn Văn Hùng',
     phone: '0909888111',
     plate: '59-G2 688.39',
-    type: '🛵 Xe Máy Giao Siêu Tốc',
+    type: 'Xe Máy Giao Siêu Tốc',
     vehicleCategory: 'MOTORBIKE',
     maxCapacityKg: 25,
     warehouseCode: 'WH-006',
@@ -117,7 +117,7 @@ export const GOVAP_DRIVERS = [
     name: 'Trần Quốc Bảo',
     phone: '0933445566',
     plate: '59-P1 456.78',
-    type: '🛵 Xe Máy Thùng Mát (2-8°C)',
+    type: 'Xe Máy Thùng Mát (2-8°C)',
     vehicleCategory: 'MOTORBIKE',
     maxCapacityKg: 25,
     warehouseCode: 'WH-006',
@@ -133,7 +133,7 @@ export const GOVAP_DRIVERS = [
     name: 'Lê Thanh Tùng',
     phone: '0966332211',
     plate: '59-X1 999.11',
-    type: '🛵 Xe Máy Thùng Lạnh',
+    type: 'Xe Máy Thùng Lạnh',
     vehicleCategory: 'MOTORBIKE',
     maxCapacityKg: 30,
     warehouseCode: 'WH-006',
@@ -151,7 +151,7 @@ export const GOVAP_DRIVERS = [
     name: 'Bùi Hoàng Long (Tài xế Bình Thạnh)',
     phone: '0988112244',
     plate: '59-S2 555.66',
-    type: '🛵 Xe Máy Thùng Lạnh (Liên Kho BT-GV)',
+    type: 'Xe Máy Thùng Lạnh (Liên Kho BT-GV)',
     vehicleCategory: 'MOTORBIKE',
     maxCapacityKg: 30,
     warehouseCode: 'WH-002',
@@ -167,7 +167,7 @@ export const GOVAP_DRIVERS = [
     name: 'Trương Gia Huy (Tài xế Tân Bình)',
     phone: '0977223344',
     plate: '59-H1 333.22',
-    type: '🛵 Xe Máy Thùng Lạnh (Liên Kho TB-GV)',
+    type: 'Xe Máy Thùng Lạnh (Liên Kho TB-GV)',
     vehicleCategory: 'MOTORBIKE',
     maxCapacityKg: 30,
     warehouseCode: 'WH-003',
@@ -304,7 +304,7 @@ const OrderManagement: React.FC = () => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     
     if (newStatus === 'COMPLETED') {
-      showToast('🎉 Đã xác nhận Giao Hàng Thành Công! Đơn hàng hoàn tất & ghi nhận Thực Nhận.', 'success');
+      showToast('Đã xác nhận giao hàng thành công. Đơn hàng hoàn tất & ghi nhận thực nhận.', 'success');
     } else {
       showToast(`Đã cập nhật trạng thái đơn hàng: ${STATUS_MAP[newStatus]?.label || newStatus}`, 'info');
     }
@@ -340,7 +340,7 @@ const OrderManagement: React.FC = () => {
 
     // Optimistic status update
     setOrders(prev => prev.map(o => o.id === targetOrder.id ? { ...o, status: 'PICKING' } : o));
-    showToast(`✅ Đã duyệt đơn #${targetOrder.id.slice(0, 8).toUpperCase()} & tạo lệnh xuất kho ưu tiên hạn dùng!`, 'success');
+    showToast(`Đã duyệt đơn #${targetOrder.id.slice(0, 8).toUpperCase()} & tạo lệnh xuất kho ưu tiên hạn dùng.`, 'success');
 
     try {
       const whCode = (targetOrder as any).assignedWarehouseCode || (targetOrder as any).assignedWarehouseId || (targetOrder.assignedWarehouseName?.includes('Gò Vấp') ? 'WH-006' : 'WH-001');
@@ -430,7 +430,7 @@ const OrderManagement: React.FC = () => {
         }),
       }).catch(() => {});
 
-      showToast(`✅ Đã phân công tài xế ${driver.name} (${driver.plate}) cho đơn #${orderId.slice(0, 8).toUpperCase()}!`, 'success');
+      showToast(`Đã phân công tài xế ${driver.name} (${driver.plate}) cho đơn #${orderId.slice(0, 8).toUpperCase()}.`, 'success');
       setDispatchOrderModal(null);
       fetchOrders(false);
     } catch (err) {
@@ -596,7 +596,7 @@ const OrderManagement: React.FC = () => {
               </h2>
               <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '2px 0 0 0' }}>
                 {isManager
-                  ? `📍 Tiếp nhận & phân phối đơn hàng trực tiếp cho ${user?.warehouseCode === 'WH-006' ? 'Kho Hàng Gò Vấp (WH-006)' : user?.warehouseCode}`
+                  ? `Tiếp nhận & phân phối đơn hàng trực tiếp cho ${user?.warehouseCode === 'WH-006' ? 'Kho Hàng Gò Vấp (WH-006)' : user?.warehouseCode}`
                   : 'Tiếp nhận đơn hàng từ Khách hàng, duyệt đơn, kích hoạt xuất kho tự động và theo dõi vận chuyển.'}
               </p>
             </div>
@@ -611,20 +611,20 @@ const OrderManagement: React.FC = () => {
               onChange={e => setSelectedWhFilter(e.target.value)}
               style={{
                 padding: '9px 14px',
-                borderRadius: '10px',
+                borderRadius: '8px',
                 border: '1px solid #0f766e',
                 background: '#f0fdfa',
                 color: '#0f766e',
-                fontWeight: 700,
+                fontWeight: 600,
                 fontSize: '0.85rem',
                 cursor: 'pointer'
               }}
             >
-              <option value="ALL">🏢 Tất cả các Kho ({orders.length} đơn)</option>
-              <option value="WH-006">🏢 Kho Gò Vấp (WH-006)</option>
-              <option value="WH-001">🏢 Kho Quận 12 (WH-001)</option>
-              <option value="WH-002">🏢 Kho Thủ Đức (WH-002)</option>
-              <option value="WH-005">🏢 Kho Bình Thạnh (WH-005)</option>
+              <option value="ALL">Tất cả các Kho ({orders.length} đơn)</option>
+              <option value="WH-006">Kho Gò Vấp (WH-006)</option>
+              <option value="WH-001">Kho Quận 12 (WH-001)</option>
+              <option value="WH-002">Kho Thủ Đức (WH-002)</option>
+              <option value="WH-005">Kho Bình Thạnh (WH-005)</option>
             </select>
           )}
 
@@ -634,19 +634,19 @@ const OrderManagement: React.FC = () => {
             onChange={e => setDateRangeFilter(e.target.value)}
             style={{
               padding: '9px 14px',
-              borderRadius: '10px',
+              borderRadius: '8px',
               border: '1px solid #cbd5e1',
               background: '#fff',
               color: '#334155',
-              fontWeight: 600,
+              fontWeight: 500,
               fontSize: '0.85rem',
               cursor: 'pointer'
             }}
           >
-            <option value="ALL">📅 Toàn thời gian</option>
-            <option value="TODAY">📅 Hôm nay</option>
-            <option value="WEEK">📅 7 ngày qua</option>
-            <option value="MONTH">📅 Tháng này</option>
+            <option value="ALL">Toàn thời gian</option>
+            <option value="TODAY">Hôm nay</option>
+            <option value="WEEK">7 ngày qua</option>
+            <option value="MONTH">Tháng này</option>
           </select>
 
           <button
@@ -718,10 +718,10 @@ const OrderManagement: React.FC = () => {
             </div>
 
             <div style={{ borderLeft: '2px solid #fed7aa', paddingLeft: '14px' }}>
-              <p style={{ fontSize: '0.72rem', color: '#15803d', margin: 0, fontWeight: 800, textTransform: 'uppercase' }}>
-                💰 Thực Nhận
+              <p style={{ fontSize: '0.72rem', color: '#15803d', margin: 0, fontWeight: 700, textTransform: 'uppercase' }}>
+                Thực Nhận
               </p>
-              <p style={{ fontSize: '1.25rem', fontWeight: 900, color: '#16a34a', margin: '2px 0 0 0' }}>
+              <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#16a34a', margin: '2px 0 0 0' }}>
                 {kpiStats.realizedRevenue.toLocaleString('vi-VN')} ₫
               </p>
             </div>
@@ -733,7 +733,7 @@ const OrderManagement: React.FC = () => {
       <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1.9fr', gap: '20px', minHeight: '650px' }}>
         
         {/* Left Column: Order List with Tabs & Search */}
-        <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
           
           {/* Status Tabs */}
           <div style={{ display: 'flex', gap: '4px', padding: '12px 14px', borderBottom: '1px solid #f1f5f9', overflowX: 'auto', background: '#fafafa' }}>
@@ -750,10 +750,10 @@ const OrderManagement: React.FC = () => {
                 onClick={() => setStatusFilter(tab.key)}
                 style={{
                   padding: '6px 12px',
-                  borderRadius: '8px',
+                  borderRadius: '6px',
                   border: 'none',
                   fontSize: '0.8rem',
-                  fontWeight: 700,
+                  fontWeight: 600,
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
                   background: statusFilter === tab.key ? '#0f766e' : 'transparent',
@@ -770,10 +770,10 @@ const OrderManagement: React.FC = () => {
           <div style={{ display: 'flex', gap: '4px', padding: '8px 14px', borderBottom: '1px solid #f1f5f9', overflowX: 'auto', background: '#fff' }}>
             {[
               { key: 'ALL', label: 'Tất cả loại', color: '#0f172a' },
-              { key: 'SALE', label: '🛒 Mua bán lẻ', color: '#1d4ed8' },
-              { key: 'DISPOSAL', label: '☣️ Tiêu hủy', color: '#7c3aed' },
-              { key: 'RETURN', label: '↩️ Hoàn/Trả', color: '#b91c1c' },
-              { key: 'TRANSFER', label: '🔄 Điều chuyển', color: '#15803d' },
+              { key: 'SALE', label: 'Mua bán lẻ', color: '#1d4ed8' },
+              { key: 'DISPOSAL', label: 'Tiêu hủy', color: '#7c3aed' },
+              { key: 'RETURN', label: 'Hoàn/Trả', color: '#b91c1c' },
+              { key: 'TRANSFER', label: 'Điều chuyển', color: '#15803d' },
             ].map(tab => (
               <button
                 key={tab.key}
@@ -856,20 +856,20 @@ const OrderManagement: React.FC = () => {
                         {(() => {
                           const cls = detectSlipClassification(order as any);
                           const b = {
-                            SALE: { text: '🛒 Bán Lẻ', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
-                            DISPOSAL: { text: '☣️ Tiêu Hủy', bg: '#faf5ff', color: '#7c3aed', border: '#e9d5ff' },
-                            RETURN: { text: '↩️ Hoàn/Trả', bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
-                            TRANSFER: { text: '🔄 Điều Chuyển', bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
+                            SALE: { text: 'Bán Lẻ', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+                            DISPOSAL: { text: 'Tiêu Hủy', bg: '#faf5ff', color: '#7c3aed', border: '#e9d5ff' },
+                            RETURN: { text: 'Hoàn/Trả', bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
+                            TRANSFER: { text: 'Điều Chuyển', bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
                           }[cls];
                           return (
-                            <span style={{ fontSize: '0.68rem', padding: '2px 5px', borderRadius: '4px', background: b.bg, color: b.color, fontWeight: 700, border: `1px solid ${b.border}` }}>
+                            <span style={{ fontSize: '0.68rem', padding: '2px 5px', borderRadius: '4px', background: b.bg, color: b.color, fontWeight: 600, border: `1px solid ${b.border}` }}>
                               {b.text}
                             </span>
                           );
                         })()}
                         <span style={{ 
-                          fontSize: '0.72rem', padding: '3px 8px', borderRadius: '12px', 
-                          background: statusCfg.bg, color: statusCfg.color, fontWeight: 700,
+                          fontSize: '0.72rem', padding: '3px 8px', borderRadius: '4px', 
+                          background: statusCfg.bg, color: statusCfg.color, fontWeight: 600,
                           border: `1px solid ${statusCfg.border}`, display: 'flex', alignItems: 'center', gap: '3px'
                         }}>
                           {statusCfg.icon}
@@ -879,22 +879,22 @@ const OrderManagement: React.FC = () => {
                     </div>
 
                     <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      📍 {order.customerAddress}
+                      {order.customerAddress}
                     </div>
 
                     <div style={{ fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: isGoVap ? '#0f766e' : '#64748b', fontWeight: isGoVap ? 700 : 500 }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: isGoVap ? '#0f766e' : '#64748b', fontWeight: isGoVap ? 600 : 500 }}>
                         <Package size={13} color={isGoVap ? '#0f766e' : '#f97316'} />
                         {order.assignedWarehouseName || 'Kho Hàng Gò Vấp (WH-006)'}
                       </span>
-                      <span style={{ fontWeight: 800, color: isGoVap ? '#0f766e' : '#ea580c', fontSize: '0.9rem' }}>
+                      <span style={{ fontWeight: 700, color: isGoVap ? '#0f766e' : '#ea580c', fontSize: '0.9rem' }}>
                         {Number(order.totalAmount).toLocaleString('vi-VN')} ₫
                       </span>
                     </div>
 
                     {order.assignedDriverName && (
-                      <div style={{ marginTop: '6px', fontSize: '0.72rem', color: '#15803d', background: '#dcfce7', padding: '2px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 700, border: '1px solid #bbf7d0' }}>
-                        🛵 Shipper: {order.assignedDriverName} ({order.assignedDriverPlate})
+                      <div style={{ marginTop: '6px', fontSize: '0.72rem', color: '#15803d', background: '#dcfce7', padding: '2px 8px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600, border: '1px solid #bbf7d0' }}>
+                        Tài xế: {order.assignedDriverName} ({order.assignedDriverPlate})
                       </div>
                     )}
                   </div>
@@ -1023,7 +1023,7 @@ const OrderManagement: React.FC = () => {
                         boxShadow: '0 2px 6px rgba(13,148,136,0.25)'
                       }}
                     >
-                      <Truck size={16} /> 🛵 {selectedOrder.assignedDriverName ? 'Đổi Tài Xế' : 'Điều Phối / Phân Công Shipper'}
+                      <Truck size={16} /> {selectedOrder.assignedDriverName ? 'Đổi Tài Xế' : 'Phân Công Tài Xế'}
                     </button>
                   )}
 
@@ -1107,7 +1107,7 @@ const OrderManagement: React.FC = () => {
                             fontSize: '0.75rem', fontWeight: 700, marginBottom: '6px',
                             border: isCurrent ? '2px solid #0f766e' : 'none'
                           }}>
-                            {isDone ? '✓' : idx + 1}
+                            {isDone ? <Check size={13} /> : idx + 1}
                           </div>
                           <span style={{ fontSize: '0.75rem', color: isDone ? '#0f766e' : '#94a3b8', fontWeight: isDone ? 700 : 500 }}>
                             {step.label}
@@ -1153,10 +1153,10 @@ const OrderManagement: React.FC = () => {
                   </div>
 
                   {/* 4th Card: Shipper Phân Công */}
-                  <div style={{ background: selectedOrder.assignedDriverName ? '#f0fdf4' : '#fffbeb', padding: '14px', borderRadius: '12px', border: `1px solid ${selectedOrder.assignedDriverName ? '#bbf7d0' : '#fde68a'}` }}>
-                    <p style={{ fontSize: '0.75rem', color: selectedOrder.assignedDriverName ? '#166534' : '#b45309', margin: '0 0 4px 0', textTransform: 'uppercase', fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
-                      <span>🛵 Shipper Điều Phối</span>
-                      {selectedOrder.assignedDriverName && <span style={{ fontSize: '0.7rem', color: '#16a34a', fontWeight: 800 }}>ĐÃ GÁN</span>}
+                  <div style={{ background: selectedOrder.assignedDriverName ? '#f0fdf4' : '#fffbeb', padding: '14px', borderRadius: '8px', border: `1px solid ${selectedOrder.assignedDriverName ? '#bbf7d0' : '#fde68a'}` }}>
+                    <p style={{ fontSize: '0.75rem', color: selectedOrder.assignedDriverName ? '#166534' : '#b45309', margin: '0 0 4px 0', textTransform: 'uppercase', fontWeight: 600, display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Tài Xế Điều Phối</span>
+                      {selectedOrder.assignedDriverName && <span style={{ fontSize: '0.7rem', color: '#16a34a', fontWeight: 600 }}>ĐÃ GÁN</span>}
                     </p>
                     {selectedOrder.assignedDriverName ? (
                       <>
@@ -1305,12 +1305,12 @@ const OrderManagement: React.FC = () => {
                   <span style={{ fontWeight: 800, color: '#ea580c' }}>{Number(dispatchOrderModal.totalAmount).toLocaleString('vi-VN')} ₫</span>
                 </div>
                 <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>
-                  📍 {dispatchOrderModal.customerAddress}
+                  {dispatchOrderModal.customerAddress}
                 </div>
               </div>
 
               <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#0f172a', fontWeight: 700 }}>
-                Chọn Shipper Xe Máy Thùng Lạnh Phụ Trách:
+                Chọn tài xế phụ trách:
               </h4>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1322,7 +1322,7 @@ const OrderManagement: React.FC = () => {
                       key={driver.id}
                       style={{
                         border: isCurrentAssigned ? '2px solid #0f766e' : '1px solid #e2e8f0',
-                        borderRadius: '12px',
+                        borderRadius: '8px',
                         padding: '12px 16px',
                         display: 'flex',
                         justifyContent: 'space-between',
@@ -1333,22 +1333,22 @@ const OrderManagement: React.FC = () => {
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div style={{
-                          width: '42px',
-                          height: '42px',
-                          borderRadius: '50%',
+                          width: '40px',
+                          height: '40px',
+                          borderRadius: '8px',
                           background: '#0f766e15',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          fontSize: '1.2rem'
+                          color: '#0f766e'
                         }}>
-                          🛵
+                          <Truck size={18} color="#0f766e" />
                         </div>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.95rem' }}>{driver.name}</span>
-                            <span style={{ fontSize: '0.75rem', background: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>{driver.plate}</span>
-                            <span style={{ fontSize: '0.72rem', color: '#eab308', fontWeight: 700 }}>★ {driver.rating}</span>
+                            <span style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.95rem' }}>{driver.name}</span>
+                            <span style={{ fontSize: '0.75rem', background: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>{driver.plate}</span>
+                            <span style={{ fontSize: '0.72rem', color: '#b45309', fontWeight: 600 }}>{driver.rating} / 5</span>
                           </div>
                           <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
                             {driver.type} • {driver.shift} • Tuyến: <b>{driver.zone}</b>
@@ -1368,14 +1368,13 @@ const OrderManagement: React.FC = () => {
                             background: isCurrentAssigned ? '#0f766e' : '#2563eb',
                             color: '#fff',
                             border: 'none',
-                            borderRadius: '8px',
-                            fontWeight: 700,
+                            borderRadius: '6px',
+                            fontWeight: 600,
                             fontSize: '0.8rem',
                             cursor: 'pointer',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                           }}
                         >
-                          {isCurrentAssigned ? '✓ Đang phân công' : 'Phân công ngay'}
+                          {isCurrentAssigned ? 'Đang phân công' : 'Phân công ngay'}
                         </button>
                       </div>
                     </div>

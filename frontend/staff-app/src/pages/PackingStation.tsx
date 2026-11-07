@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   Layers,
-  Sparkles,
   Truck,
   Box,
   Plus,
@@ -388,11 +387,11 @@ export const PackingStation: React.FC = () => {
       );
       setSelectedOrder(updatedOrder);
       setShowShippingLabel(true);
-      setToastMessage(`✅ Đã đóng gói & niêm phong thành công ${customBoxCount} kiện hàng cho đơn ${selectedOrder.orderCode}!`);
+      setToastMessage(`Đã đóng gói & niêm phong thành công ${customBoxCount} kiện hàng cho đơn ${selectedOrder.orderCode}!`);
       setTimeout(() => setToastMessage(null), 4000);
     } catch (e: any) {
       console.warn('Backend packing status sync error:', e);
-      setToastMessage('✅ Đã hoàn tất đóng gói kiện hàng!');
+      setToastMessage('Đã hoàn tất đóng gói kiện hàng!');
       setTimeout(() => setToastMessage(null), 3500);
     } finally {
       setIsPacking(false);
@@ -404,7 +403,7 @@ export const PackingStation: React.FC = () => {
     if (nextPending) {
       handleSelectOrder(nextPending);
     } else {
-      setToastMessage('🎉 Tất cả các đơn hàng đã được đóng gói hoàn tất!');
+      setToastMessage('Tất cả các đơn hàng đã được đóng gói hoàn tất!');
       setTimeout(() => setToastMessage(null), 3000);
     }
   };
@@ -459,7 +458,7 @@ export const PackingStation: React.FC = () => {
     );
     if (foundOrd) {
       handleSelectOrder(foundOrd);
-      setToastMessage(`📦 Đã nhận diện và tải thông tin phiếu đóng gói: ${foundOrd.orderCode}!`);
+      setToastMessage(`Đã nhận diện và tải thông tin phiếu đóng gói: ${foundOrd.orderCode}!`);
       return;
     }
 
@@ -467,7 +466,7 @@ export const PackingStation: React.FC = () => {
     const foundBox = STANDARD_BOX_TYPES.find(b => b.id.toLowerCase() === clean || b.shortLabel.toLowerCase().includes(clean));
     if (foundBox) {
       setSelectedBoxTypeId(foundBox.id);
-      setToastMessage(`📦 Đã chọn quy cách thùng: ${foundBox.name}!`);
+      setToastMessage(`Đã chọn quy cách thùng: ${foundBox.name}!`);
       return;
     }
 
@@ -479,12 +478,12 @@ export const PackingStation: React.FC = () => {
         i.name.toLowerCase().includes(clean)
       );
       if (foundItem) {
-        setToastMessage(`✅ Đã quét kiểm khớp sản phẩm: ${foundItem.name} (${foundItem.qty} ${foundItem.unit})`);
+        setToastMessage(`Đã quét kiểm khớp sản phẩm: ${foundItem.name} (${foundItem.qty} ${foundItem.unit})`);
         return;
       }
     }
 
-    setToastMessage(`🏷️ Đã quét mã: ${code}`);
+    setToastMessage(`Đã quét mã: ${code}`);
   };
 
   // Filter orders according to tab
@@ -648,7 +647,7 @@ export const PackingStation: React.FC = () => {
                   <span>{ord.orderCode}</span>
                   <span style={{ fontSize: '10px', opacity: 0.85 }}>({ord.totalUnits} SP)</span>
                   {ord.isPacked ? (
-                    <span style={{ fontSize: '9px', backgroundColor: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>Đã gói ✓</span>
+                    <span style={{ fontSize: '9px', backgroundColor: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '1px 5px', borderRadius: '4px', fontWeight: 600 }}>Đã gói</span>
                   ) : (
                     <span style={{ fontSize: '9px', backgroundColor: '#faf5ff', color: '#7c3aed', border: '1px solid #ddd6fe', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>Chờ gói</span>
                   )}
@@ -732,34 +731,34 @@ export const PackingStation: React.FC = () => {
           {/* Order Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <span style={{ fontSize: '12px', fontWeight: 900, color: '#7c3aed' }}>
-                📦 PHIẾU XUẤT: {selectedOrder.orderCode}
+              <span style={{ fontSize: '12px', fontWeight: 700, color: '#7c3aed' }}>
+                PHIẾU XUẤT: {selectedOrder.orderCode}
               </span>
-              <h3 style={{ margin: '2px 0 0 0', fontSize: '15px', fontWeight: 900, color: '#0f172a' }}>
+              <h3 style={{ margin: '2px 0 0 0', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>
                 {selectedOrder.customerName}
               </h3>
             </div>
 
             {isLockedByOther ? (
-              <span style={{ fontSize: '10.5px', backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '4px 8px', borderRadius: '8px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ fontSize: '10.5px', backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '4px 8px', borderRadius: '6px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <Lock size={12} /> Khóa bởi {currentLock?.userName}
               </span>
             ) : (
-              <span style={{ fontSize: '11px', backgroundColor: selectedOrder.isPacked ? '#ecfdf5' : '#faf5ff', color: selectedOrder.isPacked ? '#059669' : '#7c3aed', border: `1px solid ${selectedOrder.isPacked ? '#a7f3d0' : '#ddd6fe'}`, padding: '3px 8px', borderRadius: '6px', fontWeight: 800 }}>
-                {selectedOrder.isPacked ? '✅ Đã Đóng Gói' : '⏳ Chờ Đóng Gói'}
+              <span style={{ fontSize: '11px', backgroundColor: selectedOrder.isPacked ? '#ecfdf5' : '#faf5ff', color: selectedOrder.isPacked ? '#059669' : '#7c3aed', border: `1px solid ${selectedOrder.isPacked ? '#a7f3d0' : '#ddd6fe'}`, padding: '3px 8px', borderRadius: '6px', fontWeight: 600 }}>
+                {selectedOrder.isPacked ? 'Đã Đóng Gói' : 'Chờ Đóng Gói'}
               </span>
             )}
           </div>
 
           <div style={{ fontSize: '11.5px', color: '#64748b' }}>
-            📍 Địa chỉ nhận hàng: <strong style={{ color: '#0f172a' }}>{selectedOrder.address}</strong>
+            Địa chỉ nhận hàng: <strong style={{ color: '#0f172a' }}>{selectedOrder.address}</strong>
           </div>
 
           {/* Items Checklist from Picking Wave */}
-          <div style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', display: 'flex', justifyContent: 'space-between' }}>
+          <div style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', display: 'flex', justifyContent: 'space-between' }}>
               <span>DANH SÁCH SẢN PHẨM CẦN ĐÓNG GÓI ({selectedOrder.items.length} món):</span>
-              <span style={{ color: '#0284c7', fontWeight: 900 }}>TỔNG CỘNG: {selectedOrder.totalUnits} SP</span>
+              <span style={{ color: '#0284c7', fontWeight: 700 }}>TỔNG CỘNG: {selectedOrder.totalUnits} SP</span>
             </div>
 
             {selectedOrder.items.map((it, idx) => (
@@ -778,15 +777,15 @@ export const PackingStation: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <CheckCircle2 size={16} color="#059669" />
                   <div>
-                    <div style={{ fontWeight: 800 }}>{it.name}</div>
+                    <div style={{ fontWeight: 600 }}>{it.name}</div>
                     <div style={{ fontSize: '10px', color: '#64748b' }}>
-                      📍 {it.shelfLocation} • Mã Lô: <span style={{ color: '#0f172a' }}>{it.lotCode}</span>
+                      {it.shelfLocation} • Mã Lô: <span style={{ color: '#0f172a' }}>{it.lotCode}</span>
                     </div>
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontWeight: 900, color: '#059669', fontSize: '13px' }}>x{it.qty} {it.unit}</span>
+                  <span style={{ fontWeight: 700, color: '#059669', fontSize: '13px' }}>x{it.qty} {it.unit}</span>
                   {it.isCold && (
                     <span style={{ fontSize: '10px', backgroundColor: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd', padding: '1px 5px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '2px' }}>
                       <Snowflake size={10} /> Lạnh
@@ -798,16 +797,16 @@ export const PackingStation: React.FC = () => {
           </div>
 
           {/* ════════ CARTONIZATION & PACKAGING CONFIGURATION ════════ */}
-          <div style={{ backgroundColor: '#f8fafc', borderRadius: '16px', padding: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Box size={16} color="#7c3aed" />
-                <span style={{ fontSize: '12.5px', fontWeight: 900, color: '#0f172a' }}>
+                <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#0f172a' }}>
                   QUY CÁCH ĐÓNG THÙNG & SỐ LƯỢNG KIỆN
                 </span>
               </div>
-              <span style={{ fontSize: '11px', color: '#0284c7', fontWeight: 800 }}>
-                {selectedOrder.totalUnits > 300 ? '⚡ Đơn Hàng Sỉ / Số Lượng Lớn' : '📦 Đóng Gói Tiêu Chuẩn'}
+              <span style={{ fontSize: '11px', color: '#0284c7', fontWeight: 600 }}>
+                {selectedOrder.totalUnits > 300 ? 'Đơn Hàng Sỉ / Số Lượng Lớn' : 'Đóng Gói Tiêu Chuẩn'}
               </span>
             </div>
 
@@ -827,26 +826,25 @@ export const PackingStation: React.FC = () => {
                       backgroundColor: isSelected ? '#faf5ff' : '#ffffff',
                       border: `1.5px solid ${isSelected ? '#7c3aed' : isRecommended ? '#0284c7' : '#e2e8f0'}`,
                       padding: '10px 12px',
-                      borderRadius: '12px',
+                      borderRadius: '8px',
                       textAlign: 'left',
                       cursor: (isLockedByOther || selectedOrder.isPacked) ? 'default' : 'pointer',
                       color: '#0f172a',
-                      boxShadow: isSelected ? '0 2px 8px rgba(124, 58, 237, 0.15)' : 'none',
                       transition: 'all 0.15s ease-in-out',
                       position: 'relative',
                     }}
                   >
                     {isRecommended && !isSelected && (
-                      <span style={{ position: 'absolute', top: '-6px', right: '8px', fontSize: '9px', backgroundColor: '#0284c7', color: '#ffffff', padding: '1px 5px', borderRadius: '4px', fontWeight: 900 }}>
+                      <span style={{ position: 'absolute', top: '-6px', right: '8px', fontSize: '9px', backgroundColor: '#0284c7', color: '#ffffff', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>
                         Gợi ý
                       </span>
                     )}
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 800, color: isSelected ? '#7c3aed' : '#0f172a' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: isSelected ? '#7c3aed' : '#0f172a' }}>
                         {b.shortLabel}
                       </div>
-                      {isSelected && <span style={{ color: '#7c3aed', fontWeight: 900, fontSize: '13px' }}>✓</span>}
+                      {isSelected && <Check size={14} color="#7c3aed" />}
                     </div>
                     <div style={{ fontSize: '10px', color: isSelected ? '#6d28d9' : '#64748b', marginTop: '2px' }}>
                       Sức chứa: <b>~{b.maxUnits} SP</b> ({b.dimensions})
@@ -857,11 +855,11 @@ export const PackingStation: React.FC = () => {
             </div>
 
             {/* Smart Box Calculation & Counter */}
-            <div style={{ backgroundColor: '#ffffff', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ backgroundColor: '#ffffff', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a' }}>
-                    📦 Số lượng Kiện / Thùng cần đóng:
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#0f172a' }}>
+                    Số lượng Kiện / Thùng cần đóng:
                   </div>
                   <div style={{ fontSize: '10.5px', color: '#64748b' }}>
                     Tự động tính: {selectedOrder.totalUnits} SP ÷ {currentBoxOption.maxUnits} SP/thùng = <b>{Math.ceil(selectedOrder.totalUnits / currentBoxOption.maxUnits)} kiện</b>
@@ -951,7 +949,7 @@ export const PackingStation: React.FC = () => {
                         gap: '4px',
                       }}
                     >
-                      🏷️ Kiện {i + 1}/{customBoxCount}: <b>{estUnits} SP</b> ({currentBoxOption.shortLabel})
+                      Kiện {i + 1}/{customBoxCount}: <b>{estUnits} SP</b> ({currentBoxOption.shortLabel})
                     </span>
                   );
                 })}
@@ -961,14 +959,14 @@ export const PackingStation: React.FC = () => {
 
           {/* ════════ SHIPPING LABELS & QR CONTAINER PREVIEW ════════ */}
           {showShippingLabel && (
-            <div style={{ backgroundColor: '#ffffff', color: '#0f172a', borderRadius: '16px', padding: '16px', textAlign: 'center', border: '1px solid #e2e8f0', boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}>
+            <div style={{ backgroundColor: '#ffffff', color: '#0f172a', borderRadius: '8px', padding: '16px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed #cbd5e1', paddingBottom: '8px', marginBottom: '8px' }}>
                 <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 900, color: '#0f172a' }}>CITYMART SMART WAREHOUSE</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>CITYMART SMART WAREHOUSE</div>
                   <div style={{ fontSize: '10px', color: '#64748b' }}>TEM NIÊM PHONG KIỆN HÀNG XUẤT KHO</div>
                 </div>
-                <span style={{ fontSize: '10px', backgroundColor: hasColdItems ? '#e0f2fe' : '#f1f5f9', color: hasColdItems ? '#0369a1' : '#475569', padding: '3px 8px', borderRadius: '6px', fontWeight: 800 }}>
-                  {hasColdItems ? '❄️ HÀNG BẢO QUẢN MÁT' : '📦 HÀNG TIÊU CHUẨN'}
+                <span style={{ fontSize: '10px', backgroundColor: hasColdItems ? '#e0f2fe' : '#f1f5f9', color: hasColdItems ? '#0369a1' : '#475569', padding: '3px 8px', borderRadius: '6px', fontWeight: 600 }}>
+                  {hasColdItems ? 'HÀNG BẢO QUẢN MÁT' : 'HÀNG TIÊU CHUẨN'}
                 </span>
               </div>
 
@@ -1129,7 +1127,7 @@ export const PackingStation: React.FC = () => {
                 >
                   <PackageCheck size={18} />
                   <span>
-                    📦 Tiếp Tục Đóng Gói Đơn Tiếp Theo (Còn {orders.filter(o => !o.isPacked).length} đơn chờ)
+                    Tiếp Tục Đóng Gói Đơn Tiếp Theo (Còn {orders.filter(o => !o.isPacked).length} đơn chờ)
                   </span>
                 </button>
               )}

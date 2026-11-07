@@ -26,7 +26,6 @@ import {
   X,
   Check,
   RotateCcw,
-  Sparkles,
   Calendar,
   Layers,
   Thermometer,
@@ -84,7 +83,7 @@ export interface AuditRecord {
 const ITEMS_PER_PAGE = 15;
 
 /**
- * 🤖 Thuật toán Đánh giá Nguy cơ Thực phẩm (Đồng bộ chuẩn 100% với Web Dashboard)
+ * Thuật toán Đánh giá Nguy cơ Thực phẩm (Đồng bộ chuẩn 100% với Web Dashboard)
  */
 function evaluateAIRisk(lot: any, productName: string, sku: string, daysLeft: number, zone: string) {
   const name = (productName || '').toLowerCase();
@@ -92,19 +91,18 @@ function evaluateAIRisk(lot: any, productName: string, sku: string, daysLeft: nu
 
   let catKey = 'DRY';
   let catLabel = 'Hàng khô';
-  let catIcon = '🌾';
   let decayRate = 1.0;
 
   if (/cá|tôm|mực|hải sản|cua|ghẹ|sò|ốc/.test(name) || /SEAFOOD|FISH|SHRIMP|SQUID/.test(code)) {
-    catKey = 'SEAFOOD'; catLabel = 'Hải sản'; catIcon = '🐟'; decayRate = 2.8;
+    catKey = 'SEAFOOD'; catLabel = 'Hải sản'; decayRate = 2.8;
   } else if (/thịt|bò|heo|gà|vịt|trứng/.test(name) || /BEEF|PORK|CHICKEN|MEAT|DUCK|EGG/.test(code)) {
-    catKey = 'MEAT'; catLabel = 'Thịt & Trứng'; catIcon = '🥩'; decayRate = 2.2;
+    catKey = 'MEAT'; catLabel = 'Thịt & Trứng'; decayRate = 2.2;
   } else if (/sữa|phô mai|yaourt|yogurt|kem|bơ/.test(name) || /MILK|DAIRY|CHEESE|YOGURT/.test(code)) {
-    catKey = 'DAIRY'; catLabel = 'Sữa & Dairy'; catIcon = '🥛'; decayRate = 1.6;
+    catKey = 'DAIRY'; catLabel = 'Sữa & Dairy'; decayRate = 1.6;
   } else if (/rau|cải|súp lơ|dưa|cà|đậu|hành|ngò|cần/.test(name) || /VEG|BROCCOLI|TOMATO|LETTUCE|SPINACH/.test(code)) {
-    catKey = 'VEGETABLE'; catLabel = 'Rau củ quả'; catIcon = '🥬'; decayRate = 2.0;
+    catKey = 'VEGETABLE'; catLabel = 'Rau củ quả'; decayRate = 2.0;
   } else if (/táo|cam|xoài|dứa|ổi|chuối|trái cây/.test(name) || /FRUIT|APPLE|MANGO|ORANGE/.test(code)) {
-    catKey = 'FRUIT'; catLabel = 'Trái cây'; catIcon = '🍎'; decayRate = 1.7;
+    catKey = 'FRUIT'; catLabel = 'Trái cây'; decayRate = 1.7;
   }
 
   const dangerDays = catKey === 'SEAFOOD' ? 3 : catKey === 'MEAT' ? 3 : catKey === 'DAIRY' ? 5 : catKey === 'VEGETABLE' ? 4 : catKey === 'FRUIT' ? 5 : 7;
@@ -113,7 +111,7 @@ function evaluateAIRisk(lot: any, productName: string, sku: string, daysLeft: nu
   if (daysLeft <= 0) {
     return {
       level: 'DANGER' as const,
-      reason: `⚠️ ${catIcon} Đã hết hạn sử dụng`,
+      reason: 'Đã hết hạn sử dụng',
       recommendation: 'Cần kiểm kê đối soát và lập biên bản xuất hủy ngay',
     };
   }
@@ -121,7 +119,7 @@ function evaluateAIRisk(lot: any, productName: string, sku: string, daysLeft: nu
   if (daysLeft <= dangerDays) {
     return {
       level: 'DANGER' as const,
-      reason: `🔴 ${catIcon} Còn ${daysLeft} ngày — Ngưỡng nguy cơ cao của ${catLabel}`,
+      reason: `Còn ${daysLeft} ngày — Ngưỡng nguy cơ cao của ${catLabel}`,
       recommendation: 'Cần ưu tiên kiểm kê gấp & xuất kho ngay lập tức',
     };
   }
@@ -129,14 +127,14 @@ function evaluateAIRisk(lot: any, productName: string, sku: string, daysLeft: nu
   if (daysLeft <= warningDays) {
     return {
       level: 'WARNING' as const,
-      reason: `🟡 ${catIcon} Còn ${daysLeft} ngày — Cận hạn sử dụng (${catLabel})`,
+      reason: `Còn ${daysLeft} ngày — Cận hạn sử dụng (${catLabel})`,
       recommendation: 'Lên kế hoạch xuất trước theo hạn sử dụng',
     };
   }
 
   return {
     level: 'SAFE' as const,
-    reason: `🟢 ${catIcon} Đạt chuẩn tươi sạch (Còn ${daysLeft} ngày)`,
+    reason: `Đạt chuẩn tươi sạch (Còn ${daysLeft} ngày)`,
     recommendation: 'Bảo quản đạt chuẩn nhiệt độ kho',
   };
 }
@@ -348,7 +346,7 @@ export const StockLookupScreen: React.FC = () => {
   };
 
   /**
-   * ⚡ CẬP NHẬT KIỂM KÊ TỨC THÌ (Zero-Lag Optimistic UI)
+   * Cập nhật kiểm kê tức thì (Zero-Lag Optimistic UI)
    */
   const handleSaveAudit = async () => {
     if (!selectedLot) return;
@@ -436,12 +434,12 @@ export const StockLookupScreen: React.FC = () => {
 
       if (actualQty <= 0) {
         Alert.alert(
-          '✅ Đã Xóa Lô & Giải Phóng Kệ Kho!',
+          'Đã Xóa Lô & Giải Phóng Kệ Kho!',
           `Lô ${selectedLot.lotCode} đã hết hàng (0 ${selectedLot.unit}) và được xóa khỏi danh sách.\n• Vị trí kệ ${selectedLot.shelfLocation} đã được làm trống để nhập hàng mới!\n• Người thực hiện: ${staffName}`
         );
       } else {
         Alert.alert(
-          '✅ Đã Lưu Kết Quả Kiểm Kê!',
+          'Đã Lưu Kết Quả Kiểm Kê!',
           `Phiếu kiểm kê lô ${selectedLot.lotCode} đã được ghi nhận:\n• Thực đếm: ${actualQty} ${selectedLot.unit}\n• Đối soát: ${diffText}\n• Người kiểm: ${staffName}`
         );
       }
@@ -481,7 +479,7 @@ export const StockLookupScreen: React.FC = () => {
               onPress={() => { setSelectedRiskFilter('ALL'); setCurrentPage(1); }}
               activeOpacity={0.8}
             >
-              <Text style={styles.riskTabIcon}>📦</Text>
+              <Boxes size={13} color={selectedRiskFilter === 'ALL' ? '#0f172a' : '#64748b'} style={{ marginRight: 4 }} />
               <Text style={[styles.riskTabLabel, selectedRiskFilter === 'ALL' && styles.riskTabLabelActive]}>
                 Còn hàng ({riskStats.activeCount})
               </Text>
@@ -660,7 +658,7 @@ export const StockLookupScreen: React.FC = () => {
                   onPress={() => setSelectedRiskFilter('DEPLETED')}
                 >
                   <Text style={{ fontSize: 12, color: '#0f766e', fontWeight: '800' }}>
-                    👉 Xem {riskStats.depletedCount} lô hàng đã hết tồn kho (0 SP)
+                    Xem {riskStats.depletedCount} lô hàng đã hết tồn kho (0 SP)
                   </Text>
                 </TouchableOpacity>
               )}
@@ -780,7 +778,7 @@ export const StockLookupScreen: React.FC = () => {
                     <View style={styles.auditHistoryBox}>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Text style={styles.auditHistoryText}>
-                          👤 Đã kiểm: <Text style={{ fontWeight: '700', color: '#0f172a' }}>{auditorName}</Text> {auditedAt ? `(${auditedAt})` : ''}
+                          Đã kiểm: <Text style={{ fontWeight: '700', color: '#0f172a' }}>{auditorName}</Text> {auditedAt ? `(${auditedAt})` : ''}
                         </Text>
                         <Text style={[styles.auditHistoryDiff, hasDiff ? { color: '#dc2626' } : { color: '#0f766e' }]}>
                           Thực đếm: {actualCount} {lot.unit} ({hasDiff ? (diffVal > 0 ? `+${diffVal}` : diffVal) : 'Khớp 100%'})
@@ -794,11 +792,11 @@ export const StockLookupScreen: React.FC = () => {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.recommendText}>
                         {isDepleted
-                          ? '📦 Lô hàng đã xuất/hủy hết tồn kho. Lưu vết kiểm kê trong hệ thống.'
+                          ? 'Lô hàng đã xuất/hủy hết tồn kho. Lưu vết kiểm kê trong hệ thống.'
                           : isAudited
                           ? hasDiff
-                            ? '⚠️ Đã ghi nhận chênh lệch kiểm kê.'
-                            : '✅ Số lượng thực tế khớp 100% với hệ thống.'
+                            ? 'Đã ghi nhận chênh lệch kiểm kê.'
+                            : 'Số lượng thực tế khớp 100% với hệ thống.'
                           : lot.riskRecommendation}
                       </Text>
                     </View>
@@ -980,14 +978,14 @@ export const StockLookupScreen: React.FC = () => {
                       onPress={() => setActualQtyInput(String(selectedLot.systemQuantity))}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.quickCountBtnText}>🎯 Khớp 100% ({selectedLot.systemQuantity})</Text>
+                      <Text style={styles.quickCountBtnText}>Khớp 100% ({selectedLot.systemQuantity})</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.quickCountBtn, { backgroundColor: '#fee2e2', borderColor: '#fca5a5' }]}
                       onPress={() => setActualQtyInput('0')}
                       activeOpacity={0.7}
                     >
-                      <Text style={[styles.quickCountBtnText, { color: '#dc2626' }]}>🗑️ Hết hàng (0)</Text>
+                      <Text style={[styles.quickCountBtnText, { color: '#dc2626' }]}>Hết hàng (0)</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.quickCountBtn}
@@ -1033,7 +1031,7 @@ export const StockLookupScreen: React.FC = () => {
 
                   {actualQtyInput === '0' && (
                     <Text style={{ fontSize: 11, color: '#dc2626', marginTop: 6, fontWeight: '700' }}>
-                      ⚠️ Nhập 0 sẽ xóa lô hàng khỏi hệ thống và giải phóng hoàn toàn vị trí kệ kho.
+                      Lưu ý: Nhập 0 sẽ xóa lô hàng khỏi hệ thống và giải phóng hoàn toàn vị trí kệ kho.
                     </Text>
                   )}
                 </View>

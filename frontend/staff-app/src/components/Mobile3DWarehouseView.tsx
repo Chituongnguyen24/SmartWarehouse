@@ -18,7 +18,6 @@ import {
   Package,
   Calendar,
   AlertTriangle,
-  Sparkles,
 } from 'lucide-react';
 import { DEFAULT_RACKS, ShelfRack, ShelfItem, populateRacksWithDbLots, formatStandardShelfLocation } from '../constants/warehouseRacks';
 import { fetchInventoryLots, fetchProducts, ApiLot, ApiProduct } from '../services/api';
@@ -318,9 +317,9 @@ export const Mobile3DWarehouseView: React.FC<Props> = ({
 
     // 3 Main Warehouse Zones Demarcation (COOL, FROZEN, DRY)
     const allZones = [
-      { id: 'COOL', name: '❄️ KHO MÁT (0-4°C)', x: -2, z: 14, w: 15, d: 36, color: '#10b981', labelBg: '#047857' },
-      { id: 'FROZEN', name: '🧊 ĐÔNG LẠNH (-18°C)', x: 16, z: 14, w: 15, d: 36, color: '#06b6d4', labelBg: '#0369a1' },
-      { id: 'DRY', name: '📦 KHO KHÔ (+25°C)', x: 34, z: 14, w: 17, d: 36, color: '#f59e0b', labelBg: '#b45309' },
+      { id: 'COOL', name: 'KHO MÁT (0-4°C)', x: -2, z: 14, w: 15, d: 36, color: '#10b981', labelBg: '#047857' },
+      { id: 'FROZEN', name: 'ĐÔNG LẠNH (-18°C)', x: 16, z: 14, w: 15, d: 36, color: '#06b6d4', labelBg: '#0369a1' },
+      { id: 'DRY', name: 'KHO KHÔ (+25°C)', x: 34, z: 14, w: 17, d: 36, color: '#f59e0b', labelBg: '#b45309' },
     ];
 
     const activeZones = selectedZone === 'ALL' ? allZones : allZones.filter((z) => z.id === selectedZone);
@@ -358,7 +357,7 @@ export const Mobile3DWarehouseView: React.FC<Props> = ({
     dock.position.set(dockX, 0.2, -4);
     racksGroup.add(dock);
 
-    const dockLabel = createLabelSprite('🚪 CỬA XUẤT HÀNG (START)', '#0284c7');
+    const dockLabel = createLabelSprite('CỬA XUẤT HÀNG (START)', '#0284c7');
     if (dockLabel) {
       dockLabel.position.set(dockX, 1.8, -4);
       dockLabel.scale.set(3.8, 0.9, 1);
@@ -578,7 +577,7 @@ export const Mobile3DWarehouseView: React.FC<Props> = ({
       });
     });
 
-    // 📍 3D Beacon Pointer for Target Item
+    // 3D Beacon Pointer for Target Item
     if (currentTarget) {
       const coneGeo = new THREE.ConeGeometry(0.7, 1.6, 16);
       const coneMat = new THREE.MeshStandardMaterial({
@@ -595,7 +594,7 @@ export const Mobile3DWarehouseView: React.FC<Props> = ({
 
       const displayLoc = currentTarget.shelfLocation || formatStandardShelfLocation(currentTarget.location, currentTarget.zone) || 'Kệ Mục Tiêu';
       const targetBadge = createLabelSprite(
-        `🎯 ${displayLoc}`,
+        displayLoc,
         '#dc2626'
       );
       if (targetBadge) {
@@ -699,10 +698,10 @@ export const Mobile3DWarehouseView: React.FC<Props> = ({
       {/* Zone Switcher Chips Bar */}
       <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }}>
         {[
-          { id: 'COOL', label: `❄️ Kho Mát (8 Kệ A1-A8)` },
-          { id: 'FROZEN', label: `🧊 Đông Lạnh (8 Kệ B1-B8)` },
-          { id: 'DRY', label: `📦 Kho Khô (10 Kệ C1-C10)` },
-          { id: 'ALL', label: `🌐 Toàn Kho (26 Kệ)` },
+          { id: 'COOL', label: 'Kho Mát (8 Kệ A1-A8)' },
+          { id: 'FROZEN', label: 'Đông Lạnh (8 Kệ B1-B8)' },
+          { id: 'DRY', label: 'Kho Khô (10 Kệ C1-C10)' },
+          { id: 'ALL', label: 'Toàn Kho (26 Kệ)' },
         ].map((tab) => (
           <button
             key={tab.id}

@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useDriverTask } from '../context/DriverTaskContext';
-import { Lock, Mail, LogIn, AlertCircle, Eye, EyeOff, Truck, ShieldCheck } from 'lucide-react-native';
+import { Lock, Mail, LogIn, AlertCircle, Eye, EyeOff, Truck, Bike, ShieldCheck } from 'lucide-react-native';
 
 export const LoginScreen: React.FC = () => {
   const { login } = useDriverTask();
@@ -124,7 +124,7 @@ export const LoginScreen: React.FC = () => {
 
           {/* Quick Switch Driver Accounts */}
           <View style={styles.quickDriverSection}>
-            <Text style={styles.quickDriverLabel}>⚡ CHỌN NHANH TÀI XẾ THỬ NGHIỆM:</Text>
+            <Text style={styles.quickDriverLabel}>CHỌN NHANH TÀI XẾ THỬ NGHIỆM:</Text>
             <View style={styles.quickDriverGrid}>
               <TouchableOpacity
                 style={[
@@ -137,7 +137,7 @@ export const LoginScreen: React.FC = () => {
                 }}
                 activeOpacity={0.8}
               >
-                <Text style={styles.quickDriverEmoji}>🚛</Text>
+                <Truck size={20} color="#0284c7" style={{ marginRight: 10 }} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.quickDriverName}>Đặng Hoàng Phúc</Text>
                   <Text style={styles.quickDriverRole}>Xe Tải Lạnh 2.5T • Tiêu Hủy (NV-TK01)</Text>
@@ -155,7 +155,7 @@ export const LoginScreen: React.FC = () => {
                 }}
                 activeOpacity={0.8}
               >
-                <Text style={styles.quickDriverEmoji}>🛵</Text>
+                <Bike size={20} color="#059669" style={{ marginRight: 10 }} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.quickDriverName}>Võ Minh Trí</Text>
                   <Text style={styles.quickDriverRole}>Xe Máy Thùng Lạnh (NV-GV05)</Text>
@@ -173,7 +173,7 @@ export const LoginScreen: React.FC = () => {
                 }}
                 activeOpacity={0.8}
               >
-                <Text style={styles.quickDriverEmoji}>🚐</Text>
+                <Truck size={20} color="#d97706" style={{ marginRight: 10 }} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.quickDriverName}>Phan Hữu Nam</Text>
                   <Text style={styles.quickDriverRole}>Xe Bán Tải 1.5T (NV-VAN01)</Text>

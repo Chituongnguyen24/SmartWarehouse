@@ -5,9 +5,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { useWarehouse } from '../contexts/WarehouseContext';
 import { 
   PackageMinus, Search, ArrowRight, CheckCircle2, FileText, 
-  BrainCircuit, Box, Truck, Plus, X, ScanBarcode, Printer,
+  Layers, Box, Truck, Plus, X, ScanBarcode, Printer,
   ChevronLeft, ChevronRight, RefreshCw, Edit2, Save, RotateCcw,
-  Lock, Wifi, WifiOff
+  Lock, Wifi, WifiOff, Building2, MapPin, Calendar, Tag, Check, User
 } from 'lucide-react';
 import { OutboundReceiptModal } from '../components/OutboundReceiptModal';
 import { CreateOutboundModal } from '../components/CreateOutboundModal';
@@ -62,7 +62,7 @@ export const OUTBOUND_TYPE_CONFIG: Record<OutboundTransactionType, { label: stri
 
 const STEPS = [
   { key: 'PENDING', label: '1. Lập yêu cầu', icon: <FileText size={16} /> },
-  { key: 'PICKING', label: '2. Soạn hàng theo hạn dùng', icon: <BrainCircuit size={16} /> },
+  { key: 'PICKING', label: '2. Soạn hàng theo hạn dùng', icon: <Layers size={16} /> },
   { key: 'PACKED', label: '3. Đóng gói & QC', icon: <Box size={16} /> },
   { key: 'CONFIRMED', label: '4. Đã xuất kho', icon: <Truck size={16} /> },
   { key: 'DELIVERED', label: '5. Hoàn tất & Ghi sổ', icon: <CheckCircle2 size={16} /> }
@@ -223,14 +223,14 @@ const OutboundOrders: React.FC = () => {
         const updatedOrder = await res.json();
         setOrders(prev => prev.map(o => (o.id === updatedOrder.id ? updatedOrder : o)));
         setIsEditingOrder(false);
-        showToast('✅ Đã cập nhật và lưu thay đổi thông tin phiếu xuất!', 'success');
+        showToast('Đã cập nhật và lưu thay đổi thông tin phiếu xuất!', 'success');
       } else {
         const err = await res.json().catch(() => ({}));
-        showToast(`❌ Lỗi lưu thông tin: ${err.message || 'Thất bại'}`, 'error');
+        showToast(`Lỗi lưu thông tin: ${err.message || 'Thất bại'}`, 'error');
       }
     } catch (e: any) {
       console.error(e);
-      showToast(`❌ Lỗi kết nối máy chủ: ${e.message}`, 'error');
+      showToast(`Lỗi kết nối máy chủ: ${e.message}`, 'error');
     } finally {
       setIsSavingEdit(false);
     }
@@ -298,7 +298,7 @@ const OutboundOrders: React.FC = () => {
     });
 
     const onRealtimeEvent = (payload?: any) => {
-      console.log('📡 [WEB OUTBOUND WS] Live event received, refreshing data immediately:', payload);
+      console.log('[WEB OUTBOUND WS] Live event received, refreshing data immediately:', payload);
       fetchOrders(false);
     };
 
@@ -346,13 +346,13 @@ const OutboundOrders: React.FC = () => {
         hasAutoOpenedRef.current = currentTarget;
         setSelectedOrderId(match.id);
         setStatusTab('ALL');
-        showToast(`📋 Đã mở phiếu xuất kho ${match.orderCode} để bạn xem chi tiết!`, 'success');
+        showToast(`Đã mở phiếu xuất kho ${match.orderCode} để bạn xem chi tiết!`, 'success');
       }
     }
   }, [orders, targetId, targetCode, showToast]);
 
   const runFefoAndApply = useCallback(async (orderId: string) => {
-    showToast('⚡ Đang tự động phân bổ lô hàng ưu tiên theo hạn sử dụng...', 'info');
+    showToast('Đang tự động phân bổ lô hàng ưu tiên theo hạn sử dụng...', 'info');
 
     try {
       const target = orders.find(o => o.id === orderId);
@@ -433,7 +433,7 @@ const OutboundOrders: React.FC = () => {
       if (updateRes.ok) {
         const updated = await updateRes.json();
         setOrders(prev => prev.map(o => o.id === orderId ? updated : o));
-        showToast('🎯 Đã tự động phân bổ lô hàng cận date & vị trí kệ chuẩn xác!', 'success');
+        showToast('Đã tự động phân bổ lô hàng cận date & vị trí kệ chuẩn xác!', 'success');
       }
     } catch (error) {
       console.error('FEFO error:', error);
@@ -472,9 +472,9 @@ const OutboundOrders: React.FC = () => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: nextStatus } : o));
 
     if (action === 'deliver') {
-      showToast('🎉 Đã xác nhận Giao Hàng Thành Công! Đơn hàng đã hoàn tất.', 'success');
+      showToast('Đã xác nhận Giao Hàng Thành Công! Đơn hàng đã hoàn tất.', 'success');
     } else if (action === 'confirm') {
-      showToast('📦 Đã xuất kho thành công! Đã trừ tồn kho và giải phóng lô hàng/vị trí kệ trong Database.', 'success');
+      showToast('Đã xuất kho thành công! Đã trừ tồn kho và giải phóng lô hàng/vị trí kệ trong Database.', 'success');
     } else {
       showToast(`Đã chuyển trạng thái: ${STATUS_CONFIG[nextStatus]?.label || nextStatus}`, 'info');
     }
@@ -609,7 +609,7 @@ const OutboundOrders: React.FC = () => {
         method: 'PUT',
       });
       if (res.ok) {
-        showToast('✅ Đã duyệt đơn thành công! Đơn hàng đã hiển thị trên Mobile App để nhân viên kho đi lấy hàng.', 'success');
+        showToast('Đã duyệt đơn thành công! Đơn hàng đã hiển thị trên Mobile App để nhân viên kho đi lấy hàng.', 'success');
         fetchOrders(true);
       } else {
         showToast('Không thể duyệt đơn. Vui lòng kiểm tra lại kết nối.', 'error');
@@ -680,10 +680,10 @@ const OutboundOrders: React.FC = () => {
                 cursor: 'pointer'
               }}
             >
-              <option value="ALL">🏢 Tất cả các Kho ({orders.length} phiếu)</option>
+              <option value="ALL">Tất cả các Kho ({orders.length} phiếu)</option>
               {warehouses.map(w => (
                 <option key={w.id || w.code} value={w.code}>
-                  🏢 {w.name} ({w.code})
+                  {w.name} ({w.code})
                 </option>
               ))}
             </select>
@@ -693,24 +693,24 @@ const OutboundOrders: React.FC = () => {
             value={dateFilter}
             onChange={e => setDateFilter(e.target.value)}
             style={{
-              padding: '9px 14px',
-              borderRadius: '10px',
+              padding: '8px 12px',
+              borderRadius: '8px',
               border: '1px solid #cbd5e1',
               background: '#fff',
               color: '#334155',
-              fontWeight: 600,
+              fontWeight: 500,
               fontSize: '0.85rem',
               cursor: 'pointer'
             }}
           >
-            <option value="ALL">📅 Toàn thời gian</option>
-            <option value="TODAY">📅 Hôm nay</option>
-            <option value="WEEK">📅 7 ngày qua</option>
+            <option value="ALL">Toàn thời gian</option>
+            <option value="TODAY">Hôm nay</option>
+            <option value="WEEK">7 ngày qua</option>
           </select>
 
           <button 
             className="btn btn-primary" 
-            style={{ padding: '9px 16px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '0.85rem' }} 
+            style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, fontSize: '0.85rem' }} 
             onClick={() => setShowCreateModal(true)}
           >
             <Plus size={16} /> Tạo Yêu Cầu Xuất
@@ -718,7 +718,7 @@ const OutboundOrders: React.FC = () => {
 
           <button
             onClick={() => fetchOrders(true)}
-            style={{ padding: '9px 14px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, fontSize: '0.85rem' }}
+            style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500, fontSize: '0.85rem' }}
           >
             <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
           </button>
@@ -727,20 +727,20 @@ const OutboundOrders: React.FC = () => {
 
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '14px' }}>
-        <div style={{ background: '#fff', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: '0.8rem', fontWeight: 700 }}>
+        <div style={{ background: '#fff', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: '0.8rem', fontWeight: 600 }}>
             <span>TỔNG PHIẾU XUẤT</span>
             <FileText size={16} color="#3b82f6" />
           </div>
-          <p style={{ fontSize: '1.6rem', fontWeight: 800, color: '#1e293b', margin: '8px 0 0 0' }}>{kpiStats.total}</p>
+          <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1e293b', margin: '8px 0 0 0' }}>{kpiStats.total}</p>
         </div>
 
-        <div style={{ background: '#fffbeb', padding: '16px', borderRadius: '14px', border: '1px solid #fde68a' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#b45309', fontSize: '0.8rem', fontWeight: 700 }}>
+        <div style={{ background: '#fffbeb', padding: '16px', borderRadius: '8px', border: '1px solid #fde68a' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#b45309', fontSize: '0.8rem', fontWeight: 600 }}>
             <span>CHỜ CHỌN LÔ HÀNG</span>
-            <BrainCircuit size={16} color="#f59e0b" />
+            <Layers size={16} color="#f59e0b" />
           </div>
-          <p style={{ fontSize: '1.6rem', fontWeight: 800, color: '#b45309', margin: '8px 0 0 0' }}>{kpiStats.pending}</p>
+          <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#b45309', margin: '8px 0 0 0' }}>{kpiStats.pending}</p>
         </div>
 
         <div style={{ background: '#faf5ff', padding: '16px', borderRadius: '14px', border: '1px solid #ddd6fe' }}>
@@ -830,15 +830,15 @@ const OutboundOrders: React.FC = () => {
 
         {/* MISA Transaction Type Filter Bar */}
         <div style={{ padding: '10px 20px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto' }}>
-          <span style={{ fontSize: '11px', fontWeight: 800, color: '#475569', whiteSpace: 'nowrap' }}>
-            🏛️ Phân loại nghiệp vụ MISA (TT 200):
+          <span style={{ fontSize: '11px', fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
+            Phân loại nghiệp vụ MISA (TT 200):
           </span>
           {[
             { key: 'ALL', label: 'Tất cả nghiệp vụ' },
-            { key: 'XUAT_BAN_FEFO', label: '🏷️ Xuất bán hàng (Nợ 632 - Có 1561)' },
-            { key: 'DIEU_CHUYEN', label: '🏷️ Điều chuyển chi nhánh (Nợ 1561 - Có 1561)' },
-            { key: 'TRA_HANG_NCC', label: '🏷️ Trả hàng NCC lỗi (Nợ 331 - Có 1561)' },
-            { key: 'XUAT_HUY', label: '🏷️ Xuất hủy hết hạn (Nợ 632, 811 - Có 1561)' },
+            { key: 'XUAT_BAN_FEFO', label: 'Xuất bán hàng (Nợ 632 - Có 1561)' },
+            { key: 'DIEU_CHUYEN', label: 'Điều chuyển chi nhánh (Nợ 1561 - Có 1561)' },
+            { key: 'TRA_HANG_NCC', label: 'Trả hàng NCC lỗi (Nợ 331 - Có 1561)' },
+            { key: 'XUAT_HUY', label: 'Xuất hủy hết hạn (Nợ 632, 811 - Có 1561)' },
           ].map(typeTab => (
             <button
               key={typeTab.key}
@@ -919,12 +919,13 @@ const OutboundOrders: React.FC = () => {
                         const whObj = warehouses.find(w => w.code === o.warehouseCode);
                         return (
                           <span style={{ 
-                            fontSize: '0.8rem', padding: '3px 8px', borderRadius: '8px',
+                            fontSize: '0.8rem', padding: '3px 8px', borderRadius: '6px',
                             background: '#f0fdfa',
                             color: '#0f766e',
-                            fontWeight: 700, border: '1px solid #99f6e4'
+                            fontWeight: 600, border: '1px solid #99f6e4',
+                            display: 'inline-flex', alignItems: 'center', gap: 4
                           }}>
-                            {whObj ? `🏢 ${whObj.name} (${whObj.code})` : `🏢 Kho ${o.warehouseCode || 'Chưa gán'}`}
+                            <Building2 size={12} /> {whObj ? `${whObj.name} (${whObj.code})` : `Kho ${o.warehouseCode || 'Chưa gán'}`}
                           </span>
                         );
                       })()}
@@ -935,7 +936,7 @@ const OutboundOrders: React.FC = () => {
                       <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{o.destination}</div>
                     </td>
 
-                    <td style={{ padding: '14px 18px', fontWeight: 700 }}>
+                    <td style={{ padding: '14px 18px', fontWeight: 600 }}>
                       {o.totalItems || o.items?.length || 1} món
                       <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>
                         SL: {o.totalQuantity || o.items?.reduce((s, i) => s + (i.requestedQuantity || 1), 0) || 1} sp
@@ -945,8 +946,8 @@ const OutboundOrders: React.FC = () => {
                     <td style={{ padding: '14px 18px' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
                         <span style={{ 
-                          fontSize: '0.75rem', padding: '4px 10px', borderRadius: '12px',
-                          background: statusCfg.bg, color: statusCfg.color, fontWeight: 700,
+                          fontSize: '0.75rem', padding: '3px 8px', borderRadius: '6px',
+                          background: statusCfg.bg, color: statusCfg.color, fontWeight: 600,
                           border: `1px solid ${statusCfg.border}`
                         }}>
                           {statusCfg.label}
@@ -959,12 +960,12 @@ const OutboundOrders: React.FC = () => {
                             background: '#fffbeb',
                             color: '#b45309',
                             border: '1px solid #fde68a',
-                            fontWeight: 800,
+                            fontWeight: 600,
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '4px',
                           }}>
-                            <Lock size={10} color="#d97706" /> 🔒 {activeLocks[o.id].userName} đang thao tác
+                            <Lock size={10} color="#d97706" /> {activeLocks[o.id].userName} đang thao tác
                           </span>
                         )}
                       </div>
@@ -1110,7 +1111,7 @@ const OutboundOrders: React.FC = () => {
                       }}
                       title="Chỉnh sửa người nhận, địa chỉ giao, kho xuất và số lượng hàng"
                     >
-                      <Edit2 size={13} /> ✏️ Chỉnh Sửa Thông Tin
+                      <Edit2 size={13} /> Chỉnh Sửa Thông Tin
                     </button>
                   ) : (
                     <div style={{ display: 'flex', gap: '6px' }}>
@@ -1119,22 +1120,21 @@ const OutboundOrders: React.FC = () => {
                         onClick={() => handleSaveOrderEdit(selectedOrder.id)}
                         style={{
                           display: 'flex', alignItems: 'center', gap: '5px',
-                          padding: '5px 14px', borderRadius: '8px',
+                          padding: '5px 14px', borderRadius: '6px',
                           background: '#16a34a', color: '#fff',
-                          border: 'none', fontWeight: 800, fontSize: '0.8rem',
+                          border: 'none', fontWeight: 600, fontSize: '0.8rem',
                           cursor: isSavingEdit ? 'not-allowed' : 'pointer',
-                          boxShadow: '0 2px 6px rgba(22, 163, 74, 0.3)'
                         }}
                       >
-                        {isSavingEdit ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />} 💾 Lưu Thay Đổi
+                        {isSavingEdit ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />} Lưu Thay Đổi
                       </button>
                       <button
                         onClick={() => setIsEditingOrder(false)}
                         style={{
                           display: 'flex', alignItems: 'center', gap: '4px',
-                          padding: '5px 10px', borderRadius: '8px',
+                          padding: '5px 10px', borderRadius: '6px',
                           background: '#f1f5f9', color: '#475569',
-                          border: '1px solid #cbd5e1', fontWeight: 700, fontSize: '0.8rem',
+                          border: '1px solid #cbd5e1', fontWeight: 600, fontSize: '0.8rem',
                           cursor: 'pointer'
                         }}
                       >
@@ -1154,7 +1154,7 @@ const OutboundOrders: React.FC = () => {
                 style={{
                   backgroundColor: '#fffbeb',
                   border: '1px solid #f59e0b',
-                  borderRadius: '10px',
+                  borderRadius: '8px',
                   padding: '12px 16px',
                   marginBottom: '16px',
                   display: 'flex',
@@ -1162,13 +1162,12 @@ const OutboundOrders: React.FC = () => {
                   gap: '10px',
                   color: '#92400e',
                   fontSize: '0.85rem',
-                  fontWeight: 700,
-                  boxShadow: '0 2px 8px rgba(245, 158, 11, 0.15)'
+                  fontWeight: 600,
                 }}
               >
                 <Lock size={20} color="#d97706" style={{ flexShrink: 0 }} />
                 <div>
-                  <div>🔒 <b>Đơn hàng đang bị khóa thao tác</b> bởi <b>{activeLocks[selectedOrder.id].userName}</b> ({activeLocks[selectedOrder.id].role === 'WAREHOUSE_STAFF' ? 'Nhân viên Mobile' : 'Quản lý'}).</div>
+                  <div><b>Đơn hàng đang bị khóa thao tác</b> bởi <b>{activeLocks[selectedOrder.id].userName}</b> ({activeLocks[selectedOrder.id].role === 'WAREHOUSE_STAFF' ? 'Nhân viên Mobile' : 'Quản lý'}).</div>
                   <div style={{ fontSize: '0.75rem', color: '#b45309', fontWeight: 500, marginTop: '2px' }}>
                     Để tránh xung đột số lượng thực tế khi soạn & đóng gói, các nút cập nhật trên giao diện Web tạm thời bị khóa cho đến khi nhân viên hoàn tất.
                   </div>
@@ -1177,27 +1176,27 @@ const OutboundOrders: React.FC = () => {
             )}
 
             {/* Order Info Card (Editable vs View Mode) */}
-            <div style={{ background: isEditingOrder ? '#fffbeb' : '#f8fafc', border: `1px solid ${isEditingOrder ? '#fde68a' : '#e2e8f0'}`, borderRadius: '12px', padding: '14px', marginBottom: '18px' }}>
+            <div style={{ background: isEditingOrder ? '#fffbeb' : '#f8fafc', border: `1px solid ${isEditingOrder ? '#fde68a' : '#e2e8f0'}`, borderRadius: '8px', padding: '14px', marginBottom: '18px' }}>
               {!isEditingOrder ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', fontSize: '12.5px' }}>
                   <div>
-                    <span style={{ color: '#64748b', fontSize: '11px', fontWeight: 700, display: 'block', textTransform: 'uppercase' }}>👤 Người Nhận / Khách Hàng</span>
+                    <span style={{ color: '#64748b', fontSize: '11px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, textTransform: 'uppercase' }}><User size={11} /> Người Nhận / Khách Hàng</span>
                     <b style={{ color: '#0f172a', fontSize: '13px' }}>{selectedOrder.requesterName || 'Chưa cập nhật'}</b>
                   </div>
                   <div>
-                    <span style={{ color: '#64748b', fontSize: '11px', fontWeight: 700, display: 'block', textTransform: 'uppercase' }}>📍 Điểm Đến / Địa Chỉ Giao</span>
+                    <span style={{ color: '#64748b', fontSize: '11px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, textTransform: 'uppercase' }}><MapPin size={11} /> Điểm Đến / Địa Chỉ Giao</span>
                     <b style={{ color: '#0f172a', fontSize: '13px' }}>{selectedOrder.destination}</b>
                   </div>
                   <div>
-                    <span style={{ color: '#64748b', fontSize: '11px', fontWeight: 700, display: 'block', textTransform: 'uppercase' }}>🏢 Kho Xuất Hàng</span>
+                    <span style={{ color: '#64748b', fontSize: '11px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, textTransform: 'uppercase' }}><Building2 size={11} /> Kho Xuất Hàng</span>
                     <b style={{ color: '#0284c7', fontSize: '13px' }}>{selectedOrder.warehouseCode || 'WH-006'}</b>
                   </div>
                   <div>
-                    <span style={{ color: '#64748b', fontSize: '11px', fontWeight: 700, display: 'block', textTransform: 'uppercase' }}>⏰ Ngày Tạo Phiếu</span>
+                    <span style={{ color: '#64748b', fontSize: '11px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, textTransform: 'uppercase' }}><Calendar size={11} /> Ngày Tạo Phiếu</span>
                     <b style={{ color: '#475569', fontSize: '13px' }}>{selectedOrder.createdAt ? new Date(selectedOrder.createdAt).toLocaleString('vi-VN') : 'Vừa tạo'}</b>
                   </div>
                   <div style={{ gridColumn: '1 / -1', borderTop: '1px dashed #cbd5e1', paddingTop: '8px', marginTop: '2px' }}>
-                    <span style={{ color: '#64748b', fontSize: '11px', fontWeight: 700, display: 'block', textTransform: 'uppercase' }}>📝 Ghi Chú Nghiệp Vụ</span>
+                    <span style={{ color: '#64748b', fontSize: '11px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, textTransform: 'uppercase' }}><FileText size={11} /> Ghi Chú Nghiệp Vụ</span>
                     <span style={{ color: '#334155', fontStyle: selectedOrder.notes ? 'normal' : 'italic' }}>{selectedOrder.notes || 'Không có ghi chú bổ sung'}</span>
                   </div>
                 </div>
@@ -1265,7 +1264,7 @@ const OutboundOrders: React.FC = () => {
                 </h4>
                 {selectedOrder.status === 'PENDING' && !isEditingOrder && (
                   <button className="btn btn-primary" style={{ backgroundColor: 'var(--color-primary-600)', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => runFefoAndApply(selectedOrder.id)}>
-                    <BrainCircuit size={16} /> Tự Động Chọn Lô Hạn Gần
+                    <Layers size={16} /> Tự Động Chọn Lô Hạn Gần (FEFO)
                   </button>
                 )}
               </div>
@@ -1365,11 +1364,11 @@ const OutboundOrders: React.FC = () => {
                               borderRadius: '6px', 
                               backgroundColor: item.slotId ? '#f0fdf4' : '#f1f5f9', 
                               color: item.slotId ? '#15803d' : '#64748b', 
-                              fontWeight: 700, 
+                              fontWeight: 600, 
                               fontSize: '0.8rem', 
-                              border: item.slotId ? '1px solid #bbf7d0' : '1px solid #e2e8f0' 
+                              border: item.slotId ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
                             }}>
-                              📍 {formatShelfLocation(item.slotId)}
+                              <MapPin size={12} /> {formatShelfLocation(item.slotId)}
                             </span>
                           </td>
                           <td style={{ padding: '12px 14px', color: '#64748b' }}>
@@ -1450,13 +1449,13 @@ const OutboundOrders: React.FC = () => {
               )}
 
               {selectedOrder.status === 'DELIVERED' && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: '#f0fdf4', padding: '12px 16px', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
-                  <p style={{ color: '#15803d', fontWeight: 800, margin: 0, fontSize: '0.9rem' }}>
-                    🎉 Đơn hàng đã giao thành công & hoàn tất trên toàn hệ thống!
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: '#f0fdf4', padding: '12px 16px', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                  <p style={{ color: '#15803d', fontWeight: 600, margin: 0, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <CheckCircle2 size={16} /> Đơn hàng đã giao thành công & hoàn tất trên toàn hệ thống!
                   </p>
                   <button
                     onClick={() => setReceiptOrder(selectedOrder)}
-                    style={{ padding: '8px 16px', background: '#0f766e', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    style={{ padding: '8px 16px', background: '#0f766e', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
                   >
                     <Printer size={16} /> In Lại Phiếu 02-VT
                   </button>
@@ -1482,7 +1481,7 @@ const OutboundOrders: React.FC = () => {
         onSuccess={(newOrder) => {
           setOrders(prev => [newOrder, ...prev]);
           setSelectedOrderId(newOrder.id);
-          showToast('✅ Tạo yêu cầu xuất kho thành công!', 'success');
+          showToast('Tạo yêu cầu xuất kho thành công!', 'success');
         }}
         token={token}
         user={user}

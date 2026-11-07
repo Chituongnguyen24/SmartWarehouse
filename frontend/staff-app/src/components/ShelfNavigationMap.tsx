@@ -67,8 +67,8 @@ export const ShelfNavigationMap: React.FC<Props> = ({
           <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>KỆ A1 - A4</div>
           <div style={{ fontSize: '12px', fontWeight: 900, color: '#0f172a', marginTop: '2px' }}>KHO KHÔ</div>
           {currentShelf.includes('A') && (
-            <div style={{ fontSize: '9.5px', color: '#0284c7', marginTop: '4px', fontWeight: 800 }}>
-              📍 Đang ở đây
+            <div style={{ fontSize: '9.5px', color: '#0284c7', marginTop: '4px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+              <MapPin size={10} /> Đang ở đây
             </div>
           )}
         </div>
@@ -78,19 +78,19 @@ export const ShelfNavigationMap: React.FC<Props> = ({
           style={{
             backgroundColor: currentShelf.includes('B') ? '#ecfdf5' : '#ffffff',
             border: `2px solid ${currentShelf.includes('B') ? '#059669' : '#e2e8f0'}`,
-            borderRadius: '10px',
+            borderRadius: '8px',
             padding: '10px 8px',
             textAlign: 'center',
             boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', fontSize: '10px', color: '#059669', fontWeight: 800 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', fontSize: '10px', color: '#059669', fontWeight: 600 }}>
             <Snowflake size={10} /> 0-4°C
           </div>
-          <div style={{ fontSize: '12px', fontWeight: 900, color: '#0f172a', marginTop: '2px' }}>KHO LẠNH B</div>
+          <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>KHO LẠNH B</div>
           {currentShelf.includes('B') && (
-            <div style={{ fontSize: '9.5px', color: '#059669', marginTop: '4px', fontWeight: 800 }}>
-              📍 Đang ở đây
+            <div style={{ fontSize: '9.5px', color: '#059669', marginTop: '4px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+              <MapPin size={10} /> Đang ở đây
             </div>
           )}
         </div>
@@ -100,19 +100,19 @@ export const ShelfNavigationMap: React.FC<Props> = ({
           style={{
             backgroundColor: currentShelf.includes('C') ? '#eef2ff' : '#ffffff',
             border: `2px solid ${currentShelf.includes('C') ? '#6366f1' : '#e2e8f0'}`,
-            borderRadius: '10px',
+            borderRadius: '8px',
             padding: '10px 8px',
             textAlign: 'center',
             boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', fontSize: '10px', color: '#4f46e5', fontWeight: 800 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', fontSize: '10px', color: '#4f46e5', fontWeight: 600 }}>
             <Snowflake size={10} /> -18°C
           </div>
-          <div style={{ fontSize: '12px', fontWeight: 900, color: '#0f172a', marginTop: '2px' }}>ĐÔNG LẠNH C</div>
+          <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>ĐÔNG LẠNH C</div>
           {currentShelf.includes('C') && (
-            <div style={{ fontSize: '9.5px', color: '#6366f1', marginTop: '4px', fontWeight: 800 }}>
-              📍 Đang ở đây
+            <div style={{ fontSize: '9.5px', color: '#6366f1', marginTop: '4px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+              <MapPin size={10} /> Đang ở đây
             </div>
           )}
         </div>

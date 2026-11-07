@@ -36,6 +36,7 @@ import {
   Filter,
   SlidersHorizontal,
   FileSpreadsheet,
+  X,
 } from 'lucide-react-native';
 import { resolveProductUnit, calculatePackingBoxes } from '../utils/productUnitHelper';
 
@@ -527,12 +528,12 @@ export const EarningsScreen: React.FC = () => {
               <Text style={{ fontWeight: '800', color: '#0284c7' }}>{driverProfile?.licensePlate}</Text>
             </Text>
             <Text style={styles.driverWarehouseText}>
-              🏢 {driverProfile?.warehouseName || 'Kho Gò Vấp (WH-006)'}
+              {driverProfile?.warehouseName || 'Kho Gò Vấp (WH-006)'}
             </Text>
           </View>
         </View>
 
-        {/* ── 🌟 DATE RANGE PICKER FILTER BAR (BỘ LỌC THEO NGÀY) ── */}
+        {/* ── DATE RANGE PICKER FILTER BAR (BỘ LỌC THEO NGÀY) ── */}
         <View style={styles.dateSelectorContainer}>
           <View style={styles.dateSelectorHeader}>
             <Calendar size={15} color="#059669" />
@@ -546,7 +547,7 @@ export const EarningsScreen: React.FC = () => {
               activeOpacity={0.8}
             >
               <Text style={[styles.datePillText, selectedDateFilter === 'TODAY' && styles.datePillTextActive]}>
-                ⚡ Hôm nay (12/09)
+                Hôm nay (12/09)
               </Text>
             </TouchableOpacity>
 
@@ -614,11 +615,11 @@ export const EarningsScreen: React.FC = () => {
           {/* Breakdown Rows */}
           <View style={styles.codBreakdownGrid}>
             <View style={styles.breakdownItem}>
-              <Text style={styles.breakdownLabel}>💵 Tiền mặt thu tại nhà ({totalCodOrdersCount} đơn)</Text>
+              <Text style={styles.breakdownLabel}>Tiền mặt thu tại nhà ({totalCodOrdersCount} đơn)</Text>
               <Text style={styles.breakdownValGreen}>{formatPrice(totalCodCollectedRange)}</Text>
             </View>
             <View style={styles.breakdownItem}>
-              <Text style={styles.breakdownLabel}>💳 Online / Trả trước ({totalOnlinePaidOrdersCount} đơn)</Text>
+              <Text style={styles.breakdownLabel}>Online / Trả trước ({totalOnlinePaidOrdersCount} đơn)</Text>
               <Text style={styles.breakdownValBlue}>0đ (Về quỹ)</Text>
             </View>
           </View>
@@ -726,7 +727,7 @@ export const EarningsScreen: React.FC = () => {
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')} style={{ padding: 4 }}>
-                <Text style={{ fontSize: 13, color: '#94a3b8', fontWeight: '900' }}>✕</Text>
+                <X size={13} color="#94a3b8" />
               </TouchableOpacity>
             )}
           </View>
@@ -806,15 +807,15 @@ export const EarningsScreen: React.FC = () => {
                   </View>
 
                   {/* Customer & Address */}
-                  <Text style={styles.logCustomerName}>👤 {item.customerName}</Text>
+                  <Text style={styles.logCustomerName}>{item.customerName}</Text>
                   <Text style={styles.logAddress} numberOfLines={2}>
-                    📍 {item.deliveryAddress}
+                    {item.deliveryAddress}
                   </Text>
 
                   {/* Packages / Items Breakdown Box */}
                   <View style={styles.packageSummaryBox}>
                     <Text style={styles.packageSummaryText}>
-                      📦 Quy cách: <Text style={{ fontWeight: '800' }}>{itemBoxes} Thùng đóng gói</Text> ({totalItemsQty} món):{' '}
+                      Quy cách: <Text style={{ fontWeight: '800' }}>{itemBoxes} Thùng đóng gói</Text> ({totalItemsQty} món):{' '}
                       {(item.items || []).map(i => `${i.name} (x${i.quantity} ${resolveProductUnit(i.name, i.unit)})`).join(', ') || item.packageType}
                     </Text>
                   </View>
@@ -831,7 +832,7 @@ export const EarningsScreen: React.FC = () => {
                         <Text style={styles.codTagValue}>Thu COD: {formatPrice(item.codAmount)}</Text>
                       ) : (
                         <Text style={styles.codTagZero}>
-                          {item.orderCode.includes('OB') ? '⚡ Tiêu hủy / Chuyển kho' : 'Đã thanh toán (0đ)'}
+                          {item.orderCode.includes('OB') ? 'Tiêu hủy / Chuyển kho' : 'Đã thanh toán (0đ)'}
                         </Text>
                       )}
                     </View>
@@ -841,7 +842,7 @@ export const EarningsScreen: React.FC = () => {
             })
           )}
 
-          {/* ── 📄 PAGINATION CONTROLS BAR ── */}
+          {/* ── PAGINATION CONTROLS BAR ── */}
           {finalFilteredList.length > pageSize && (
             <View style={styles.paginationContainer}>
               <View style={styles.paginationInfo}>
@@ -906,7 +907,7 @@ export const EarningsScreen: React.FC = () => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Nộp Tiền Mặt COD Về Kho</Text>
               <TouchableOpacity onPress={() => setShowQrModal(false)} style={styles.closeBtn}>
-                <Text style={styles.closeBtnText}>✕</Text>
+                <X size={16} color="#64748b" />
               </TouchableOpacity>
             </View>
 

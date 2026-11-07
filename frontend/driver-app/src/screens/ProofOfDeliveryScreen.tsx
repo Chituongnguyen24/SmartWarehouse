@@ -66,11 +66,11 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
 
   // Exception reasons list for Reverse Logistics
   const EXCEPTION_REASONS = [
-    { id: 'NO_ANSWER', label: '📵 Khách không nghe máy (Đã gọi 3 lần)', desc: 'Tài xế đã chờ 15 phút tại địa chỉ nhận' },
-    { id: 'RESCHEDULE', label: '⏰ Khách hẹn giao lại vào khung giờ/ngày khác', desc: 'Khách bận đi vắng hoặc không có nhà' },
-    { id: 'WRONG_ADDRESS', label: '🗺️ Sai địa chỉ / Không tìm thấy số nhà / Hẻm cụt', desc: 'Không thể liên hệ hoặc địa chỉ không tồn tại' },
-    { id: 'DAMAGED_PACKAGE', label: '📦 Bao bì móp méo / Mất nhiệt lạnh (>5°C)', desc: 'Kiện hàng cần hồi kho để bảo quản lại' },
-    { id: 'CUSTOMER_REJECT', label: '❌ Khách từ chối nhận (Đổi ý / Không đủ COD)', desc: 'Khách yêu cầu hủy nhận đơn hàng này' },
+    { id: 'NO_ANSWER', label: 'Khách không nghe máy (Đã gọi 3 lần)', desc: 'Tài xế đã chờ 15 phút tại địa chỉ nhận' },
+    { id: 'RESCHEDULE', label: 'Khách hẹn giao lại vào khung giờ/ngày khác', desc: 'Khách bận đi vắng hoặc không có nhà' },
+    { id: 'WRONG_ADDRESS', label: 'Sai địa chỉ / Không tìm thấy số nhà / Hẻm cụt', desc: 'Không thể liên hệ hoặc địa chỉ không tồn tại' },
+    { id: 'DAMAGED_PACKAGE', label: 'Bao bì móp méo / Mất nhiệt lạnh (>5°C)', desc: 'Kiện hàng cần hồi kho để bảo quản lại' },
+    { id: 'CUSTOMER_REJECT', label: 'Khách từ chối nhận (Đổi ý / Không đủ COD)', desc: 'Khách yêu cầu hủy nhận đơn hàng này' },
   ];
 
   const [selectedReason, setSelectedReason] = useState<string>(EXCEPTION_REASONS[0].label);
@@ -127,7 +127,7 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
       ? 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&q=80'
       : 'https://images.unsplash.com/photo-1558611848-73f7eb4001a1?w=500&q=80';
     processAndUploadPhoto(sampleUri, activeMode);
-    Alert.alert('📸 Đã chụp ảnh POD', 'Ảnh kiện hàng đã được đóng dấu chìm GPS & Timestamp.');
+    Alert.alert('Đã chụp ảnh POD', 'Ảnh kiện hàng đã được đóng dấu chìm GPS & Timestamp.');
   };
 
   // 2. Chọn ảnh từ thư viện (Universal Native & Web)
@@ -175,9 +175,9 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
   const handleConfirmPOD = async () => {
     if (task.codAmount > 0 && !isCodCollected) {
       if (Platform.OS === 'web') {
-        window.alert('⚠️ Chưa xác nhận thu COD: Vui lòng tích chọn đã thu đủ số tiền COD từ khách hàng!');
+        window.alert('Chưa xác nhận thu COD: Vui lòng tích chọn đã thu đủ số tiền COD từ khách hàng!');
       } else {
-        Alert.alert('⚠️ Chưa xác nhận thu COD', 'Vui lòng tích chọn đã thu đủ số tiền COD từ khách hàng!');
+        Alert.alert('Chưa xác nhận thu COD', 'Vui lòng tích chọn đã thu đủ số tiền COD từ khách hàng!');
       }
       return;
     }
@@ -252,7 +252,7 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
         {/* Order Destination Info Banner */}
         <View style={styles.orderBanner}>
           <Text style={styles.customerName}>{task.customerName} • {task.customerPhone}</Text>
-          <Text style={styles.addressText}>📍 {task.deliveryAddress}</Text>
+          <Text style={styles.addressText}>{task.deliveryAddress}</Text>
         </View>
 
         {activeMode === 'POD' ? (
@@ -285,7 +285,7 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
                 </TouchableOpacity>
               ) : (
                 <View style={styles.paidInfoBox}>
-                  <Text style={styles.paidInfoText}>✅ Đơn hàng này đã được thanh toán Online trước (0đ COD).</Text>
+                  <Text style={styles.paidInfoText}>Đơn hàng này đã được thanh toán Online trước (0đ COD).</Text>
                 </View>
               )}
             </View>
@@ -303,9 +303,9 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
               {/* Role Selection Chips */}
               <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
                 {[
-                  { id: 'SELF', label: '👤 Chính chủ', desc: 'Khách nhận trực tiếp' },
-                  { id: 'FAMILY', label: '👨‍👩‍👧 Người nhận hộ', desc: 'Người nhà / Bạn bè' },
-                  { id: 'SECURITY', label: '🏢 Lễ tân / Bảo vệ', desc: 'Gửi sảnh chung cư' },
+                  { id: 'SELF', label: 'Chính chủ', desc: 'Khách nhận trực tiếp' },
+                  { id: 'FAMILY', label: 'Người nhận hộ', desc: 'Người nhà / Bạn bè' },
+                  { id: 'SECURITY', label: 'Lễ tân / Bảo vệ', desc: 'Gửi sảnh chung cư' },
                 ].map((item) => {
                   const isSel = receiverRole === item.id;
                   return (
@@ -376,9 +376,9 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
                 
                 {/* Watermark Overlay */}
                 <View style={styles.watermarkOverlay}>
-                  <Text style={styles.watermarkText}>📦 #{task.orderCode} • {task.customerName}</Text>
-                  <Text style={styles.watermarkText}>📍 {task.latitude?.toFixed(4) || '10.8354'}, {task.longitude?.toFixed(4) || '106.6668'} • {nowString}</Text>
-                  <Text style={styles.watermarkText}>🏬 Kho Gò Vấp (WH-006) • Thùng Lạnh 0-4°C</Text>
+                  <Text style={styles.watermarkText}>#{task.orderCode} • {task.customerName}</Text>
+                  <Text style={styles.watermarkText}>{task.latitude?.toFixed(4) || '10.8354'}, {task.longitude?.toFixed(4) || '106.6668'} • {nowString}</Text>
+                  <Text style={styles.watermarkText}>Kho Gò Vấp (WH-006) • Thùng Lạnh 0-4°C</Text>
                 </View>
 
                 {/* S3 Upload Status Badge */}
@@ -405,7 +405,7 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
                   activeOpacity={0.8}
                 >
                   <Camera size={16} color="#fff" style={{ marginRight: 6 }} />
-                  <Text style={styles.photoActionBtnTextPrimary}>📸 Chụp Ảnh Mới</Text>
+                  <Text style={styles.photoActionBtnTextPrimary}>Chụp Ảnh Mới</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -414,7 +414,7 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
                   activeOpacity={0.8}
                 >
                   <ImageIcon size={16} color="#0f172a" style={{ marginRight: 6 }} />
-                  <Text style={styles.photoActionBtnTextSecondary}>🖼️ Chọn Thư Viện</Text>
+                  <Text style={styles.photoActionBtnTextSecondary}>Chọn Thư Viện</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -482,9 +482,9 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
               <View style={styles.photoBox}>
                 <Image source={{ uri: photoUri }} style={styles.capturedPhoto} />
                 <View style={styles.watermarkOverlay}>
-                  <Text style={styles.watermarkText}>⚠️ [HÀNG HOÀN] #{task.orderCode}</Text>
+                  <Text style={styles.watermarkText}>[HÀNG HOÀN] #{task.orderCode}</Text>
                   <Text style={styles.watermarkText}>Lý do: {selectedReason}</Text>
-                  <Text style={styles.watermarkText}>📍 {nowString}</Text>
+                  <Text style={styles.watermarkText}>{nowString}</Text>
                 </View>
               </View>
 
@@ -495,7 +495,7 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
                   activeOpacity={0.8}
                 >
                   <Camera size={16} color="#fff" style={{ marginRight: 6 }} />
-                  <Text style={styles.photoActionBtnTextPrimary}>📸 Chụp Ảnh Cửa Nhà / Sự Cố</Text>
+                  <Text style={styles.photoActionBtnTextPrimary}>Chụp Ảnh Cửa Nhà / Sự Cố</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -504,7 +504,7 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
                   activeOpacity={0.8}
                 >
                   <ImageIcon size={16} color="#0f172a" style={{ marginRight: 6 }} />
-                  <Text style={styles.photoActionBtnTextSecondary}>🖼️ Chọn Ảnh</Text>
+                  <Text style={styles.photoActionBtnTextSecondary}>Chọn Ảnh</Text>
                 </TouchableOpacity>
               </View>
             </View>

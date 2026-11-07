@@ -43,15 +43,15 @@ export const WarehouseManageModal: React.FC = () => {
 
   const handleDelete = async (w: Warehouse) => {
     const ok = window.confirm(
-      `⚠️ BẠN CÓ CHẮC CHẮN MUỐN XÓA KHO:\n\n"${w.name} (${w.code})"\n\nHành động này không thể hoàn tác!`
+      `BẠN CÓ CHẮC CHẮN MUỐN XÓA KHO:\n\n"${w.name} (${w.code})"\n\nHành động này không thể hoàn tác!`
     );
     if (!ok) return;
 
     const success = await deleteWarehouse(w.id);
     if (success) {
-      alert(`✅ Đã xóa kho ${w.name} thành công!`);
+      alert(`Đã xóa kho ${w.name} thành công.`);
     } else {
-      alert('❌ Xóa kho thất bại. Vui lòng kiểm tra lại liên kết dữ liệu tồn kho.');
+      alert('Xóa kho thất bại. Vui lòng kiểm tra lại liên kết dữ liệu tồn kho.');
     }
   };
 
@@ -71,8 +71,8 @@ export const WarehouseManageModal: React.FC = () => {
         width: '950px',
         maxWidth: '96vw',
         maxHeight: '90vh',
-        borderRadius: '20px',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+        borderRadius: '12px',
+        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -87,12 +87,12 @@ export const WarehouseManageModal: React.FC = () => {
           alignItems: 'center',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ background: '#0f766e', padding: '9px', borderRadius: '12px' }}>
+            <div style={{ background: '#0f766e', padding: '9px', borderRadius: '8px' }}>
               <Building2 size={22} color="#ffffff" />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>
-                🏢 Trung Tâm Quản Lý & Cấu Hình Kho Hàng Toàn Hệ Thống
+              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700 }}>
+                Trung Tâm Quản Lý & Cấu Hình Kho Hàng Toàn Hệ Thống
               </h3>
               <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: '#94a3b8' }}>
                 Danh sách 16 chi nhánh vệ tinh • Quản trị quyền hạn Admin (Thêm - Sửa - Xóa - Cấu hình)
@@ -156,8 +156,8 @@ export const WarehouseManageModal: React.FC = () => {
               }}
             >
               <option value="ALL">Tất cả ({warehouses.length})</option>
-              <option value="ACTIVE">🟢 Đang chạy ({warehouses.filter(w => w.isActive).length})</option>
-              <option value="INACTIVE">🔴 Tạm dừng ({warehouses.filter(w => !w.isActive).length})</option>
+              <option value="ACTIVE">Đang chạy ({warehouses.filter(w => w.isActive).length})</option>
+              <option value="INACTIVE">Tạm dừng ({warehouses.filter(w => !w.isActive).length})</option>
             </select>
           </div>
 
@@ -260,33 +260,33 @@ export const WarehouseManageModal: React.FC = () => {
                             background: w.isActive ? '#dcfce7' : '#fee2e2',
                             color: w.isActive ? '#15803d' : '#b91c1c',
                             padding: '3px 8px',
-                            borderRadius: '12px',
+                            borderRadius: '4px',
                             fontSize: '0.72rem',
-                            fontWeight: 800,
+                            fontWeight: 600,
                             cursor: 'pointer',
                           }}
                         >
-                          {w.isActive ? '🟢 Đang chạy' : '🔴 Tạm dừng'}
+                          {w.isActive ? 'Đang chạy' : 'Tạm dừng'}
                         </button>
                       </td>
                       <td style={{ padding: '12px', textAlign: 'center' }}>
                         {isCurrent ? (
                           <span style={{
                             fontSize: '0.72rem',
-                            fontWeight: 800,
+                            fontWeight: 600,
                             backgroundColor: '#0f766e',
                             color: '#ffffff',
                             padding: '3px 8px',
-                            borderRadius: '6px',
+                            borderRadius: '4px',
                           }}>
-                            ✓ ĐANG ĐIỀU HÀNH
+                            Đang điều hành
                           </span>
                         ) : (
                           <button
                             type="button"
                             onClick={() => {
                               setSelectedWarehouseCode(w.code);
-                              alert(`✅ Đã chuyển đổi góc nhìn điều hành sang: ${w.name} (${w.code})`);
+                              alert(`Đã chuyển đổi góc nhìn điều hành sang: ${w.name} (${w.code})`);
                             }}
                             style={{
                               border: '1px solid #cbd5e1',

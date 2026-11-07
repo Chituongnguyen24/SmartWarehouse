@@ -52,13 +52,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
         <View style={styles.statusBadge}>
           {task.status === 'IN_TRANSIT' && (
-            <Text style={[styles.statusText, { color: COLORS.routeBlue }]}>🚚 Đang giao</Text>
+            <Text style={[styles.statusText, { color: COLORS.routeBlue }]}>Đang giao</Text>
           )}
           {task.status === 'ASSIGNED' && (
-            <Text style={[styles.statusText, { color: COLORS.warning }]}>⏳ Chờ nhận</Text>
+            <Text style={[styles.statusText, { color: COLORS.warning }]}>Chờ nhận</Text>
           )}
           {task.status === 'DELIVERED' && (
-            <Text style={[styles.statusText, { color: COLORS.primary }]}>✅ Đã giao</Text>
+            <Text style={[styles.statusText, { color: COLORS.primary }]}>Đã giao</Text>
           )}
         </View>
       </View>
@@ -95,7 +95,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       {/* Items Summary & Package Note */}
       <View style={styles.packageTagRow}>
         <Text style={styles.packageTagText}>
-          📦 <Text style={{ fontWeight: '800', color: '#0f172a' }}>{boxCount} Thùng đóng gói</Text> • {totalQty} sản phẩm
+          <Text style={{ fontWeight: '800', color: '#0f172a' }}>{boxCount} Thùng đóng gói</Text> • {totalQty} sản phẩm
         </Text>
         <View style={styles.timeTag}>
           <Text style={styles.timeSlotTag}>{task.timeSlotText}</Text>
@@ -141,7 +141,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           >
             <Navigation size={15} color="#fff" style={{ marginRight: 6 }} />
             <Text style={styles.startBtnText}>
-              🚀 Bắt Đầu Giao Đơn Này
+              Bắt Đầu Giao Đơn Này
             </Text>
           </TouchableOpacity>
         ) : task.status === 'IN_TRANSIT' ? (
@@ -163,14 +163,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               activeOpacity={0.8}
             >
               <Text style={styles.inTransitPodBtnText}>
-                Bàn Giao & POD ➔
+                Bàn Giao & POD
               </Text>
             </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.deliveredInfoBox}>
             <Text style={styles.deliveredInfoText}>
-              ✅ Đã giao thành công lúc {task.deliveredAt || 'Hôm nay'}
+              Đã giao thành công lúc {task.deliveredAt || 'Hôm nay'}
             </Text>
           </View>
         )}

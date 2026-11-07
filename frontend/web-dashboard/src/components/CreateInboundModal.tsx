@@ -475,10 +475,10 @@ export const CreateInboundModal: React.FC<CreateInboundModalProps> = ({
                   onChange={e => setTransactionType(e.target.value as any)}
                   style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 700, background: '#fff', color: '#1e293b' }}
                 >
-                  <option value="NHAP_MUA_NCC">🏷️ 1. Nhập mua hàng từ NCC (Nợ 1561/1331 - Có 331)</option>
-                  <option value="HANG_TRA_LAI">🏷️ 2. Hàng bán bị trả lại (Nợ 1561 - Có 632)</option>
-                  <option value="DIEU_CHUYEN">🏷️ 3. Nhập điều chuyển nội bộ (Nợ 1561 - Có 1561)</option>
-                  <option value="KIEM_KE_THUA">🏷️ 4. Nhập thừa kiểm kê (Nợ 1561 - Có 3381, 711)</option>
+                  <option value="NHAP_MUA_NCC">1. Nhập mua hàng từ NCC (Nợ 1561/1331 - Có 331)</option>
+                  <option value="HANG_TRA_LAI">2. Hàng bán bị trả lại (Nợ 1561 - Có 632)</option>
+                  <option value="DIEU_CHUYEN">3. Nhập điều chuyển nội bộ (Nợ 1561 - Có 1561)</option>
+                  <option value="KIEM_KE_THUA">4. Nhập thừa kiểm kê (Nợ 1561 - Có 3381, 711)</option>
                 </select>
               </div>
 
@@ -491,10 +491,10 @@ export const CreateInboundModal: React.FC<CreateInboundModalProps> = ({
                   onChange={e => setWarehouseCode(e.target.value)}
                   style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 600, background: '#fff' }}
                 >
-                  <option value="WH-006">🏢 Kho Gò Vấp (WH-006) - 350 Quang Trung</option>
-                  <option value="WH-001">🏢 Kho Quận 12 (WH-001) - 12 Tô Ký</option>
-                  <option value="WH-002">🏢 Kho Thủ Đức (WH-002) - 1 Võ Văn Ngân</option>
-                  <option value="WH-005">🏢 Kho Bình Thạnh (WH-005) - 150 Điện Biên Phủ</option>
+                  <option value="WH-006">Kho Gò Vấp (WH-006) - 350 Quang Trung</option>
+                  <option value="WH-001">Kho Quận 12 (WH-001) - 12 Tô Ký</option>
+                  <option value="WH-002">Kho Thủ Đức (WH-002) - 1 Võ Văn Ngân</option>
+                  <option value="WH-005">Kho Bình Thạnh (WH-005) - 150 Điện Biên Phủ</option>
                 </select>
               </div>
 
@@ -635,8 +635,8 @@ export const CreateInboundModal: React.FC<CreateInboundModalProps> = ({
                   <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
                     <tr>
                       <th style={{ padding: '10px 10px', width: '32px', textAlign: 'center' }}>STT</th>
-                      <th style={{ padding: '10px 12px', minWidth: '240px' }}>Tên, Nhãn Hiệu Vật Tư (Search 🔍)</th>
-                      <th style={{ padding: '10px 12px', width: '160px' }}>Mã Sản Phẩm (Search 🔍)</th>
+                      <th style={{ padding: '10px 12px', minWidth: '240px' }}>Tên, Nhãn Hiệu Vật Tư</th>
+                      <th style={{ padding: '10px 12px', width: '160px' }}>Mã Sản Phẩm</th>
                       <th style={{ padding: '10px 8px', width: '60px', textAlign: 'center' }}>ĐVT</th>
                       <th style={{ padding: '10px 8px', width: '80px', textAlign: 'center' }}>Theo CT</th>
                       <th style={{ padding: '10px 8px', width: '80px', textAlign: 'center' }}>Thực Nhập</th>

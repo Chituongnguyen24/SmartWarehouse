@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   BrainCircuit, TrendingUp, AlertTriangle, ShieldCheck, 
   ShoppingCart, RefreshCw, Layers, CheckCircle2, ChevronRight,
-  Package, Search, Filter, Sparkles, Building, ArrowUpRight, BarChart2,
+  Package, Search, Filter, PackagePlus, Building, ArrowUpRight, BarChart2,
   Info, Zap, Clock, FileText, ChevronLeft, ChevronsLeft, ChevronsRight, Lock
 } from 'lucide-react';
 import { 
@@ -321,14 +321,14 @@ export const AIDemandForecastPanel: React.FC = () => {
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#0f172a', margin: 0 }}>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>
                   Đề Xuất Nhập Kho & Dự Báo Tiêu Thụ Tự Động
                 </h3>
-                <span style={{ fontSize: '0.72rem', backgroundColor: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: '6px', fontWeight: 800, border: '1px solid #bfdbfe' }}>
-                  📈 Dự Báo Chuỗi Thời Gian
+                <span style={{ fontSize: '0.72rem', backgroundColor: '#eff6ff', color: '#1d4ed8', padding: '2px 8px', borderRadius: '4px', fontWeight: 600, border: '1px solid #bfdbfe' }}>
+                  Chuỗi Thời Gian
                 </span>
-                <span style={{ fontSize: '0.72rem', backgroundColor: '#f3e8ff', color: '#7c3aed', padding: '2px 8px', borderRadius: '6px', fontWeight: 800, border: '1px solid #d8b4fe' }}>
-                  ✨ Ước Lượng Hàng Mới
+                <span style={{ fontSize: '0.72rem', backgroundColor: '#faf5ff', color: '#7c3aed', padding: '2px 8px', borderRadius: '4px', fontWeight: 600, border: '1px solid #e9d5ff' }}>
+                  Mặt Hàng Mới (Cold-start)
                 </span>
               </div>
               <p style={{ fontSize: '0.84rem', color: '#64748b', margin: '4px 0 0' }}>
@@ -343,31 +343,31 @@ export const AIDemandForecastPanel: React.FC = () => {
           
           {/* Warehouse Scoping Control */}
           {isManagerOrStaff ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', padding: '8px 12px', borderRadius: '10px', color: '#166534', fontSize: '0.82rem', fontWeight: 800 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', padding: '8px 12px', borderRadius: '8px', color: '#166534', fontSize: '0.82rem', fontWeight: 600 }}>
               <Lock size={15} />
               <span>Kho phụ trách: <strong>{activeWarehouse}</strong> ({activeWhName})</span>
             </div>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: '8px' }}>
               <Building size={16} color="#0284c7" />
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569' }}>Khu vực kho:</span>
+              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569' }}>Khu vực kho:</span>
               <select
                 value={activeWarehouse}
                 onChange={handleWarehouseChange}
                 style={{
                   border: 'none',
                   backgroundColor: 'transparent',
-                  fontWeight: 800,
+                  fontWeight: 600,
                   fontSize: '0.82rem',
                   color: '#0f172a',
                   outline: 'none',
                   cursor: 'pointer'
                 }}
               >
-                <option value="ALL">🌐 Tất cả các kho (Toàn hệ thống)</option>
+                <option value="ALL">Tất cả các kho (Toàn hệ thống)</option>
                 {warehouses.map(w => (
                   <option key={w.code} value={w.code}>
-                    🏢 {w.code} - {w.name}
+                    {w.code} - {w.name}
                   </option>
                 ))}
               </select>
@@ -477,14 +477,14 @@ export const AIDemandForecastPanel: React.FC = () => {
         </div>
 
         {/* Cold-Start Bayesian Products */}
-        <div style={{ backgroundColor: '#fff', padding: '1.25rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+        <div style={{ backgroundColor: '#fff', padding: '1.25rem', borderRadius: '10px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 700 }}>SẢN PHẨM MỚI (ƯỚC TÍNH THEO NGÀNH)</span>
-            <div style={{ backgroundColor: '#faf5ff', color: '#7c3aed', padding: '6px', borderRadius: '8px' }}>
-              <Sparkles size={18} />
+            <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600 }}>SẢN PHẨM MỚI (ƯỚC TÍNH THEO NGÀNH)</span>
+            <div style={{ backgroundColor: '#faf5ff', color: '#7c3aed', padding: '6px', borderRadius: '6px' }}>
+              <PackagePlus size={18} />
             </div>
           </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#7c3aed', marginTop: '6px' }}>
+          <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#7c3aed', marginTop: '6px' }}>
             {s?.coldStartCount || 0}
             <span style={{ fontSize: '0.9rem', color: '#6b21a8', fontWeight: 600, marginLeft: '6px' }}>sản phẩm</span>
           </div>
@@ -496,14 +496,14 @@ export const AIDemandForecastPanel: React.FC = () => {
       </div>
 
       {/* ── 3. INTERACTIVE TIME-SERIES FORECAST CHART WITH 95% CONFIDENCE BAND ── */}
-      <div style={{ backgroundColor: '#fff', padding: '1.25rem 1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+      <div style={{ backgroundColor: '#fff', padding: '1.25rem 1.5rem', borderRadius: '10px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
         
         {/* Chart Header & SKU Selector */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '1rem' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <BarChart2 size={18} color="#0284c7" />
-              <h4 style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+              <h4 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>
                 Biểu Đồ Xu Hướng Tiêu Thụ Thực Tế & Dự Báo Tiêu Thụ (Khoảng Dao Động Dự Kiến 95%)
               </h4>
             </div>
@@ -514,16 +514,16 @@ export const AIDemandForecastPanel: React.FC = () => {
 
           {/* SKU Select Dropdown */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569' }}>Xem chi tiết:</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569' }}>Xem chi tiết:</span>
             <select
               value={selectedSkuForChart}
               onChange={(e) => setSelectedSkuForChart(e.target.value)}
               style={{
                 padding: '6px 12px',
-                borderRadius: '8px',
+                borderRadius: '6px',
                 border: '1px solid #cbd5e1',
                 fontSize: '0.8rem',
-                fontWeight: 700,
+                fontWeight: 600,
                 color: '#0f172a',
                 backgroundColor: '#f8fafc',
                 maxWidth: '280px',
@@ -531,7 +531,7 @@ export const AIDemandForecastPanel: React.FC = () => {
                 cursor: 'pointer'
               }}
             >
-              <option value="AGGREGATE">📊 Toàn bộ danh mục sản phẩm trong kho</option>
+              <option value="AGGREGATE">Toàn bộ danh mục sản phẩm trong kho</option>
               {forecastData?.skuRecommendations.slice(0, 50).map((item) => (
                 <option key={item.sku} value={item.sku}>
                   [{item.sku}] {item.productName.slice(0, 28)} (Tồn: {item.currentStock})
@@ -639,68 +639,68 @@ export const AIDemandForecastPanel: React.FC = () => {
               onClick={() => setFilterUrgency('CRITICAL')}
               style={{
                 padding: '7px 13px',
-                borderRadius: '8px',
+                borderRadius: '6px',
                 border: '1px solid',
                 borderColor: filterUrgency === 'CRITICAL' ? '#dc2626' : '#fecaca',
                 backgroundColor: filterUrgency === 'CRITICAL' ? '#dc2626' : '#fef2f2',
                 color: filterUrgency === 'CRITICAL' ? '#fff' : '#b91c1c',
-                fontWeight: 800,
+                fontWeight: 600,
                 fontSize: '0.78rem',
                 cursor: 'pointer'
               }}
             >
-              🔴 Cần Nhập Gấp / Cháy Tồn ({s?.criticalCount || 0})
+              Cần Nhập Gấp / Cháy Tồn ({s?.criticalCount || 0})
             </button>
 
             <button
               onClick={() => setFilterUrgency('WARNING')}
               style={{
                 padding: '7px 13px',
-                borderRadius: '8px',
+                borderRadius: '6px',
                 border: '1px solid',
                 borderColor: filterUrgency === 'WARNING' ? '#d97706' : '#fef08a',
                 backgroundColor: filterUrgency === 'WARNING' ? '#d97706' : '#fffbeb',
                 color: filterUrgency === 'WARNING' ? '#fff' : '#b45309',
-                fontWeight: 700,
+                fontWeight: 600,
                 fontSize: '0.78rem',
                 cursor: 'pointer'
               }}
             >
-              🟡 Cân Nhắc Nhập ({s?.warningCount || 0})
+              Cân Nhắc Nhập ({s?.warningCount || 0})
             </button>
 
             <button
               onClick={() => setFilterUrgency('SAFE')}
               style={{
                 padding: '7px 13px',
-                borderRadius: '8px',
+                borderRadius: '6px',
                 border: '1px solid',
                 borderColor: filterUrgency === 'SAFE' ? '#16a34a' : '#bbf7d0',
                 backgroundColor: filterUrgency === 'SAFE' ? '#16a34a' : '#f0fdf4',
                 color: filterUrgency === 'SAFE' ? '#fff' : '#15803d',
-                fontWeight: 700,
+                fontWeight: 600,
                 fontSize: '0.78rem',
                 cursor: 'pointer'
               }}
             >
-              🟢 Tồn Kho Đầy Đủ ({s?.safeCount || 0})
+              Tồn Kho Đầy Đủ ({s?.safeCount || 0})
             </button>
 
             <button
               onClick={() => setFilterUrgency('COLD_START')}
               style={{
                 padding: '7px 13px',
-                borderRadius: '8px',
+                borderRadius: '6px',
                 border: '1px solid',
                 borderColor: filterUrgency === 'COLD_START' ? '#7c3aed' : '#e9d5ff',
                 backgroundColor: filterUrgency === 'COLD_START' ? '#7c3aed' : '#faf5ff',
                 color: filterUrgency === 'COLD_START' ? '#fff' : '#6b21a8',
-                fontWeight: 700,
+                fontWeight: 600,
                 fontSize: '0.78rem',
                 cursor: 'pointer'
               }}
             >
-              ✨ Hàng Mới Nhập ({s?.coldStartCount || 0})
+              Hàng Mới Nhập ({s?.coldStartCount || 0})
             </button>
           </div>
 
@@ -783,12 +783,12 @@ export const AIDemandForecastPanel: React.FC = () => {
                         <div style={{ color: '#334155', fontWeight: 700 }}>{item.category}</div>
                         <div style={{ marginTop: '2px' }}>
                           {isColdStart ? (
-                            <span style={{ fontSize: '0.68rem', backgroundColor: '#f3e8ff', color: '#7c3aed', padding: '2px 6px', borderRadius: '6px', fontWeight: 700, border: '1px solid #d8b4fe' }}>
-                              ✨ Hàng Mới (Ước lượng ngành)
+                            <span style={{ fontSize: '0.68rem', backgroundColor: '#faf5ff', color: '#7c3aed', padding: '2px 6px', borderRadius: '4px', fontWeight: 600, border: '1px solid #e9d5ff' }}>
+                              Mặt Hàng Mới (Ước lượng ngành)
                             </span>
                           ) : (
-                            <span style={{ fontSize: '0.68rem', backgroundColor: '#e0f2fe', color: '#0284c7', padding: '2px 6px', borderRadius: '6px', fontWeight: 700, border: '1px solid #bae6fd' }}>
-                              📈 Chuỗi Thời Gian
+                            <span style={{ fontSize: '0.68rem', backgroundColor: '#eff6ff', color: '#0284c7', padding: '2px 6px', borderRadius: '4px', fontWeight: 600, border: '1px solid #bae6fd' }}>
+                              Chuỗi Thời Gian
                             </span>
                           )}
                         </div>
@@ -799,8 +799,8 @@ export const AIDemandForecastPanel: React.FC = () => {
                         {isDepleted ? (
                           <>
                             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                              <span style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800, border: '1px solid #fca5a5' }}>
-                                ⚠️ 0 {item.unit} (Hết Hàng)
+                              <span style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, border: '1px solid #fca5a5' }}>
+                                0 {item.unit} (Hết Hàng)
                               </span>
                             </div>
                             <div style={{ fontSize: '0.7rem', color: '#dc2626', fontWeight: 700, marginTop: '2px' }}>
@@ -851,8 +851,8 @@ export const AIDemandForecastPanel: React.FC = () => {
                             </div>
                           </>
                         ) : (
-                          <span style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 700, backgroundColor: '#f0fdf4', padding: '3px 8px', borderRadius: '6px' }}>
-                            ✓ Đủ tồn kho
+                          <span style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 600, backgroundColor: '#f0fdf4', padding: '3px 8px', borderRadius: '4px' }}>
+                            Đủ tồn kho
                           </span>
                         )}
                       </td>
@@ -1259,19 +1259,19 @@ async function generateClientFallbackForecast(warehouseCode?: string): Promise<F
 
     let suggestedOrderQty = 0;
     let urgency: 'CRITICAL' | 'WARNING' | 'SAFE' = 'SAFE';
-    let urgencyLabel = '🟢 Tồn kho an toàn';
+    let urgencyLabel = 'Tồn kho an toàn';
 
     if (s.currentStock <= 0) {
       urgency = 'CRITICAL';
-      urgencyLabel = '🔴 Hết hàng tồn (Cần nhập khẩn cấp)';
+      urgencyLabel = 'Hết hàng tồn (Cần nhập khẩn cấp)';
       suggestedOrderQty = Math.max(50, Math.round(reorderPoint * 2.5));
     } else if (s.currentStock <= safetyStock) {
       urgency = 'CRITICAL';
-      urgencyLabel = '🔴 Cần nhập gấp (Dưới Safety Stock)';
+      urgencyLabel = 'Cần nhập gấp (Dưới Safety Stock)';
       suggestedOrderQty = Math.max(40, Math.round(reorderPoint * 2.2 - s.currentStock));
     } else if (s.currentStock <= reorderPoint) {
       urgency = 'WARNING';
-      urgencyLabel = '🟡 Cân nhắc nhập (Đạt ngưỡng ROP)';
+      urgencyLabel = 'Cân nhắc nhập (Đạt ngưỡng ROP)';
       suggestedOrderQty = Math.max(25, Math.round(reorderPoint * 1.6 - s.currentStock));
     }
 

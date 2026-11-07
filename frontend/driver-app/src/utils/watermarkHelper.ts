@@ -85,12 +85,12 @@ export async function addPodWatermark(
         // Line 1: Header Tag & Date Time
         ctx.font = `bold ${fontSizeBase + 2}px sans-serif`;
         ctx.fillStyle = isPod ? '#34d399' : '#fbbf24';
-        const tagText = isPod ? '✓ BẰNG CHỨNG GIAO HÀNG (POD)' : '⚠️ BIÊN BẢN HÀNG HOÀN / HỎNG';
+        const tagText = isPod ? 'BẰNG CHỨNG GIAO HÀNG (POD)' : 'BIÊN BẢN HÀNG HOÀN / HỎNG';
         ctx.fillText(tagText, paddingLeft, cursorY);
 
         ctx.font = `normal ${fontSizeBase}px sans-serif`;
         ctx.fillStyle = '#f8fafc';
-        const timeDisplay = `🕒 ${dateStr} ${timeStr}`;
+        const timeDisplay = `${dateStr} ${timeStr}`;
         const timeWidth = ctx.measureText(timeDisplay).width;
         ctx.fillText(timeDisplay, w - paddingLeft - timeWidth, cursorY);
 
@@ -98,12 +98,12 @@ export async function addPodWatermark(
         cursorY += fontSizeBase + 12;
         ctx.font = `bold ${fontSizeBase + 1}px sans-serif`;
         ctx.fillStyle = '#ffffff';
-        ctx.fillText(`📦 Đơn: #${meta.orderCode}`, paddingLeft, cursorY);
+        ctx.fillText(`Đơn: #${meta.orderCode}`, paddingLeft, cursorY);
 
         ctx.font = `normal ${fontSizeBase}px sans-serif`;
         ctx.fillStyle = '#94a3b8';
         const custText = `Khách: ${meta.customerName}`;
-        ctx.fillText(` |  👤 ${custText}`, paddingLeft + ctx.measureText(`📦 Đơn: #${meta.orderCode}`).width + 8, cursorY);
+        ctx.fillText(` | ${custText}`, paddingLeft + ctx.measureText(`Đơn: #${meta.orderCode}`).width + 8, cursorY);
 
         // Line 3: GPS Coordinates & Temp
         cursorY += fontSizeBase + 10;
@@ -113,10 +113,10 @@ export async function addPodWatermark(
         
         ctx.font = `normal ${fontSizeBase}px sans-serif`;
         ctx.fillStyle = '#38bdf8';
-        ctx.fillText(`📍 GPS: ${lat}°N, ${lng}°E`, paddingLeft, cursorY);
+        ctx.fillText(`GPS: ${lat}°N, ${lng}°E`, paddingLeft, cursorY);
 
         ctx.fillStyle = '#a7f3d0';
-        const tempText = `❄️ Chuỗi lạnh: ${temp}`;
+        const tempText = `Chuỗi lạnh: ${temp}`;
         const tempWidth = ctx.measureText(tempText).width;
         ctx.fillText(tempText, w - paddingLeft - tempWidth, cursorY);
 
@@ -125,12 +125,12 @@ export async function addPodWatermark(
         ctx.font = `normal ${fontSizeBase - 1}px sans-serif`;
         ctx.fillStyle = '#cbd5e1';
         const shortAddr = meta.deliveryAddress.length > 55 ? meta.deliveryAddress.slice(0, 52) + '...' : meta.deliveryAddress;
-        ctx.fillText(`🏠 ${shortAddr}`, paddingLeft, cursorY);
+        ctx.fillText(`${shortAddr}`, paddingLeft, cursorY);
 
         // Watermark Security Seal on Top Right
         ctx.font = `bold ${fontSizeBase - 2}px sans-serif`;
         ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-        ctx.fillText(`🚚 ${meta.driverName} • ${meta.licensePlate}`, paddingLeft, h - 14);
+        ctx.fillText(`${meta.driverName} • ${meta.licensePlate}`, paddingLeft, h - 14);
 
         const sealText = 'SFWMS COLD-CHAIN VERIFIED';
         ctx.fillText(sealText, w - paddingLeft - ctx.measureText(sealText).width, h - 14);

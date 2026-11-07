@@ -216,7 +216,7 @@ export const StaffManagement: React.FC = () => {
         });
 
         if (res.ok) {
-          showToast(`✅ Đã cập nhật thông tin nhân viên ${formData.name}!`);
+          showToast(`Đã cập nhật thông tin nhân viên ${formData.name}!`);
           setIsModalOpen(false);
           fetchStaffData();
         } else {
@@ -249,7 +249,7 @@ export const StaffManagement: React.FC = () => {
         });
 
         if (res.ok) {
-          showToast(`🎉 Cấp tài khoản nhân viên ${formData.name} thành công! Mật khẩu mặc định: ${formData.password || 'password123'}`);
+          showToast(`Cấp tài khoản nhân viên ${formData.name} thành công! Mật khẩu mặc định: ${formData.password || 'password123'}`);
           setIsModalOpen(false);
           fetchStaffData();
         } else {
@@ -312,28 +312,28 @@ export const StaffManagement: React.FC = () => {
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'WAREHOUSE_MANAGER':
-        return <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, backgroundColor: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>👑 Thủ Kho / Quản Lý</span>;
+        return <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, backgroundColor: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>Thủ Kho / Quản Lý</span>;
       case 'WAREHOUSE_STAFF':
-        return <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, backgroundColor: '#ccfbf1', color: '#0f766e', border: '1px solid #99f6e4' }}>📦 Nhân Viên Trực Kho</span>;
+        return <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, backgroundColor: '#ccfbf1', color: '#0f766e', border: '1px solid #99f6e4' }}>Nhân Viên Trực Kho</span>;
       case 'DRIVER':
-        return <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, backgroundColor: '#e0e7ff', color: '#4338ca', border: '1px solid #c7d2fe' }}>🚚 Tài Xế Giao Hàng</span>;
+        return <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, backgroundColor: '#e0e7ff', color: '#4338ca', border: '1px solid #c7d2fe' }}>Tài Xế Giao Hàng</span>;
       case 'ADMIN':
-        return <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, backgroundColor: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca' }}>⭐ Quản Trị Viên</span>;
+        return <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, backgroundColor: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca' }}>Quản Trị Viên</span>;
       default:
-        return <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, backgroundColor: '#f1f5f9', color: '#475569' }}>{role}</span>;
+        return <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, backgroundColor: '#f1f5f9', color: '#475569' }}>{role}</span>;
     }
   };
 
   const getShiftBadge = (shift?: string) => {
     switch (shift) {
       case 'CA_SANG':
-        return <span style={{ fontSize: '11px', fontWeight: 700, color: '#0284c7' }}>☀️ Ca Sáng (06:00 - 14:00)</span>;
+        return <span style={{ fontSize: '11px', fontWeight: 600, color: '#0284c7' }}>Ca Sáng (06:00 - 14:00)</span>;
       case 'CA_CHIEU':
-        return <span style={{ fontSize: '11px', fontWeight: 700, color: '#d97706' }}>⛅ Ca Chiều (14:00 - 22:00)</span>;
+        return <span style={{ fontSize: '11px', fontWeight: 600, color: '#d97706' }}>Ca Chiều (14:00 - 22:00)</span>;
       case 'CA_DEM':
-        return <span style={{ fontSize: '11px', fontWeight: 700, color: '#7c3aed' }}>🌙 Ca Đêm (22:00 - 06:00)</span>;
+        return <span style={{ fontSize: '11px', fontWeight: 600, color: '#7c3aed' }}>Ca Đêm (22:00 - 06:00)</span>;
       default:
-        return <span style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>🏢 Hành Chính (08:00 - 17:00)</span>;
+        return <span style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>Hành Chính (08:00 - 17:00)</span>;
     }
   };
 
@@ -350,12 +350,12 @@ export const StaffManagement: React.FC = () => {
             backgroundColor: toastMessage.type === 'success' ? '#0f766e' : '#dc2626',
             color: '#ffffff',
             padding: '12px 20px',
-            borderRadius: '12px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
-            fontWeight: 700,
+            fontWeight: 600,
             fontSize: '13px',
             animation: 'fadeIn 0.2s ease',
           }}
@@ -366,16 +366,16 @@ export const StaffManagement: React.FC = () => {
       )}
 
       {/* Header Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '20px 24px', borderRadius: '18px', border: '1px solid #e2e8f0', flexWrap: 'wrap', gap: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '16px 20px', borderRadius: '8px', border: '1px solid #e2e8f0', flexWrap: 'wrap', gap: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, #0f766e 0%, #115e59 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 8px 16px rgba(15, 118, 110, 0.25)' }}>
-            <Users size={26} />
+          <div style={{ width: '42px', height: '42px', borderRadius: '8px', background: '#0f766e', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+            <Users size={22} />
           </div>
           <div>
-            <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 900, color: '#0f172a' }}>
+            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
               Quản Lý Nhân Viên Trực Kho & Cấp Tài Khoản
             </h2>
-            <p style={{ margin: '2px 0 0 0', fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>
+            <p style={{ margin: '2px 0 0 0', fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>
               Dữ liệu nhân sự thực tế từ cơ sở dữ liệu kho vận — Quản lý phân quyền và ca trực theo chi nhánh
             </p>
           </div>
@@ -384,7 +384,7 @@ export const StaffManagement: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {/* Warehouse Selector for Admin */}
           {isAdmin ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f8fafc', padding: '6px 12px', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f8fafc', padding: '6px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
               <Building size={16} color="#0f766e" />
               <select
                 value={activeWhFilter}
@@ -393,18 +393,18 @@ export const StaffManagement: React.FC = () => {
                   setActiveWhFilter(code);
                   setSelectedWarehouseCode(code);
                 }}
-                style={{ border: 'none', background: 'transparent', fontWeight: 800, fontSize: '0.85rem', color: '#0f172a', outline: 'none', cursor: 'pointer' }}
+                style={{ border: 'none', background: 'transparent', fontWeight: 600, fontSize: '0.85rem', color: '#0f172a', outline: 'none', cursor: 'pointer' }}
               >
-                <option value="ALL">🏢 Tất cả kho hàng</option>
+                <option value="ALL">Tất cả kho hàng</option>
                 {warehouses.map(w => (
                   <option key={w.code} value={w.code}>
-                    📍 {w.name} ({w.code})
+                    {w.name} ({w.code})
                   </option>
                 ))}
               </select>
             </div>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f0fdfa', padding: '8px 14px', borderRadius: '12px', border: '1px solid #99f6e4', color: '#0f766e', fontWeight: 800, fontSize: '0.85rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f0fdfa', padding: '8px 14px', borderRadius: '8px', border: '1px solid #99f6e4', color: '#0f766e', fontWeight: 600, fontSize: '0.85rem' }}>
               <Building size={16} />
               <span>Kho Trực Thuộc: {warehouses.find(w => w.code === myWarehouseCode)?.name || myWarehouseCode}</span>
             </div>
@@ -524,20 +524,20 @@ export const StaffManagement: React.FC = () => {
           <select
             value={selectedRoleFilter}
             onChange={e => setSelectedRoleFilter(e.target.value)}
-            style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontWeight: 700, fontSize: '0.85rem', background: '#f8fafc', outline: 'none', cursor: 'pointer' }}
+            style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 600, fontSize: '0.85rem', background: '#f8fafc', outline: 'none', cursor: 'pointer' }}
           >
             <option value="ALL">Tất cả chức vụ</option>
-            <option value="WAREHOUSE_STAFF">📦 Nhân viên trực kho</option>
-            <option value="WAREHOUSE_MANAGER">👑 Thủ kho / Quản lý</option>
-            <option value="DRIVER">🚚 Tài xế giao hàng</option>
-            <option value="ADMIN">⭐ Quản trị viên</option>
+            <option value="WAREHOUSE_STAFF">Nhân viên trực kho</option>
+            <option value="WAREHOUSE_MANAGER">Thủ kho / Quản lý</option>
+            <option value="DRIVER">Tài xế giao hàng</option>
+            <option value="ADMIN">Quản trị viên</option>
           </select>
 
           {/* Shift Filter */}
           <select
             value={selectedShiftFilter}
             onChange={e => setSelectedShiftFilter(e.target.value)}
-            style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontWeight: 700, fontSize: '0.85rem', background: '#f8fafc', outline: 'none', cursor: 'pointer' }}
+            style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 600, fontSize: '0.85rem', background: '#f8fafc', outline: 'none', cursor: 'pointer' }}
           >
             <option value="ALL">Tất cả ca trực</option>
             <option value="CA_SANG">Ca Sáng (06:00 - 14:00)</option>
@@ -550,12 +550,12 @@ export const StaffManagement: React.FC = () => {
           <select
             value={selectedStatusFilter}
             onChange={e => setSelectedStatusFilter(e.target.value)}
-            style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontWeight: 700, fontSize: '0.85rem', background: '#f8fafc', outline: 'none', cursor: 'pointer' }}
+            style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 600, fontSize: '0.85rem', background: '#f8fafc', outline: 'none', cursor: 'pointer' }}
           >
             <option value="ALL">Tất cả trạng thái</option>
-            <option value="ACTIVE">🟢 Đang hoạt động</option>
-            <option value="ON_LEAVE">🟡 Nghỉ phép</option>
-            <option value="INACTIVE">🔴 Tạm khóa</option>
+            <option value="ACTIVE">Đang hoạt động</option>
+            <option value="ON_LEAVE">Nghỉ phép</option>
+            <option value="INACTIVE">Tạm khóa</option>
           </select>
         </div>
       </div>
@@ -869,27 +869,27 @@ export const StaffManagement: React.FC = () => {
                       const dept = r === 'DRIVER' ? 'Vận chuyển (Fleet)' : r === 'WAREHOUSE_MANAGER' ? 'Quản trị kho' : 'Vận hành kho';
                       setFormData({ ...formData, role: r, department: dept });
                     }}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 700, background: '#fff' }}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 600, background: '#fff' }}
                   >
-                    <option value="WAREHOUSE_STAFF">📦 Nhân viên trực kho (Đa năng: Soạn/Đóng/Nhập/Kiểm kê)</option>
-                    <option value="WAREHOUSE_MANAGER">👑 Thủ kho / Quản lý kho</option>
-                    <option value="DRIVER">🚚 Tài xế giao hàng (Driver App)</option>
-                    <option value="ADMIN">⭐ Quản trị viên hệ thống</option>
+                    <option value="WAREHOUSE_STAFF">Nhân viên trực kho (Đa năng: Soạn/Đóng/Nhập/Kiểm kê)</option>
+                    <option value="WAREHOUSE_MANAGER">Thủ kho / Quản lý kho</option>
+                    <option value="DRIVER">Tài xế giao hàng (Driver App)</option>
+                    <option value="ADMIN">Quản trị viên hệ thống</option>
                   </select>
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginBottom: '4px' }}>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
                     Kho Làm Việc (Khóa Cố Định) *
                   </label>
                   <select
                     value={formData.warehouseCode}
                     onChange={e => setFormData({ ...formData, warehouseCode: e.target.value })}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 700, background: '#fff' }}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 600, background: '#fff' }}
                   >
                     {warehouses.map(w => (
                       <option key={w.code} value={w.code}>
-                        📍 {w.name} ({w.code})
+                        {w.name} ({w.code})
                       </option>
                     ))}
                   </select>
@@ -898,7 +898,7 @@ export const StaffManagement: React.FC = () => {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginBottom: '4px' }}>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
                     Phân Khu Phụ Trách / Phương Tiện
                   </label>
                   <input
@@ -911,13 +911,13 @@ export const StaffManagement: React.FC = () => {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginBottom: '4px' }}>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
                     Ca Trực
                   </label>
                   <select
                     value={formData.shift}
                     onChange={e => setFormData({ ...formData, shift: e.target.value })}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 700, background: '#fff' }}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 600, background: '#fff' }}
                   >
                     <option value="CA_SANG">Ca Sáng (06:00 - 14:00)</option>
                     <option value="CA_CHIEU">Ca Chiều (14:00 - 22:00)</option>
@@ -928,17 +928,17 @@ export const StaffManagement: React.FC = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginBottom: '4px' }}>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
                   Trạng Thái Hoạt Động
                 </label>
                 <select
                   value={formData.status}
                   onChange={e => setFormData({ ...formData, status: e.target.value })}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 700, background: '#fff' }}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 600, background: '#fff' }}
                 >
-                  <option value="ACTIVE">🟢 Đang hoạt động / Đang trong ca trực</option>
-                  <option value="ON_LEAVE">🟡 Đang nghỉ phép</option>
-                  <option value="INACTIVE">🔴 Tạm khóa tài khoản</option>
+                  <option value="ACTIVE">Đang hoạt động / Đang trong ca trực</option>
+                  <option value="ON_LEAVE">Đang nghỉ phép</option>
+                  <option value="INACTIVE">Tạm khóa tài khoản</option>
                 </select>
               </div>
 

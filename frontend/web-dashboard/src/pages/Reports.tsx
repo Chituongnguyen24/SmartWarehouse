@@ -202,10 +202,10 @@ const Reports: React.FC = () => {
       totalKm: number;
       cod: number;
     }> = {
-      'Võ Minh Trí': { id: 'DRV-001', name: 'Võ Minh Trí', phone: '0901 234 567', vehicleType: '🛵 Xe máy hẻm nhỏ', plate: '59-V1 888.99', completed: 0, failed: 0, totalKm: 34.5, cod: 0 },
-      'Trần Quốc Bảo': { id: 'DRV-002', name: 'Trần Quốc Bảo', phone: '0902 345 678', vehicleType: '🛵 Xe máy hẻm nhỏ', plate: '59-G2 678.90', completed: 0, failed: 0, totalKm: 28.4, cod: 0 },
-      'Phạm Hoàng Nam': { id: 'DRV-003', name: 'Phạm Hoàng Nam', phone: '0903 456 789', vehicleType: '🛵 Xe máy hẻm nhỏ', plate: '59-P1 123.45', completed: 0, failed: 0, totalKm: 24.6, cod: 0 },
-      'Lê Văn Đạt': { id: 'DRV-004', name: 'Lê Văn Đạt', phone: '0904 567 890', vehicleType: '🚚 Xe tải bảo ôn', plate: '51D 456.78', completed: 0, failed: 0, totalKm: 22.2, cod: 0 },
+      'Võ Minh Trí': { id: 'DRV-001', name: 'Võ Minh Trí', phone: '0901 234 567', vehicleType: 'Xe máy hẻm nhỏ', plate: '59-V1 888.99', completed: 0, failed: 0, totalKm: 34.5, cod: 0 },
+      'Trần Quốc Bảo': { id: 'DRV-002', name: 'Trần Quốc Bảo', phone: '0902 345 678', vehicleType: 'Xe máy hẻm nhỏ', plate: '59-G2 678.90', completed: 0, failed: 0, totalKm: 28.4, cod: 0 },
+      'Phạm Hoàng Nam': { id: 'DRV-003', name: 'Phạm Hoàng Nam', phone: '0903 456 789', vehicleType: 'Xe máy hẻm nhỏ', plate: '59-P1 123.45', completed: 0, failed: 0, totalKm: 24.6, cod: 0 },
+      'Lê Văn Đạt': { id: 'DRV-004', name: 'Lê Văn Đạt', phone: '0904 567 890', vehicleType: 'Xe tải bảo ôn', plate: '51D 456.78', completed: 0, failed: 0, totalKm: 22.2, cod: 0 },
     };
 
     const invoices: any[] = [];
@@ -229,7 +229,7 @@ const Reports: React.FC = () => {
           id: `DRV-00${Object.keys(driverStats).length + 1}`,
           name: driverName,
           phone: o.assignedDriverPhone || '0909 999 888',
-          vehicleType: '🛵 Xe máy hẻm nhỏ',
+          vehicleType: 'Xe máy hẻm nhỏ',
           plate: o.assignedDriverPlate || '59-X1 999.99',
           completed: 0,
           failed: 0,
@@ -454,7 +454,7 @@ const Reports: React.FC = () => {
 
   const handleReconcileDriver = (id: string) => {
     setReconciledDriverIds(prev => ({ ...prev, [id]: true }));
-    showToast('✅ Đã xác nhận khớp lệnh thu tiền mặt COD & Tự động ghi sổ Nợ 1111 / Có 131');
+    showToast('Đã xác nhận khớp lệnh thu tiền mặt COD & Tự động ghi sổ Nợ 1111 / Có 131');
   };
 
   return (
@@ -540,15 +540,15 @@ const Reports: React.FC = () => {
           </button>
 
           <button
-            onClick={() => showToast('📥 Đã xuất thành công báo cáo thống kê toàn hệ thống (Excel / PDF / XML)')}
+            onClick={() => showToast('Đã xuất thành công báo cáo thống kê toàn hệ thống (Excel / PDF / XML)')}
             style={{
               backgroundColor: '#059669',
               color: '#ffffff',
               border: 'none',
               padding: '8px 16px',
-              borderRadius: '10px',
+              borderRadius: '8px',
               fontSize: '12px',
-              fontWeight: 800,
+              fontWeight: 600,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -1106,7 +1106,7 @@ const Reports: React.FC = () => {
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <button
-                  onClick={() => showToast('📥 Đã xuất thành công file XML Hóa Đơn Điện Tử tương thích phần mềm HTKK')}
+                  onClick={() => showToast('Đã xuất thành công file XML Hóa Đơn Điện Tử tương thích phần mềm HTKK')}
                   style={{
                     backgroundColor: '#0f172a',
                     color: '#ffffff',
@@ -1114,7 +1114,7 @@ const Reports: React.FC = () => {
                     padding: '8px 14px',
                     borderRadius: '8px',
                     fontSize: '11px',
-                    fontWeight: 800,
+                    fontWeight: 600,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
@@ -1125,7 +1125,7 @@ const Reports: React.FC = () => {
                   <span>Xuất File XML (HTKK)</span>
                 </button>
                 <button
-                  onClick={() => showToast('📥 Đã xuất Bảng Kê Thuế GTGT Đầu Ra ra file Excel')}
+                  onClick={() => showToast('Đã xuất Bảng Kê Thuế GTGT Đầu Ra ra file Excel')}
                   style={{
                     backgroundColor: '#059669',
                     color: '#ffffff',
@@ -1133,7 +1133,7 @@ const Reports: React.FC = () => {
                     padding: '8px 14px',
                     borderRadius: '8px',
                     fontSize: '11px',
-                    fontWeight: 800,
+                    fontWeight: 600,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',

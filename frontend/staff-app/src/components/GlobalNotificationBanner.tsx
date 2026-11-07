@@ -4,7 +4,6 @@ import {
   Bell,
   ArrowRight,
   X,
-  Sparkles,
   WifiOff,
   RefreshCw,
   PackageCheck,
@@ -102,7 +101,7 @@ export const GlobalNotificationBanner: React.FC = () => {
         destination,
         totalItems,
         type: 'PICKING',
-        title: '🔔 BẠN CÓ ĐƠN SOẠN HÀNG MỚI!',
+        title: 'BẠN CÓ ĐƠN SOẠN HÀNG MỚI',
         message: `${orderCode} • ${destination} (${totalItems} món)`,
         actionLabel: 'Soạn Hàng Ngay',
         actionRoute: orderId ? `/picking?orderId=${orderId}` : '/picking',
@@ -126,7 +125,7 @@ export const GlobalNotificationBanner: React.FC = () => {
           destination,
           totalItems,
           type: 'PACKING',
-          title: '📦 BẠN CÓ ĐƠN ĐÓNG GÓI MỚI!',
+          title: 'BẠN CÓ ĐƠN ĐÓNG GÓI MỚI',
           message: `${orderCode} đã soạn xong • Cần đóng gói & dán tem`,
           actionLabel: 'Đóng Gói Ngay',
           actionRoute: orderId ? `/packing?orderId=${orderId}` : '/packing',
@@ -145,7 +144,7 @@ export const GlobalNotificationBanner: React.FC = () => {
           destination,
           totalItems,
           type: 'PICKING',
-          title: '🔔 ĐƠN SOẠN HÀNG MỚI ĐÃ GÁN VÀO KHO!',
+          title: 'ĐƠN SOẠN HÀNG MỚI ĐÃ GÁN VÀO KHO',
           message: `${orderCode} • ${destination} (${totalItems} món)`,
           actionLabel: 'Soạn Hàng Ngay',
           actionRoute: orderId ? `/picking?orderId=${orderId}` : '/picking',
@@ -167,7 +166,7 @@ export const GlobalNotificationBanner: React.FC = () => {
         destination: data?.supplierName || 'Nhà cung cấp',
         totalItems,
         type: 'INBOUND',
-        title: '📥 BẠN CÓ ĐƠN NHẬP KHO MỚI!',
+        title: 'BẠN CÓ ĐƠN NHẬP KHO MỚI',
         message: `Chuyến hàng mới cần tiếp nhận & xếp kệ lưu trữ`,
         actionLabel: 'Nhập Kho Ngay',
         actionRoute: '/inbound',
@@ -285,7 +284,7 @@ export const GlobalNotificationBanner: React.FC = () => {
                     gap: '4px',
                   }}
                 >
-                  <Sparkles size={12} color="#f59e0b" />
+                  <Bell size={12} color="#059669" />
                   <span>{notification.title}</span>
                 </div>
                 <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>

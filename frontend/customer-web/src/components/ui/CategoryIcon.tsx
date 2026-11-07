@@ -13,7 +13,7 @@ import {
   Package, 
   Snowflake, 
   UtensilsCrossed, 
-  Sparkles, 
+  Tag, 
   ShoppingBag,
   Salad,
   Wine,
@@ -78,7 +78,7 @@ export function getCategoryVisual(name: string): CategoryVisual {
     return { Icon: Home, color: 'text-indigo-600', bgGradient: 'from-indigo-50 to-purple-100/60', borderColor: 'border-indigo-200' };
   }
   if (lower.includes('hàn quốc') || lower.includes('no brand') || lower.includes('dinh dưỡng')) {
-    return { Icon: Sparkles, color: 'text-violet-600', bgGradient: 'from-violet-50 to-purple-100/60', borderColor: 'border-violet-200' };
+    return { Icon: Tag, color: 'text-violet-600', bgGradient: 'from-violet-50 to-purple-100/60', borderColor: 'border-violet-200' };
   }
   if (lower.includes('gạo') || lower.includes('bột') || lower.includes('hạt') || lower.includes('đậu') || lower.includes('khô')) {
     return { Icon: Package, color: 'text-yellow-700', bgGradient: 'from-yellow-50 to-amber-100/60', borderColor: 'border-yellow-200' };

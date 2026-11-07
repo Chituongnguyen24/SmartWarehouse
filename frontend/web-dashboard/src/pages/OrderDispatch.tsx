@@ -12,7 +12,7 @@ import {
   X,
   Boxes,
   RotateCcw,
-  Sparkles,
+  Route,
   Camera,
   Cloud,
   Compass,
@@ -25,6 +25,7 @@ import {
   List,
   Printer,
   FileText,
+  Phone,
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { useAuth } from '../contexts/AuthContext';
@@ -489,7 +490,7 @@ export default function OrderDispatch() {
         })
       }).catch(() => {});
 
-      showToast(`✅ Đã tiếp nhận đơn #${order.orderCode}. Đã chuyển sang trạng thái ĐANG SOẠN HÀNG!`, 'success');
+      showToast(`Đã tiếp nhận đơn #${order.orderCode}. Đã chuyển sang trạng thái đang soạn hàng.`, 'success');
       await fetchAllData(true);
     } catch (e) {
       showToast('Có lỗi khi tiếp nhận đơn', 'error');
@@ -505,14 +506,14 @@ export default function OrderDispatch() {
         body: JSON.stringify({ status: 'READY_FOR_DELIVERY' }),
       }).catch(() => {});
 
-      showToast(`📦 Đã hoàn tất soạn & đóng gói đơn #${order.orderCode}. Đã chuyển sang Chờ nhận chuyến!`, 'success');
+      showToast(`Đã hoàn tất soạn & đóng gói đơn #${order.orderCode}. Sẵn sàng giao hàng.`, 'success');
       await fetchAllData(true);
     } catch (e) {
       showToast('Có lỗi khi cập nhật', 'error');
     }
   };
 
-  // 1. SMART AUTOMATION: 1-Chạm Tiếp Nhận & Soạn Hàng Loạt (Auto-FEFO Picking)
+  // 1. SMART AUTOMATION: Tiếp Nhận & Soạn Hàng Loạt (Auto-FEFO Picking)
   const handleAutoFEFOPicking = async () => {
     const pendingOrders = whScopedOrders.filter(o => o.status === 'PENDING');
     const pickingOrders = whScopedOrders.filter(o => o.status === 'PROCESSING' || o.status === 'PICKING');
@@ -529,13 +530,13 @@ export default function OrderDispatch() {
         for (const ord of pendingOrders) {
           await handleReceiveAndStartPicking(ord);
         }
-        showToast(`⚡ Đã tiếp nhận & giao kho soạn FEFO ${pendingOrders.length} đơn hàng mới!`, 'success');
+        showToast(`Đã tiếp nhận và giao kho soạn FEFO ${pendingOrders.length} đơn hàng mới.`, 'success');
       } else {
         // Hoàn tất soạn các đơn đang PROCESSING -> READY_FOR_DELIVERY
         for (const ord of pickingOrders) {
           await handleCompletePicking(ord);
         }
-        showToast(`📦 Đã xác nhận đóng gói xong ${pickingOrders.length} đơn. Sẵn sàng gom chuyến!`, 'success');
+        showToast(`Đã xác nhận đóng gói xong ${pickingOrders.length} đơn. Sẵn sàng gom chuyến.`, 'success');
       }
       await fetchAllData(true);
     } finally {
@@ -543,7 +544,7 @@ export default function OrderDispatch() {
     }
   };
 
-  // 2. SMART AUTOMATION: 1-Chạm AI Gom Chuyến & Điều Phối VRP Đa Phương Tiện (Auto-Dispatch)
+  // 2. Tự Động Gom Chuyến & Điều Phối VRP Đa Phương Tiện
   const handleAIAutoDispatch = async () => {
     // CHỈ gán cho đơn nào ĐÃ CÓ LỆNH XUẤT KHO XÁC NHẬN (CONFIRMED, SHIPPED, READY_FOR_DELIVERY)
     // Đơn mới chỉ Đang soạn (PROCESSING/PICKING) hoặc Đã đóng gói (PACKED) thì CHƯA ĐƯỢC PHÂN TÀI XẾ
@@ -552,7 +553,7 @@ export default function OrderDispatch() {
     );
 
     if (candidateOrders.length === 0) {
-      showToast('⚠️ Không có đơn hàng nào ĐÃ XUẤT KHO (CONFIRMED / READY_FOR_DELIVERY) để gán tài xế. Đơn "Đã đóng gói (PACKED)" cần xác nhận xuất kho trước!', 'info');
+      showToast('Không có đơn hàng nào đã xuất kho (CONFIRMED / READY_FOR_DELIVERY) để gán tài xế.', 'info');
       return;
     }
 
@@ -665,7 +666,7 @@ export default function OrderDispatch() {
       }
 
       showToast(
-        `✅ Đã tự động phân bổ ${candidateOrders.length} đơn hàng: 🚛 ${truckCount} đơn Xe Tải Lạnh, 🛵 ${bikeCount} đơn Xe Máy Thùng Lạnh, 🔄 ${crossHubCount} đơn Liên Kho!`,
+        `Đã tự động phân bổ ${candidateOrders.length} đơn hàng: ${truckCount} đơn xe tải, ${bikeCount} đơn xe máy, ${crossHubCount} đơn liên kho.`,
         'success'
       );
       await fetchAllData(true);
@@ -711,7 +712,7 @@ export default function OrderDispatch() {
       body: JSON.stringify({ status: 'CANCELLED', note: 'Hàng đã hoàn nhập kho lạnh' }),
     }).catch(() => {});
 
-    showToast('📦 Đã xác nhận nhập lại hàng vào kho lạnh Gò Vấp.', 'success');
+    showToast('Đã xác nhận nhập lại hàng vào kho lạnh Gò Vấp.', 'success');
     setReverseLogisticsModalOrder(null);
     fetchAllData();
   };
@@ -723,7 +724,7 @@ export default function OrderDispatch() {
       body: JSON.stringify({ status: 'READY_FOR_DELIVERY', note: 'Đã xếp vào hàng đợi giao lại lần 2' }),
     }).catch(() => {});
 
-    showToast('🔁 Đã đưa đơn hàng vào hàng đợi Chuyến tiếp theo!', 'success');
+    showToast('Đã đưa đơn hàng vào hàng đợi chuyến tiếp theo.', 'success');
     setReverseLogisticsModalOrder(null);
     fetchAllData();
   };
@@ -844,18 +845,17 @@ export default function OrderDispatch() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '14px',
+            width: '44px',
+            height: '44px',
+            borderRadius: '10px',
             backgroundColor: '#eff6ff',
             border: '1px solid #bfdbfe',
             color: '#2563eb',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '22px',
           }}>
-            🚚
+            <Truck size={22} color="#2563eb" />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -874,11 +874,11 @@ export default function OrderDispatch() {
               <span style={{ fontSize: '12px', color: '#0f766e', fontWeight: 700, backgroundColor: '#f0fdfa', padding: '2px 8px', borderRadius: '6px', border: '1px solid #ccfbf1' }}>
                 {(() => {
                   const curWh = warehouses.find(w => w.code === activeWh);
-                  return activeWh === 'ALL' ? '🏢 Tất Cả Các Kho' : (curWh ? `🏢 ${curWh.name} (${curWh.code})` : `🏢 Kho ${activeWh}`);
+                  return activeWh === 'ALL' ? 'Tất Cả Các Kho' : (curWh ? `${curWh.name} (${curWh.code})` : `Kho ${activeWh}`);
                 })()}
               </span>
             </div>
-            <h1 style={{ fontSize: '20px', fontWeight: 900, color: '#0f172a', margin: '3px 0 0 0' }}>
+            <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', margin: '3px 0 0 0' }}>
               Trung Tâm Điều Phối Đơn Hàng & Giám Sát Đội Xe
             </h1>
             <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
@@ -895,19 +895,19 @@ export default function OrderDispatch() {
               onChange={e => setSelectedWhFilter(e.target.value)}
               style={{
                 padding: '9px 14px',
-                borderRadius: '12px',
-                border: '1px solid #2563eb',
-                background: '#eff6ff',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                background: '#ffffff',
                 color: '#1e40af',
-                fontWeight: 700,
+                fontWeight: 600,
                 fontSize: '0.85rem',
                 cursor: 'pointer'
               }}
             >
-              <option value="ALL">🏢 Tất cả các Kho ({orders.length} đơn)</option>
+              <option value="ALL">Tất cả các Kho ({orders.length} đơn)</option>
               {warehouses.map(w => (
                 <option key={w.id || w.code} value={w.code}>
-                  🏢 {w.name} ({w.code})
+                  {w.name} ({w.code})
                 </option>
               ))}
             </select>
@@ -920,43 +920,43 @@ export default function OrderDispatch() {
             style={{
               backgroundColor: '#2563eb',
               color: '#ffffff',
-              padding: '10px 18px',
-              borderRadius: '12px',
+              padding: '9px 16px',
+              borderRadius: '8px',
               fontSize: '12px',
-              fontWeight: 800,
+              fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
+              gap: '6px',
               border: 'none',
-              boxShadow: '0 4px 12px rgba(37,99,235,0.25)',
+              boxShadow: '0 2px 6px rgba(37,99,235,0.2)',
               opacity: autoPickingLoading ? 0.6 : 1,
             }}
           >
             <Boxes size={16} />
-            <span>{autoPickingLoading ? 'Đang xuất kho...' : '⚡ Soạn Hàng Nhanh (Ưu Tiên Hạn Gần)'}</span>
+            <span>{autoPickingLoading ? 'Đang xuất kho...' : 'Soạn Hàng Nhanh (Ưu Tiên Hạn Gần)'}</span>
           </button>
 
-          {/* 1-Chạm AI Gom Tuyến VRP */}
+          {/* 1-Chạm Gom Tuyến VRP */}
           <button
             onClick={handleAIAutoDispatch}
             disabled={autoDispatchLoading}
             style={{
               backgroundColor: '#059669',
               color: '#ffffff',
-              padding: '10px 18px',
-              borderRadius: '12px',
+              padding: '9px 16px',
+              borderRadius: '8px',
               fontSize: '12px',
-              fontWeight: 800,
+              fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
+              gap: '6px',
               border: 'none',
-              boxShadow: '0 4px 12px rgba(5,150,105,0.25)',
+              boxShadow: '0 2px 6px rgba(5,150,105,0.2)',
               opacity: autoDispatchLoading ? 0.6 : 1,
             }}
           >
-            <Sparkles size={16} />
-            <span>{autoDispatchLoading ? 'Đang tối ưu lộ trình...' : '⚡ Tự Động Phân Tuyến Giao Hàng'}</span>
+            <Route size={16} />
+            <span>{autoDispatchLoading ? 'Đang tối ưu lộ trình...' : 'Tự Động Phân Tuyến Giao Hàng (VRP)'}</span>
           </button>
 
           {/* Map Toggle Button */}
@@ -1234,61 +1234,61 @@ export default function OrderDispatch() {
               onClick={() => setClassificationFilter('SALE')}
               style={{
                 padding: '6px 12px',
-                borderRadius: '8px',
+                borderRadius: '6px',
                 fontSize: '11px',
-                fontWeight: 800,
+                fontWeight: 600,
                 backgroundColor: classificationFilter === 'SALE' ? '#1d4ed8' : '#eff6ff',
                 color: classificationFilter === 'SALE' ? '#ffffff' : '#1d4ed8',
                 border: '1px solid #bfdbfe',
                 cursor: 'pointer',
               }}
             >
-              🛒 Mua Bán Lẻ
+              Mua Bán Lẻ
             </button>
             <button
               onClick={() => setClassificationFilter('DISPOSAL')}
               style={{
                 padding: '6px 12px',
-                borderRadius: '8px',
+                borderRadius: '6px',
                 fontSize: '11px',
-                fontWeight: 800,
+                fontWeight: 600,
                 backgroundColor: classificationFilter === 'DISPOSAL' ? '#7c3aed' : '#faf5ff',
                 color: classificationFilter === 'DISPOSAL' ? '#ffffff' : '#7c3aed',
                 border: '1px solid #e9d5ff',
                 cursor: 'pointer',
               }}
             >
-              ☣️ Xuất Tiêu Hủy
+              Xuất Tiêu Hủy
             </button>
             <button
               onClick={() => setClassificationFilter('RETURN')}
               style={{
                 padding: '6px 12px',
-                borderRadius: '8px',
+                borderRadius: '6px',
                 fontSize: '11px',
-                fontWeight: 800,
+                fontWeight: 600,
                 backgroundColor: classificationFilter === 'RETURN' ? '#b91c1c' : '#fef2f2',
                 color: classificationFilter === 'RETURN' ? '#ffffff' : '#b91c1c',
                 border: '1px solid #fecaca',
                 cursor: 'pointer',
               }}
             >
-              ↩️ Trả Hàng NCC / Hoàn
+              Trả Hàng / Hoàn
             </button>
             <button
               onClick={() => setClassificationFilter('TRANSFER')}
               style={{
                 padding: '6px 12px',
-                borderRadius: '8px',
+                borderRadius: '6px',
                 fontSize: '11px',
-                fontWeight: 800,
+                fontWeight: 600,
                 backgroundColor: classificationFilter === 'TRANSFER' ? '#15803d' : '#f0fdf4',
                 color: classificationFilter === 'TRANSFER' ? '#ffffff' : '#15803d',
                 border: '1px solid #bbf7d0',
                 cursor: 'pointer',
               }}
             >
-              🔄 Điều Chuyển Liên Kho
+              Điều Chuyển Liên Kho
             </button>
           </div>
 
@@ -1416,13 +1416,14 @@ export default function OrderDispatch() {
                                   backgroundColor: '#2563eb',
                                   color: '#ffffff',
                                   padding: '5px 10px',
-                                  borderRadius: '8px',
+                                  borderRadius: '6px',
                                   fontSize: '11px',
-                                  fontWeight: 800,
+                                  fontWeight: 600,
                                   border: 'none',
+                                  cursor: 'pointer',
                                 }}
                               >
-                                📥 Tiếp Nhận
+                                Tiếp Nhận
                               </button>
                             )}
 
@@ -1433,13 +1434,14 @@ export default function OrderDispatch() {
                                   backgroundColor: '#059669',
                                   color: '#ffffff',
                                   padding: '5px 10px',
-                                  borderRadius: '8px',
+                                  borderRadius: '6px',
                                   fontSize: '11px',
-                                  fontWeight: 800,
+                                  fontWeight: 600,
                                   border: 'none',
+                                  cursor: 'pointer',
                                 }}
                               >
-                                📦 Đã Soạn Xong
+                                Đã Soạn Xong
                               </button>
                             )}
 
@@ -1453,13 +1455,14 @@ export default function OrderDispatch() {
                                   backgroundColor: '#d97706',
                                   color: '#ffffff',
                                   padding: '5px 10px',
-                                  borderRadius: '8px',
+                                  borderRadius: '6px',
                                   fontSize: '11px',
-                                  fontWeight: 800,
+                                  fontWeight: 600,
                                   border: 'none',
+                                  cursor: 'pointer',
                                 }}
                               >
-                                🛵 Gán Xe
+                                Gán Xe
                               </button>
                             )}
 
@@ -1611,15 +1614,15 @@ export default function OrderDispatch() {
                           {(() => {
                             const cls = detectSlipClassification(order as any);
                             const badge = {
-                              SALE: { text: '🛒 Bán Lẻ', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
-                              DISPOSAL: { text: '☣️ Tiêu Hủy', bg: '#faf5ff', color: '#7c3aed', border: '#e9d5ff' },
-                              RETURN: { text: '↩️ Hoàn/Trả', bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
-                              TRANSFER: { text: '🔄 Điều Chuyển', bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
+                              SALE: { text: 'Bán Lẻ', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+                              DISPOSAL: { text: 'Tiêu Hủy', bg: '#faf5ff', color: '#7c3aed', border: '#e9d5ff' },
+                              RETURN: { text: 'Hoàn/Trả', bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
+                              TRANSFER: { text: 'Điều Chuyển', bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
                             }[cls];
                             return (
                               <span style={{
                                 fontSize: '10px',
-                                fontWeight: 800,
+                                fontWeight: 600,
                                 padding: '2px 6px',
                                 borderRadius: '4px',
                                 backgroundColor: badge.bg,
@@ -1722,14 +1725,14 @@ export default function OrderDispatch() {
                               backgroundColor: '#2563eb',
                               color: '#ffffff',
                               padding: '6px 12px',
-                              borderRadius: '8px',
+                              borderRadius: '6px',
                               fontSize: '11px',
-                              fontWeight: 800,
+                              fontWeight: 600,
                               border: 'none',
-                              boxShadow: '0 2px 6px rgba(37,99,235,0.25)',
+                              cursor: 'pointer',
                             }}
                           >
-                            📥 Tiếp Nhận & Soạn Hàng
+                            Tiếp Nhận & Soạn Hàng
                           </button>
                         )}
 
@@ -1740,14 +1743,14 @@ export default function OrderDispatch() {
                               backgroundColor: '#059669',
                               color: '#ffffff',
                               padding: '6px 12px',
-                              borderRadius: '8px',
+                              borderRadius: '6px',
                               fontSize: '11px',
-                              fontWeight: 800,
+                              fontWeight: 600,
                               border: 'none',
-                              boxShadow: '0 2px 6px rgba(5,150,105,0.25)',
+                              cursor: 'pointer',
                             }}
                           >
-                            📦 Đã Soạn Xong (Chuyển Giao)
+                            Đã Soạn Xong
                           </button>
                         )}
 
@@ -1761,14 +1764,14 @@ export default function OrderDispatch() {
                               backgroundColor: '#d97706',
                               color: '#ffffff',
                               padding: '6px 12px',
-                              borderRadius: '8px',
+                              borderRadius: '6px',
                               fontSize: '11px',
-                              fontWeight: 800,
+                              fontWeight: 600,
                               border: 'none',
-                              boxShadow: '0 2px 6px rgba(217,119,6,0.25)',
+                              cursor: 'pointer',
                             }}
                           >
-                            🛵 Gán Xe
+                            Gán Xe
                           </button>
                         )}
 
@@ -2107,8 +2110,11 @@ export default function OrderDispatch() {
                   <MapPin size={14} color="#ef4444" />
                   <span>Địa chỉ nhận hàng:</span>
                 </div>
-                <div style={{ color: '#0f172a', fontWeight: 700, paddingLeft: '20px' }}>{selectedOrder.customerAddress}</div>
-                <div style={{ color: '#64748b', paddingLeft: '20px', marginTop: '4px' }}>📞 {selectedOrder.customerPhone}</div>
+                <div style={{ color: '#0f172a', fontWeight: 600, paddingLeft: '20px' }}>{selectedOrder.customerAddress}</div>
+                <div style={{ color: '#64748b', paddingLeft: '20px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Phone size={12} color="#64748b" />
+                  <span>{selectedOrder.customerPhone}</span>
+                </div>
               </div>
 
               {/* Items List */}
@@ -2202,17 +2208,17 @@ export default function OrderDispatch() {
                 }}
                 style={{
                   flex: 1,
-                  padding: '12px',
+                  padding: '10px 14px',
                   backgroundColor: '#2563eb',
                   color: '#ffffff',
-                  borderRadius: '12px',
+                  borderRadius: '8px',
                   fontSize: '12px',
-                  fontWeight: 800,
+                  fontWeight: 600,
                   border: 'none',
                   cursor: 'pointer',
                 }}
               >
-                🛵 Gán Xe
+                Gán Xe
               </button>
               <button
                 onClick={() => setSelectedOrder(null)}
@@ -2286,17 +2292,17 @@ export default function OrderDispatch() {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <div style={{
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: '10px',
-                        backgroundColor: '#2563eb',
-                        color: '#ffffff',
+                        width: '34px',
+                        height: '34px',
+                        borderRadius: '6px',
+                        backgroundColor: '#eff6ff',
+                        border: '1px solid #bfdbfe',
+                        color: '#2563eb',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: '14px',
                       }}>
-                        🛵
+                        <Truck size={16} color="#2563eb" />
                       </div>
                       <div>
                         <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>{driver.name}</div>
@@ -2398,31 +2404,33 @@ export default function OrderDispatch() {
                 onClick={() => handleRestockOrder(reverseLogisticsModalOrder.id)}
                 style={{
                   width: '100%',
-                  padding: '12px',
+                  padding: '10px 14px',
                   backgroundColor: '#2563eb',
                   color: '#ffffff',
-                  borderRadius: '12px',
+                  borderRadius: '8px',
                   fontSize: '12px',
-                  fontWeight: 800,
+                  fontWeight: 600,
                   border: 'none',
+                  cursor: 'pointer',
                 }}
               >
-                📦 Nhập Lại Tồn Kho Lạnh (Restock)
+                Nhập Lại Tồn Kho Lạnh (Restock)
               </button>
               <button
                 onClick={() => handleRedispatchOrder(reverseLogisticsModalOrder.id)}
                 style={{
                   width: '100%',
-                  padding: '12px',
+                  padding: '10px 14px',
                   backgroundColor: '#d97706',
                   color: '#ffffff',
-                  borderRadius: '12px',
+                  borderRadius: '8px',
                   fontSize: '12px',
-                  fontWeight: 800,
+                  fontWeight: 600,
                   border: 'none',
+                  cursor: 'pointer',
                 }}
               >
-                🔁 Lên Lịch Giao Lại Chuyến Sau
+                Lên Lịch Giao Lại Chuyến Sau
               </button>
             </div>
           </div>
@@ -2444,15 +2452,15 @@ export default function OrderDispatch() {
         }}>
           <div style={{
             backgroundColor: '#ffffff',
-            border: '1px solid #a7f3d0',
-            borderRadius: '20px',
+            border: '1px solid #e2e8f0',
+            borderRadius: '12px',
             maxWidth: '440px',
             width: '100%',
-            padding: '24px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+            padding: '20px',
+            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '14px', borderBottom: '1px solid #f0fdf4', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 900, color: '#065f46', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#065f46', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                 <CheckCircle2 size={18} color="#059669" />
                 Biên Bản & Ảnh Giao Hàng #{podPreviewModalOrder.orderCode}
               </h3>
@@ -2461,27 +2469,27 @@ export default function OrderDispatch() {
               </button>
             </div>
 
-            <div style={{ padding: '12px', borderRadius: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', fontSize: '12px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', fontSize: '12px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontWeight: 800, color: '#0f172a' }}>{podPreviewModalOrder.customerName}</div>
+                <div style={{ fontWeight: 600, color: '#0f172a' }}>{podPreviewModalOrder.customerName}</div>
                 <div style={{ color: '#64748b' }}>{podPreviewModalOrder.customerAddress}</div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#2563eb', fontWeight: 800, backgroundColor: '#eff6ff', padding: '3px 8px', borderRadius: '999px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#2563eb', fontWeight: 600, backgroundColor: '#eff6ff', padding: '3px 8px', borderRadius: '999px' }}>
                 <Cloud size={14} />
                 <span>Lưu Trữ Điện Tử</span>
               </div>
             </div>
 
             {/* S3 Photo Preview */}
-            <div style={{ height: '200px', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#f1f5f9', border: '1px solid #e2e8f0', marginBottom: '18px', position: 'relative' }}>
+            <div style={{ height: '200px', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#f1f5f9', border: '1px solid #e2e8f0', marginBottom: '18px', position: 'relative' }}>
               <img
                 src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&q=80"
                 alt="Ảnh giao hàng"
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
               <div style={{ position: 'absolute', bottom: 0, insetInline: 0, backgroundColor: 'rgba(15, 23, 42, 0.8)', padding: '8px 12px', color: '#ffffff', fontSize: '11px' }}>
-                <div style={{ fontWeight: 700 }}>📍 GPS: 10.8354, 106.6668 • Geotagged</div>
-                <div style={{ color: '#cbd5e1', fontSize: '10px' }}>🏬 Kho Gò Vấp (WH-006) • Thùng Lạnh Xe Máy 0-4°C</div>
+                <div style={{ fontWeight: 600 }}>GPS: 10.8354, 106.6668 • Geotagged</div>
+                <div style={{ color: '#cbd5e1', fontSize: '10px' }}>Kho Gò Vấp (WH-006) • Thùng Lạnh Xe Máy 0-4°C</div>
               </div>
             </div>
 
@@ -2489,13 +2497,14 @@ export default function OrderDispatch() {
               onClick={() => setPodPreviewModalOrder(null)}
               style={{
                 width: '100%',
-                padding: '12px',
+                padding: '10px 14px',
                 backgroundColor: '#f1f5f9',
                 color: '#475569',
-                borderRadius: '12px',
+                borderRadius: '8px',
                 fontSize: '12px',
-                fontWeight: 800,
+                fontWeight: 600,
                 border: 'none',
+                cursor: 'pointer',
               }}
             >
               Đóng Bằng Chứng

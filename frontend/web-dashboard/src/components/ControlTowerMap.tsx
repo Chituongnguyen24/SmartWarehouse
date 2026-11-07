@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ShieldAlert, Navigation, Gauge, ThermometerSnowflake, RefreshCw, AlertTriangle, Phone, Store, MapPin, Route, Layers, CheckCircle, Users, Eye, Sparkles, Clock, Check, Truck, Bike, Maximize2, Building2 } from 'lucide-react';
+import { ShieldAlert, Navigation, Gauge, ThermometerSnowflake, RefreshCw, AlertTriangle, Phone, Store, MapPin, Route, Layers, CheckCircle, Users, Eye, Clock, Check, Truck, Bike, Maximize2, Building2 } from 'lucide-react';
 
 const GOONG_MAPTILES_KEY = import.meta.env.VITE_GOONG_MAPTILES_KEY || 'xR9zgCIphv0ZQ7sAS02MRDA9mouqEfatcx24BtYl';
 const GOONG_API_KEY = import.meta.env.VITE_GOONG_API_KEY || '9ZLtEkemS6YgqbCVlt5yfFCl0VdvJIN57mCXRge6';
@@ -457,8 +457,8 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
               <div style="font-size:12px; font-weight:800; color:#0f172a; margin-bottom:2px;">
                 Điểm dừng #${st.seq}: ${st.name}
               </div>
-              <div style="font-size:11px; color:#64748b; margin-bottom:6px;">📍 ${st.address}</div>
-              ${isCurrentActive ? '<span style="background:#dcfce7; color:#15803d; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px;">🟢 ĐANG GIAO ĐƠN NÀY</span>' : ''}
+              <div style="font-size:11px; color:#64748b; margin-bottom:6px;">${st.address}</div>
+              ${isCurrentActive ? '<span style="background:#dcfce7; color:#15803d; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px;">ĐANG GIAO ĐƠN NÀY</span>' : ''}
             </div>
           `);
 
@@ -523,10 +523,10 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
 
       // ── 1. WAREHOUSES & HUBS MARKERS ──
       const hubs = [
-        { code: 'WH-006', name: 'Kho Trung Tâm Gò Vấp (WH-006)', addr: '350 Quang Trung, P.10, Gò Vấp', lat: 10.8354, lng: 106.6668, icon: '🏬', color: '#059669', desc: 'Hub Điều Phối Xe Máy & Xe Tải Lạnh' },
-        { code: 'WH-002', name: 'Kho Chi Nhánh Bình Thạnh (WH-002)', addr: '120 Phan Đăng Lưu, Bình Thạnh', lat: 10.8012, lng: 106.6980, icon: '🏬', color: '#2563eb', desc: 'Hub Phân Phối Đông Sài Gòn' },
-        { code: 'WH-003', name: 'Kho Chi Nhánh Tân Bình (WH-003)', addr: '45 Trường Chinh, Tân Bình', lat: 10.7985, lng: 106.6520, icon: '🏬', color: '#7c3aed', desc: 'Hub Logistics Sân Bay' },
-        { code: 'DP-WASTE', name: 'Khu Xử Lý Môi Trường Đa Phước', addr: 'Xã Đa Phước, Huyện Bình Chánh, TP.HCM', lat: 10.6850, lng: 106.6200, icon: '☣️', color: '#dc2626', desc: 'Trạm Tiếp Nhận Tiêu Hủy Thực Phẩm Hết Hạn' },
+        { code: 'WH-006', name: 'Kho Trung Tâm Gò Vấp (WH-006)', addr: '350 Quang Trung, P.10, Gò Vấp', lat: 10.8354, lng: 106.6668, svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>', color: '#059669', desc: 'Hub Điều Phối Xe Máy & Xe Tải Lạnh' },
+        { code: 'WH-002', name: 'Kho Chi Nhánh Bình Thạnh (WH-002)', addr: '120 Phan Đăng Lưu, Bình Thạnh', lat: 10.8012, lng: 106.6980, svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>', color: '#2563eb', desc: 'Hub Phân Phối Đông Sài Gòn' },
+        { code: 'WH-003', name: 'Kho Chi Nhánh Tân Bình (WH-003)', addr: '45 Trường Chinh, Tân Bình', lat: 10.7985, lng: 106.6520, svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>', color: '#7c3aed', desc: 'Hub Logistics Sân Bay' },
+        { code: 'DP-WASTE', name: 'Khu Xử Lý Môi Trường Đa Phước', addr: 'Xã Đa Phước, Huyện Bình Chánh, TP.HCM', lat: 10.6850, lng: 106.6200, svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>', color: '#dc2626', desc: 'Trạm Tiếp Nhận Tiêu Hủy Thực Phẩm Hết Hạn' },
       ];
 
       hubs.forEach(h => {
@@ -534,24 +534,23 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
           className: 'control-tower-wh',
           html: `
             <div style="
-              background: linear-gradient(135deg, ${h.color}, #0f172a);
+              background: ${h.color};
               color: white;
               padding: 6px;
               border-radius: 50%;
-              border: 2.5px solid white;
-              box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+              border: 2px solid white;
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
               display: flex;
               align-items: center;
               justify-content: center;
-              width: 38px;
-              height: 38px;
-              font-size: 18px;
+              width: 36px;
+              height: 36px;
             ">
-              ${h.icon}
+              ${h.svg}
             </div>
           `,
-          iconSize: [38, 38],
-          iconAnchor: [19, 19],
+          iconSize: [36, 36],
+          iconAnchor: [18, 18],
         });
 
         L.marker([h.lat, h.lng], { icon: whIcon })
@@ -559,7 +558,7 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
           .bindPopup(`
             <div style="font-family:sans-serif; min-width:210px; padding:3px;">
               <div style="font-size:13px; font-weight:800; color:${h.color};">${h.name}</div>
-              <div style="font-size:11px; color:#64748b; margin-top:2px;">📍 ${h.addr}</div>
+              <div style="font-size:11px; color:#64748b; margin-top:2px;">${h.addr}</div>
               <div style="margin-top:6px; font-size:10px; background:#f1f5f9; color:#334155; padding:3px 6px; border-radius:4px; font-weight:700;">
                 ${h.desc}
               </div>
@@ -571,14 +570,16 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
       INITIAL_SHIPPERS.forEach(s => {
         const isCritical = s.temperature > 5.0;
         const shortName = s.name.split(' ').pop();
-        const vIcon = s.vehicleType === 'TRUCK' ? '🚛' : s.vehicleType === 'VAN' ? '🚐' : '🛵';
+        const truckSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>';
+        const bikeSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg>';
+        const vIcon = s.vehicleType === 'TRUCK' || s.vehicleType === 'VAN' ? truckSvg : bikeSvg;
         const vBg = s.vehicleType === 'TRUCK' 
-          ? 'linear-gradient(135deg, #ea580c, #c2410c)' 
+          ? '#ea580c' 
           : s.vehicleType === 'VAN'
-          ? 'linear-gradient(135deg, #7c3aed, #6d28d9)'
+          ? '#7c3aed'
           : isCritical 
-          ? 'linear-gradient(135deg, #dc2626, #ef4444)' 
-          : 'linear-gradient(135deg, #0284c7, #06b6d4)';
+          ? '#dc2626' 
+          : '#0284c7';
 
         const icon = L.divIcon({
           className: 'shipper-tower-marker',
@@ -588,14 +589,13 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
                 background: ${vBg};
                 color: white;
                 border-radius: 50%;
-                border: 2.5px solid white;
-                width: 38px;
-                height: 38px;
+                border: 2px solid white;
+                width: 34px;
+                height: 34px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 18px;
-                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
               ">
                 ${vIcon}
               </div>
@@ -815,7 +815,7 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
           }}
         >
           <Truck size={13} />
-          <span>🚛 Xe Tải & Bán Tải (2)</span>
+          <span>Xe Tải & Bán Tải (2)</span>
         </button>
         <button
           onClick={() => setFleetFilter('BIKE')}
@@ -837,7 +837,7 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
           }}
         >
           <Bike size={13} />
-          <span>🛵 Xe Máy Thùng Lạnh (7)</span>
+          <span>Xe Máy Thùng Lạnh (7)</span>
         </button>
         <button
           onClick={() => setFleetFilter('WH-006')}
@@ -855,7 +855,7 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
             border: `1px solid ${fleetFilter === 'WH-006' ? '#10b981' : '#1e293b'}`
           }}
         >
-          🏬 Kho Gò Vấp (7)
+          Kho Gò Vấp (7)
         </button>
         <button
           onClick={() => setFleetFilter('CROSS_HUB')}
@@ -873,7 +873,7 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
             border: `1px solid ${fleetFilter === 'CROSS_HUB' ? '#6366f1' : '#1e293b'}`
           }}
         >
-          🔄 Liên Kho Bình Thạnh & Tân Bình (2)
+          Liên Kho Bình Thạnh & Tân Bình (2)
         </button>
       </div>
 
@@ -883,7 +883,7 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
           <div className="flex items-center gap-3">
             <AlertTriangle size={20} className="text-rose-400 shrink-0" />
             <div className="text-xs">
-              <span className="font-black text-rose-300 uppercase">🚨 CẢNH BÁO NHIỆT ĐỘ THÙNG LẠNH: </span>
+              <span className="font-bold text-rose-300 uppercase">CẢNH BÁO NHIỆT ĐỘ THÙNG LẠNH: </span>
               <span className="text-white">{activeAlert.message || 'Nhiệt độ thùng xe vượt ngưỡng an toàn 5°C!'}</span>
             </div>
           </div>
@@ -940,10 +940,10 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
                 boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
               }}
             >
-              <div className={`w-9 h-9 rounded-full text-white font-black flex items-center justify-center text-sm shadow ${
+              <div className={`w-9 h-9 rounded-lg text-white font-semibold flex items-center justify-center text-sm shadow ${
                 selectedShipper.vehicleType === 'TRUCK' ? 'bg-amber-600' : selectedShipper.vehicleType === 'VAN' ? 'bg-purple-600' : 'bg-cyan-600'
               }`}>
-                {selectedShipper.vehicleType === 'TRUCK' ? '🚛' : selectedShipper.vehicleType === 'VAN' ? '🚐' : '🛵'}
+                {selectedShipper.vehicleType === 'TRUCK' || selectedShipper.vehicleType === 'VAN' ? <Truck size={18} /> : <Bike size={18} />}
               </div>
               <div>
                 <div className="font-bold text-white flex items-center gap-1.5 flex-wrap">
@@ -956,11 +956,11 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
                 <div className="text-[11px] text-slate-300 mt-0.5">
                   {selectedShipper.status === 'DELIVERING' && selectedShipper.currentCustomerName ? (
                     <span className="text-emerald-400 font-semibold">
-                      Đang giao: {selectedShipper.currentCustomerName} ➔ {selectedShipper.currentCustomerAddress?.split(',')[0]}
+                      Đang giao: {selectedShipper.currentCustomerName} → {selectedShipper.currentCustomerAddress?.split(',')[0]}
                     </span>
                   ) : selectedShipper.routeStops && selectedShipper.routeStops.length > 0 ? (
                     <span className="text-amber-400 font-medium">
-                      ⏳ Đã gán {selectedShipper.routeStops.length} điểm giao • Tuyến: {selectedShipper.zone}
+                      Đã gán {selectedShipper.routeStops.length} điểm giao • Tuyến: {selectedShipper.zone}
                     </span>
                   ) : (
                     <span className="text-slate-400">Đã hoàn thành ca giao • Sẵn sàng chuyến mới</span>
@@ -1054,7 +1054,7 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
             <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
               {displayedShippers.map(s => {
                 const isSelected = selectedShipper?.id === s.id;
-                const vIcon = s.vehicleType === 'TRUCK' ? '🚛' : s.vehicleType === 'VAN' ? '🚐' : '🛵';
+                const isTruck = s.vehicleType === 'TRUCK' || s.vehicleType === 'VAN';
                 return (
                   <div
                     key={s.id}
@@ -1076,7 +1076,7 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
                   >
                     <div className="flex items-center justify-between mb-1" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
                       <div className="flex items-center gap-2" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span className="text-base">{vIcon}</span>
+                        <span className="text-cyan-400">{isTruck ? <Truck size={15} /> : <Bike size={15} />}</span>
                         <div>
                           <div className="font-extrabold text-white text-xs flex items-center gap-1.5" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 800, color: '#ffffff' }}>
                             <span>{s.name}</span>
@@ -1127,7 +1127,7 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)'
                     }}
                   >
-                    {selectedShipper.vehicleType === 'TRUCK' ? '🚛' : selectedShipper.vehicleType === 'VAN' ? '🚐' : '🛵'}
+                    {selectedShipper.vehicleType === 'TRUCK' || selectedShipper.vehicleType === 'VAN' ? <Truck size={16} /> : <Bike size={16} />}
                   </div>
                   <div>
                     <div style={{ fontSize: '13px', fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1178,8 +1178,8 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
                     )}
                   </div>
 
-                  <div style={{ fontSize: '14px', fontWeight: 800, color: '#ffffff', marginBottom: '4px' }}>
-                    👤 {selectedShipper.currentCustomerName}
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff', marginBottom: '4px' }}>
+                    {selectedShipper.currentCustomerName}
                   </div>
 
                   <div style={{ fontSize: '12px', color: '#cbd5e1', display: 'flex', alignItems: 'flex-start', gap: '4px', marginBottom: '8px' }}>
@@ -1345,8 +1345,8 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
             }}
           >
             <span className="flex items-center gap-1" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Sparkles size={13} className="text-amber-400" style={{ color: '#fbbf24' }} />
-              <span>Lộ trình giao hàng tối ưu</span>
+              <Route size={13} className="text-amber-400" style={{ color: '#fbbf24' }} />
+              <span>Lộ trình giao hàng tối ưu (VRP)</span>
             </span>
             <button
               onClick={handleFitAllDrivers}

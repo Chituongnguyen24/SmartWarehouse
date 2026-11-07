@@ -71,7 +71,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task, onBack
               <Text style={styles.mapHeaderTitle}>Dẫn đường GPS (Điểm dừng #{task.sequenceOrder})</Text>
             </View>
             <TouchableOpacity style={styles.googleMapBtn} onPress={handleOpenMap} activeOpacity={0.8}>
-              <Text style={styles.googleMapText}>Mở Google Maps ➔</Text>
+              <Text style={styles.googleMapText}>Mở Google Maps</Text>
             </TouchableOpacity>
           </View>
 
@@ -115,7 +115,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task, onBack
           <View style={styles.customerHeaderRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.customerName}>{task.customerName}</Text>
-              <Text style={styles.customerPhone}>📞 {task.customerPhone}</Text>
+              <Text style={styles.customerPhone}>{task.customerPhone}</Text>
             </View>
 
             <View style={styles.contactActionGroup}>
@@ -162,7 +162,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task, onBack
               {/* Packaging Specification Banner */}
               <View style={{ backgroundColor: '#f8fafc', padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 10 }}>
                 <Text style={{ fontSize: 11, color: '#475569', fontWeight: '600' }}>
-                  📦 Quy cách: <Text style={{ color: '#0f172a', fontWeight: '800' }}>{task.packageType || `${boxCount} Thùng carton tiêu chuẩn`}</Text>
+                  Quy cách: <Text style={{ color: '#0f172a', fontWeight: '800' }}>{task.packageType || `${boxCount} Thùng carton tiêu chuẩn`}</Text>
                 </Text>
               </View>
 
@@ -203,7 +203,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task, onBack
           >
             <Navigation size={20} color={COLORS.surface} style={{ marginRight: 8 }} />
             <Text style={[styles.actionBtnText, { fontSize: 15, fontWeight: '900' }]}>
-              🚀 BẮT ĐẦU GIAO ĐƠN NÀY
+              BẮT ĐẦU GIAO ĐƠN NÀY
             </Text>
           </TouchableOpacity>
         ) : task.status === 'IN_TRANSIT' ? (

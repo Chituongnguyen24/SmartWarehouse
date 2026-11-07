@@ -284,8 +284,8 @@ export const InboundReceiving: React.FC = () => {
             boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
           }}
         >
-          <div style={{ fontSize: '10px', color: '#059669', fontWeight: 800 }}>🟢 An toàn</div>
-          <div style={{ fontSize: '15px', fontWeight: 900, color: '#059669', marginTop: '2px' }}>{stats.normal}</div>
+          <div style={{ fontSize: '10px', color: '#059669', fontWeight: 600 }}>An toàn</div>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#059669', marginTop: '2px' }}>{stats.normal}</div>
         </div>
 
         <div
@@ -293,15 +293,15 @@ export const InboundReceiving: React.FC = () => {
           style={{
             backgroundColor: riskFilter === 'RISK' ? '#fef3c7' : '#ffffff',
             border: `1.5px solid ${riskFilter === 'RISK' ? '#d97706' : '#e2e8f0'}`,
-            borderRadius: '12px',
+            borderRadius: '8px',
             padding: '8px 4px',
             textAlign: 'center',
             cursor: 'pointer',
             boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
           }}
         >
-          <div style={{ fontSize: '10px', color: '#d97706', fontWeight: 800 }}>🟡 Nguy cơ</div>
-          <div style={{ fontSize: '15px', fontWeight: 900, color: '#d97706', marginTop: '2px' }}>{stats.risk}</div>
+          <div style={{ fontSize: '10px', color: '#d97706', fontWeight: 600 }}>Nguy cơ</div>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#d97706', marginTop: '2px' }}>{stats.risk}</div>
         </div>
 
         <div
@@ -309,15 +309,15 @@ export const InboundReceiving: React.FC = () => {
           style={{
             backgroundColor: riskFilter === 'STORED' ? '#eff6ff' : '#ffffff',
             border: `1.5px solid ${riskFilter === 'STORED' ? '#0284c7' : '#e2e8f0'}`,
-            borderRadius: '12px',
+            borderRadius: '8px',
             padding: '8px 4px',
             textAlign: 'center',
             cursor: 'pointer',
             boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
           }}
         >
-          <div style={{ fontSize: '10px', color: '#0284c7', fontWeight: 800 }}>✅ Đã nhập</div>
-          <div style={{ fontSize: '15px', fontWeight: 900, color: '#0284c7', marginTop: '2px' }}>{stats.stored}</div>
+          <div style={{ fontSize: '10px', color: '#0284c7', fontWeight: 600 }}>Đã nhập</div>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#0284c7', marginTop: '2px' }}>{stats.stored}</div>
         </div>
       </div>
 
@@ -336,8 +336,8 @@ export const InboundReceiving: React.FC = () => {
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#059669', padding: '3px 9px', borderRadius: '6px', fontWeight: 900, border: '1px solid #bbf7d0' }}>
-              📋 BIÊN BẢN QC: {selectedInbound.orderCode}
+            <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#059669', padding: '3px 9px', borderRadius: '6px', fontWeight: 600, border: '1px solid #bbf7d0', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <FileText size={12} /> BIÊN BẢN QC: {selectedInbound.orderCode}
             </span>
             <button
               onClick={() => setSelectedInbound(null)}
@@ -348,7 +348,7 @@ export const InboundReceiving: React.FC = () => {
           </div>
 
           <div>
-            <h3 style={{ margin: '0 0 2px 0', fontSize: '15px', fontWeight: 900, color: '#0f172a' }}>
+            <h3 style={{ margin: '0 0 2px 0', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>
               {selectedInbound.supplierName}
             </h3>
             <div style={{ fontSize: '11.5px', color: '#64748b' }}>
@@ -357,12 +357,12 @@ export const InboundReceiving: React.FC = () => {
           </div>
 
           {/* QC Inspection Form */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
             
             {/* Field 1: Measured Temp */}
             <div>
-              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 800, color: '#334155', marginBottom: '4px' }}>
-                🌡️ Nhiệt Độ Thùng Lạnh Thực Đo (°C) *
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '11.5px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
+                <Thermometer size={14} /> Nhiệt Độ Thùng Lạnh Thực Đo (°C) *
               </label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <input
@@ -376,7 +376,7 @@ export const InboundReceiving: React.FC = () => {
                     padding: '8px 12px',
                     borderRadius: '8px',
                     fontSize: '14px',
-                    fontWeight: 900,
+                    fontWeight: 700,
                     width: '80px',
                     textAlign: 'center',
                   }}
@@ -385,11 +385,11 @@ export const InboundReceiving: React.FC = () => {
                   const t = parseFloat(measuredTemp);
                   if (isNaN(t)) return null;
                   if (t <= 4.0 && t >= 0.0) {
-                    return <span style={{ fontSize: '11.5px', color: '#059669', fontWeight: 700 }}>✅ Chuẩn chuỗi lạnh</span>;
+                    return <span style={{ fontSize: '11.5px', color: '#059669', fontWeight: 600 }}>Chuẩn chuỗi lạnh</span>;
                   } else if (t <= 5.0) {
-                    return <span style={{ fontSize: '11.5px', color: '#d97706', fontWeight: 700 }}>⚠️ Tiệm cận trần nhiệt độ</span>;
+                    return <span style={{ fontSize: '11.5px', color: '#d97706', fontWeight: 600 }}>Tiệm cận trần nhiệt độ</span>;
                   } else {
-                    return <span style={{ fontSize: '11.5px', color: '#dc2626', fontWeight: 800 }}>⛔ Vi phạm dải nhiệt lạnh!</span>;
+                    return <span style={{ fontSize: '11.5px', color: '#dc2626', fontWeight: 600 }}>Vi phạm dải nhiệt lạnh!</span>;
                   }
                 })()}
               </div>
@@ -397,8 +397,8 @@ export const InboundReceiving: React.FC = () => {
 
             {/* Field 2: Seal intact */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: '12px', color: '#334155', fontWeight: 700 }}>
-                🔒 Tem niêm phong & Seal xe nguyên vẹn
+              <span style={{ fontSize: '12px', color: '#334155', fontWeight: 600 }}>
+                Tem niêm phong & Seal xe nguyên vẹn
               </span>
               <button
                 type="button"
@@ -408,9 +408,9 @@ export const InboundReceiving: React.FC = () => {
                   color: '#ffffff',
                   border: 'none',
                   padding: '5px 12px',
-                  borderRadius: '8px',
+                  borderRadius: '6px',
                   fontSize: '11.5px',
-                  fontWeight: 800,
+                  fontWeight: 600,
                   cursor: 'pointer',
                 }}
               >
@@ -420,8 +420,8 @@ export const InboundReceiving: React.FC = () => {
 
             {/* Field 3: Packaging intact */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: '12px', color: '#334155', fontWeight: 700 }}>
-                📦 Bao bì & Quy cách đóng gói chuẩn
+              <span style={{ fontSize: '12px', color: '#334155', fontWeight: 600 }}>
+                Bao bì & Quy cách đóng gói chuẩn
               </span>
               <button
                 type="button"
@@ -431,9 +431,9 @@ export const InboundReceiving: React.FC = () => {
                   color: '#ffffff',
                   border: 'none',
                   padding: '5px 12px',
-                  borderRadius: '8px',
+                  borderRadius: '6px',
                   fontSize: '11.5px',
-                  fontWeight: 800,
+                  fontWeight: 600,
                   cursor: 'pointer',
                 }}
               >
@@ -443,8 +443,8 @@ export const InboundReceiving: React.FC = () => {
 
             {/* Field 4: Expiry Check */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: '12px', color: '#334155', fontWeight: 700 }}>
-                🥦 Hạn dùng còn &gt; 80% thời hạn
+              <span style={{ fontSize: '12px', color: '#334155', fontWeight: 600 }}>
+                Hạn dùng còn &gt; 80% thời hạn
               </span>
               <button
                 type="button"
@@ -467,11 +467,11 @@ export const InboundReceiving: React.FC = () => {
           </div>
 
           {/* Shelf Placement Recommendation */}
-          <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '10px 12px' }}>
-            <div style={{ fontSize: '11px', color: '#0284c7', fontWeight: 800 }}>
-              💡 VỊ TRÍ GỢI Ý LƯU KHO TỰ ĐỘNG:
+          <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '10px 12px' }}>
+            <div style={{ fontSize: '11px', color: '#0284c7', fontWeight: 600 }}>
+              VỊ TRÍ GỢI Ý LƯU KHO TỰ ĐỘNG:
             </div>
-            <div style={{ fontSize: '12.5px', color: '#0f172a', fontWeight: 800, marginTop: '2px' }}>
+            <div style={{ fontSize: '12.5px', color: '#0f172a', fontWeight: 600, marginTop: '2px' }}>
               Kệ <b>B2-01 (Kho Lạnh B)</b> • Sinh Mã Lô: <b style={{ color: '#d97706' }}>LOT-{new Date().toISOString().slice(0, 10).replace(/-/g, '')}-01</b>
             </div>
           </div>
@@ -487,9 +487,9 @@ export const InboundReceiving: React.FC = () => {
                 color: '#dc2626',
                 border: '1px solid #fca5a5',
                 padding: '11px',
-                borderRadius: '10px',
+                borderRadius: '8px',
                 fontSize: '12px',
-                fontWeight: 800,
+                fontWeight: 600,
                 cursor: 'pointer',
               }}
             >
@@ -504,15 +504,14 @@ export const InboundReceiving: React.FC = () => {
                 color: '#ffffff',
                 border: 'none',
                 padding: '11px',
-                borderRadius: '10px',
+                borderRadius: '8px',
                 fontSize: '12.5px',
-                fontWeight: 900,
+                fontWeight: 600,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '6px',
-                boxShadow: '0 4px 12px rgba(5, 150, 105, 0.3)',
               }}
             >
               <ShieldCheck size={16} />
@@ -527,14 +526,14 @@ export const InboundReceiving: React.FC = () => {
         <div
           style={{
             backgroundColor: '#ecfdf5',
-            borderRadius: '16px',
+            borderRadius: '8px',
             padding: '16px',
             border: '1.5px solid #059669',
             textAlign: 'center',
           }}
         >
           <CheckCircle2 size={32} color="#059669" style={{ margin: '0 auto 8px' }} />
-          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 900, color: '#065f46' }}>
+          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#065f46' }}>
             Đã Hoàn Tất Kiểm Định & Ghi Sổ Nhập Kho!
           </h3>
           <p style={{ margin: '4px 0 12px 0', fontSize: '11.5px', color: '#047857' }}>
@@ -549,7 +548,7 @@ export const InboundReceiving: React.FC = () => {
               borderRadius: '8px',
               padding: '6px 14px',
               fontSize: '11.5px',
-              fontWeight: 800,
+              fontWeight: 600,
               cursor: 'pointer',
             }}
           >
@@ -560,7 +559,7 @@ export const InboundReceiving: React.FC = () => {
 
       {/* Inbound List */}
       <div>
-        <div style={{ fontSize: '12px', fontWeight: 800, color: '#64748b', marginBottom: '8px' }}>
+        <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '8px' }}>
           DANH SÁCH CHUYẾN XE ĐẾN KHO ({filteredInbounds.length}):
         </div>
 
@@ -568,7 +567,7 @@ export const InboundReceiving: React.FC = () => {
           {filteredInbounds.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
               <Boxes size={36} style={{ margin: '0 auto 8px auto', opacity: 0.5 }} />
-              <div style={{ fontSize: '13px', fontWeight: 700 }}>Không có chuyến xe nhập hàng nào</div>
+              <div style={{ fontSize: '13px', fontWeight: 600 }}>Không có chuyến xe nhập hàng nào</div>
             </div>
           ) : (
             filteredInbounds.map(it => {
@@ -581,10 +580,9 @@ export const InboundReceiving: React.FC = () => {
                   key={it.id}
                   style={{
                     backgroundColor: '#ffffff',
-                    borderRadius: '16px',
+                    borderRadius: '8px',
                     padding: '14px',
                     border: `1.5px solid ${isDone ? '#86efac' : isRejected ? '#fca5a5' : it.riskLevel === 'CRITICAL' ? '#fca5a5' : it.riskLevel === 'RISK' ? '#fcd34d' : '#e2e8f0'}`,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
@@ -592,14 +590,14 @@ export const InboundReceiving: React.FC = () => {
                 >
                   <div style={{ flex: 1, marginRight: '10px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
-                      <span style={{ fontSize: '11.5px', fontWeight: 900, color: '#0284c7' }}>{it.orderCode}</span>
+                      <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#0284c7' }}>{it.orderCode}</span>
                       {isDone ? (
-                        <span style={{ fontSize: '9.5px', backgroundColor: '#dcfce7', color: '#059669', padding: '1px 6px', borderRadius: '4px', fontWeight: 800, border: '1px solid #bbf7d0' }}>
-                          ✅ Đã Lưu Kho
+                        <span style={{ fontSize: '9.5px', backgroundColor: '#dcfce7', color: '#059669', padding: '1px 6px', borderRadius: '4px', fontWeight: 600, border: '1px solid #bbf7d0' }}>
+                          Đã Lưu Kho
                         </span>
                       ) : isRejected ? (
-                        <span style={{ fontSize: '9.5px', backgroundColor: '#fee2e2', color: '#dc2626', padding: '1px 6px', borderRadius: '4px', fontWeight: 800, border: '1px solid #fecaca' }}>
-                          ⛔ Đã Từ Chối
+                        <span style={{ fontSize: '9.5px', backgroundColor: '#fee2e2', color: '#dc2626', padding: '1px 6px', borderRadius: '4px', fontWeight: 600, border: '1px solid #fecaca' }}>
+                          Đã Từ Chối
                         </span>
                       ) : (
                         <span

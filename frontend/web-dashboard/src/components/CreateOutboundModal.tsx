@@ -352,7 +352,7 @@ export const CreateOutboundModal: React.FC<CreateOutboundModalProps> = ({
     }
 
     if (shortageItems.length > 0) {
-      const errorMsg = `⚠️ CẢNH BÁO THIẾU HỤT TỒN KHO:\n` + shortageItems.map(s => `• ${s.name} (${s.sku}): Tồn kho ${warehouseCode} chỉ còn ${s.available}, yêu cầu xuất ${s.requested}!`).join('\n') + `\n\nVui lòng điều chỉnh số lượng xuất hoặc kiểm tra lại tồn kho.`;
+      const errorMsg = `CẢNH BÁO THIẾU HỤT TỒN KHO:\n` + shortageItems.map(s => `• ${s.name} (${s.sku}): Tồn kho ${warehouseCode} chỉ còn ${s.available}, yêu cầu xuất ${s.requested}!`).join('\n') + `\n\nVui lòng điều chỉnh số lượng xuất hoặc kiểm tra lại tồn kho.`;
       setValidationError(errorMsg);
       alert(errorMsg);
       return;
@@ -538,10 +538,10 @@ export const CreateOutboundModal: React.FC<CreateOutboundModalProps> = ({
                   onChange={e => setTransactionType(e.target.value as any)}
                   style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 700, background: '#fff', color: '#1e293b' }}
                 >
-                  <option value="XUAT_BAN_FEFO">🏷️ 1. Xuất bán hàng TMĐT / Siêu thị (Nợ 632 - Có 1561)</option>
-                  <option value="DIEU_CHUYEN">🏷️ 2. Xuất điều chuyển chi nhánh (Nợ 1561 - Có 1561)</option>
-                  <option value="TRA_HANG_NCC">🏷️ 3. Xuất trả lại hàng cho NCC (Nợ 331 - Có 1561)</option>
-                  <option value="XUAT_HUY">🏷️ 4. Xuất tiêu hủy hàng hết hạn / hư hỏng (Nợ 632, 811 - Có 1561)</option>
+                  <option value="XUAT_BAN_FEFO">1. Xuất bán hàng TMĐT / Siêu thị (Nợ 632 - Có 1561)</option>
+                  <option value="DIEU_CHUYEN">2. Xuất điều chuyển chi nhánh (Nợ 1561 - Có 1561)</option>
+                  <option value="TRA_HANG_NCC">3. Xuất trả lại hàng cho NCC (Nợ 331 - Có 1561)</option>
+                  <option value="XUAT_HUY">4. Xuất tiêu hủy hàng hết hạn / hư hỏng (Nợ 632, 811 - Có 1561)</option>
                 </select>
               </div>
 
@@ -552,12 +552,12 @@ export const CreateOutboundModal: React.FC<CreateOutboundModalProps> = ({
                 <select
                   value={warehouseCode}
                   onChange={e => setWarehouseCode(e.target.value)}
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '2px solid #0f766e', fontWeight: 700, background: '#f0fdfa', color: '#0f766e' }}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 600, background: '#fff', color: '#0f766e' }}
                 >
-                  <option value="WH-006">🏢 Kho Gò Vấp (WH-006) - 350 Quang Trung</option>
-                  <option value="WH-001">🏢 Kho Quận 12 (WH-001) - 12 Tô Ký</option>
-                  <option value="WH-002">🏢 Kho Thủ Đức (WH-002) - 1 Võ Văn Ngân</option>
-                  <option value="WH-005">🏢 Kho Bình Thạnh (WH-005) - 150 Điện Biên Phủ</option>
+                  <option value="WH-006">Kho Gò Vấp (WH-006) - 350 Quang Trung</option>
+                  <option value="WH-001">Kho Quận 12 (WH-001) - 12 Tô Ký</option>
+                  <option value="WH-002">Kho Thủ Đức (WH-002) - 1 Võ Văn Ngân</option>
+                  <option value="WH-005">Kho Bình Thạnh (WH-005) - 150 Điện Biên Phủ</option>
                 </select>
               </div>
 

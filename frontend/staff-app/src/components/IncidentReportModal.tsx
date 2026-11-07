@@ -174,11 +174,11 @@ export const IncidentReportModal: React.FC<Props> = ({
                   outline: 'none',
                 }}
               >
-                <option value="DAMAGED_PACKAGE">📦 Hàng rách bao bì / Bể vỡ / Móp méo</option>
-                <option value="TEMPERATURE_LEAK">❄️ Rò rỉ nhiệt độ / Buồng lạnh mất nhiệt</option>
-                <option value="BROKEN_SHELF">🏗️ Kệ hàng bị lún / Xô lệch kết cấu</option>
-                <option value="BARCODE_UNREADABLE">🏷️ Mã vạch bị mờ / Rách không thể quét</option>
-                <option value="OTHER">⚠️ Sự cố khác...</option>
+                <option value="DAMAGED_PACKAGE">Hàng rách bao bì / Bể vỡ / Móp méo</option>
+                <option value="TEMPERATURE_LEAK">Rò rỉ nhiệt độ / Buồng lạnh mất nhiệt</option>
+                <option value="BROKEN_SHELF">Kệ hàng bị lún / Xô lệch kết cấu</option>
+                <option value="BARCODE_UNREADABLE">Mã vạch bị mờ / Rách không thể quét</option>
+                <option value="OTHER">Sự cố khác...</option>
               </select>
             </div>
 

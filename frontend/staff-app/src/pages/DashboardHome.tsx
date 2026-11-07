@@ -15,7 +15,6 @@ import {
   Clock,
   FileSpreadsheet,
   AlertTriangle,
-  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { fetchOutboundOrders, fetchInboundOrdersApi } from '../services/api';
@@ -141,17 +140,16 @@ export const DashboardHome: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div
               style={{
-                width: '46px',
-                height: '46px',
-                borderRadius: '14px',
-                background: 'linear-gradient(135deg, #008848 0%, #059669 100%)',
+                width: '42px',
+                height: '42px',
+                borderRadius: '8px',
+                backgroundColor: '#008848',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontWeight: 900,
-                fontSize: '16px',
+                fontWeight: 700,
+                fontSize: '15px',
                 color: '#ffffff',
-                boxShadow: '0 4px 12px rgba(0, 136, 72, 0.25)',
               }}
             >
               {initials}
@@ -214,9 +212,9 @@ export const DashboardHome: React.FC = () => {
             fontSize: '11.5px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#0369a1', fontWeight: 800 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#0369a1', fontWeight: 600 }}>
             <MapPin size={14} color="#0284c7" />
-            <span>🔒 Kho trực thuộc: <b>{user?.warehouseName || 'Kho Gò Vấp'} ({user?.warehouseCode || 'WH-006'})</b></span>
+            <span>Kho trực thuộc: <b>{user?.warehouseName || 'Kho Gò Vấp'} ({user?.warehouseCode || 'WH-006'})</b></span>
           </div>
 
           <button
@@ -230,7 +228,7 @@ export const DashboardHome: React.FC = () => {
               borderRadius: '8px',
               padding: '4px 8px',
               color: '#059669',
-              fontWeight: 800,
+              fontWeight: 600,
               fontSize: '11px',
               cursor: 'pointer',
             }}
@@ -247,24 +245,22 @@ export const DashboardHome: React.FC = () => {
         <div
           onClick={() => navigate('/lookup')}
           style={{
-            background: 'linear-gradient(135deg, #008848 0%, #059669 100%)',
-            borderRadius: '20px',
+            backgroundColor: '#008848',
+            borderRadius: '8px',
             padding: '16px 14px',
             color: '#ffffff',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
             cursor: 'pointer',
-            boxShadow: '0 8px 25px -5px rgba(0, 136, 72, 0.35)',
             minHeight: '110px',
-            transition: 'transform 0.15s ease',
           }}
         >
           <div
             style={{
               width: '38px',
               height: '38px',
-              borderRadius: '12px',
+              borderRadius: '6px',
               backgroundColor: 'rgba(255, 255, 255, 0.2)',
               display: 'flex',
               alignItems: 'center',
@@ -274,7 +270,7 @@ export const DashboardHome: React.FC = () => {
             <ScanBarcode size={22} color="#ffffff" />
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 900 }}>Quét mã tra cứu</h3>
+            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700 }}>Quét mã tra cứu</h3>
             <p style={{ margin: '2px 0 0 0', fontSize: '11px', opacity: 0.9 }}>
               Kiểm tra tồn kho & vị trí kệ
             </p>
@@ -284,24 +280,22 @@ export const DashboardHome: React.FC = () => {
         <div
           onClick={() => navigate('/lookup?view=3d')}
           style={{
-            background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-            borderRadius: '20px',
+            backgroundColor: '#0284c7',
+            borderRadius: '8px',
             padding: '16px 14px',
             color: '#ffffff',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
             cursor: 'pointer',
-            boxShadow: '0 8px 25px -5px rgba(2, 132, 199, 0.35)',
             minHeight: '110px',
-            transition: 'transform 0.15s ease',
           }}
         >
           <div
             style={{
               width: '38px',
               height: '38px',
-              borderRadius: '12px',
+              borderRadius: '6px',
               backgroundColor: 'rgba(255, 255, 255, 0.2)',
               display: 'flex',
               alignItems: 'center',
@@ -311,7 +305,7 @@ export const DashboardHome: React.FC = () => {
             <Boxes size={22} color="#ffffff" />
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 900 }}>Sơ Đồ Kho 3D</h3>
+            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700 }}>Sơ Đồ Kho 3D</h3>
             <p style={{ margin: '2px 0 0 0', fontSize: '11px', opacity: 0.9 }}>
               Xem vị trí kệ & hàng hóa
             </p>
@@ -321,8 +315,8 @@ export const DashboardHome: React.FC = () => {
 
       {/* Daily Shift Task Overview Grid */}
       <div>
-        <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#64748b', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-          ⚡ CHỨC NĂNG VẬN HÀNH KHO:
+        <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+          CHỨC NĂNG VẬN HÀNH KHO:
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
@@ -459,8 +453,8 @@ export const DashboardHome: React.FC = () => {
 
       {/* Shift Handover & Incident Management Section */}
       <div>
-        <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#64748b', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-          📋 QUẢN LÝ CA TRỰC & AN TOÀN KHO:
+        <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+          QUẢN LÝ CA TRỰC & AN TOÀN KHO:
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
@@ -469,23 +463,21 @@ export const DashboardHome: React.FC = () => {
             onClick={() => setIsShiftModalOpen(true)}
             style={{
               backgroundColor: '#ffffff',
-              borderRadius: '18px',
+              borderRadius: '8px',
               padding: '16px 14px',
-              border: '1.5px solid #a7f3d0',
+              border: '1px solid #a7f3d0',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '12px',
-              boxShadow: '0 4px 12px rgba(5, 150, 105, 0.06)',
-              transition: 'all 0.15s ease',
             }}
           >
             <div
               style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, #008848 0%, #059669 100%)',
+                width: '38px',
+                height: '38px',
+                borderRadius: '8px',
+                backgroundColor: '#008848',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -493,11 +485,11 @@ export const DashboardHome: React.FC = () => {
                 flexShrink: 0,
               }}
             >
-              <FileSpreadsheet size={22} />
+              <FileSpreadsheet size={20} />
             </div>
             <div>
-              <div style={{ fontSize: '14px', fontWeight: 900, color: '#0f172a' }}>Giao ca trực</div>
-              <div style={{ fontSize: '11px', color: '#059669', fontWeight: 700, marginTop: '2px' }}>Tổng kết KPI ca</div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>Giao ca trực</div>
+              <div style={{ fontSize: '11px', color: '#059669', fontWeight: 600, marginTop: '2px' }}>Tổng kết KPI ca</div>
             </div>
           </div>
 
@@ -506,23 +498,21 @@ export const DashboardHome: React.FC = () => {
             onClick={() => setIsIncidentModalOpen(true)}
             style={{
               backgroundColor: '#ffffff',
-              borderRadius: '18px',
+              borderRadius: '8px',
               padding: '16px 14px',
-              border: '1.5px solid #fed7aa',
+              border: '1px solid #fed7aa',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '12px',
-              boxShadow: '0 4px 12px rgba(234, 88, 12, 0.06)',
-              transition: 'all 0.15s ease',
             }}
           >
             <div
               style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
+                width: '38px',
+                height: '38px',
+                borderRadius: '8px',
+                backgroundColor: '#ea580c',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -530,10 +520,10 @@ export const DashboardHome: React.FC = () => {
                 flexShrink: 0,
               }}
             >
-              <AlertTriangle size={22} />
+              <AlertTriangle size={20} />
             </div>
             <div>
-              <div style={{ fontSize: '14px', fontWeight: 900, color: '#0f172a' }}>Báo sự cố</div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>Báo sự cố</div>
               <div style={{ fontSize: '11px', color: '#ea580c', fontWeight: 700, marginTop: '2px' }}>Nhiệt độ / Rách hỏng</div>
             </div>
           </div>

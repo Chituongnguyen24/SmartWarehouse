@@ -101,7 +101,7 @@ const CustomerCart: React.FC = () => {
 
       if (res.ok) {
         clearCart();
-        alert(`🎉 Đặt hàng thành công! Mã đơn hàng: ${generatedId}`);
+        alert(`Đặt hàng thành công! Mã đơn hàng: ${generatedId}`);
         navigate('/my-orders');
       } else {
         alert('Có lỗi xảy ra từ máy chủ, vui lòng thử lại.');

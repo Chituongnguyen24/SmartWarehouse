@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
+import { Box, RotateCcw, Settings, Eye, Layers, Compass, Grid, MapPin, Printer, ArrowRight, X } from 'lucide-react';
 
 export interface ShelfItem3D {
   sku: string;
@@ -247,7 +248,7 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
     ctx.font = 'bold 28px "Segoe UI", sans-serif';
     ctx.textAlign = 'center';
     const expText = isNear
-      ? `⚠️ CẬN DATE: Còn ${it.daysRemaining} ngày`
+      ? `CẬN DATE: Còn ${it.daysRemaining} ngày`
       : `HSD: ${it.expiryDate} (Còn ${it.daysRemaining} ngày)`;
     ctx.fillText(expText, 256, 258);
 
@@ -665,7 +666,7 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
           }
 
           const pointerPin = createTextSprite(
-            `📍 ${it.lotCode} • T${lvl}-C${col} (${rowDeep})`,
+            `${it.lotCode} • T${lvl}-C${col} (${rowDeep})`,
             '#eab308',
             '#0f172a'
           );
@@ -1068,8 +1069,8 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
             color: '#ffffff',
           }}
         >
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎮</div>
-          <h3 style={{ fontSize: '18px', fontWeight: 900, color: '#facc15', margin: '0 0 10px' }}>
+          <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><Box size={40} color="#facc15" /></div>
+          <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#facc15', margin: '0 0 10px' }}>
             Trình Duyệt Đang Tạm Khóa Tăng Tốc Đồ Họa 3D WebGL
           </h3>
           <p style={{ fontSize: '13px', color: '#94a3b8', maxWidth: '600px', lineHeight: '1.6', margin: '0 0 20px' }}>
@@ -1087,13 +1088,16 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
                 color: '#ffffff',
                 border: 'none',
                 padding: '10px 20px',
-                borderRadius: '10px',
-                fontWeight: 800,
+                borderRadius: '8px',
+                fontWeight: 600,
                 fontSize: '13px',
                 cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6
               }}
             >
-              🔄 Tải Lại và Khởi Chạy 3D Ngay
+              <RotateCcw size={14} /> Tải Lại và Khởi Chạy 3D Ngay
             </button>
             <button
               onClick={() => window.open('chrome://settings/system', '_blank')}
@@ -1102,13 +1106,16 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
                 color: '#38bdf8',
                 border: '1px solid #38bdf8',
                 padding: '10px 20px',
-                borderRadius: '10px',
-                fontWeight: 800,
+                borderRadius: '8px',
+                fontWeight: 600,
                 fontSize: '13px',
                 cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6
               }}
             >
-              ⚙️ Mở Cài Đặt GPU Trình Duyệt
+              <Settings size={14} /> Mở Cài Đặt GPU Trình Duyệt
             </button>
           </div>
         </div>
@@ -1142,14 +1149,14 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
               borderRadius: '8px',
               border: 'none',
               fontSize: '11.5px',
-              fontWeight: 800,
+              fontWeight: 600,
               cursor: 'pointer',
               backgroundColor: viewMode === 'RACK_FRONT' ? '#0284c7' : 'transparent',
               color: viewMode === 'RACK_FRONT' ? '#ffffff' : '#94a3b8',
               transition: 'all 0.2s',
             }}
           >
-            👁️ Mặt Trước ({currentSelectedRack ? currentSelectedRack.name.split('(')[0].trim() : 'Kệ'})
+            Mặt Trước ({currentSelectedRack ? currentSelectedRack.name.split('(')[0].trim() : 'Kệ'})
           </button>
 
           {/* Back Face Button */}
@@ -1161,14 +1168,14 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
               borderRadius: '8px',
               border: 'none',
               fontSize: '11.5px',
-              fontWeight: 800,
+              fontWeight: 600,
               cursor: 'pointer',
               backgroundColor: viewMode === 'RACK_BACK' ? '#0891b2' : 'transparent',
               color: viewMode === 'RACK_BACK' ? '#ffffff' : '#94a3b8',
               transition: 'all 0.2s',
             }}
           >
-            🔄 Mặt Sau (Hàng Sâu)
+            Mặt Sau (Hàng Sâu)
           </button>
 
           {/* Toggle Isolate Rack Button (Visible during front/back inspection) */}
@@ -1181,7 +1188,7 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
                 borderRadius: '8px',
                 border: isolateRack ? '1px solid #38bdf8' : '1px solid #64748b',
                 fontSize: '11.5px',
-                fontWeight: 900,
+                fontWeight: 600,
                 cursor: 'pointer',
                 backgroundColor: isolateRack ? 'rgba(2, 132, 199, 0.45)' : '#1e293b',
                 color: isolateRack ? '#38bdf8' : '#cbd5e1',
@@ -1191,7 +1198,7 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
                 transition: 'all 0.2s',
               }}
             >
-              <span>{isolateRack ? '✨ Đang Ẩn Kệ Khác (Không Bị Che)' : '🏢 Hiện Lại Toàn Bộ Kệ'}</span>
+              <span>{isolateRack ? 'Đang Tách Biệt Kệ' : 'Hiện Lại Toàn Bộ Kệ'}</span>
             </button>
           )}
 
@@ -1204,14 +1211,14 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
               borderRadius: '8px',
               border: 'none',
               fontSize: '11.5px',
-              fontWeight: 800,
+              fontWeight: 600,
               cursor: 'pointer',
               backgroundColor: viewMode === 'ISOMETRIC' ? '#0284c7' : 'transparent',
               color: viewMode === 'ISOMETRIC' ? '#ffffff' : '#94a3b8',
               transition: 'all 0.2s',
             }}
           >
-            🌐 Toàn Cảnh
+            Toàn Cảnh
           </button>
 
           {/* Top Down View */}
@@ -1223,14 +1230,14 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
               borderRadius: '8px',
               border: 'none',
               fontSize: '11.5px',
-              fontWeight: 800,
+              fontWeight: 600,
               cursor: 'pointer',
               backgroundColor: viewMode === 'TOP_DOWN' ? '#0284c7' : 'transparent',
               color: viewMode === 'TOP_DOWN' ? '#ffffff' : '#94a3b8',
               transition: 'all 0.2s',
             }}
           >
-            🗺️ Mặt Bằng
+            Mặt Bằng
           </button>
 
           {/* Aisle Walkway View */}
@@ -1242,14 +1249,14 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
               borderRadius: '8px',
               border: 'none',
               fontSize: '11.5px',
-              fontWeight: 800,
+              fontWeight: 600,
               cursor: 'pointer',
               backgroundColor: viewMode === 'AISLE' ? '#0284c7' : 'transparent',
               color: viewMode === 'AISLE' ? '#ffffff' : '#94a3b8',
               transition: 'all 0.2s',
             }}
           >
-            🚶 Lối Đi
+            Lối Đi
           </button>
 
           {/* Drag & Drop Rack Toggle */}
@@ -1260,17 +1267,16 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
               borderRadius: '8px',
               border: isLayoutEditMode ? '1px solid #22c55e' : '1px solid #475569',
               fontSize: '11.5px',
-              fontWeight: 900,
+              fontWeight: 600,
               cursor: 'pointer',
               backgroundColor: isLayoutEditMode ? '#15803d' : '#1e293b',
               color: '#ffffff',
               display: 'flex',
               alignItems: 'center',
               gap: '5px',
-              boxShadow: isLayoutEditMode ? '0 0 15px rgba(34, 197, 94, 0.5)' : 'none',
             }}
           >
-            <span>{isLayoutEditMode ? '✅ Đang Kéo Thả Kệ' : '🛠️ Kéo Thả Sắp Xếp Kệ'}</span>
+            <span>{isLayoutEditMode ? 'Đang Kéo Thả Kệ' : 'Kéo Thả Sắp Xếp Kệ'}</span>
           </button>
         </div>
       )}
@@ -1284,23 +1290,23 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
             right: '16px',
             backgroundColor: 'rgba(15, 23, 42, 0.85)',
             padding: '6px 12px',
-            borderRadius: '10px',
+            borderRadius: '8px',
             backdropFilter: 'blur(8px)',
             border: '1px solid rgba(51, 65, 85, 0.8)',
             fontSize: '11px',
             color: isLayoutEditMode ? '#4ade80' : '#38bdf8',
-            fontWeight: 700,
+            fontWeight: 600,
             zIndex: 10,
             display: 'flex',
             gap: '10px',
           }}
         >
           {isLayoutEditMode ? (
-            <span>✋ Giữ chuột trái vào Kệ để kéo thả di chuyển vị trí trong kho!</span>
+            <span>Giữ chuột trái vào Kệ để kéo thả di chuyển vị trí trong kho!</span>
           ) : (
             <>
-              <span>❄️ Hiệu Ứng Sương Khói PBR</span>
-              <span>📦 Thùng Kraft Barcode</span>
+              <span>Hiệu Ứng Sương Khói PBR</span>
+              <span>Thùng Kraft Barcode</span>
             </>
           )}
         </div>
@@ -1386,15 +1392,15 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
                   TẦNG {activeBoxModal.level} • VỊ TRÍ {activeBoxModal.slot}
                 </span>
               </div>
-              <h4 style={{ margin: '4px 0 0 0', fontSize: '14px', fontWeight: 900, color: '#ffffff' }}>
+              <h4 style={{ margin: '4px 0 0 0', fontSize: '14px', fontWeight: 700, color: '#ffffff' }}>
                 {activeBoxModal.item.name}
               </h4>
             </div>
             <button
               onClick={() => setActiveBoxModal(null)}
-              style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '16px', padding: '2px 6px' }}
+              style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px 6px', display: 'flex', alignItems: 'center' }}
             >
-              ✕
+              <X size={16} />
             </button>
           </div>
 
@@ -1419,7 +1425,7 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
             <div style={{ backgroundColor: activeBoxModal.item.daysRemaining <= 3 ? '#7f1d1d' : '#1e293b', padding: '8px 10px', borderRadius: '8px', border: activeBoxModal.item.daysRemaining <= 3 ? '1px solid #ef4444' : 'none' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px' }}>
                 <span style={{ color: activeBoxModal.item.daysRemaining <= 3 ? '#fca5a5' : '#94a3b8' }}>
-                  {activeBoxModal.item.daysRemaining <= 3 ? '⚠️ CẢNH BÁO CẬN HẠN DÙNG' : 'Hạn sử dụng:'}
+                  {activeBoxModal.item.daysRemaining <= 3 ? 'CẢNH BÁO CẬN HẠN DÙNG' : 'Hạn sử dụng:'}
                 </span>
                 <b style={{ color: activeBoxModal.item.daysRemaining <= 3 ? '#fca5a5' : '#ffffff' }}>
                   {activeBoxModal.item.expiryDate} (Còn {activeBoxModal.item.daysRemaining} ngày)
@@ -1451,7 +1457,7 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
                   padding: '8px',
                   borderRadius: '8px',
                   fontSize: '11.5px',
-                  fontWeight: 800,
+                  fontWeight: 600,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -1459,7 +1465,7 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
                   gap: '4px',
                 }}
               >
-                ⚡ Xuất Hạn Gần
+                <ArrowRight size={14} /> Xuất Hạn Gần
               </button>
               <button
                 onClick={() => alert(`Đang in mã vạch QR cho thùng hàng: [${activeBoxModal.item.sku}] - Lô ${activeBoxModal.item.lotCode}`)}
@@ -1470,7 +1476,7 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
                   padding: '8px',
                   borderRadius: '8px',
                   fontSize: '11.5px',
-                  fontWeight: 800,
+                  fontWeight: 600,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -1478,7 +1484,7 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
                   gap: '4px',
                 }}
               >
-                🖨️ In Mã QR
+                <Printer size={14} /> In Mã QR
               </button>
             </div>
           </div>

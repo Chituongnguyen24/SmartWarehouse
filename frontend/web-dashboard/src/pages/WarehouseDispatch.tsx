@@ -170,7 +170,7 @@ export const WarehouseDispatch = () => {
     if (selectedOrder?.id === orderId) {
       setSelectedOrder(prev => (prev ? { ...prev, status: 'PICKING' } : null));
     }
-    showToast(`✅ Đã tiếp nhận đơn #${orders.find(o => o.id === orderId)?.orderCode}. Đã khởi tạo danh mục soạn hàng!`);
+    showToast(`Đã tiếp nhận đơn #${orders.find(o => o.id === orderId)?.orderCode}. Đã khởi tạo danh mục soạn hàng.`);
   };
 
   // Action: Toggle item pick state
@@ -201,7 +201,7 @@ export const WarehouseDispatch = () => {
     if (selectedOrder?.id === orderId) {
       setSelectedOrder(prev => (prev ? { ...prev, status: 'PACKED', packageType: 'Thùng xốp bảo quản lạnh 0-4°C + Gel đá' } : null));
     }
-    showToast(`📦 Hoàn tất soạn hàng đơn #${selectedOrder?.orderCode}. Chuyển sang khu vực Đóng gói QC!`);
+    showToast(`Hoàn tất soạn hàng đơn #${selectedOrder?.orderCode}. Chuyển sang khu vực Đóng gói QC.`);
   };
 
   // Action: Complete Packing
@@ -212,7 +212,7 @@ export const WarehouseDispatch = () => {
     if (selectedOrder?.id === orderId) {
       setSelectedOrder(prev => (prev ? { ...prev, status: 'READY_FOR_DELIVERY', packageType: packageTypeStr } : null));
     }
-    showToast(`🏷️ Đã dán nhãn đóng gói thành công đơn #${selectedOrder?.orderCode}! Sẵn sàng bàn giao tài xế.`);
+    showToast(`Đã dán nhãn đóng gói thành công đơn #${selectedOrder?.orderCode}. Sẵn sàng bàn giao tài xế.`);
   };
 
   // Action: Assign Driver & Dispatch
@@ -252,7 +252,7 @@ export const WarehouseDispatch = () => {
           : null
       );
     }
-    showToast(`🚚 Đã phân công tài xế ${driver.name} giao đơn #${selectedOrder?.orderCode}!`);
+    showToast(`Đã phân công tài xế ${driver.name} giao đơn #${selectedOrder?.orderCode}.`);
   };
 
   return (
@@ -542,28 +542,28 @@ export const WarehouseDispatch = () => {
                   <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', padding: '12px 16px', borderRadius: '10px', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <MapPin size={18} color="#008848" />
-                      <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#166534' }}>
-                        LỘ TRÌNH SOẠN HÀNG TỐI ƯU:
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#166534' }}>
+                        Lộ trình soạn hàng tối ưu:
                       </span>
-                      <span style={{ fontSize: '0.85rem', color: '#15803d', fontWeight: 600 }}>
-                        Lấy từ Kho Lạnh (0-4°C) ➔ Kho Đông (-18°C) ➔ Kho Khô ➔ Khu Đóng Gói
+                      <span style={{ fontSize: '0.85rem', color: '#15803d', fontWeight: 500 }}>
+                        Kho Lạnh (0-4°C) &rarr; Kho Đông (-18°C) &rarr; Kho Khô &rarr; Khu Đóng Gói
                       </span>
                     </div>
-                    <span style={{ fontSize: '0.75rem', backgroundColor: '#dcfce7', color: '#065f46', padding: '3px 8px', borderRadius: '12px', fontWeight: 800 }}>
-                      TỐI ƯU ĐƯỜNG ĐI
+                    <span style={{ fontSize: '0.75rem', backgroundColor: '#dcfce7', color: '#065f46', padding: '3px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                      Tối ưu đường đi
                     </span>
                   </div>
 
                   {/* Item FEFO Table */}
-                  <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', backgroundColor: 'white' }}>
+                  <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px', backgroundColor: 'white' }}>
                     <table className="table" style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
                       <thead>
                         <tr style={{ backgroundColor: '#f8fafc', textAlign: 'left', fontSize: '0.78rem', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>
                           <th style={{ padding: '12px 10px', width: '110px' }}>TRẠNG THÁI</th>
                           <th style={{ padding: '12px 10px' }}>TÊN SẢN PHẨM & MÃ SP</th>
                           <th style={{ padding: '12px 10px', width: '100px' }}>SỐ LƯỢNG</th>
-                          <th style={{ padding: '12px 10px' }}>📍 VỊ TRÍ KỆ KHO</th>
-                          <th style={{ padding: '12px 10px' }}>⚡ LÔ HÀNG ƯU TIÊN (HẠN GẦN)</th>
+                          <th style={{ padding: '12px 10px' }}>VỊ TRÍ KỆ KHO</th>
+                          <th style={{ padding: '12px 10px' }}>LÔ HÀNG ƯU TIÊN (HẠN GẦN)</th>
                           <th style={{ padding: '12px 10px', width: '120px' }}>BẢO QUẢN</th>
                         </tr>
                       </thead>
@@ -576,37 +576,37 @@ export const WarehouseDispatch = () => {
                                   type="checkbox"
                                   checked={item.picked}
                                   onChange={() => handleToggleItemPicked(selectedOrder.id, item.sku)}
-                                  style={{ width: 20, height: 20, cursor: 'pointer', accentColor: '#008848' }}
+                                  style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#008848' }}
                                 />
-                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: item.picked ? '#008848' : '#64748b' }}>
+                                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: item.picked ? '#008848' : '#64748b' }}>
                                   {item.picked ? 'ĐÃ LẤY' : 'CHƯA LẤY'}
                                 </span>
                               </label>
                             </td>
-                            <td style={{ padding: 10, fontWeight: 700, color: '#1e293b' }}>
+                            <td style={{ padding: 10, fontWeight: 600, color: '#1e293b' }}>
                               {item.productName}
-                              <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>Mã: {item.sku}</div>
+                              <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>Mã: {item.sku}</div>
                             </td>
-                            <td style={{ padding: 10, fontWeight: 900, color: '#008848', fontSize: '0.95rem' }}>
+                            <td style={{ padding: 10, fontWeight: 700, color: '#008848', fontSize: '0.95rem' }}>
                               {item.requestedQuantity} {item.unit}
                             </td>
                             <td style={{ padding: 10 }}>
-                              <span style={{ backgroundColor: '#dcfce7', color: '#065f46', padding: '4px 10px', borderRadius: '6px', fontWeight: 800, fontSize: '0.82rem', border: '1px solid #86efac', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                📍 {item.suggestedSlotCode || 'K-01-A2'}
+                              <span style={{ backgroundColor: '#dcfce7', color: '#065f46', padding: '4px 8px', borderRadius: '4px', fontWeight: 600, fontSize: '0.82rem', border: '1px solid #86efac', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                {item.suggestedSlotCode || 'K-01-A2'}
                               </span>
                             </td>
                             <td style={{ padding: 10 }}>
-                              <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '3px 8px', borderRadius: 6, fontWeight: 700, fontSize: '0.8rem', display: 'inline-block' }}>
+                              <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '3px 8px', borderRadius: 4, fontWeight: 600, fontSize: '0.8rem', display: 'inline-block' }}>
                                 {item.suggestedLotCode || 'LOT-202607'}
                               </span>
-                              <div style={{ fontSize: '0.75rem', color: '#d97706', marginTop: 2, fontWeight: 600 }}>
+                              <div style={{ fontSize: '0.75rem', color: '#d97706', marginTop: 2, fontWeight: 500 }}>
                                 HSD: {item.expiryDate || '2026-07-28'} (Ưu tiên lấy trước)
                               </div>
                             </td>
                             <td style={{ padding: 10 }}>
-                              {item.zone === 'COLD' && <span style={{ color: '#059669', fontWeight: 700, backgroundColor: '#ecfdf5', padding: '3px 8px', borderRadius: '12px', fontSize: '0.75rem' }}>❄️ Mát (0-4°C)</span>}
-                              {item.zone === 'FROZEN' && <span style={{ color: '#2563eb', fontWeight: 700, backgroundColor: '#eff6ff', padding: '3px 8px', borderRadius: '12px', fontSize: '0.75rem' }}>🧊 Đông (-18°C)</span>}
-                              {item.zone === 'DRY' && <span style={{ color: '#d97706', fontWeight: 700, backgroundColor: '#fffbeb', padding: '3px 8px', borderRadius: '12px', fontSize: '0.75rem' }}>📦 Kho Khô</span>}
+                              {item.zone === 'COLD' && <span style={{ color: '#059669', fontWeight: 600, backgroundColor: '#ecfdf5', padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem' }}>Mát (0-4°C)</span>}
+                              {item.zone === 'FROZEN' && <span style={{ color: '#2563eb', fontWeight: 600, backgroundColor: '#eff6ff', padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem' }}>Đông (-18°C)</span>}
+                              {item.zone === 'DRY' && <span style={{ color: '#d97706', fontWeight: 600, backgroundColor: '#fffbeb', padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem' }}>Kho Khô</span>}
                             </td>
                           </tr>
                         ))}
@@ -652,22 +652,22 @@ export const WarehouseDispatch = () => {
                   <button
                     onClick={() => handleCompletePacking(selectedOrder.id, selectedOrder.packageType || 'Thùng xốp bảo quản lạnh')}
                     className="btn btn-primary"
-                    style={{ backgroundColor: '#008848', color: '#fff', fontWeight: 800, padding: '12px 24px', fontSize: '0.95rem' }}
+                    style={{ backgroundColor: '#008848', color: '#fff', fontWeight: 600, padding: '10px 20px', fontSize: '0.9rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}
                   >
-                    🏷️ Hoàn Tất Đóng Gói & Dán Nhãn Bàn Giao
+                    <PackageCheck size={16} /> Hoàn Tất Đóng Gói & Dán Nhãn Bàn Giao
                   </button>
                 </div>
               )}
 
               {activeTab === 'DISPATCH' && (
                 <div>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text)', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Send size={18} color="#008848" /> Điều Phối & Phân Công Tài Xế Giao Hàng
                   </h3>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
                     <div>
-                      <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--color-text-secondary)', marginBottom: 8 }}>
+                      <h4 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 8 }}>
                         Chọn Tài Xế Giao Hàng Phù Hợp:
                       </h4>
 
@@ -684,10 +684,11 @@ export const WarehouseDispatch = () => {
                             cursor: 'pointer',
                           }}
                         >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: '0.9rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, fontSize: '0.9rem' }}>
                             <span>{drv.name} ({drv.phone})</span>
-                            <span style={{ color: drv.status === 'AVAILABLE' ? '#16A34A' : '#D97706' }}>
-                              {drv.status === 'AVAILABLE' ? '🟢 Sẵn sàng' : '🚚 Đang giao'}
+                            <span style={{ color: drv.status === 'AVAILABLE' ? '#16A34A' : '#D97706', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: drv.status === 'AVAILABLE' ? '#16A34A' : '#D97706' }}></span>
+                              {drv.status === 'AVAILABLE' ? 'Sẵn sàng' : 'Đang giao'}
                             </span>
                           </div>
                           <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: 4 }}>
@@ -701,7 +702,7 @@ export const WarehouseDispatch = () => {
                     </div>
 
                     <div style={{ backgroundColor: 'var(--color-bg)', padding: 14, borderRadius: 8 }}>
-                      <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--color-text)', marginBottom: 8 }}>
+                      <h4 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text)', marginBottom: 8 }}>
                         Xác Nhận Phân Công & Bàn Giao
                       </h4>
 
@@ -715,9 +716,9 @@ export const WarehouseDispatch = () => {
                             <button
                               onClick={() => handleAssignDriver(selectedOrder.id, selectedDriver)}
                               className="btn btn-primary"
-                              style={{ backgroundColor: '#008848', color: '#fff', fontWeight: 800, padding: 12 }}
+                              style={{ backgroundColor: '#008848', color: '#fff', fontWeight: 600, padding: 10, display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}
                             >
-                              🚚 Phân Công Tài Xế & Bắt Đầu Vận Chuyển
+                              <Truck size={16} /> Phân Công Tài Xế & Bắt Đầu Vận Chuyển
                             </button>
 
                             <button
@@ -738,7 +739,7 @@ export const WarehouseDispatch = () => {
               )}
             </div>
           ) : (
-            <div style={{ background: 'var(--color-surface)', borderRadius: 12, padding: '3rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+            <div style={{ background: 'var(--color-surface)', borderRadius: 8, padding: '3rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
               Vui lòng chọn một đơn hàng bên trái để xem chi tiết và thực hiện thao tác.
             </div>
           )}
@@ -747,32 +748,32 @@ export const WarehouseDispatch = () => {
 
       {/* TAB 4: FLEET MONITOR */}
       {activeTab === 'FLEET' && (
-        <div style={{ background: 'var(--color-surface)', borderRadius: 12, padding: '1.5rem', border: '1px solid var(--color-border)' }}>
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-text)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Truck size={24} color="#008848" /> Giám Sát Đội Xe & Tài Xế Vận Chuyển Realtime
+        <div style={{ background: 'var(--color-surface)', borderRadius: 8, padding: '1.5rem', border: '1px solid var(--color-border)' }}>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Truck size={20} color="#008848" /> Giám Sát Đội Xe & Tài Xế Vận Chuyển Realtime
           </h2>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
             {drivers.map(drv => (
-              <div key={drv.id} style={{ border: '1px solid var(--color-border)', borderRadius: 10, padding: 16, backgroundColor: 'var(--color-bg)' }}>
+              <div key={drv.id} style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, backgroundColor: 'var(--color-bg)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text)' }}>{drv.name}</span>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 800, backgroundColor: drv.status === 'AVAILABLE' ? '#DCFCE7' : '#FEF3C7', color: drv.status === 'AVAILABLE' ? '#166534' : '#92400E', padding: '3px 8px', borderRadius: 12 }}>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-text)' }}>{drv.name}</span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, backgroundColor: drv.status === 'AVAILABLE' ? '#DCFCE7' : '#FEF3C7', color: drv.status === 'AVAILABLE' ? '#166534' : '#92400E', padding: '3px 8px', borderRadius: 6 }}>
                     {drv.status === 'AVAILABLE' ? 'SẴN SÀNG' : 'ĐANG GIAO HÀNG'}
                   </span>
                 </div>
 
-                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: 4 }}>
-                  📱 Số điện thoại: <strong>{drv.phone}</strong>
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Phone size={14} /> Số điện thoại: <strong>{drv.phone}</strong>
                 </div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: 4 }}>
-                  🚘 Biển số xe: <strong>{drv.licensePlate}</strong>
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Truck size={14} /> Biển số xe: <strong>{drv.licensePlate}</strong>
                 </div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: 4 }}>
-                  🌡️ Nhiệt độ thùng xe: <strong style={{ color: '#008848' }}>{drv.currentTemp}</strong>
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Thermometer size={14} /> Nhiệt độ thùng xe: <strong style={{ color: '#008848' }}>{drv.currentTemp}</strong>
                 </div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
-                  📦 Số đơn phụ trách: <strong>{drv.assignedOrdersCount} đơn</strong>
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Layers size={14} /> Số đơn phụ trách: <strong>{drv.assignedOrdersCount} đơn</strong>
                 </div>
               </div>
             ))}

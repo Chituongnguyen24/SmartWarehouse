@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Truck, Route, ArrowUpRight, Clock, MapPin, CheckCircle2, RefreshCw, Play, User, Calendar, Phone, Navigation, ShieldCheck, Thermometer, AlertTriangle, Cpu, Circle, CheckSquare, Square, X, Camera } from 'lucide-react';
+import { Truck, Route, ArrowUpRight, Clock, MapPin, CheckCircle2, RefreshCw, Play, User, Calendar, Phone, Navigation, ShieldCheck, Thermometer, AlertTriangle, Cpu, Circle, CheckSquare, Square, X, Camera, Package, DollarSign } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export interface DriverInfo {
@@ -87,7 +87,7 @@ const TransportOptimization = () => {
   const handleOptimizeVrp = async () => {
     const activeOrders = orders.filter(o => o.status === 'PENDING' || o.status === 'PICKING');
     if (activeOrders.length === 0) {
-      showToast('⚠️ Không có đơn hàng hoạt động (PENDING/PICKING) nào để tối ưu!');
+      showToast('Không có đơn hàng hoạt động (PENDING/PICKING) nào để tối ưu!');
       return;
     }
     setLoading(true);
@@ -129,13 +129,13 @@ const TransportOptimization = () => {
       if (response.ok) {
         const data = await response.json();
         setVrpResult(data);
-        showToast('✅ Đã hoàn tất tối ưu lộ trình và phân bổ chuyến giao hàng!');
+        showToast('Đã hoàn tất tối ưu lộ trình và phân bổ chuyến giao hàng!');
       } else {
         throw new Error('Failed to solve VRP');
       }
     } catch (err) {
       console.error(err);
-      showToast('❌ Lỗi khi tối ưu lộ trình giao hàng');
+      showToast('Lỗi khi tối ưu lộ trình giao hàng');
     } finally {
       setLoading(false);
     }
@@ -144,7 +144,7 @@ const TransportOptimization = () => {
   const handleOptimizeBatch = async () => {
     const outboundOrders = orders.filter(o => o.status === 'CONFIRMED');
     if (outboundOrders.length === 0) {
-      showToast('⚠️ Không có Phiếu Xuất Kho (CONFIRMED) nào để gom đơn!');
+      showToast('Không có Phiếu Xuất Kho (CONFIRMED) nào để gom đơn!');
       return;
     }
     setLoading(true);
@@ -158,11 +158,11 @@ const TransportOptimization = () => {
       if (response.ok) {
         const data = await response.json();
         setBatchRoutes(data);
-        showToast(`✅ Đã gom thành ${data.length} chuyến xe!`);
+        showToast(`Đã gom thành ${data.length} chuyến xe!`);
       }
     } catch (err) {
       console.error(err);
-      showToast('❌ Lỗi gom đơn');
+      showToast('Lỗi gom đơn');
     } finally {
       setLoading(false);
     }
@@ -179,11 +179,11 @@ const TransportOptimization = () => {
       if (response.ok) {
         const data = await response.json();
         setQuotes((prev: Record<string, any>) => ({ ...prev, [routeInfo.id]: data }));
-        showToast('✅ Đã lấy báo giá 3PL thành công!');
+        showToast('Đã lấy báo giá 3PL thành công!');
       }
     } catch (err) {
       console.error(err);
-      showToast('❌ Lỗi lấy báo giá 3PL');
+      showToast('Lỗi lấy báo giá 3PL');
     } finally {
       setLoading(false);
     }
@@ -191,7 +191,7 @@ const TransportOptimization = () => {
 
   const handleDispatch3pl = async (routeInfo: any) => {
     setLoading(true);
-    showToast('🚀 Đang kết nối API 3PL & đẩy đơn cho Shipper...');
+    showToast('Đang kết nối API 3PL & đẩy đơn cho Shipper...');
     try {
       let count = 0;
       for (const order of routeInfo.orders) {
@@ -201,12 +201,12 @@ const TransportOptimization = () => {
         });
         if (res.ok) count++;
       }
-      showToast(`🎉 Đã giao thành công ${count} đơn cho Shipper 3PL! Trạng thái chuyển sang Đang giao hàng.`);
+      showToast(`Đã giao thành công ${count} đơn cho Shipper 3PL! Trạng thái chuyển sang Đang giao hàng.`);
       setBatchRoutes(prev => prev.filter(r => r.id !== routeInfo.id));
       fetchOrders();
     } catch (err) {
       console.error(err);
-      showToast('❌ Lỗi khi kết nối đẩy đơn cho 3PL');
+      showToast('Lỗi khi kết nối đẩy đơn cho 3PL');
     } finally {
       setLoading(false);
     }
@@ -215,7 +215,7 @@ const TransportOptimization = () => {
   // Confirm delivery (POD) - For Driver
   const handleConfirmDeliverySubmit = async () => {
     if (!chkTemp || !chkPack || !chkSign) {
-      showToast('⚠️ Bạn phải xác nhận tất cả điều kiện chất lượng & ký nhận!');
+      showToast('Bạn phải xác nhận tất cả điều kiện chất lượng & ký nhận!');
       return;
     }
     
@@ -232,7 +232,7 @@ const TransportOptimization = () => {
       });
 
       if (res.ok) {
-        showToast('🎉 Giao hàng thành công! Đã cập nhật tồn kho & ví thu nhập.');
+        showToast('Giao hàng thành công! Đã cập nhật tồn kho & ví thu nhập.');
         setSelectedPodOrder(null);
         fetchOrders();
       } else {
@@ -240,7 +240,7 @@ const TransportOptimization = () => {
       }
     } catch (err) {
       console.error(err);
-      showToast('❌ Lỗi khi xác nhận giao hàng');
+      showToast('Lỗi khi xác nhận giao hàng');
     } finally {
       setLoading(false);
     }
@@ -272,36 +272,36 @@ const TransportOptimization = () => {
         {/* Welcome Banner */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', padding: '1.25rem 1.5rem', borderRadius: '16px', border: '1px solid #e9d5ff', boxShadow: '0 4px 20px -2px rgba(124, 58, 237, 0.05)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: '#f3e8ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7c3aed' }}>
-              <User size={24} />
+            <div style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: '#f3e8ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7c3aed' }}>
+              <User size={22} />
             </div>
             <div>
-              <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e1b4b' }}>
-                Chào mừng trở lại, {user?.name || 'Tài xế Võ Thanh Tùng'}! 🚚
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1e1b4b' }}>
+                Chào mừng trở lại, {user?.name || 'Tài xế Võ Thanh Tùng'}!
               </h2>
-              <p style={{ color: '#6b21a8', fontSize: '0.85rem', marginTop: '2px', fontWeight: 600 }}>
+              <p style={{ color: '#6b21a8', fontSize: '0.85rem', marginTop: '2px', fontWeight: 500 }}>
                 Nhân viên vận chuyển • Xe lạnh **TR-08 (59-P1 554.32)** • Tải trọng: **150 Kg**
               </p>
             </div>
           </div>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '10px', backgroundColor: isOnline ? '#ecfdf5' : '#fef2f2', border: `1px solid ${isOnline ? '#a7f3d0' : '#fecaca'}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', backgroundColor: isOnline ? '#ecfdf5' : '#fef2f2', border: `1px solid ${isOnline ? '#a7f3d0' : '#fecaca'}` }}>
               <Circle size={10} fill={isOnline ? '#10b981' : '#ef4444'} color={isOnline ? '#10b981' : '#ef4444'} />
-              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: isOnline ? '#065f46' : '#991b1b' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 600, color: isOnline ? '#065f46' : '#991b1b' }}>
                 {isOnline ? 'ONLINE (Đang nhận đơn)' : 'OFFLINE'}
               </span>
             </div>
             <button
               onClick={() => setIsOnline(!isOnline)}
               className="btn btn-outline"
-              style={{ borderRadius: '10px', fontWeight: 600, padding: '8px 14px', fontSize: '0.78rem', border: '1px solid #cbd5e1', cursor: 'pointer', backgroundColor: '#fff' }}
+              style={{ borderRadius: '8px', fontWeight: 600, padding: '8px 14px', fontSize: '0.78rem', border: '1px solid #cbd5e1', cursor: 'pointer', backgroundColor: '#fff' }}
             >
               Đổi trạng thái
             </button>
             <button
               onClick={fetchOrders}
               className="btn btn-outline"
-              style={{ borderRadius: '10px', fontWeight: 600, padding: '8px 14px', fontSize: '0.78rem', border: '1px solid #e9d5ff', cursor: 'pointer', backgroundColor: '#fff', color: '#7c3aed' }}
+              style={{ borderRadius: '8px', fontWeight: 600, padding: '8px 14px', fontSize: '0.78rem', border: '1px solid #e9d5ff', cursor: 'pointer', backgroundColor: '#fff', color: '#7c3aed' }}
             >
               <RefreshCw size={14} /> Làm mới
             </button>
@@ -312,23 +312,23 @@ const TransportOptimization = () => {
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr', gap: '1.5rem' }}>
           
           {/* IoT Container Temperature Monitor */}
-          <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #cbd5e1', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.03)', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Cpu size={16} color="#7c3aed" /> Giám Sát Nhiệt Độ Thùng Lạnh
               </span>
-              <span style={{ fontSize: '#0.7rem', fontWeight: 700, color: '#94a3b8' }}>ID: #BLE-TR08</span>
+              <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#94a3b8' }}>ID: #BLE-TR08</span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: isTempStandard ? '#f0fdf4' : '#fef2f2', padding: '12px', borderRadius: '12px', border: `1px solid ${isTempStandard ? '#bbf7d0' : '#fecaca'}` }}>
-              <div style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: isTempStandard ? '#f0fdf4' : '#fef2f2', padding: '12px', borderRadius: '8px', border: `1px solid ${isTempStandard ? '#bbf7d0' : '#fecaca'}` }}>
+              <div style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Thermometer size={24} color={isTempStandard ? '#10b981' : '#ef4444'} />
               </div>
               <div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 900, color: isTempStandard ? '#14532d' : '#7f1d1d' }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: isTempStandard ? '#14532d' : '#7f1d1d' }}>
                   {driverTemp.toFixed(1)}°C
                 </div>
-                <div style={{ fontSize: '0.72rem', color: isTempStandard ? '#16a34a' : '#ef4444', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                <div style={{ fontSize: '0.72rem', color: isTempStandard ? '#16a34a' : '#ef4444', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
                   {isTempStandard ? <ShieldCheck size={12} /> : <AlertTriangle size={12} />}
                   {isTempStandard ? 'Đạt chuẩn bảo quản chuỗi lạnh' : 'Nhiệt độ cảnh báo vượt ngưỡng!'}
                 </div>
@@ -338,14 +338,14 @@ const TransportOptimization = () => {
             {/* Temp Simulator buttons */}
             <div style={{ display: 'flex', gap: '8px' }}>
               <button
-                onClick={() => { setDriverTemp(2.3); showToast('❄️ Đã cập nhật: Nhiệt độ kho mát đạt chuẩn 2.3°C'); }}
-                style={{ flex: 1, border: 'none', padding: '6px', fontSize: '0.7rem', fontWeight: 700, borderRadius: '6px', backgroundColor: '#e2e8f0', cursor: 'pointer', color: '#334155' }}
+                onClick={() => { setDriverTemp(2.3); showToast('Đã cập nhật: Nhiệt độ kho mát đạt chuẩn 2.3°C'); }}
+                style={{ flex: 1, border: 'none', padding: '6px', fontSize: '0.7rem', fontWeight: 600, borderRadius: '6px', backgroundColor: '#e2e8f0', cursor: 'pointer', color: '#334155' }}
               >
                 Mức chuẩn 2.3°C
               </button>
               <button
-                onClick={() => { setDriverTemp(5.2); showToast('⚠️ Cảnh báo: Nhiệt độ tăng lên 5.2°C!'); }}
-                style={{ flex: 1, border: 'none', padding: '6px', fontSize: '0.7rem', fontWeight: 700, borderRadius: '6px', backgroundColor: '#fef3c7', cursor: 'pointer', color: '#b45309' }}
+                onClick={() => { setDriverTemp(5.2); showToast('Cảnh báo: Nhiệt độ tăng lên 5.2°C!'); }}
+                style={{ flex: 1, border: 'none', padding: '6px', fontSize: '0.7rem', fontWeight: 600, borderRadius: '6px', backgroundColor: '#fef3c7', cursor: 'pointer', color: '#b45309' }}
               >
                 Mức cảnh báo 5.2°C
               </button>
@@ -404,8 +404,8 @@ const TransportOptimization = () => {
           
           {/* Left Column: Active orders slips */}
           <div style={panelCardStyle()}>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1e1b4b', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              📦 Đơn hàng cần giao ({driverActiveOrders.length})
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1e1b4b', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Package size={18} /> Đơn hàng cần giao ({driverActiveOrders.length})
             </h3>
 
             {driverActiveOrders.length === 0 ? (
@@ -415,25 +415,25 @@ const TransportOptimization = () => {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {driverActiveOrders.map((order, oIdx) => (
-                  <div key={order.id} style={{ border: '1px solid #e2e8f0', borderRadius: '16px', padding: '1.25rem', background: '#fff', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+                  <div key={order.id} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1.25rem', background: '#fff' }}>
                     
                     {/* Header */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px', marginBottom: '12px' }}>
                       <div>
-                        <span style={{ fontSize: '0.68rem', fontWeight: 800, backgroundColor: '#f3e8ff', color: '#7c3aed', padding: '3px 8px', borderRadius: '6px', marginRight: '6px' }}>
+                        <span style={{ fontSize: '0.68rem', fontWeight: 600, backgroundColor: '#f3e8ff', color: '#7c3aed', padding: '3px 8px', borderRadius: '6px', marginRight: '6px' }}>
                           Điểm dừng #{oIdx + 1}
                         </span>
                         <strong style={{ fontSize: '0.9rem', color: '#1e293b' }}>#{order.orderCode}</strong>
                       </div>
-                      <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#ef4444' }}>
-                        ⚖️ {order.totalQuantity} Kg (Hàng mát)
+                      <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#ef4444' }}>
+                        {order.totalQuantity} Kg (Hàng mát)
                       </span>
                     </div>
 
                     {/* Customer Info Card & Call / Navigate Actions */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                       <div>
-                        <div style={{ fontSize: '0.95rem', fontWeight: 850, color: '#1e293b' }}>
+                        <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1e293b' }}>
                           {order.requesterName}
                         </div>
                         <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -457,20 +457,20 @@ const TransportOptimization = () => {
                     </div>
 
                     {/* Items table */}
-                    <div style={{ backgroundColor: '#f8fafc', padding: '10px 14px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '14px' }}>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#475569', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Chi tiết giỏ hàng</div>
+                    <div style={{ backgroundColor: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '14px' }}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Chi tiết giỏ hàng</div>
                       {order.items?.map((it: any, sIdx: number) => (
-                        <div key={sIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#475569', padding: '4px 0', borderBottom: sIdx === order.items.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
-                          <span>📦 {it.productName || it.sku}</span>
+                        <div key={sIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#475569', padding: '4px 0', borderBottom: sIdx === order.items.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Package size={12} /> {it.productName || it.sku}</span>
                           <strong style={{ color: '#1e293b' }}>x{it.requestedQuantity}</strong>
                         </div>
                       ))}
                     </div>
 
                     {/* COD Info Badge */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderRadius: '10px', backgroundColor: order.totalQuantity % 2 === 0 ? '#fef2f2' : '#f0fdf4', border: `1px solid ${order.totalQuantity % 2 === 0 ? '#fee2e2' : '#d1fae5'}`, marginBottom: '14px' }}>
-                      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: order.totalQuantity % 2 === 0 ? '#991b1b' : '#065f46' }}>
-                        {order.totalQuantity % 2 === 0 ? '💵 Thu hộ tiền mặt COD' : '💳 Đã thanh toán Online trước'}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderRadius: '8px', backgroundColor: order.totalQuantity % 2 === 0 ? '#fef2f2' : '#f0fdf4', border: `1px solid ${order.totalQuantity % 2 === 0 ? '#fee2e2' : '#d1fae5'}`, marginBottom: '14px' }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 600, color: order.totalQuantity % 2 === 0 ? '#991b1b' : '#065f46' }}>
+                        {order.totalQuantity % 2 === 0 ? 'Thu hộ tiền mặt COD' : 'Đã thanh toán Online trước'}
                       </span>
                       <strong style={{ fontSize: '0.9rem', color: order.totalQuantity % 2 === 0 ? '#ef4444' : '#10b981' }}>
                         {order.totalQuantity % 2 === 0 ? '150.000 đ' : '0 đ'}
@@ -493,8 +493,8 @@ const TransportOptimization = () => {
 
           {/* Right Column: Completed history */}
           <div style={panelCardStyle()}>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1e1b4b', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              📜 Lịch sử đơn đã giao ({driverHistoryOrders.length})
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1e1b4b', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Clock size={18} /> Lịch sử đơn đã giao ({driverHistoryOrders.length})
             </h3>
 
             {driverHistoryOrders.length === 0 ? (
@@ -504,18 +504,18 @@ const TransportOptimization = () => {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '550px', overflowY: 'auto' }}>
                 {driverHistoryOrders.map(order => (
-                  <div key={order.id} style={{ padding: '12px', border: '1px solid #e9d5ff', borderRadius: '12px', background: '#fcfaff' }}>
+                  <div key={order.id} style={{ padding: '12px', border: '1px solid #e9d5ff', borderRadius: '8px', background: '#fcfaff' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                      <span style={{ fontWeight: 850, fontSize: '0.78rem', color: '#7c3aed' }}>#{order.orderCode}</span>
-                      <span style={{ fontSize: '0.68rem', fontWeight: 800, backgroundColor: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: '12px' }}>
+                      <span style={{ fontWeight: 700, fontSize: '0.78rem', color: '#7c3aed' }}>#{order.orderCode}</span>
+                      <span style={{ fontSize: '0.68rem', fontWeight: 600, backgroundColor: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: '6px' }}>
                         Hoàn thành
                       </span>
                     </div>
-                    <div style={{ fontSize: '0.8rem', fontWeight: 750, color: '#1e293b' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#1e293b' }}>
                       Khách: {order.requesterName}
                     </div>
-                    <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>
-                      📍 {order.destination}
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <MapPin size={11} /> {order.destination}
                     </div>
                     <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <Calendar size={12} /> Giao lúc: {new Date(order.confirmedAt || order.updatedAt).toLocaleTimeString()}
@@ -615,12 +615,12 @@ const TransportOptimization = () => {
       )}
 
       {/* Header section */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', padding: '1.25rem 1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.04)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', padding: '1.25rem 1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
         <div>
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            🏍️ Điều Phối Giao Hàng (Tài Xế & Đối Tác Vận Chuyển)
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Truck size={22} color="#0f766e" /> Điều Phối Giao Hàng (Tài Xế & Đối Tác Vận Chuyển)
           </h2>
-          <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>
+          <p style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '4px' }}>
             Hỗ trợ tự động gom chuyến theo khu vực và điều phối giao hàng siêu tốc.
           </p>
         </div>
@@ -630,7 +630,7 @@ const TransportOptimization = () => {
             onClick={handleOptimizeBatch}
             disabled={loading}
             className="btn btn-warning"
-            style={{ borderRadius: '10px', fontWeight: 600, padding: '10px 16px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#ea580c', color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(234,88,12,0.25)' }}
+            style={{ borderRadius: '8px', fontWeight: 600, padding: '10px 16px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#ea580c', color: '#fff', border: 'none', cursor: 'pointer' }}
           >
             <Clock size={16} /> Gom chuyến giao hàng
           </button>
@@ -642,8 +642,8 @@ const TransportOptimization = () => {
 
         {/* Column 2: Active Orders / Stops */}
         <div style={panelCardStyle()}>
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1e293b', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            📍 Điểm dừng chờ giao ({activeOrders.length})
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1e293b', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <MapPin size={18} /> Điểm dừng chờ giao ({activeOrders.length})
           </h3>
           {activeOrders.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#94a3b8', fontSize: '0.85rem' }}>
@@ -652,18 +652,18 @@ const TransportOptimization = () => {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '550px', overflowY: 'auto' }}>
               {activeOrders.map(o => (
-                <div key={o.id} style={{ padding: '12px', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#fff' }}>
+                <div key={o.id} style={{ padding: '12px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <span style={{ fontWeight: 800, fontSize: '0.85rem', color: '#0f766e' }}>#{o.orderCode}</span>
-                    <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 800 }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0f766e' }}>#{o.orderCode}</span>
+                    <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 600 }}>
                       {o.totalQuantity || o.items?.reduce((acc: number, it: any) => acc + it.requestedQuantity, 0)} Kg
                     </span>
                   </div>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155' }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155' }}>
                     {o.requesterName || o.customerName} - {o.customerPhone || '0909 888 999'}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>
-                    📍 {o.destination}
+                  <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <MapPin size={11} /> {o.destination}
                   </div>
                   <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '4px' }}>
                     Tọa độ: {o.latitude?.toFixed(4)}, {o.longitude?.toFixed(4)}
@@ -676,8 +676,8 @@ const TransportOptimization = () => {
 
         {/* Column 3: Route Results (VRP or Batching) */}
         <div style={panelCardStyle()}>
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1e293b', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            🗺️ Tuyến gom hàng & Đối tác vận chuyển
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1e293b', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Route size={18} /> Tuyến gom hàng & Đối tác vận chuyển
           </h3>
           {batchRoutes.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#94a3b8', fontSize: '0.85rem' }}>

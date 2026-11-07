@@ -5,7 +5,7 @@ import {
   Download, PackageCheck, AlertCircle, ArrowRight, CheckCircle2, 
   Layers, Plus, X, Search, FileText, ScanBarcode, Printer,
   ChevronLeft, ChevronRight, RefreshCw, Warehouse, ShieldCheck,
-  Sparkles, MapPin, Check, Box
+  MapPin, Check, Box
 } from 'lucide-react';
 import WarehouseMap3D from '../components/WarehouseMap3D';
 import { InboundReceiptModal } from '../components/InboundReceiptModal';
@@ -329,9 +329,9 @@ const InboundOrders: React.FC = () => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: nextStatus } : o));
 
     if (action === 'complete') {
-      showToast('🎉 Đã hoàn tất nhập kho! Hàng hóa & Lô đã được ghi sổ vào Tồn Kho & Bản Đồ 3D.', 'success');
+      showToast('Đã hoàn tất nhập kho. Hàng hóa và lô đã được ghi nhận vào hệ thống.', 'success');
     } else if (action === 'quality-check') {
-      showToast('✅ Kiểm định chất lượng (QC) Đạt chuẩn 100%!', 'success');
+      showToast('Kiểm định chất lượng (QC) đạt chuẩn 100%.', 'success');
     } else {
       showToast(`Đã chuyển trạng thái: ${STATUS_CONFIG[nextStatus]?.label || nextStatus}`, 'info');
     }
@@ -558,7 +558,7 @@ const InboundOrders: React.FC = () => {
       };
     }));
 
-    showToast(`⚡ Đã phân bổ tối ưu ${updatedCount} mặt hàng vào các kệ kho & cập nhật Tồn Kho 3D!`, 'success');
+    showToast(`Đã phân bổ vị trí lưu kho cho ${updatedCount} mặt hàng thành công.`, 'success');
   }, [itemAssignments, token, showToast]);
 
   // Memoized KPIs
@@ -720,10 +720,10 @@ const InboundOrders: React.FC = () => {
                 cursor: 'pointer'
               }}
             >
-              <option value="ALL">🏢 Tất cả các Kho ({orders.length} phiếu)</option>
+              <option value="ALL">Tất cả các Kho ({orders.length} phiếu)</option>
               {warehouses.map(w => (
                 <option key={w.id || w.code} value={w.code}>
-                  🏢 {w.name} ({w.code})
+                  {w.name} ({w.code})
                 </option>
               ))}
             </select>
@@ -734,7 +734,7 @@ const InboundOrders: React.FC = () => {
             onChange={e => setDateFilter(e.target.value)}
             style={{
               padding: '9px 14px',
-              borderRadius: '10px',
+              borderRadius: '8px',
               border: '1px solid #cbd5e1',
               background: '#fff',
               color: '#334155',
@@ -743,9 +743,9 @@ const InboundOrders: React.FC = () => {
               cursor: 'pointer'
             }}
           >
-            <option value="ALL">📅 Toàn thời gian</option>
-            <option value="TODAY">📅 Hôm nay</option>
-            <option value="WEEK">📅 7 ngày qua</option>
+            <option value="ALL">Toàn thời gian</option>
+            <option value="TODAY">Hôm nay</option>
+            <option value="WEEK">7 ngày qua</option>
           </select>
 
           <button 
@@ -870,15 +870,15 @@ const InboundOrders: React.FC = () => {
 
         {/* MISA Transaction Type Filter Bar */}
         <div style={{ padding: '10px 20px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto' }}>
-          <span style={{ fontSize: '11px', fontWeight: 800, color: '#475569', whiteSpace: 'nowrap' }}>
-            🏛️ Phân loại nghiệp vụ MISA (TT 200):
+          <span style={{ fontSize: '11px', fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
+            Phân loại nghiệp vụ MISA (TT 200):
           </span>
           {[
             { key: 'ALL', label: 'Tất cả nghiệp vụ' },
-            { key: 'NHAP_MUA_NCC', label: '🏷️ Nhập mua NCC (Nợ 1561/1331 - Có 331)' },
-            { key: 'HANG_TRA_LAI', label: '🏷️ Hàng bán trả lại (Nợ 1561 - Có 632)' },
-            { key: 'DIEU_CHUYEN', label: '🏷️ Điều chuyển nội bộ (Nợ 1561 - Có 1561)' },
-            { key: 'KIEM_KE_THUA', label: '🏷️ Kiểm kê thừa (Nợ 1561 - Có 3381)' },
+            { key: 'NHAP_MUA_NCC', label: 'Nhập mua NCC (Nợ 1561/1331 - Có 331)' },
+            { key: 'HANG_TRA_LAI', label: 'Hàng bán trả lại (Nợ 1561 - Có 632)' },
+            { key: 'DIEU_CHUYEN', label: 'Điều chuyển nội bộ (Nợ 1561 - Có 1561)' },
+            { key: 'KIEM_KE_THUA', label: 'Kiểm kê thừa (Nợ 1561 - Có 3381)' },
           ].map(typeTab => (
             <button
               key={typeTab.key}
@@ -957,7 +957,7 @@ const InboundOrders: React.FC = () => {
                         color: isGoVap ? '#0f766e' : '#475569',
                         fontWeight: 700, border: `1px solid ${isGoVap ? '#99f6e4' : '#e2e8f0'}`
                       }}>
-                        {o.warehouseCode === 'WH-006' ? '🏢 Kho Gò Vấp (WH-006)' : o.warehouseCode || 'Kho Hàng Gò Vấp'}
+                        {o.warehouseCode === 'WH-006' ? 'Kho Gò Vấp (WH-006)' : o.warehouseCode || 'Kho Hàng Gò Vấp'}
                       </span>
                     </td>
 
@@ -1080,7 +1080,7 @@ const InboundOrders: React.FC = () => {
                   </button>
                 </div>
                 <p className="text-muted text-sm" style={{ marginTop: '4px' }}>
-                  🏢 Nhà cung cấp: <b>{selectedOrder.supplierName}</b> {selectedOrder.invoiceNumber ? `(HĐ: ${selectedOrder.invoiceNumber})` : ''}
+                  Nhà cung cấp: <b>{selectedOrder.supplierName}</b> {selectedOrder.invoiceNumber ? `(HĐ: ${selectedOrder.invoiceNumber})` : ''}
                 </p>
               </div>
               <button onClick={() => setSelectedOrderId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
@@ -1105,8 +1105,8 @@ const InboundOrders: React.FC = () => {
                 <div style={{
                   marginBottom: '1rem',
                   padding: '12px 16px',
-                  background: 'linear-gradient(135deg, #ecfdf5 0%, #f0fdfa 100%)',
-                  borderRadius: '12px',
+                  background: '#f0fdf4',
+                  borderRadius: '8px',
                   border: '1px solid #a7f3d0',
                   display: 'flex',
                   alignItems: 'center',
@@ -1115,11 +1115,11 @@ const InboundOrders: React.FC = () => {
                   flexWrap: 'wrap'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#059669', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Sparkles size={20} />
+                    <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#059669', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Layers size={18} />
                     </div>
                     <div>
-                      <div style={{ fontWeight: 800, color: '#065f46', fontSize: '0.9rem' }}>
+                      <div style={{ fontWeight: 700, color: '#065f46', fontSize: '0.88rem' }}>
                         Phân Bổ Kệ Lưu Kho & Gán Lô Tự Động Theo Từng Loại Hàng
                       </div>
                       <div style={{ fontSize: '0.75rem', color: '#047857' }}>
@@ -1133,18 +1133,18 @@ const InboundOrders: React.FC = () => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
-                      padding: '8px 16px',
-                      borderRadius: '8px',
+                      padding: '8px 14px',
+                      borderRadius: '6px',
                       background: '#059669',
                       color: '#fff',
                       border: 'none',
-                      fontWeight: 700,
-                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      fontSize: '0.82rem',
                       cursor: 'pointer',
-                      boxShadow: '0 2px 6px rgba(5,150,105,0.3)'
+                      boxShadow: '0 1px 3px rgba(5,150,105,0.2)'
                     }}
                   >
-                    <Sparkles size={16} /> ⚡ Tự Động Gán Tất Cả Vào Kệ Trống
+                    <Layers size={14} /> Gán Vị Trí Kệ Tự Động (Putaway)
                   </button>
                 </div>
               )}
@@ -1224,24 +1224,24 @@ const InboundOrders: React.FC = () => {
                                       maxWidth: '230px'
                                     }}
                                   >
-                                    <optgroup label="📦 KHO KHÔ (+25°C) — Kệ C1 đến C10">
+                                    <optgroup label="Kho Khô (+25°C) — Kệ C1 đến C10">
                                       {WAREHOUSE_SHELVES.filter(s => s.zone === 'DRY').map(s => (
                                         <option key={s.id} value={s.id}>
-                                          {s.id.replace('shelf-', 'Kệ ')}: {s.name.split('(')[1]?.replace(')', '') || s.name} (Trống {s.freePct}%){s.id === recShelf.id ? ' ✨ [Gợi ý]' : ''}
+                                          {s.id.replace('shelf-', 'Kệ ')}: {s.name.split('(')[1]?.replace(')', '') || s.name} (Trống {s.freePct}%){s.id === recShelf.id ? ' [Đề xuất]' : ''}
                                         </option>
                                       ))}
                                     </optgroup>
-                                    <optgroup label="❄️ KHO MÁT (0°C ~ +4°C) — Kệ A1 đến A8">
+                                    <optgroup label="Kho Mát (0°C ~ +4°C) — Kệ A1 đến A8">
                                       {WAREHOUSE_SHELVES.filter(s => s.zone === 'COOL').map(s => (
                                         <option key={s.id} value={s.id}>
-                                          {s.id.replace('shelf-', 'Kệ ')}: {s.name.split('(')[1]?.replace(')', '') || s.name} (Trống {s.freePct}%){s.id === recShelf.id ? ' ✨ [Gợi ý]' : ''}
+                                          {s.id.replace('shelf-', 'Kệ ')}: {s.name.split('(')[1]?.replace(')', '') || s.name} (Trống {s.freePct}%){s.id === recShelf.id ? ' [Đề xuất]' : ''}
                                         </option>
                                       ))}
                                     </optgroup>
-                                    <optgroup label="🧊 HẦM ĐÔNG LẠNH (-18°C) — Kệ B1 đến B8">
+                                    <optgroup label="Hầm Đông Lạnh (-18°C) — Kệ B1 đến B8">
                                       {WAREHOUSE_SHELVES.filter(s => s.zone === 'FROZEN').map(s => (
                                         <option key={s.id} value={s.id}>
-                                          {s.id.replace('shelf-', 'Kệ ')}: {s.name.split('(')[1]?.replace(')', '') || s.name} (Trống {s.freePct}%){s.id === recShelf.id ? ' ✨ [Gợi ý]' : ''}
+                                          {s.id.replace('shelf-', 'Kệ ')}: {s.name.split('(')[1]?.replace(')', '') || s.name} (Trống {s.freePct}%){s.id === recShelf.id ? ' [Đề xuất]' : ''}
                                         </option>
                                       ))}
                                     </optgroup>
@@ -1258,7 +1258,7 @@ const InboundOrders: React.FC = () => {
                                       }));
                                     }}
                                     placeholder="Vị trí ô"
-                                    style={{ width: '60px', padding: '5px 6px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.75rem', fontWeight: 700, textAlign: 'center' }}
+                                    style={{ width: '60px', padding: '5px 6px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.75rem', fontWeight: 600, textAlign: 'center' }}
                                     title="Mã ô kệ lưu kho (Ví dụ: C5-01, A1-02)"
                                   />
 
@@ -1271,26 +1271,26 @@ const InboundOrders: React.FC = () => {
                                       color: item.assignedSlotId ? '#15803d' : '#fff',
                                       border: item.assignedSlotId ? '1px solid #86efac' : 'none',
                                       fontSize: '0.72rem',
-                                      fontWeight: 700,
+                                      fontWeight: 600,
                                       cursor: 'pointer',
                                       whiteSpace: 'nowrap'
                                     }}
                                     title="Lưu vị trí kệ này vào hệ thống"
                                   >
-                                    {item.assignedSlotId ? '✓ Đã Lưu' : '💾 Lưu Kệ'}
+                                    {item.assignedSlotId ? 'Đã Lưu' : 'Lưu Kệ'}
                                   </button>
                                 </div>
 
                                 {curAssign.shelfId === recShelf.id && (
-                                  <div style={{ fontSize: '0.7rem', color: '#059669', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                    <Sparkles size={11} /> Đã khớp dải nhiệt độ & khoang kệ tối ưu
+                                  <div style={{ fontSize: '0.7rem', color: '#059669', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <CheckCircle2 size={11} /> Khớp dải nhiệt độ & khoang kệ tối ưu
                                   </div>
                                 )}
                               </div>
                             ) : (
                               item.assignedSlotId ? (
-                                <span style={{ padding: '3px 8px', borderRadius: '6px', background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', fontWeight: 700 }}>
-                                  🏢 {item.assignedSlotId} ({item.assignedZone || 'Z-DRY'})
+                                <span style={{ padding: '3px 8px', borderRadius: '6px', background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', fontWeight: 600 }}>
+                                  {item.assignedSlotId} ({item.assignedZone || 'Z-DRY'})
                                 </span>
                               ) : (
                                 <span style={{ color: '#94a3b8' }}>Chờ phân vị trí</span>
@@ -1362,7 +1362,7 @@ const InboundOrders: React.FC = () => {
                                       alignItems: 'center',
                                       gap: '3px'
                                     }}>
-                                      {isExpired ? `❌ Đã hết hạn (${Math.abs(diffDays)} ngày trước)` : isNear ? `⚠️ Cận Date (${diffDays} ngày)` : `✓ Hạn tốt: Còn ${diffDays} ngày`}
+                                      {isExpired ? `Đã hết hạn (${Math.abs(diffDays)} ngày trước)` : isNear ? `Cận Date (${diffDays} ngày)` : `Còn ${diffDays} ngày`}
                                     </div>
                                   );
                                 })()}
@@ -1444,8 +1444,8 @@ const InboundOrders: React.FC = () => {
 
               {selectedOrder.status === 'COMPLETED' && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: '#f0fdf4', padding: '12px 16px', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
-                  <p style={{ color: '#15803d', fontWeight: 800, margin: 0, fontSize: '0.9rem' }}>
-                    🎉 Đơn hàng đã nhập kho thành công & cập nhật tồn kho toàn hệ thống!
+                  <p style={{ color: '#15803d', fontWeight: 600, margin: 0, fontSize: '0.9rem' }}>
+                    Đơn hàng đã nhập kho thành công và cập nhật tồn kho toàn hệ thống.
                   </p>
                   <button
                     onClick={() => setReceiptOrder(selectedOrder)}
@@ -1492,7 +1492,7 @@ const InboundOrders: React.FC = () => {
         onSuccess={(newOrder) => {
           setOrders(prev => [newOrder, ...prev]);
           setSelectedOrderId(newOrder.id);
-          showToast('✅ Tạo yêu cầu nhập kho thành công!', 'success');
+          showToast('Tạo yêu cầu nhập kho thành công.', 'success');
         }}
         token={token}
         user={user}

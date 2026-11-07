@@ -26,7 +26,7 @@ import {
   QrCode,
   Volume2,
   X,
-  Sparkles,
+  Radio,
   Key,
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
@@ -42,7 +42,7 @@ export const PickingScreen: React.FC = () => {
   const [completedOrders, setCompletedOrders] = useState<string[]>([]);
   const [activeLocatingShelf, setActiveLocatingShelf] = useState<string | null>(null);
 
-  // 📷 Barcode Scanner State
+  // Barcode Scanner State
   const [scannerOpen, setScannerOpen] = useState(false);
   const [activeScanItem, setActiveScanItem] = useState<PickingItem | null>(null);
   const [manualCode, setManualCode] = useState('');
@@ -102,7 +102,7 @@ export const PickingScreen: React.FC = () => {
       triggerAudioFeedback(true);
       setTasks(prev => prev.map(t => t.id === matchedItem!.id ? { ...t, status: 'PICKED' } : t));
 
-      // 💡 IoT: Quét xong sản phẩm -> Tự động gửi lệnh tắt đèn kệ!
+      // IoT: Quét xong sản phẩm -> Tự động gửi lệnh tắt đèn kệ!
       completeShelfIotApi({
         warehouseCode: activeWarehouse || 'GV',
         shelfCode: matchedItem.shelfLocation,
@@ -201,7 +201,7 @@ export const PickingScreen: React.FC = () => {
     if (success) {
       setCompletedOrders(prev => [...prev, orderId]);
       Alert.alert(
-        '✅ Hoàn tất lấy hàng!',
+        'Hoàn tất lấy hàng',
         'Đã xác nhận hoàn tất soạn hàng cho đơn này. Đơn đã được chuyển tự động sang tab ĐÓNG GÓI.'
       );
       loadTasks();
@@ -273,7 +273,7 @@ export const PickingScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* 🔊 Active IoT Finding Banner */}
+      {/* Active IoT Finding Banner */}
       {activeLocatingShelf && (
         <View style={styles.activeLocatingBanner}>
           <Volume2 size={16} color="#d97706" />
@@ -306,7 +306,7 @@ export const PickingScreen: React.FC = () => {
           onPress={() => setFilterMode('ALL')}
         >
           <Text style={[styles.filterTabText, filterMode === 'ALL' && styles.filterTabTextActive]}>
-            📦 Tất cả ({totalCount})
+            Tất cả ({totalCount})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -314,7 +314,7 @@ export const PickingScreen: React.FC = () => {
           onPress={() => setFilterMode('PENDING')}
         >
           <Text style={[styles.filterTabText, filterMode === 'PENDING' && styles.filterTabTextActive]}>
-            ⏳ Chờ lấy ({pendingCount})
+            Chờ lấy ({pendingCount})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -322,7 +322,7 @@ export const PickingScreen: React.FC = () => {
           onPress={() => setFilterMode('PICKED')}
         >
           <Text style={[styles.filterTabText, filterMode === 'PICKED' && styles.filterTabTextActive]}>
-            ✅ Đã lấy ({pickedCount})
+            Đã lấy ({pickedCount})
           </Text>
         </TouchableOpacity>
       </View>
@@ -404,7 +404,7 @@ export const PickingScreen: React.FC = () => {
                           <Text style={styles.shelfTagText}>{item.shelfLocation}</Text>
                         </View>
 
-                        {/* 💡 Nút Bật/Tắt Nháy Đèn Kệ */}
+                        {/* Nút Bật/Tắt Nháy Đèn Kệ */}
                         {!isItemPicked && (
                           <TouchableOpacity
                             style={[
@@ -417,7 +417,7 @@ export const PickingScreen: React.FC = () => {
                             }}
                             activeOpacity={0.7}
                           >
-                            <Sparkles
+                            <Radio
                               size={11}
                               color={activeLocatingShelf === item.shelfLocation ? '#ffffff' : '#0284c7'}
                             />
@@ -432,7 +432,7 @@ export const PickingScreen: React.FC = () => {
                           </TouchableOpacity>
                         )}
 
-                        {/* 🔑 Nút Bóp Còi Smartkey (như Smartkey xe máy / ô tô) */}
+                        {/* Nút Bóp Còi Smartkey */}
                         {!isItemPicked && (
                           <TouchableOpacity
                             style={[
@@ -515,7 +515,7 @@ export const PickingScreen: React.FC = () => {
       )}
     </ScrollView>
 
-    {/* 📷 Modal Quét Mã Vạch Barcode (Camera Viewfinder + Manual Barcode) */}
+    {/* Modal Quét Mã Vạch Barcode (Camera Viewfinder + Manual Barcode) */}
     <Modal
       visible={scannerOpen}
       transparent
@@ -583,21 +583,21 @@ export const PickingScreen: React.FC = () => {
                     onPress={() => handleProcessScan(activeScanItem.sku)}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.sampleChipText}>🏷️ Mã SP: {activeScanItem.sku}</Text>
+                    <Text style={styles.sampleChipText}>Mã SP: {activeScanItem.sku}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.sampleChip}
                     onPress={() => handleProcessScan(activeScanItem.lotCode)}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.sampleChipText}>📦 Mã Lô: {activeScanItem.lotCode}</Text>
+                    <Text style={styles.sampleChipText}>Mã Lô: {activeScanItem.lotCode}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.sampleChip}
                     onPress={() => handleProcessScan(activeScanItem.shelfLocation)}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.sampleChipText}>📍 Kệ: {activeScanItem.shelfLocation}</Text>
+                    <Text style={styles.sampleChipText}>Kệ: {activeScanItem.shelfLocation}</Text>
                   </TouchableOpacity>
                 </>
               ) : (
@@ -608,7 +608,7 @@ export const PickingScreen: React.FC = () => {
                     onPress={() => handleProcessScan(t.sku || t.lotCode)}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.sampleChipText}>🏷️ {t.productName.slice(0, 18)}... ({t.shelfLocation})</Text>
+                    <Text style={styles.sampleChipText}>{t.productName.slice(0, 18)}... ({t.shelfLocation})</Text>
                   </TouchableOpacity>
                 ))
               )}

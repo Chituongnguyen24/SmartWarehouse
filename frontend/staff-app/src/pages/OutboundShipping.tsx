@@ -145,10 +145,10 @@ export const OutboundShipping: React.FC = () => {
         <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
           {[
             { key: 'ALL', label: 'Tất cả' },
-            { key: 'PENDING', label: '⏳ Chờ gom hàng' },
-            { key: 'PICKING', label: '🏃 Đang gom hàng' },
-            { key: 'PACKED', label: '📦 Chờ đóng gói' },
-            { key: 'CONFIRMED', label: '✅ Đã xuất kho' },
+            { key: 'PENDING', label: 'Chờ gom hàng' },
+            { key: 'PICKING', label: 'Đang gom hàng' },
+            { key: 'PACKED', label: 'Chờ đóng gói' },
+            { key: 'CONFIRMED', label: 'Đã xuất kho' },
           ].map(f => (
             <button
               key={f.key}

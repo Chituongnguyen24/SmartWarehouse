@@ -103,7 +103,7 @@ export const PrintOrderSlipModal: React.FC<Props> = ({ order, onClose }) => {
   // Classification specific contents
   const config = {
     SALE: {
-      tag: '🛒 ĐƠN HÀNG BÁN LẺ E-COMMERCE',
+      tag: 'ĐƠN HÀNG BÁN LẺ E-COMMERCE',
       tagBg: '#eff6ff',
       tagColor: '#1d4ed8',
       tagBorder: '#bfdbfe',
@@ -126,7 +126,7 @@ export const PrintOrderSlipModal: React.FC<Props> = ({ order, onClose }) => {
       sigCol3: { role: 'Người Nhận Hàng', note: '(Ký & xác nhận đủ hàng)', name: order.customerName || 'Khách hàng' },
     },
     DISPOSAL: {
-      tag: '☣️ LỆNH XUẤT TIÊU HỦY & XỬ LÝ CHẤT THẢI MÔI TRƯỜNG',
+      tag: 'LỆNH XUẤT TIÊU HỦY & XỬ LÝ CHẤT THẢI MÔI TRƯỜNG',
       tagBg: '#faf5ff',
       tagColor: '#7c3aed',
       tagBorder: '#e9d5ff',
@@ -149,7 +149,7 @@ export const PrintOrderSlipModal: React.FC<Props> = ({ order, onClose }) => {
       sigCol3: { role: 'Đại Diện BQL Trạm Đa Phước', note: '(Ký & xác nhận tiêu hủy)', name: 'Đại diện Trạm Đa Phước' },
     },
     RETURN: {
-      tag: '↩️ PHIẾU XUẤT TRẢ HÀNG NHÀ CUNG CẤP / HOÀN KHO',
+      tag: 'PHIẾU XUẤT TRẢ HÀNG NHÀ CUNG CẤP / HOÀN KHO',
       tagBg: '#fef2f2',
       tagColor: '#b91c1c',
       tagBorder: '#fecaca',
@@ -172,7 +172,7 @@ export const PrintOrderSlipModal: React.FC<Props> = ({ order, onClose }) => {
       sigCol3: { role: 'Đại Diện Nhà Cung Cấp', note: '(Ký & đóng dấu nhận hàng)', name: 'Đại diện NCC / Đối tác' },
     },
     TRANSFER: {
-      tag: '🔄 LỆNH ĐIỀU CHUYỂN HÀNG HÓA NỘI BỘ LIÊN HUB',
+      tag: 'LỆNH ĐIỀU CHUYỂN HÀNG HÓA NỘI BỘ LIÊN HUB',
       tagBg: '#f0fdf4',
       tagColor: '#15803d',
       tagBorder: '#bbf7d0',

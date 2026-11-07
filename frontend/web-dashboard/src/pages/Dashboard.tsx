@@ -8,7 +8,6 @@ import {
   Thermometer,
   Volume2,
   VolumeX,
-  Sparkles,
   AlertTriangle,
   CheckCircle2,
   Snowflake,
@@ -389,93 +388,100 @@ export const Dashboard: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '40px' }}>
       
-      {/* 🚨 CRITICAL OVERHEAT WARNING BANNER */}
+      {/* CRITICAL OVERHEAT WARNING BANNER */}
       {isOverheatBreached && (
         <div
           style={{
-            backgroundColor: '#ef4444',
-            color: '#ffffff',
-            borderRadius: '16px',
-            padding: '14px 20px',
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '10px',
+            padding: '14px 18px',
+            color: '#991b1b',
             display: 'flex',
-            alignItems: 'center',
             justifyContent: 'space-between',
-            boxShadow: '0 8px 30px rgba(239, 68, 68, 0.4)',
-            animation: 'pulse 1.2s infinite',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div
               style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '12px',
-                backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                width: '38px',
+                height: '38px',
+                borderRadius: '8px',
+                backgroundColor: '#fee2e2',
+                color: '#dc2626',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                flexShrink: 0,
               }}
             >
-              <BellRing size={24} color="#ffffff" />
+              <AlertTriangle size={20} />
             </div>
             <div>
-              <div style={{ fontSize: '15px', fontWeight: 900, letterSpacing: '-0.01em' }}>
-                🚨 BÁO ĐỘNG KHẨN CẤP: PHÒNG KHO LẠNH VƯỢT NGƯỠNG AN TOÀN ({coolTemp}°C / Ngưỡng max 4.0°C)!
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#991b1b' }}>
+                Cảnh Báo Khẩn Cấp: Nhiệt Độ Kho Lạnh Vượt Ngưỡng An Toàn ({coolTemp}°C / Tối Đa 4.0°C)
               </div>
-              <div style={{ fontSize: '12.5px', color: '#fee2e2', marginTop: '2px' }}>
-                Hệ thống còi & đèn cảnh báo kho mát đang phát tín hiệu cảnh báo. Nhiệt độ vượt ngưỡng an toàn, nguy cơ ảnh hưởng trực tiếp tới chất lượng hàng hóa!
+              <div style={{ fontSize: '12px', color: '#b91c1c', marginTop: '2px' }}>
+                Hệ thống chuông và đèn cảnh báo kho mát đang hoạt động. Cần kiểm tra hệ thống làm lạnh ngay lập tức để bảo vệ chất lượng hàng hóa.
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
               onClick={() => setIsSirenMuted(!isSirenMuted)}
               style={{
-                backgroundColor: isSirenMuted ? '#ffffff' : 'rgba(0, 0, 0, 0.2)',
-                color: isSirenMuted ? '#ef4444' : '#ffffff',
-                border: '1px solid rgba(255,255,255,0.4)',
-                padding: '8px 14px',
-                borderRadius: '10px',
-                fontWeight: 800,
-                fontSize: '12.5px',
+                backgroundColor: '#ffffff',
+                color: '#334155',
+                border: '1px solid #cbd5e1',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontWeight: 600,
+                fontSize: '12px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
                 cursor: 'pointer',
               }}
             >
-              {isSirenMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+              {isSirenMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
               <span>{isSirenMuted ? 'Đã tắt tiếng' : 'Tắt còi báo'}</span>
             </button>
             <button
               onClick={handleRestoreSafeTemp}
               style={{
-                backgroundColor: '#ffffff',
-                color: '#15803d',
+                backgroundColor: '#16a34a',
+                color: '#ffffff',
                 border: 'none',
-                padding: '8px 16px',
-                borderRadius: '10px',
-                fontWeight: 900,
-                fontSize: '12.5px',
+                padding: '6px 14px',
+                borderRadius: '6px',
+                fontWeight: 600,
+                fontSize: '12px',
                 cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
               }}
             >
-              ✅ Khôi Phục Nhiệt Độ (2.5°C)
+              <CheckCircle2 size={15} />
+              <span>Khôi Phục Nhiệt Độ (2.5°C)</span>
             </button>
           </div>
         </div>
       )}
 
-      {/* 🏢 COMMAND CENTER EXECUTIVE HEADER */}
+      {/* COMMAND CENTER HEADER */}
       <div
         style={{
-          background: 'linear-gradient(135deg, #042f2e 0%, #0f766e 60%, #115e59 100%)',
-          borderRadius: '20px',
-          padding: '24px 28px',
+          backgroundColor: '#0f172a',
+          borderRadius: '10px',
+          padding: '20px 24px',
           color: '#ffffff',
-          boxShadow: '0 10px 30px rgba(15, 118, 110, 0.2)',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+          border: '1px solid #1e293b',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -487,44 +493,45 @@ export const Dashboard: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span
               style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                backdropFilter: 'blur(8px)',
-                padding: '4px 10px',
-                borderRadius: '8px',
+                backgroundColor: '#1e293b',
+                border: '1px solid #334155',
+                color: '#94a3b8',
+                padding: '3px 8px',
+                borderRadius: '6px',
                 fontSize: '11px',
-                fontWeight: 800,
-                letterSpacing: '0.05em',
+                fontWeight: 600,
+                letterSpacing: '0.04em',
                 textTransform: 'uppercase',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
               }}
             >
-              <Radio size={12} color="#4ade80" />
-              SFWMS COMMAND CENTER • CITYMART
+              <Activity size={12} color="#10b981" />
+              Hệ thống Điều hành Kho • CityMart
             </span>
             <span
               style={{
-                backgroundColor: isWsConnected ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                border: `1px solid ${isWsConnected ? '#22c55e' : '#ef4444'}`,
-                color: isWsConnected ? '#86efac' : '#fca5a5',
-                padding: '3px 8px',
+                backgroundColor: isWsConnected ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                border: `1px solid ${isWsConnected ? '#059669' : '#dc2626'}`,
+                color: isWsConnected ? '#34d399' : '#f87171',
+                padding: '2px 8px',
                 borderRadius: '6px',
                 fontSize: '11px',
-                fontWeight: 700,
+                fontWeight: 600,
               }}
             >
-              {isWsConnected ? '● Đồng bộ thời gian thực' : '○ Ngoại tuyến'}
+              {isWsConnected ? 'Đồng bộ thời gian thực' : 'Ngoại tuyến'}
             </span>
           </div>
 
-          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 900, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 700, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span>Trung Tâm Điều Hành Kho Hàng</span>
-            <span style={{ fontSize: '15px', fontWeight: 600, color: '#99f6e4' }}>
+            <span style={{ fontSize: '14px', fontWeight: 500, color: '#94a3b8' }}>
               ({selectedWarehouse?.name || `Kho Hàng ${effectiveWhCode}`})
             </span>
           </h1>
-          <p style={{ margin: 0, fontSize: '13px', color: '#ccfbf1', opacity: 0.9 }}>
+          <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
             Giám sát điều kiện kho hàng, điều phối nhặt hàng xuất kho và kiểm soát hạn sử dụng sản phẩm theo thời gian thực.
           </p>
         </div>
@@ -533,9 +540,9 @@ export const Dashboard: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           {/* Warehouse Selector (Admin) vs Fixed Warehouse Indicator (Warehouse Accounts) */}
           {isAdmin ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: '12px', padding: '5px 12px', border: '1px solid rgba(255,255,255,0.22)' }}>
-              <Building2 size={16} color="#99f6e4" />
-              <span style={{ fontSize: '11px', fontWeight: 800, color: '#99f6e4', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Kho:</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#1e293b', borderRadius: '8px', padding: '6px 12px', border: '1px solid #334155' }}>
+              <Building2 size={15} color="#94a3b8" />
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Kho:</span>
               <select
                 value={selectedWarehouseCode}
                 onChange={(e) => setSelectedWarehouseCode(e.target.value)}
@@ -543,7 +550,7 @@ export const Dashboard: React.FC = () => {
                   backgroundColor: 'transparent',
                   color: '#ffffff',
                   border: 'none',
-                  fontWeight: 800,
+                  fontWeight: 600,
                   fontSize: '13px',
                   outline: 'none',
                   cursor: 'pointer',
@@ -555,19 +562,19 @@ export const Dashboard: React.FC = () => {
                   </option>
                 ))}
               </select>
-              <span style={{ fontSize: '10px', backgroundColor: '#10b981', color: '#ffffff', padding: '2px 7px', borderRadius: '6px', fontWeight: 800 }}>
+              <span style={{ fontSize: '10px', backgroundColor: '#0f766e', color: '#ffffff', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
                 Admin
               </span>
             </div>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: '12px', padding: '6px 14px', border: '1px solid rgba(255,255,255,0.18)' }}>
-              <Building2 size={16} color="#99f6e4" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#1e293b', borderRadius: '8px', padding: '6px 12px', border: '1px solid #334155' }}>
+              <Building2 size={15} color="#94a3b8" />
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '13px', fontWeight: 800, color: '#ffffff' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>
                   {selectedWarehouse?.name || `Kho ${effectiveWhCode}`} ({effectiveWhCode})
                 </span>
-                <span style={{ fontSize: '10px', color: '#99f6e4', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Lock size={10} color="#99f6e4" />
+                <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Lock size={10} color="#94a3b8" />
                   <span>Cố định theo tài khoản kho</span>
                 </span>
               </div>
@@ -582,20 +589,19 @@ export const Dashboard: React.FC = () => {
                 backgroundColor: '#dc2626',
                 color: '#ffffff',
                 border: 'none',
-                padding: '9px 15px',
-                borderRadius: '12px',
-                fontWeight: 800,
+                padding: '8px 14px',
+                borderRadius: '8px',
+                fontWeight: 600,
                 fontSize: '12.5px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
                 cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
               }}
               title="Kích hoạt kịch bản thử nghiệm cảnh báo khi nhiệt độ kho vượt ngưỡng an toàn"
             >
-              <AlertTriangle size={15} />
-              <span>Kiểm Tra Cảnh Báo Nhiệt Độ</span>
+              <AlertTriangle size={14} />
+              <span>Kiểm Tra Cảnh Báo Nhiệt</span>
             </button>
           ) : (
             <button
@@ -604,9 +610,9 @@ export const Dashboard: React.FC = () => {
                 backgroundColor: '#16a34a',
                 color: '#ffffff',
                 border: 'none',
-                padding: '9px 15px',
-                borderRadius: '12px',
-                fontWeight: 800,
+                padding: '8px 14px',
+                borderRadius: '8px',
+                fontWeight: 600,
                 fontSize: '12.5px',
                 display: 'flex',
                 alignItems: 'center',
@@ -614,7 +620,7 @@ export const Dashboard: React.FC = () => {
                 cursor: 'pointer',
               }}
             >
-              <CheckCircle2 size={15} />
+              <CheckCircle2 size={14} />
               <span>Khôi Phục An Toàn</span>
             </button>
           )}
@@ -624,106 +630,116 @@ export const Dashboard: React.FC = () => {
             onClick={() => fetchDashboardData()}
             disabled={isRefreshing}
             style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              backgroundColor: '#1e293b',
               color: '#ffffff',
-              border: '1px solid rgba(255, 255, 255, 0.25)',
-              padding: '9px 14px',
-              borderRadius: '12px',
-              fontWeight: 700,
-              fontSize: '13px',
+              border: '1px solid #334155',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              fontWeight: 600,
+              fontSize: '12.5px',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
               cursor: 'pointer',
             }}
           >
-            <RefreshCw size={15} className={isRefreshing ? 'spin' : ''} />
+            <RefreshCw size={14} className={isRefreshing ? 'spin' : ''} />
             <span>Làm mới</span>
           </button>
         </div>
       </div>
 
-      {/* 📊 4 EXECUTIVE OPERATIONAL KPI CARDS */}
+      {/* OPERATIONAL KPI CARDS */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
         
         {/* KPI 1: Live Wave Picking */}
-        <div style={kpiCardStyle('#0284c7', 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)')}>
+        <div style={kpiCardStyle('#0284c7')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Đang Gom Hàng (Picking Wave)
             </span>
-            <div style={kpiIconStyle('#bae6fd', '#0284c7')}><Compass size={18} /></div>
+            <div style={kpiIconStyle('#f0f9ff', '#0284c7')}><Compass size={18} /></div>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '10px' }}>
-            <span style={{ fontSize: '30px', fontWeight: 900, color: '#0f172a' }}>{pickingOrders.length}</span>
-            <span style={{ fontSize: '13px', fontWeight: 700, color: '#0284c7' }}>đơn hàng chờ lấy</span>
+            <span style={{ fontSize: '28px', fontWeight: 700, color: '#0f172a' }}>{pickingOrders.length}</span>
+            <span style={{ fontSize: '13px', fontWeight: 500, color: '#0284c7' }}>đơn hàng chờ lấy</span>
           </div>
           <div style={{ marginTop: '10px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 500, color: '#64748b', marginBottom: '4px' }}>
               <span>Tiến độ đợt sóng: {pickedUnits}/{totalPickingUnits} món</span>
               <span>{wavePickingPercent}%</span>
             </div>
-            <div style={{ width: '100%', height: '6px', backgroundColor: '#cbd5e1', borderRadius: '999px', overflow: 'hidden' }}>
-              <div style={{ width: `${wavePickingPercent}%`, height: '100%', background: 'linear-gradient(90deg, #0284c7, #38bdf8)', borderRadius: '999px', transition: 'width 0.4s ease' }} />
+            <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ width: `${wavePickingPercent}%`, height: '100%', backgroundColor: '#0284c7', borderRadius: '4px', transition: 'width 0.4s ease' }} />
             </div>
           </div>
         </div>
 
         {/* KPI 2: Packing Station Queue */}
-        <div style={kpiCardStyle('#9333ea', 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)')}>
+        <div style={kpiCardStyle('#7c3aed')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, color: '#7e22ce', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: '#6d28d9', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Bàn Đóng Gói & Xuất Kho
             </span>
-            <div style={kpiIconStyle('#e9d5ff', '#9333ea')}><Boxes size={18} /></div>
+            <div style={kpiIconStyle('#faf5ff', '#7c3aed')}><Boxes size={18} /></div>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '10px' }}>
-            <span style={{ fontSize: '30px', fontWeight: 900, color: '#0f172a' }}>{packingOrders.length}</span>
-            <span style={{ fontSize: '13px', fontWeight: 700, color: '#9333ea' }}>đơn chờ dán tem</span>
+            <span style={{ fontSize: '28px', fontWeight: 700, color: '#0f172a' }}>{packingOrders.length}</span>
+            <span style={{ fontSize: '13px', fontWeight: 500, color: '#7c3aed' }}>đơn chờ dán tem</span>
           </div>
-          <div style={{ fontSize: '12px', color: '#6b21a8', marginTop: '12px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
+          <div style={{ fontSize: '12px', color: '#6b21a8', marginTop: '12px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500 }}>
             <Truck size={14} />
             <span>Đã giao vận chuyển: {shippedOrders.length} đơn</span>
           </div>
         </div>
 
         {/* KPI 3: Cold Storage Temp Status */}
-        <div style={kpiCardStyle(isOverheatBreached ? '#ef4444' : '#059669', isOverheatBreached ? 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)' : 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)')}>
+        <div style={kpiCardStyle(isOverheatBreached ? '#ef4444' : '#059669')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, color: isOverheatBreached ? '#b91c1c' : '#047857', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: isOverheatBreached ? '#b91c1c' : '#047857', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Kiểm Soát Nhiệt Độ Kho Mát
             </span>
-            <div style={kpiIconStyle(isOverheatBreached ? '#fecaca' : '#a7f3d0', isOverheatBreached ? '#dc2626' : '#059669')}>
+            <div style={kpiIconStyle(isOverheatBreached ? '#fef2f2' : '#f0fdf4', isOverheatBreached ? '#dc2626' : '#059669')}>
               <Thermometer size={18} />
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '10px' }}>
-            <span style={{ fontSize: '30px', fontWeight: 900, color: isOverheatBreached ? '#dc2626' : '#0f172a' }}>
+            <span style={{ fontSize: '28px', fontWeight: 700, color: isOverheatBreached ? '#dc2626' : '#0f172a' }}>
               {coolTemp.toFixed(1)}°C
             </span>
-            <span style={{ fontSize: '13px', fontWeight: 800, color: isOverheatBreached ? '#b91c1c' : '#059669' }}>
-              {isOverheatBreached ? '⚠️ CẢNH BÁO NHIỆT' : '🟢 ĐẠT CHUẨN BẢO QUẢN'}
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 600,
+                padding: '2px 8px',
+                borderRadius: '4px',
+                backgroundColor: isOverheatBreached ? '#fef2f2' : '#f0fdf4',
+                color: isOverheatBreached ? '#b91c1c' : '#15803d',
+                border: `1px solid ${isOverheatBreached ? '#fecaca' : '#bbf7d0'}`,
+              }}
+            >
+              {isOverheatBreached ? 'Cảnh Báo Nhiệt' : 'Đạt Chuẩn Bảo Quản'}
             </span>
           </div>
-          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
+          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 500 }}>
             <span>Độ ẩm: <b>{coolHum.toFixed(1)}%</b></span>
-            <span>Hệ thống chuông: <b>{isOverheatBreached ? (isSirenMuted ? 'Đã tắt tiếng' : 'ĐANG CẢNH BÁO') : 'Ổn định'}</b></span>
+            <span>Hệ thống chuông: <b>{isOverheatBreached ? (isSirenMuted ? 'Đã tắt tiếng' : 'Đang báo động') : 'Ổn định'}</b></span>
           </div>
         </div>
 
         {/* KPI 4: FEFO Risk Alerts */}
-        <div style={kpiCardStyle(alertCount > 0 ? '#d97706' : '#0f766e', alertCount > 0 ? 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)' : 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)')}>
+        <div style={kpiCardStyle(alertCount > 0 ? '#d97706' : '#0f766e')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, color: alertCount > 0 ? '#b45309' : '#0f766e', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: alertCount > 0 ? '#b45309' : '#0f766e', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Lô Cận Hạn Sử Dụng Cần Xuất Gấp
             </span>
-            <div style={kpiIconStyle(alertCount > 0 ? '#fde68a' : '#99f6e4', alertCount > 0 ? '#d97706' : '#0f766e')}><ShieldAlert size={18} /></div>
+            <div style={kpiIconStyle(alertCount > 0 ? '#fffbeb' : '#f0fdfa', alertCount > 0 ? '#d97706' : '#0f766e')}><ShieldAlert size={18} /></div>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '10px' }}>
-            <span style={{ fontSize: '30px', fontWeight: 900, color: alertCount > 0 ? '#b45309' : '#0f172a' }}>{alertCount}</span>
-            <span style={{ fontSize: '13px', fontWeight: 700, color: '#64748b' }}>lô cần ưu tiên xuất</span>
+            <span style={{ fontSize: '28px', fontWeight: 700, color: alertCount > 0 ? '#b45309' : '#0f172a' }}>{alertCount}</span>
+            <span style={{ fontSize: '13px', fontWeight: 500, color: '#64748b' }}>lô cần ưu tiên xuất</span>
           </div>
-          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
+          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 500 }}>
             <span>Tổng tồn: <b>{totalLots} lô</b></span>
             <span>Danh mục: <b>{totalProducts} mặt hàng</b></span>
           </div>
@@ -731,13 +747,14 @@ export const Dashboard: React.FC = () => {
 
       </div>
 
-      {/* 🏢 TRUNG TÂM GIÁM SÁT 3 PHÒNG KHO ĐỘC LẬP & IOT HARDWARE */}
-      <div style={{ background: '#ffffff', borderRadius: '18px', border: '1px solid #e2e8f0', padding: '22px 24px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
+      {/* TRUNG TÂM GIÁM SÁT 3 PHÒNG KHO & IOT */}
+      <div style={{ background: '#ffffff', borderRadius: '10px', border: '1px solid #e2e8f0', padding: '20px 22px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 900, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>🧊 Giám Sát Điều Kiện Bảo Quản 3 Phân Khu Kho</span>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: '#059669', backgroundColor: '#ecfdf5', padding: '2px 8px', borderRadius: '6px', border: '1px solid #a7f3d0' }}>
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Thermometer size={18} color="#0f766e" />
+              <span>Giám Sát Điều Kiện Bảo Quản 3 Phân Khu Kho</span>
+              <span style={{ fontSize: '11px', fontWeight: 600, color: '#0f766e', backgroundColor: '#f0fdfa', padding: '2px 8px', borderRadius: '4px', border: '1px solid #ccfbf1' }}>
                 Định Vị Kệ & Kiểm Soát Nhiệt Độ
               </span>
             </h3>
@@ -788,29 +805,30 @@ export const Dashboard: React.FC = () => {
               <span
                 style={{
                   fontSize: '11px',
-                  fontWeight: 900,
+                  fontWeight: 600,
                   padding: '3px 8px',
-                  borderRadius: '6px',
-                  backgroundColor: isOverheatBreached ? '#dc2626' : '#16a34a',
-                  color: '#ffffff',
+                  borderRadius: '4px',
+                  backgroundColor: isOverheatBreached ? '#fef2f2' : '#f0fdf4',
+                  color: isOverheatBreached ? '#b91c1c' : '#15803d',
+                  border: `1px solid ${isOverheatBreached ? '#fecaca' : '#bbf7d0'}`,
                 }}
               >
-                {isOverheatBreached ? '🚨 CẢNH BÁO NHIỆT' : '🟢 0°C ~ 4°C ĐẠT CHUẨN'}
+                {isOverheatBreached ? 'Cảnh báo nhiệt' : '0°C ~ 4°C Đạt chuẩn'}
               </span>
             </div>
 
             {/* Live Reading */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', backgroundColor: '#ffffff', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', backgroundColor: '#ffffff', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <div>
-                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>Nhiệt độ hiện tại:</div>
-                <div style={{ fontSize: '24px', fontWeight: 900, color: isOverheatBreached ? '#dc2626' : '#059669' }}>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Nhiệt độ hiện tại:</div>
+                <div style={{ fontSize: '22px', fontWeight: 700, color: isOverheatBreached ? '#dc2626' : '#059669' }}>
                   {coolTemp.toFixed(1)}°C
                 </div>
                 <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>Ngưỡng an toàn: 0.0°C ~ 4.0°C</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>Độ ẩm không khí:</div>
-                <div style={{ fontSize: '24px', fontWeight: 900, color: '#0284c7' }}>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Độ ẩm không khí:</div>
+                <div style={{ fontSize: '22px', fontWeight: 700, color: '#0284c7' }}>
                   {coolHum.toFixed(1)}%
                 </div>
                 <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>Ngưỡng tiêu chuẩn: 70% ~ 85%</div>
@@ -818,22 +836,22 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {/* Master Door Horn Siren Status */}
-            <div style={{ backgroundColor: '#ffffff', padding: '10px 12px', borderRadius: '10px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ backgroundColor: '#ffffff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Volume2 size={16} color={isOverheatBreached ? '#dc2626' : '#059669'} />
                 <div>
-                  <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#0f172a' }}>HỆ THỐNG CẢNH BÁO CỬA KHO</div>
+                  <div style={{ fontSize: '11.5px', fontWeight: 600, color: '#0f172a' }}>HỆ THỐNG CẢNH BÁO CỬA KHO</div>
                   <div style={{ fontSize: '10.5px', color: '#64748b' }}>Phát chuông báo động tự động khi nhiệt độ vượt ngưỡng an toàn</div>
                 </div>
               </div>
-              <span style={{ fontSize: '11px', fontWeight: 800, color: isOverheatBreached ? '#dc2626' : '#059669' }}>
-                {isOverheatBreached ? 'ĐANG BÁO ĐỘNG' : 'Hoạt động bình thường'}
+              <span style={{ fontSize: '11px', fontWeight: 600, color: isOverheatBreached ? '#dc2626' : '#059669' }}>
+                {isOverheatBreached ? 'Đang báo động' : 'Hoạt động bình thường'}
               </span>
             </div>
 
             {/* 3 Shelves with Pick-to-Light buttons */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: '#475569', textTransform: 'uppercase' }}>
                 DANH SÁCH KỆ HÀNG TRỌNG ĐIỂM (PHÒNG MÁT):
               </div>
 
@@ -850,7 +868,7 @@ export const Dashboard: React.FC = () => {
                     key={shelf.code}
                     style={{
                       backgroundColor: '#ffffff',
-                      borderRadius: '10px',
+                      borderRadius: '8px',
                       border: '1px solid #e2e8f0',
                       padding: '8px 12px',
                       display: 'flex',
@@ -860,7 +878,7 @@ export const Dashboard: React.FC = () => {
                     }}
                   >
                     <div>
-                      <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#0f172a' }}>{shelf.name}</div>
+                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#0f172a' }}>{shelf.name}</div>
                       <div style={{ fontSize: '10.5px', color: '#64748b' }}>
                         Tiêu chuẩn bảo quản: {shelf.tempSafe}
                       </div>
@@ -870,21 +888,21 @@ export const Dashboard: React.FC = () => {
                       <button
                         onClick={() => handleLocateShelf(shelf.code, shelf.name)}
                         style={{
-                          backgroundColor: isLocating ? '#0284c7' : '#f0f9ff',
+                          backgroundColor: isLocating ? '#0284c7' : '#f8fafc',
                           color: isLocating ? '#ffffff' : '#0369a1',
-                          border: '1px solid #bae6fd',
+                          border: '1px solid #cbd5e1',
                           padding: '4px 8px',
                           borderRadius: '6px',
                           fontSize: '11px',
-                          fontWeight: 800,
+                          fontWeight: 600,
                           display: 'flex',
                           alignItems: 'center',
                           gap: '4px',
                           cursor: 'pointer',
                         }}
                       >
-                        <Sparkles size={12} />
-                        <span>{isLocating ? 'Đang định vị' : 'Bật đèn vị trí'}</span>
+                        <Radio size={12} />
+                        <span>{isLocating ? 'Đang định vị' : 'Bật đèn kệ (PTL)'}</span>
                       </button>
 
                       <button
@@ -896,7 +914,7 @@ export const Dashboard: React.FC = () => {
                           padding: '4px 8px',
                           borderRadius: '6px',
                           fontSize: '11px',
-                          fontWeight: 800,
+                          fontWeight: 600,
                           display: 'flex',
                           alignItems: 'center',
                           gap: '4px',
@@ -960,13 +978,13 @@ export const Dashboard: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: '#475569', textTransform: 'uppercase' }}>
                 DANH MỤC 8 KỆ HÀNG ĐÔNG LẠNH (B1 ĐẾN B8):
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {['Kệ B1 (Thịt bò Úc)', 'Kệ B2 (Hải sản Na Uy)', 'Kệ B3 (Viên thả lẩu)', 'Kệ B4 (Sườn bò Mỹ)', 'Kệ B5 (Cua tuyết)', 'Kệ B8 (Kem cao cấp)'].map((k, i) => (
-                  <span key={i} style={{ fontSize: '11px', fontWeight: 700, backgroundColor: '#ffffff', border: '1px solid #cbd5e1', padding: '3px 8px', borderRadius: '6px', color: '#1e293b' }}>
-                    🧊 {k}
+                  <span key={i} style={{ fontSize: '11px', fontWeight: 500, backgroundColor: '#ffffff', border: '1px solid #cbd5e1', padding: '3px 8px', borderRadius: '4px', color: '#1e293b' }}>
+                    {k}
                   </span>
                 ))}
               </div>
@@ -976,57 +994,57 @@ export const Dashboard: React.FC = () => {
           {/* ROOM 3: PHÒNG KHO KHÔ (Dry Storage Room 20°C ~ 25°C) */}
           <div
             style={{
-              borderRadius: '16px',
-              border: '1px solid #fde68a',
-              backgroundColor: '#fffbeb',
-              padding: '18px',
+              borderRadius: '8px',
+              border: '1px solid #e2e8f0',
+              backgroundColor: '#f8fafc',
+              padding: '16px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '14px',
+              gap: '12px',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#fef3c7', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: '#fffbeb', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Wind size={18} />
                 </div>
                 <div>
-                  <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 900, color: '#0f172a' }}>3. PHÒNG KHO KHÔ</h4>
+                  <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>3. PHÒNG KHO KHÔ</h4>
                   <span style={{ fontSize: '11px', color: '#64748b' }}>Gạo ST25, Mì Hảo Hảo, Dầu ăn Simply, Gia vị</span>
                 </div>
               </div>
 
-              <span style={{ fontSize: '11px', fontWeight: 900, padding: '3px 8px', borderRadius: '6px', backgroundColor: '#d97706', color: '#ffffff' }}>
-                20°C ~ 25°C BÌNH THƯỜNG
+              <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '4px', backgroundColor: '#fffbeb', color: '#b45309', border: '1px solid #fde68a' }}>
+                20°C ~ 25°C Bình thường
               </span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', backgroundColor: '#ffffff', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', backgroundColor: '#ffffff', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <div>
-                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>Nhiệt độ hiện tại:</div>
-                <div style={{ fontSize: '24px', fontWeight: 900, color: '#d97706' }}>24.2°C</div>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Nhiệt độ hiện tại:</div>
+                <div style={{ fontSize: '22px', fontWeight: 700, color: '#b45309' }}>24.2°C</div>
                 <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>Nhiệt độ phòng tự nhiên</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>Độ ẩm không khí:</div>
-                <div style={{ fontSize: '24px', fontWeight: 900, color: '#0284c7' }}>56.0%</div>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Độ ẩm không khí:</div>
+                <div style={{ fontSize: '22px', fontWeight: 700, color: '#0284c7' }}>56.0%</div>
                 <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>Ngưỡng thoáng: 50% ~ 65%</div>
               </div>
             </div>
 
-            <div style={{ backgroundColor: '#ffffff', padding: '10px 12px', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '12px', color: '#334155', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ShieldCheck size={16} color="#d97706" />
+            <div style={{ backgroundColor: '#ffffff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px', color: '#334155', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ShieldCheck size={16} color="#b45309" />
               <span>Kiểm soát độ ẩm: <b>Thông gió tự nhiên & Chống ẩm mốc</b></span>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: '#475569', textTransform: 'uppercase' }}>
                 DANH MỤC 10 KỆ HÀNG KHO KHÔ (C1 ĐẾN C10):
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {['Kệ C1 (Gạo ST25)', 'Kệ C2 (Mì gói)', 'Kệ C3 (Dầu ăn Simply)', 'Kệ C4 (Gia vị Knorr)', 'Kệ C7 (Cà phê G7)', 'Kệ C10 (Gia dụng)'].map((k, i) => (
-                  <span key={i} style={{ fontSize: '11px', fontWeight: 700, backgroundColor: '#ffffff', border: '1px solid #cbd5e1', padding: '3px 8px', borderRadius: '6px', color: '#1e293b' }}>
-                    🌾 {k}
+                  <span key={i} style={{ fontSize: '11px', fontWeight: 500, backgroundColor: '#ffffff', border: '1px solid #cbd5e1', padding: '3px 8px', borderRadius: '4px', color: '#1e293b' }}>
+                    {k}
                   </span>
                 ))}
               </div>
@@ -1036,19 +1054,20 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* 📈 24-HOUR COLD-CHAIN TELEMETRY CHART */}
-      <div style={{ background: '#ffffff', borderRadius: '18px', border: '1px solid #e2e8f0', padding: '22px 24px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
+      {/* 24-HOUR COLD-CHAIN TELEMETRY CHART */}
+      <div style={{ background: '#ffffff', borderRadius: '10px', border: '1px solid #e2e8f0', padding: '20px 22px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 900, color: '#0f172a' }}>
-              📈 Biểu Đồ Giám Sát Nhiệt Độ Kho Lạnh 24 Giờ (Kho WH-006)
+            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Activity size={18} color="#0f766e" />
+              <span>Biểu Đồ Giám Sát Nhiệt Độ Kho Lạnh 24 Giờ (Kho WH-006)</span>
             </h3>
             <span style={{ fontSize: '12px', color: '#64748b' }}>
               Đường giới hạn an toàn tối đa (4.0°C). Nhiệt độ bảo quản thực phẩm luôn được kiểm soát chặt chẽ.
             </span>
           </div>
-          <span style={{ fontSize: '12px', fontWeight: 800, color: '#0f766e', backgroundColor: '#f0fdfa', padding: '4px 10px', borderRadius: '8px', border: '1px solid #ccfbf1' }}>
-            ● Cập nhật liên tục 24/7
+          <span style={{ fontSize: '11px', fontWeight: 600, color: '#0f766e', backgroundColor: '#f0fdfa', padding: '4px 10px', borderRadius: '6px', border: '1px solid #ccfbf1' }}>
+            Cập nhật liên tục 24/7
           </span>
         </div>
 
@@ -1057,7 +1076,7 @@ export const Dashboard: React.FC = () => {
             <AreaChart data={telemetryHistory} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={isOverheatBreached ? '#ef4444' : '#0d9488'} stopOpacity={0.4} />
+                  <stop offset="5%" stopColor={isOverheatBreached ? '#ef4444' : '#0d9488'} stopOpacity={0.2} />
                   <stop offset="95%" stopColor={isOverheatBreached ? '#ef4444' : '#0d9488'} stopOpacity={0.0} />
                 </linearGradient>
               </defs>
@@ -1066,7 +1085,7 @@ export const Dashboard: React.FC = () => {
               <YAxis domain={[0, 7]} tick={{ fontSize: 11, fill: '#64748b' }} stroke="#cbd5e1" />
               <Tooltip
                 formatter={(val: any) => [`${val}°C`, 'Nhiệt độ']}
-                contentStyle={{ borderRadius: '10px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
               />
               <ReferenceLine y={4.0} stroke="#ef4444" strokeDasharray="4 4" label={{ value: 'Ngưỡng Max: 4.0°C', fill: '#ef4444', fontSize: 11, position: 'top' }} />
               <ReferenceLine y={0.0} stroke="#0284c7" strokeDasharray="4 4" label={{ value: 'Ngưỡng Min: 0.0°C', fill: '#0284c7', fontSize: 11, position: 'bottom' }} />
@@ -1074,7 +1093,7 @@ export const Dashboard: React.FC = () => {
                 type="monotone"
                 dataKey="temp"
                 stroke={isOverheatBreached ? '#ef4444' : '#0d9488'}
-                strokeWidth={3}
+                strokeWidth={2}
                 fillOpacity={1}
                 fill="url(#tempGradient)"
               />
@@ -1083,24 +1102,24 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* 📦 2-COLUMN SECTION: LIVE WAVE ORDERS FEED & FEFO PRIORITY RADAR */}
+      {/* 2-COLUMN SECTION: LIVE WAVE ORDERS FEED & FEFO PRIORITY RADAR */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '20px' }}>
         
         {/* Left Column: Live Picking & Packing Orders */}
-        <div style={{ background: '#ffffff', borderRadius: '18px', border: '1px solid #e2e8f0', padding: '22px 24px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ background: '#ffffff', borderRadius: '10px', border: '1px solid #e2e8f0', padding: '20px 22px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <div>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 900, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Compass size={18} color="#0284c7" />
                 <span>Đợt Sóng Gom Hàng Trực Tiếp (Realtime Picking Wave)</span>
               </h3>
-              <span style={{ fontSize: '12px', color: '#64748b' }}>Đồng bộ thời gian thực với App Điện thoại của Nhân viên</span>
+              <span style={{ fontSize: '12px', color: '#64748b' }}>Đồng bộ thời gian thực với App Nhân viên kho</span>
             </div>
             <Link
               to="/orders"
               style={{
                 fontSize: '12px',
-                fontWeight: 800,
+                fontWeight: 600,
                 color: '#0284c7',
                 display: 'flex',
                 alignItems: 'center',
@@ -1124,7 +1143,7 @@ export const Dashboard: React.FC = () => {
                 <div
                   key={ord.id}
                   style={{
-                    borderRadius: '12px',
+                    borderRadius: '8px',
                     border: '1px solid #e2e8f0',
                     padding: '12px 14px',
                     backgroundColor: isPicking ? '#f0fdf4' : '#ffffff',
@@ -1137,26 +1156,26 @@ export const Dashboard: React.FC = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <div
                       style={{
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: '8px',
-                        backgroundColor: isPacked ? '#dbeafe' : isPicked ? '#f3e8ff' : isPicking ? '#dcfce7' : '#f1f5f9',
-                        color: isPacked ? '#1d4ed8' : isPicked ? '#7e22ce' : isPicking ? '#15803d' : '#64748b',
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '6px',
+                        backgroundColor: isPacked ? '#eff6ff' : isPicked ? '#faf5ff' : isPicking ? '#f0fdf4' : '#f8fafc',
+                        color: isPacked ? '#1d4ed8' : isPicked ? '#7c3aed' : isPicking ? '#15803d' : '#64748b',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontWeight: 900,
-                        fontSize: '12px',
+                        fontWeight: 600,
+                        fontSize: '11px',
                       }}
                     >
-                      {isPacked ? '📦' : isPicked ? '🏷️' : isPicking ? '⚡' : '⏳'}
+                      {isPacked ? 'GÓI' : isPicked ? 'TEM' : isPicking ? 'LẤY' : 'CHỜ'}
                     </div>
 
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: 900, color: '#0f172a' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
                         {ord.orderCode}
                       </div>
-                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                      <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
                         {ord.destination || ord.customerName || 'Giao nội thành HCM'} • {ord.totalItems || ord.items?.length || 1} món ({ord.totalQuantity || 1} đơn vị)
                       </div>
                     </div>
@@ -1166,11 +1185,12 @@ export const Dashboard: React.FC = () => {
                     <span
                       style={{
                         fontSize: '11px',
-                        fontWeight: 900,
+                        fontWeight: 600,
                         padding: '3px 8px',
-                        borderRadius: '6px',
-                        backgroundColor: isPacked ? '#dbeafe' : isPicked ? '#f3e8ff' : isPicking ? '#dcfce7' : '#f1f5f9',
-                        color: isPacked ? '#1d4ed8' : isPicked ? '#7e22ce' : isPicking ? '#15803d' : '#475569',
+                        borderRadius: '4px',
+                        backgroundColor: isPacked ? '#eff6ff' : isPicked ? '#faf5ff' : isPicking ? '#f0fdf4' : '#f8fafc',
+                        color: isPacked ? '#1d4ed8' : isPicked ? '#7c3aed' : isPicking ? '#15803d' : '#475569',
+                        border: `1px solid ${isPacked ? '#bfdbfe' : isPicked ? '#e9d5ff' : isPicking ? '#bbf7d0' : '#e2e8f0'}`,
                       }}
                     >
                       {isPacked ? 'ĐÃ ĐÓNG GÓI' : isPicked ? 'CHỜ ĐÓNG GÓI' : isPicking ? 'ĐANG LẤY HÀNG' : 'CHỜ SOẠN'}
@@ -1184,7 +1204,7 @@ export const Dashboard: React.FC = () => {
                         padding: '6px 10px',
                         borderRadius: '6px',
                         fontSize: '11.5px',
-                        fontWeight: 700,
+                        fontWeight: 600,
                         color: '#334155',
                         cursor: 'pointer',
                       }}
@@ -1198,21 +1218,21 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Column: AI Intelligent FEFO Priority Radar */}
-        <div style={{ background: '#ffffff', borderRadius: '18px', border: '1px solid #e2e8f0', padding: '22px 24px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column' }}>
+        {/* Right Column: FEFO Priority Radar */}
+        <div style={{ background: '#ffffff', borderRadius: '10px', border: '1px solid #e2e8f0', padding: '20px 22px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <div>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 900, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <ShieldAlert size={18} color="#d97706" />
                 <span>Cảnh Báo Lô Hàng Cận Hạn Sử Dụng</span>
               </h3>
-              <span style={{ fontSize: '12px', color: '#64748b' }}>Ưu tiên xuất trước để bảo vệ lợi nhuận & giảm hủy hàng</span>
+              <span style={{ fontSize: '12px', color: '#64748b' }}>Ưu tiên xuất trước để bảo vệ chất lượng & giảm hao hụt</span>
             </div>
             <Link
               to="/inventory"
               style={{
                 fontSize: '12px',
-                fontWeight: 800,
+                fontWeight: 600,
                 color: '#d97706',
                 display: 'flex',
                 alignItems: 'center',
@@ -1227,8 +1247,9 @@ export const Dashboard: React.FC = () => {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
             {urgentFefo.length === 0 ? (
-              <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '13px', padding: '30px 0' }}>
-                🟢 Tất cả các lô hàng tại kho đều an toàn, không có lô cận date khẩn cấp.
+              <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '13px', padding: '30px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <CheckCircle2 size={16} color="#16a34a" />
+                <span>Tất cả các lô hàng tại kho đều an toàn, không có lô cận date khẩn cấp.</span>
               </div>
             ) : (
               urgentFefo.map((item, i) => {
@@ -1237,7 +1258,7 @@ export const Dashboard: React.FC = () => {
                   <div
                     key={item.id || i}
                     style={{
-                      borderRadius: '12px',
+                      borderRadius: '8px',
                       border: `1px solid ${isCritical ? '#fecaca' : '#fef3c7'}`,
                       backgroundColor: isCritical ? '#fff5f5' : '#fffbeb',
                       padding: '12px 14px',
@@ -1250,15 +1271,15 @@ export const Dashboard: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <div
                         style={{
-                          width: '30px',
-                          height: '30px',
-                          borderRadius: '8px',
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '6px',
                           backgroundColor: isCritical ? '#fee2e2' : '#fde68a',
                           color: isCritical ? '#b91c1c' : '#b45309',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          fontWeight: 900,
+                          fontWeight: 700,
                           fontSize: '11px',
                         }}
                       >
@@ -1267,20 +1288,21 @@ export const Dashboard: React.FC = () => {
 
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontSize: '13px', fontWeight: 900, color: '#0f172a' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
                             {item.lotCode}
                           </span>
                           <span
                             style={{
                               fontSize: '10px',
-                              fontWeight: 800,
+                              fontWeight: 600,
                               padding: '1px 6px',
                               borderRadius: '4px',
-                              backgroundColor: item.zone === 'COLD' ? '#ecfdf5' : item.zone === 'FROZEN' ? '#eff6ff' : '#fef3c7',
-                              color: item.zone === 'COLD' ? '#047857' : item.zone === 'FROZEN' ? '#1d4ed8' : '#b45309',
+                              backgroundColor: item.zone === 'COLD' ? '#f0fdf4' : item.zone === 'FROZEN' ? '#eff6ff' : '#fffbeb',
+                              color: item.zone === 'COLD' ? '#166534' : item.zone === 'FROZEN' ? '#1e40af' : '#92400e',
+                              border: `1px solid ${item.zone === 'COLD' ? '#bbf7d0' : item.zone === 'FROZEN' ? '#bfdbfe' : '#fde68a'}`,
                             }}
                           >
-                            {item.zone === 'COLD' ? '❄️ Kho Lạnh' : item.zone === 'FROZEN' ? '🧊 Kho Đông' : '📦 Kho Khô'}
+                            {item.zone === 'COLD' ? 'Kho Mát' : item.zone === 'FROZEN' ? 'Kho Đông' : 'Kho Khô'}
                           </span>
                         </div>
                         <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
@@ -1290,7 +1312,7 @@ export const Dashboard: React.FC = () => {
                     </div>
 
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 900, color: isCritical ? '#dc2626' : '#d97706' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: isCritical ? '#dc2626' : '#d97706' }}>
                         Còn {item.daysLeft} ngày
                       </div>
                       <div style={{ fontSize: '10.5px', color: '#64748b' }}>
@@ -1311,22 +1333,21 @@ export const Dashboard: React.FC = () => {
 };
 
 // Styling Helpers
-const kpiCardStyle = (borderColor: string, background: string): React.CSSProperties => ({
-  background,
-  borderRadius: '16px',
-  padding: '18px 20px',
-  border: '1px solid rgba(0, 0, 0, 0.06)',
-  borderTop: `4px solid ${borderColor}`,
-  boxShadow: '0 4px 18px rgba(0, 0, 0, 0.04)',
+const kpiCardStyle = (accentColor: string): React.CSSProperties => ({
+  backgroundColor: '#ffffff',
+  borderRadius: '8px',
+  padding: '16px 18px',
+  border: '1px solid #e2e8f0',
+  borderLeft: `4px solid ${accentColor}`,
+  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
   display: 'flex',
   flexDirection: 'column',
-  transition: 'transform 0.2s ease, box-shadow 0.2s ease',
 });
 
 const kpiIconStyle = (bgColor: string, color: string): React.CSSProperties => ({
-  width: '36px',
-  height: '36px',
-  borderRadius: '10px',
+  width: '34px',
+  height: '34px',
+  borderRadius: '6px',
   backgroundColor: bgColor,
   color,
   display: 'flex',

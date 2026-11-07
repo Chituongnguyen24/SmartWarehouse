@@ -25,9 +25,9 @@ export const DriverHeader: React.FC = () => {
                   <Text style={styles.plateText}>{driverProfile.licensePlate}</Text>
                 </View>
               </View>
-              <Text style={styles.vehicleType}>🚚 {driverProfile.vehicleType}</Text>
+              <Text style={styles.vehicleType}>{driverProfile.vehicleType}</Text>
               <View style={styles.warehouseBadgeRow}>
-                <Text style={styles.warehouseBadgeText}>🏬 {driverProfile.warehouseName || 'Kho Gò Vấp (WH-006)'}</Text>
+                <Text style={styles.warehouseBadgeText}>{driverProfile.warehouseName || 'Kho Gò Vấp (WH-006)'}</Text>
               </View>
             </View>
           </View>

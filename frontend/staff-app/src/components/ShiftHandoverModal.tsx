@@ -109,20 +109,20 @@ export const ShiftHandoverModal: React.FC<Props> = ({
   const shiftTime = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
   const handleCopyReport = () => {
-    const text = `📋 BIÊN BẢN BÀN GIAO CA TRỰC CITYMART WMS
+    const text = `BIÊN BẢN BÀN GIAO CA TRỰC CITYMART WMS
 - Nhân viên giao ca: ${user?.name || 'Nhân viên kho'} (${user?.code || 'NV-001'})
 - Kho trực thuộc: ${user?.warehouseName || 'Kho Gò Vấp'} (${user?.warehouseCode || 'WH-006'})
 - Ca làm việc: ${user?.shift || 'Ca 1 (06:00 - 14:00)'}
 - Thời gian bàn giao: ${shiftDate} ${shiftTime}
 - Nhân viên nhận ca: ${nextStaffName} (${selectedNextShift})
 
-📊 KẾT QUẢ VẬN HÀNH TRONG CA:
+KẾT QUẢ VẬN HÀNH TRONG CA:
 - Đơn đã soạn hàng: ${stats.pickedOrdersCount} đơn (${stats.totalUnitsPicked} sản phẩm)
 - Đơn đã đóng gói: ${stats.packedOrdersCount} thùng/kiện
 - Lô hàng đã kiểm kê: ${stats.auditedLotsCount} lô (Độ khớp: 100%)
 - Năng suất hoàn thành: ${stats.productivityRate}%
 
-📝 GHI CHÚ BÀN GIAO:
+GHI CHÚ BÀN GIAO:
 ${handoverNotes}
 
 ---
@@ -157,7 +157,7 @@ Xác nhận bởi CityMart WMS Smart Warehouse`;
     prevHistory.unshift(handoverRecord);
     localStorage.setItem('citymart_shift_history', JSON.stringify(prevHistory.slice(0, 20)));
 
-    alert('✅ Đã lưu và gửi biên bản bàn giao ca trực lên máy chủ quản lý CityMart!');
+    alert('Đã lưu và gửi biên bản bàn giao ca trực lên máy chủ quản lý CityMart!');
     if (onSuccess) onSuccess();
     onClose();
   };
@@ -197,21 +197,20 @@ Xác nhận bởi CityMart WMS Smart Warehouse`;
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div
               style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, #008848 0%, #059669 100%)',
+                width: '38px',
+                height: '38px',
+                borderRadius: '8px',
+                backgroundColor: '#008848',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#ffffff',
-                boxShadow: '0 4px 12px rgba(0,136,72,0.25)',
               }}
             >
-              <FileSpreadsheet size={22} />
+              <FileSpreadsheet size={20} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 900, color: '#0f172a' }}>Biên Bản Bàn Giao Ca Trực</h3>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>Biên Bản Bàn Giao Ca Trực</h3>
               <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', color: '#64748b' }}>
                 Tổng kết năng suất ca & chuyển giao quyền vận hành kho
               </p>
@@ -229,7 +228,7 @@ Xác nhận bởi CityMart WMS Smart Warehouse`;
         <div
           style={{
             backgroundColor: '#f8fafc',
-            borderRadius: '14px',
+            borderRadius: '8px',
             padding: '12px 16px',
             border: '1px solid #e2e8f0',
             display: 'flex',
@@ -239,14 +238,14 @@ Xác nhận bởi CityMart WMS Smart Warehouse`;
           }}
         >
           <div>
-            <div style={{ fontWeight: 800, color: '#0f172a' }}>
-              👤 {user?.name || 'Nhân viên kho'} ({user?.code || 'NV-001'})
+            <div style={{ fontWeight: 600, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <User size={13} /> {user?.name || 'Nhân viên kho'} ({user?.code || 'NV-001'})
             </div>
             <div style={{ color: '#64748b', fontSize: '11px', marginTop: '2px' }}>
-              🏢 {user?.warehouseName || 'Kho Gò Vấp'} ({user?.warehouseCode || 'WH-006'}) • {user?.shift || 'Ca 1 (06:00 - 14:00)'}
+              {user?.warehouseName || 'Kho Gò Vấp'} ({user?.warehouseCode || 'WH-006'}) • {user?.shift || 'Ca 1 (06:00 - 14:00)'}
             </div>
           </div>
-          <div style={{ textAlign: 'right', color: '#059669', fontWeight: 800, fontSize: '11.5px' }}>
+          <div style={{ textAlign: 'right', color: '#059669', fontWeight: 600, fontSize: '11.5px' }}>
             <Clock size={13} style={{ display: 'inline', marginRight: '4px' }} />
             {shiftDate} • {shiftTime}
           </div>
@@ -254,8 +253,8 @@ Xác nhận bởi CityMart WMS Smart Warehouse`;
 
         {/* KPI Metrics Grid */}
         <div>
-          <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>
-            📊 Năng suất vận hành trong ca:
+          <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>
+            Năng suất vận hành trong ca:
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
             <div style={{ backgroundColor: '#f0fdf4', padding: '12px', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
@@ -395,18 +394,17 @@ Xác nhận bởi CityMart WMS Smart Warehouse`;
             style={{
               flex: 1.6,
               padding: '11px',
-              background: 'linear-gradient(135deg, #008848 0%, #059669 100%)',
+              backgroundColor: '#008848',
               border: 'none',
-              borderRadius: '12px',
+              borderRadius: '8px',
               color: '#ffffff',
               fontSize: '12.5px',
-              fontWeight: 800,
+              fontWeight: 600,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px',
-              boxShadow: '0 4px 14px rgba(0,136,72,0.3)',
             }}
           >
             <CheckCircle2 size={16} />

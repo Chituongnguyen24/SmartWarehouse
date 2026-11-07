@@ -18,7 +18,6 @@ import {
   Calendar,
   Layers,
   ChevronRight,
-  Sparkles,
   ArrowUpRight,
   Percent,
   MessageSquare,
@@ -401,7 +400,7 @@ export const SalesManagement = () => {
     }
 
     setSalesOrders([newSalesOrder, ...salesOrders]);
-    showToast(`🎉 Tạo thành công Đơn Hàng Sales B2B #${newOrderCode}! Đã gửi yêu cầu sang Kho.`);
+    showToast(`Tạo thành công Đơn Hàng Sales B2B #${newOrderCode}. Đã gửi yêu cầu sang Kho.`);
     setCartItems([]);
     setActiveTab('ORDER_LIST');
   };
@@ -498,7 +497,7 @@ export const SalesManagement = () => {
       {/* Main Navigation Tabs */}
       <div style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', marginBottom: '1.25rem', gap: 8, overflowX: 'auto' }}>
         <button onClick={() => setActiveTab('LIVE_CHAT')} style={tabButtonStyle(activeTab === 'LIVE_CHAT')}>
-          <MessageSquare size={18} /> 💬 1. Chat Hỗ Trợ {totalUnreadCount > 0 && `(${totalUnreadCount})`}
+          <MessageSquare size={18} /> 1. Chat Hỗ Trợ {totalUnreadCount > 0 && `(${totalUnreadCount})`}
         </button>
         <button onClick={() => setActiveTab('CREATE_ORDER')} style={tabButtonStyle(activeTab === 'CREATE_ORDER')}>
           <Plus size={18} /> 2. Tạo Đơn B2B
@@ -507,7 +506,7 @@ export const SalesManagement = () => {
           <FileText size={18} /> 3. Đơn Hàng ({salesOrders.length})
         </button>
         <button onClick={() => setActiveTab('FEFO_INSIGHTS')} style={tabButtonStyle(activeTab === 'FEFO_INSIGHTS')}>
-          <Sparkles size={18} /> 4. Đẩy Bán Cận Hạn ({fefoItemsCount})
+          <TrendingUp size={18} /> 4. Đẩy Bán Cận Hạn ({fefoItemsCount})
         </button>
         <button onClick={() => setActiveTab('CUSTOMERS')} style={tabButtonStyle(activeTab === 'CUSTOMERS')}>
           <Building2 size={18} /> 5. Khách Hàng B2B
@@ -525,7 +524,7 @@ export const SalesManagement = () => {
           <div style={{ borderRight: '2px solid #e2e8f0', display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc' }}>
             <div style={{ padding: '0.85rem 1rem', borderBottom: '2px solid #cbd5e1', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#475569', letterSpacing: '0.05em' }}>
-                💬 DANH SÁCH KHÁCH HÀNG ({conversations.length})
+                DANH SÁCH KHÁCH HÀNG ({conversations.length})
               </span>
               <span style={{ fontSize: '0.7rem', backgroundColor: '#e2e8f0', color: '#334155', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>VÙNG 1</span>
             </div>
@@ -686,19 +685,19 @@ export const SalesManagement = () => {
                 onClick={() => handleQuickReply(`Dạ chào anh/chị, đơn hàng #${activeConversation.orderCode} đã được duyệt và đang được kho soạn hàng nhé ạ!`)}
                 style={{ backgroundColor: '#f0fdf4', color: '#008848', border: '1px solid #bbf7d0', padding: '6px 12px', borderRadius: '16px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
               >
-                🚀 Báo đang soạn hàng
+                Báo đang soạn hàng
               </button>
               <button
                 onClick={() => handleQuickReply('Sản phẩm CityMart cam kết 100% tươi sạch, vận chuyển bằng xe lạnh chuyên dụng ạ!')}
                 style={{ backgroundColor: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '6px 12px', borderRadius: '16px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
               >
-                ❄️ Báo cam kết xe lạnh
+                Báo cam kết xe lạnh
               </button>
               <button
                 onClick={() => handleQuickReply('Bên em hỗ trợ giao hàng siêu tốc trong 2h tới địa chỉ của mình nhé ạ.')}
                 style={{ backgroundColor: '#fefce8', color: '#ca8a04', border: '1px solid #fef08a', padding: '6px 12px', borderRadius: '16px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
               >
-                ⚡ Báo giao siêu tốc 2H
+                Báo giao nhanh 2H
               </button>
             </div>
 
@@ -732,7 +731,7 @@ export const SalesManagement = () => {
           <div style={{ borderLeft: '2px solid #e2e8f0', backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '0.85rem 1rem', borderBottom: '2px solid #bbf7d0', backgroundColor: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#065f46', letterSpacing: '0.05em' }}>
-                📦 CHI TIẾT ĐƠN HÀNG
+                CHI TIẾT ĐƠN HÀNG
               </span>
               <span style={{ fontSize: '0.7rem', backgroundColor: '#dcfce7', color: '#166534', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>VÙNG 3</span>
             </div>
@@ -777,7 +776,7 @@ export const SalesManagement = () => {
             {/* QUICK ORDER ACTIONS */}
             <button
               onClick={() => {
-                showToast(`✅ Đã xác nhận duyệt đơn hàng #${activeConversation.orderCode} và chuyển yêu cầu soạn kho!`);
+                showToast(`Đã xác nhận duyệt đơn hàng #${activeConversation.orderCode} và chuyển yêu cầu soạn kho.`);
               }}
               style={{
                 width: '100%', padding: '12px', borderRadius: '8px', border: 'none',
@@ -816,8 +815,8 @@ export const SalesManagement = () => {
                   }}
                 >
                   {prod.isFefoPriority && (
-                    <span style={{ position: 'absolute', top: 6, right: 6, backgroundColor: '#F59E0B', color: '#fff', fontSize: '0.65rem', fontWeight: 800, padding: '2px 6px', borderRadius: 4 }}>
-                      ⚡ Ưu tiên hạn gần
+                    <span style={{ position: 'absolute', top: 6, right: 6, backgroundColor: '#F59E0B', color: '#fff', fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: 4 }}>
+                      Ưu tiên hạn gần
                     </span>
                   )}
 
@@ -930,9 +929,9 @@ export const SalesManagement = () => {
             <button
               onClick={handleCreateSalesOrder}
               className="btn btn-primary"
-              style={{ width: '100%', backgroundColor: '#008848', color: '#fff', fontWeight: 900, padding: 12, fontSize: '0.95rem' }}
+              style={{ width: '100%', backgroundColor: '#008848', color: '#fff', fontWeight: 700, padding: 12, fontSize: '0.95rem' }}
             >
-              🚀 Duyệt & Gửi Đơn Sang Kho
+              Duyệt & Gửi Đơn Sang Kho
             </button>
           </div>
         </div>
@@ -983,20 +982,20 @@ export const SalesManagement = () => {
       {activeTab === 'FEFO_INSIGHTS' && (
         <div style={{ background: 'var(--color-surface)', borderRadius: 12, padding: '1.25rem', border: '1px solid var(--color-border)' }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Sparkles size={20} color="#F59E0B" /> Đề Xuất Đẩy Bán Hàng Cận Hạn Dùng
+            <TrendingUp size={18} color="#D97706" /> Đề Xuất Đẩy Bán Hàng Cận Hạn Dùng
           </h3>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
             {products.filter(p => p.isFefoPriority).map(p => (
-              <div key={p.id} style={{ border: '2px solid #F59E0B', borderRadius: 10, padding: 14, backgroundColor: '#FEFCE8' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800 }}>
+              <div key={p.id} style={{ border: '1px solid #fde68a', borderRadius: 8, padding: 14, backgroundColor: '#FEFCE8' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
                   <span>{p.name}</span>
-                  <span style={{ color: '#D97706', fontSize: '0.8rem' }}>⚠️ Cận ngày ({p.expiryDaysLeft} ngày nữa)</span>
+                  <span style={{ color: '#D97706', fontSize: '0.8rem' }}>Cận ngày ({p.expiryDaysLeft} ngày nữa)</span>
                 </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: 4 }}>
                   Mã: <strong>{p.sku}</strong> | Tồn kho: <strong>{p.stock} {p.unit}</strong>
                 </div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#008848', marginTop: 6 }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#008848', marginTop: 6 }}>
                   Giá gốc: {p.price.toLocaleString('vi-VN')}đ
                 </div>
 
@@ -1004,12 +1003,12 @@ export const SalesManagement = () => {
                   onClick={() => {
                     handleAddItemToCart(p);
                     setActiveTab('CREATE_ORDER');
-                    showToast(`🎯 Đã đưa ${p.name} vào đơn khuyến mãi B2B!`);
+                    showToast(`Đã đưa ${p.name} vào đơn khuyến mãi B2B.`);
                   }}
                   className="btn btn-primary"
-                  style={{ width: '100%', marginTop: 12, backgroundColor: '#D97706', color: '#fff', fontWeight: 800 }}
+                  style={{ width: '100%', marginTop: 12, backgroundColor: '#D97706', color: '#fff', fontWeight: 700 }}
                 >
-                  🎯 Đưa Vào Đơn Khuyến Mãi B2B
+                  Đưa Vào Đơn Khuyến Mãi B2B
                 </button>
               </div>
             ))}
@@ -1026,14 +1025,14 @@ export const SalesManagement = () => {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
             {customers.map(c => (
-              <div key={c.id} style={{ border: '1px solid var(--color-border)', borderRadius: 10, padding: 14, backgroundColor: 'var(--color-bg)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: '0.95rem' }}>
+              <div key={c.id} style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 14, backgroundColor: 'var(--color-bg)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '0.95rem' }}>
                   <span>{c.name}</span>
                   <span style={{ color: '#008848' }}>-{c.discountRate}%</span>
                 </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: 4 }}>Mã KH: <strong>{c.code}</strong> • Phân loại: <strong>{c.type}</strong></div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>📱 SĐT: {c.phone} | ✉️ {c.email}</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>📍 Địa chỉ: {c.address}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>SĐT: {c.phone} | {c.email}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>Địa chỉ: {c.address}</div>
                 <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#2563EB', marginTop: 6 }}>
                   Hạn mức tín dụng B2B: {c.creditLimit.toLocaleString('vi-VN')}đ
                 </div>

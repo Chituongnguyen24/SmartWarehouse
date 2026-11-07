@@ -9,7 +9,7 @@ import {
   Snowflake,
   Clock,
   ArrowRight,
-  Sparkles,
+  Radio,
   Compass,
   Layers,
   ChevronRight,
@@ -26,6 +26,7 @@ import {
   VolumeX,
   FileSpreadsheet,
   Key,
+  X,
 } from 'lucide-react';
 import { PickingItem } from '../types';
 import { CameraScannerModal } from '../components/CameraScannerModal';
@@ -346,7 +347,7 @@ export const PickingWave: React.FC = () => {
   const handleStartScan = async (item: PickingItem) => {
     const itemLock = item.orderId ? activeLocks[item.orderId] : null;
     if (itemLock && itemLock.userId !== (user?.id || 'usr-staff')) {
-      alert(`🔒 Đơn hàng ${item.orderCode} đang được thao tác bởi ${itemLock.userName}. Bạn không thể thao tác cùng lúc!`);
+      alert(`Đơn hàng ${item.orderCode} đang được thao tác bởi ${itemLock.userName}. Bạn không thể thao tác cùng lúc.`);
       return;
     }
 
@@ -427,10 +428,10 @@ export const PickingWave: React.FC = () => {
     if (mode === 'LOT' || (pickedQty && pickedQty >= activeScanItem.quantity) || newPickedCount >= activeScanItem.quantity) {
       setToastMessage({
         type: 'SUCCESS',
-        text: `📦 Đã gom đủ: ${activeScanItem.productName} (${activeScanItem.quantity} ${activeScanItem.unit})`,
+        text: `Đã gom đủ: ${activeScanItem.productName} (${activeScanItem.quantity} ${activeScanItem.unit})`,
       });
 
-      // 💡 IoT: Quét xong sản phẩm -> Tự động gửi lệnh tắt đèn kệ!
+      // IoT: Quét xong sản phẩm -> Tự động gửi lệnh tắt đèn kệ
       completeShelfIotApi({
         warehouseCode: effectiveWhCode || 'GV',
         shelfCode: activeScanItem.shelfLocation,
@@ -441,7 +442,7 @@ export const PickingWave: React.FC = () => {
     } else {
       setToastMessage({
         type: 'SUCCESS',
-        text: `🏷️ Đã quét: ${activeScanItem.productName} (${newPickedCount}/${activeScanItem.quantity} ${activeScanItem.unit})`,
+        text: `Đã quét: ${activeScanItem.productName} (${newPickedCount}/${activeScanItem.quantity} ${activeScanItem.unit})`,
       });
     }
 
@@ -485,7 +486,7 @@ export const PickingWave: React.FC = () => {
       voiceAssistant.playTone('ERROR');
       setToastMessage({
         type: 'ERROR',
-        text: `⚠️ Mã quét "${scannedCode}" không khớp với bất kỳ mặt hàng nào trong danh sách!`,
+        text: `Mã quét "${scannedCode}" không khớp với bất kỳ mặt hàng nào trong danh sách.`,
       });
       setTimeout(() => setToastMessage(null), 3000);
     }
@@ -548,7 +549,7 @@ export const PickingWave: React.FC = () => {
       }
       setToastMessage({
         type: 'SUCCESS',
-        text: `✅ Xuất kho thành công ${orderIdsToConfirm.length} đơn hàng! Đã tự động trừ tồn kho hệ thống.`,
+        text: `Xuất kho thành công ${orderIdsToConfirm.length} đơn hàng. Đã tự động trừ tồn kho hệ thống.`,
       });
       setTimeout(() => {
         loadLiveData();
@@ -590,7 +591,7 @@ export const PickingWave: React.FC = () => {
                 boxShadow: selectedOrderId === 'ALL' ? '0 2px 8px rgba(2, 132, 199, 0.25)' : 'none',
               }}
             >
-              <Sparkles size={14} color={selectedOrderId === 'ALL' ? '#ffffff' : '#0284c7'} />
+              <Boxes size={14} color={selectedOrderId === 'ALL' ? '#ffffff' : '#0284c7'} />
               <span>Toàn Bộ Danh Sách ({allWaveItems.length} món • {availableOrders.length} đơn)</span>
             </button>
 
@@ -746,7 +747,7 @@ export const PickingWave: React.FC = () => {
           </div>
         </div>
 
-        {/* 🔊 Active IoT Shelf Finding Banner */}
+        {/* Active IoT Shelf Finding Banner */}
         {activeLocatingShelf && (
           <div
             style={{
@@ -769,9 +770,9 @@ export const PickingWave: React.FC = () => {
             </div>
             <button
               onClick={() => setActiveLocatingShelf(null)}
-              style={{ background: 'none', border: 'none', color: '#b45309', cursor: 'pointer', fontWeight: 900, fontSize: '14px', padding: '2px 6px' }}
+              style={{ background: 'none', border: 'none', color: '#b45309', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px 6px' }}
             >
-              ✕
+              <X size={14} />
             </button>
           </div>
         )}
@@ -984,7 +985,7 @@ export const PickingWave: React.FC = () => {
                   title="Kích hoạt còi & đèn LED trên kệ hàng"
                 >
                   <Volume2 size={16} />
-                  <span>{activeLocatingShelf === currentPendingItem.shelfLocation ? 'Đang kêu còi...' : '🔔 Định Vị Kệ'}</span>
+                  <span>{activeLocatingShelf === currentPendingItem.shelfLocation ? 'Đang phát tín hiệu...' : 'Định Vị Kệ'}</span>
                 </button>
 
                 <button
@@ -1010,9 +1011,9 @@ export const PickingWave: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div style={{ backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '16px', padding: '14px', textAlign: 'center' }}>
-              <div style={{ fontSize: '13px', fontWeight: 900, color: '#059669' }}>
-                🎉 ĐÃ HOÀN TẤT LẤY TẤT CẢ CÁC MÓN TRÊN KỆ!
+            <div style={{ backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '8px', padding: '14px', textAlign: 'center' }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#059669' }}>
+                ĐÃ HOÀN TẤT LẤY TẤT CẢ CÁC MÓN TRÊN KỆ
               </div>
             </div>
           )}
@@ -1026,8 +1027,8 @@ export const PickingWave: React.FC = () => {
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
             {[
               { id: 'ALL', label: `Tất cả (${orderedItems.length})` },
-              { id: 'PENDING', label: `⏳ Cần lấy (${orderedItems.filter(i => i.status !== 'PICKED').length})` },
-              { id: 'PICKED', label: `✅ Đã lấy xong (${orderedItems.filter(i => i.status === 'PICKED').length})` },
+              { id: 'PENDING', label: `Cần lấy (${orderedItems.filter(i => i.status !== 'PICKED').length})` },
+              { id: 'PICKED', label: `Đã lấy xong (${orderedItems.filter(i => i.status === 'PICKED').length})` },
             ].map(chip => (
               <button
                 key={chip.id}
@@ -1103,14 +1104,14 @@ export const PickingWave: React.FC = () => {
                         color: item.zone === 'COOL' ? '#047857' : item.zone === 'FROZEN' ? '#0369a1' : '#b45309',
                       }}
                     >
-                      {item.zone === 'COOL' ? '🧊 0-4°C' : item.zone === 'FROZEN' ? '❄️ -18°C' : '🌾 Kho Khô'}
+                      {item.zone === 'COOL' ? '0-4°C' : item.zone === 'FROZEN' ? '-18°C' : 'Kho Khô'}
                     </span>
 
                     {item.orderCode && (
                       <span
                         style={{
                           fontSize: '10px',
-                          fontWeight: 800,
+                          fontWeight: 600,
                           padding: '2px 7px',
                           borderRadius: '6px',
                           backgroundColor: '#f5f3ff',
@@ -1118,7 +1119,7 @@ export const PickingWave: React.FC = () => {
                           border: '1px solid #ddd6fe',
                         }}
                       >
-                        📦 {item.orderCode}
+                        {item.orderCode}
                       </span>
                     )}
                   </div>
@@ -1126,7 +1127,7 @@ export const PickingWave: React.FC = () => {
                   <span
                     style={{
                       fontSize: '11px',
-                      fontWeight: 900,
+                      fontWeight: 600,
                       color: isPicked ? '#059669' : '#64748b',
                       backgroundColor: isPicked ? '#ecfdf5' : '#f1f5f9',
                       border: `1px solid ${isPicked ? '#a7f3d0' : '#e2e8f0'}`,
@@ -1134,7 +1135,7 @@ export const PickingWave: React.FC = () => {
                       borderRadius: '6px',
                     }}
                   >
-                    {isPicked ? '✅ Đã Lấy' : '⏳ Chờ Quét'}
+                    {isPicked ? 'Đã Lấy' : 'Chờ Quét'}
                   </span>
                 </div>
 
@@ -1170,7 +1171,7 @@ export const PickingWave: React.FC = () => {
 
                       {!isPicked && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          {/* 💡 Nút Nháy đèn định vị */}
+                          {/* Nút Nháy đèn định vị */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1191,11 +1192,11 @@ export const PickingWave: React.FC = () => {
                             }}
                             title="Mặc định: Bật/tắt nháy đèn LED định vị kệ (hoàn toàn không kêu còi)"
                           >
-                            <Sparkles size={12} />
+                            <Radio size={12} />
                             <span>{activeLocatingShelf === item.shelfLocation ? 'Đang nháy' : 'Nháy đèn'}</span>
                           </button>
 
-                          {/* 🔊 Nút Phát còi định vị kệ */}
+                          {/* Nút Phát còi định vị kệ */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1337,11 +1338,11 @@ export const PickingWave: React.FC = () => {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '8px',
-                  boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)',
+                  boxShadow: '0 2px 6px rgba(124, 58, 237, 0.2)',
                 }}
               >
                 <PackageCheck size={18} />
-                <span>Chuyển Sang Khâu Đóng Gói ➔</span>
+                <span>Chuyển Sang Khâu Đóng Gói →</span>
               </button>
             </div>
           )}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, Clock, BrainCircuit, Activity, RefreshCw } from 'lucide-react';
+import { ShieldAlert, Clock, AlertTriangle, Activity, RefreshCw, CheckCircle2, BrainCircuit } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface Anomaly {
@@ -169,10 +169,10 @@ const AIAlerts = () => {
             <div className="card">
               <div className="card-header">
                 <div className="card-title">Lô nguy cơ cao</div>
-                <div className="card-icon primary"><BrainCircuit size={18} /></div>
+                <div className="card-icon primary"><AlertTriangle size={18} /></div>
               </div>
               <div className="card-value">{highRiskCount}</div>
-              <div className="card-desc">AI dự đoán hư hỏng</div>
+              <div className="card-desc">Cần ưu tiên xử lý</div>
             </div>
 
             <div className="card">
@@ -191,7 +191,8 @@ const AIAlerts = () => {
 
               {anomalies.length === 0 ? (
                 <div className="card" style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-secondary)' }}>
-                  ✅ Không có cảnh báo bất thường nào. Hệ thống vận hành ổn định.
+                  <CheckCircle2 size={20} color="#16a34a" style={{ margin: '0 auto 8px', display: 'block' }} />
+                  <div>Không có cảnh báo bất thường nào. Hệ thống vận hành ổn định.</div>
                 </div>
               ) : (
                 anomalies.map((anomaly, idx) => (

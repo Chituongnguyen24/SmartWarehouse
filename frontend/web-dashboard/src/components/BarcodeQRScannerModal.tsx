@@ -8,7 +8,6 @@ import {
   RefreshCw,
   Volume2,
   Zap,
-  Sparkles,
 } from 'lucide-react';
 
 interface Props {
@@ -261,8 +260,8 @@ export const BarcodeQRScannerModal: React.FC<Props> = ({
                 <AlertTriangle size={24} color="#f87171" />
               )}
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 900, color: '#ffffff' }}>
-                  {scannedResult.isMatch ? '✅ ĐÃ KHỚP MÃ HÀNG CHÍNH XÁC' : '❌ CẢNH BÁO: LẤY NHẦM SẢN PHẨM'}
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff' }}>
+                  {scannedResult.isMatch ? 'ĐÃ KHỚP MÃ HÀNG CHÍNH XÁC' : 'CẢNH BÁO: LẤY NHẦM SẢN PHẨM'}
                 </div>
                 <div style={{ fontSize: '11.5px', color: '#e2e8f0', marginTop: '2px' }}>
                   Mã: <b>{scannedResult.code}</b> • {scannedResult.itemName}
@@ -298,8 +297,8 @@ export const BarcodeQRScannerModal: React.FC<Props> = ({
 
         {/* Quick Simulator Test Chips */}
         <div style={{ padding: '16px 20px', backgroundColor: '#0f172a', borderTop: '1px solid #1e293b' }}>
-          <div style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', marginBottom: '8px' }}>
-            ⚡ Quét Thử Nghiệm Nhanh (Mẫu mã vạch thực phẩm CityMart):
+          <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '8px' }}>
+            Mã quét kiểm thử nhanh (Mẫu mã vạch thực phẩm CityMart):
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
             {(expectedItems.length > 0

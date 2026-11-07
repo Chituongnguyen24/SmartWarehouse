@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import { COLORS } from '../theme/colors';
 import { MOCK_BANNERS } from '../data/mockData';
-import { Sparkles, Zap, Truck } from 'lucide-react-native';
+import { Tag, Zap, Truck } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -22,7 +22,7 @@ export const BannerSlider: React.FC = () => {
             activeOpacity={0.9}
           >
             <View style={styles.badgeContainer}>
-              {banner.id === 'b1' && <Sparkles size={12} color={COLORS.primary} />}
+              {banner.id === 'b1' && <Tag size={12} color={COLORS.primary} />}
               {banner.id === 'b2' && <Zap size={12} color={COLORS.primary} />}
               {banner.id === 'b3' && <Truck size={12} color={COLORS.primary} />}
               <Text style={styles.badgeText}>{banner.badge}</Text>

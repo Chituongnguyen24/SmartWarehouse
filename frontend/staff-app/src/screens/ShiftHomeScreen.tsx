@@ -15,7 +15,6 @@ import {
   PackageCheck,
   Search,
   ScanBarcode,
-  Sparkles,
   MapPin,
   Clock,
   CheckCircle2,
