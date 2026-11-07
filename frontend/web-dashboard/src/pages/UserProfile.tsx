@@ -77,27 +77,27 @@ const UserProfile = () => {
     switch (currentRole) {
       case 'ADMIN':
         return [
-          { title: 'Hành chính & Quản trị', items: ['Quản lý danh sách nhân sự vận hành', 'Cấp phát thẻ API Key và thiết lập thiết bị IoT', 'Cấu hình thông số cảnh báo AI cho toàn kho'] },
-          { title: 'Hàng hóa & Cung ứng', items: ['Khởi tạo đơn nhập kho và xuất kho', 'Phê duyệt danh mục sản phẩm và nhà cung cấp', 'Áp dụng thuật toán FEFO điều phối lô hàng'] },
+          { title: 'Hành chính & Quản trị', items: ['Quản lý danh sách nhân sự vận hành', 'Quản trị hệ thống và phân quyền tài khoản', 'Thiết lập ngưỡng cảnh báo an toàn toàn kho'] },
+          { title: 'Hàng hóa & Cung ứng', items: ['Khởi tạo đơn nhập kho và xuất kho', 'Phê duyệt danh mục sản phẩm và nhà cung cấp', 'Điều phối xuất kho tự động ưu tiên hạn dùng'] },
         ];
       case 'WAREHOUSE_MANAGER':
         return [
           { title: 'Quản lý Kho hàng', items: ['Quản lý khu vực, kệ hàng và ô chứa', 'Phê duyệt nhập kho / xuất kho', 'Xem báo cáo tồn kho chi tiết'] },
-          { title: 'Giám sát & Cảnh báo', items: ['Theo dõi nhiệt độ / độ ẩm IoT', 'Xem cảnh báo rủi ro AI', 'Quản lý dự báo nhu cầu'] },
+          { title: 'Giám sát & Cảnh báo', items: ['Theo dõi nhiệt độ & độ ẩm tự động', 'Xem phân tích rủi ro chất lượng', 'Quản lý dự báo nhu cầu'] },
         ];
       case 'WAREHOUSE_STAFF':
         return [
-          { title: 'Nghiệp vụ Kho', items: ['Quét mã SKU tiếp nhận hàng nhập', 'Cập nhật số lượng tồn kho thực tế', 'Lấy hàng xuất kho theo đề xuất FEFO'] },
+          { title: 'Nghiệp vụ Kho', items: ['Quét mã SKU tiếp nhận hàng nhập', 'Cập nhật số lượng tồn kho thực tế', 'Lấy hàng xuất kho ưu tiên hạn dùng'] },
           { title: 'Vị trí & Di chuyển', items: ['Xem vị trí ô chứa kệ hàng', 'Di chuyển lô hàng giữa các vị trí', 'Kiểm kê tồn kho định kỳ'] },
         ];
       case 'SALES_STAFF':
         return [
-          { title: 'Đơn hàng & Bán hàng', items: ['Tạo đơn yêu cầu xuất kho', 'Xem tồn kho thực tế theo SKU', 'Nhận đề xuất đặt hàng từ AI'] },
+          { title: 'Đơn hàng & Bán hàng', items: ['Tạo đơn yêu cầu xuất kho', 'Xem tồn kho thực tế theo SKU', 'Nhận đề xuất đặt hàng tự động'] },
           { title: 'Báo cáo', items: ['Xem dự báo nhu cầu', 'Theo dõi hàng sắp hết hạn', 'Xem báo cáo bán hàng / tồn kho'] },
         ];
       case 'DRIVER':
         return [
-          { title: 'Vận chuyển', items: ['Xem danh sách đơn giao nhận', 'Xem tuyến đường tối ưu VRP', 'Cập nhật trạng thái giao hàng GPS'] },
+          { title: 'Vận chuyển', items: ['Xem danh sách đơn giao nhận', 'Xem lộ trình giao hàng tối ưu', 'Cập nhật trạng thái giao hàng trực tiếp'] },
           { title: 'Thông báo', items: ['Nhận thông báo lịch giao hàng', 'Cập nhật tình trạng đơn hàng', 'Xác nhận giao hàng hoàn tất'] },
         ];
     }

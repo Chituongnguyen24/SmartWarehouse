@@ -170,7 +170,7 @@ export const WarehouseDispatch = () => {
     if (selectedOrder?.id === orderId) {
       setSelectedOrder(prev => (prev ? { ...prev, status: 'PICKING' } : null));
     }
-    showToast(`✅ Đã tiếp nhận đơn #${orders.find(o => o.id === orderId)?.orderCode}. Đã khởi tạo danh mục soạn FEFO!`);
+    showToast(`✅ Đã tiếp nhận đơn #${orders.find(o => o.id === orderId)?.orderCode}. Đã khởi tạo danh mục soạn hàng!`);
   };
 
   // Action: Toggle item pick state
@@ -288,7 +288,7 @@ export const WarehouseDispatch = () => {
             <Inbox size={28} color="#008848" /> Trung Tâm Tiếp Nhận & Phân Phối Đơn Hàng Kho (Dispatch Hub)
           </h1>
           <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', marginTop: 4 }}>
-            Quản lý tiếp nhận đơn hàng khách, phân bổ vị trí lô FEFO, đóng gói QC và bàn giao cho nhân viên giao hàng
+            Quản lý tiếp nhận đơn hàng, tự động chọn lô cận hạn sử dụng, đóng gói kiểm định và bàn giao cho nhân viên giao hàng
           </p>
         </div>
 
@@ -316,7 +316,7 @@ export const WarehouseDispatch = () => {
 
         <div style={kpiCardStyle('#FFF7ED', '#C2410C')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#9A3412' }}>ĐANG SOẠN FEFO</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#9A3412' }}>ĐANG SOẠN HÀNG</span>
             <Layers size={20} color="#C2410C" />
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 900, marginTop: 6, color: '#7C2D12' }}>{pickingCount} đơn</div>
@@ -357,7 +357,7 @@ export const WarehouseDispatch = () => {
           onClick={() => setActiveTab('RECEIVE_PICK')}
           style={tabButtonStyle(activeTab === 'RECEIVE_PICK')}
         >
-          <Inbox size={18} /> 1. Tiếp Nhận & Soạn Hàng FEFO ({pendingCount + pickingCount})
+          <Inbox size={18} /> 1. Tiếp Nhận & Soạn Hàng ({pendingCount + pickingCount})
         </button>
 
         <button
@@ -514,7 +514,7 @@ export const WarehouseDispatch = () => {
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                     <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Layers size={18} color="#008848" /> Danh Sách Mặt Hàng & Gợi Ý Lô Hàng Soạn FEFO
+                      <Layers size={18} color="#008848" /> Danh Sách Mặt Hàng & Gợi Ý Lô Hàng Ưu Tiên
                     </h3>
 
                     {selectedOrder.status === 'PENDING' && (
@@ -523,7 +523,7 @@ export const WarehouseDispatch = () => {
                         className="btn btn-primary"
                         style={{ backgroundColor: '#008848', color: '#fff', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6 }}
                       >
-                        <Play size={16} /> Tiếp Nhận Đơn & Bắt Đầu Soạn FEFO
+                        <Play size={16} /> Tiếp Nhận Đơn & Bắt Đầu Soạn Hàng
                       </button>
                     )}
 
@@ -543,14 +543,14 @@ export const WarehouseDispatch = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <MapPin size={18} color="#008848" />
                       <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#166534' }}>
-                        LỘ TRÌNH SOẠN HÀNG TỐI ƯU FEFO:
+                        LỘ TRÌNH SOẠN HÀNG TỐI ƯU:
                       </span>
                       <span style={{ fontSize: '0.85rem', color: '#15803d', fontWeight: 600 }}>
-                        Lấy từ Kho Lạnh (0-4°C) ➔ Kho Đông (-18°C) ➔ Kho Khô ➔ Khu Đóng Gói QC
+                        Lấy từ Kho Lạnh (0-4°C) ➔ Kho Đông (-18°C) ➔ Kho Khô ➔ Khu Đóng Gói
                       </span>
                     </div>
                     <span style={{ fontSize: '0.75rem', backgroundColor: '#dcfce7', color: '#065f46', padding: '3px 8px', borderRadius: '12px', fontWeight: 800 }}>
-                      AI Routing ACTIVE
+                      TỐI ƯU ĐƯỜNG ĐI
                     </span>
                   </div>
 
@@ -560,10 +560,10 @@ export const WarehouseDispatch = () => {
                       <thead>
                         <tr style={{ backgroundColor: '#f8fafc', textAlign: 'left', fontSize: '0.78rem', color: '#475569', borderBottom: '2px solid #e2e8f0' }}>
                           <th style={{ padding: '12px 10px', width: '110px' }}>TRẠNG THÁI</th>
-                          <th style={{ padding: '12px 10px' }}>TÊN SẢN PHẨM & SKU</th>
+                          <th style={{ padding: '12px 10px' }}>TÊN SẢN PHẨM & MÃ SP</th>
                           <th style={{ padding: '12px 10px', width: '100px' }}>SỐ LƯỢNG</th>
                           <th style={{ padding: '12px 10px' }}>📍 VỊ TRÍ KỆ KHO</th>
-                          <th style={{ padding: '12px 10px' }}>⚡ LÔ HÀNG FEFO (ƯU TIÊN)</th>
+                          <th style={{ padding: '12px 10px' }}>⚡ LÔ HÀNG ƯU TIÊN (HẠN GẦN)</th>
                           <th style={{ padding: '12px 10px', width: '120px' }}>BẢO QUẢN</th>
                         </tr>
                       </thead>
@@ -585,7 +585,7 @@ export const WarehouseDispatch = () => {
                             </td>
                             <td style={{ padding: 10, fontWeight: 700, color: '#1e293b' }}>
                               {item.productName}
-                              <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>SKU: {item.sku}</div>
+                              <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>Mã: {item.sku}</div>
                             </td>
                             <td style={{ padding: 10, fontWeight: 900, color: '#008848', fontSize: '0.95rem' }}>
                               {item.requestedQuantity} {item.unit}
@@ -597,7 +597,7 @@ export const WarehouseDispatch = () => {
                             </td>
                             <td style={{ padding: 10 }}>
                               <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '3px 8px', borderRadius: 6, fontWeight: 700, fontSize: '0.8rem', display: 'inline-block' }}>
-                                {item.suggestedLotCode || 'LOT-FEFO-202607'}
+                                {item.suggestedLotCode || 'LOT-202607'}
                               </span>
                               <div style={{ fontSize: '0.75rem', color: '#d97706', marginTop: 2, fontWeight: 600 }}>
                                 HSD: {item.expiryDate || '2026-07-28'} (Ưu tiên lấy trước)
@@ -807,7 +807,7 @@ export const WarehouseDispatch = () => {
                 <tr style={{ backgroundColor: '#F3F4F6', textTransform: 'uppercase', fontSize: '0.75rem' }}>
                   <th style={{ padding: 8, textAlign: 'left', border: '1px solid #E5E7EB' }}>Sản phẩm</th>
                   <th style={{ padding: 8, textAlign: 'center', border: '1px solid #E5E7EB' }}>Số lượng</th>
-                  <th style={{ padding: 8, textAlign: 'left', border: '1px solid #E5E7EB' }}>Lô xuất kho (FEFO)</th>
+                  <th style={{ padding: 8, textAlign: 'left', border: '1px solid #E5E7EB' }}>Lô xuất kho (Hạn gần)</th>
                 </tr>
               </thead>
               <tbody>
@@ -882,7 +882,7 @@ const renderStatusBadge = (status: string) => {
     case 'PENDING':
       return <span style={{ backgroundColor: '#DBEAFE', color: '#1E40AF', padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 800 }}>Chờ tiếp nhận</span>;
     case 'PICKING':
-      return <span style={{ backgroundColor: '#FFEDD5', color: '#C2410C', padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 800 }}>Đang soạn FEFO</span>;
+      return <span style={{ backgroundColor: '#FFEDD5', color: '#C2410C', padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 800 }}>Đang soạn hàng</span>;
     case 'PACKED':
       return <span style={{ backgroundColor: '#DCFCE7', color: '#166534', padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 800 }}>Đã đóng gói</span>;
     case 'READY_FOR_DELIVERY':

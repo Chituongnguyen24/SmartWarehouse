@@ -1,15 +1,24 @@
 import { Platform } from 'react-native';
 
 // Dynamic host detection for Expo Web, iOS/Android Simulators, and Physical Devices
+export const DEFAULT_LAN_IP = '192.168.2.147';
+
 const getResolvedHost = (): string => {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const saved = window.localStorage.getItem('sfwms_driver_host');
+    if (saved && saved.trim() !== '') return saved.trim();
+  }
+
   if (typeof window !== 'undefined' && window.location && window.location.hostname) {
     // Running in Browser / Expo Web
-    return window.location.hostname;
+    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && window.location.hostname !== '') {
+      return window.location.hostname;
+    }
   }
   
   if (Platform.OS === 'android') {
-    // For Android devices / emulators
-    return '192.168.4.32';
+    // Real Android devices on Wi-Fi LAN
+    return DEFAULT_LAN_IP;
   }
 
   // iOS simulator or default fallback
@@ -19,10 +28,10 @@ const getResolvedHost = (): string => {
 export const BACKEND_HOST = getResolvedHost();
 
 export const API_CONFIG = {
-  ORDER_SERVICE: `http://${BACKEND_HOST}:3004`,
-  OUTBOUND_SERVICE: `http://${BACKEND_HOST}:3007`,
-  AUTH_SERVICE: `http://${BACKEND_HOST}:3012`,
-  NOTIFICATION_SERVICE: `http://${BACKEND_HOST}:3004`,
+  get ORDER_SERVICE() { return `http://${getResolvedHost()}:3004`; },
+  get OUTBOUND_SERVICE() { return `http://${getResolvedHost()}:3007`; },
+  get AUTH_SERVICE() { return `http://${getResolvedHost()}:3012`; },
+  get NOTIFICATION_SERVICE() { return `http://${getResolvedHost()}:3004`; },
 };
 
 export const DRIVER_SESSION_KEY = 'sfwms_driver_session_v1';

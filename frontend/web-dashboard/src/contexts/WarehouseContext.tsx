@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 
 export interface Warehouse {
@@ -27,9 +27,12 @@ export interface Warehouse {
 
 interface WarehouseContextType {
   warehouses: Warehouse[];
+  accessibleWarehouses: Warehouse[];
   selectedWarehouseCode: string;
   selectedWarehouse: Warehouse | null;
   isLoading: boolean;
+  isAdmin: boolean;
+  canChangeWarehouse: boolean;
   setSelectedWarehouseCode: (code: string) => void;
   fetchWarehouses: () => Promise<void>;
   createWarehouse: (data: Partial<Warehouse>) => Promise<Warehouse | null>;
@@ -54,15 +57,21 @@ const WarehouseContext = createContext<WarehouseContextType | undefined>(undefin
 
 export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const isManager = user?.role === 'WAREHOUSE_MANAGER';
-  const myWarehouseCode = user?.warehouseCode;
+  const isAdmin = user?.role === 'ADMIN';
+  const myWarehouseCode = user?.warehouseCode || (
+    user?.email?.includes('001') || user?.email?.includes('q12') ? 'WH-001' :
+    user?.email?.includes('002') ? 'WH-002' :
+    user?.email?.includes('005') ? 'WH-005' :
+    (user?.email?.includes('govap') || user?.email?.includes('006')) ? 'WH-006' :
+    undefined
+  );
 
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   
-  // Default warehouse: if manager -> myWarehouseCode, else check localStorage or default to WH-006 (Gò Vấp)
+  // Default warehouse: if not admin and has warehouse -> strictly that warehouse
   const [selectedWarehouseCode, setSelectedWarehouseCodeState] = useState<string>(() => {
-    if (isManager && myWarehouseCode) return myWarehouseCode;
+    if (!isAdmin && myWarehouseCode) return myWarehouseCode;
     const saved = localStorage.getItem('sfwms_selected_warehouse');
     return saved || 'WH-006';
   });
@@ -91,20 +100,44 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     fetchWarehouses();
   }, [fetchWarehouses]);
 
-  // Sync if manager logs in
+  // Sync if non-admin logs in: strictly lock to assigned warehouse
   useEffect(() => {
-    if (isManager && myWarehouseCode) {
+    if (!isAdmin && myWarehouseCode) {
       setSelectedWarehouseCodeState(myWarehouseCode);
       localStorage.setItem('sfwms_selected_warehouse', myWarehouseCode);
     }
-  }, [isManager, myWarehouseCode]);
+  }, [isAdmin, myWarehouseCode]);
 
   const setSelectedWarehouseCode = useCallback((code: string) => {
+    // Non-admin accounts are locked to their own warehouse and cannot switch to others
+    if (!isAdmin && myWarehouseCode) {
+      console.warn(`User ${user?.email} is restricted to warehouse ${myWarehouseCode} and cannot switch to ${code}`);
+      return;
+    }
     setSelectedWarehouseCodeState(code);
     localStorage.setItem('sfwms_selected_warehouse', code);
-  }, []);
+  }, [isAdmin, myWarehouseCode, user?.email]);
 
-  const selectedWarehouse = warehouses.find(w => w.code === selectedWarehouseCode) || warehouses[0] || null;
+  const accessibleWarehouses = useMemo(() => {
+    if (isAdmin) return warehouses;
+    if (myWarehouseCode) {
+      const filtered = warehouses.filter(w => w.code === myWarehouseCode);
+      if (filtered.length > 0) return filtered;
+      return [{
+        id: myWarehouseCode,
+        code: myWarehouseCode,
+        name: `Kho Hàng (${myWarehouseCode})`,
+        address: 'Hồ Chí Minh',
+        latitude: 10.838,
+        longitude: 106.666,
+        isActive: true,
+      }];
+    }
+    return warehouses;
+  }, [isAdmin, myWarehouseCode, warehouses]);
+
+  const effectiveCode = (!isAdmin && myWarehouseCode) ? myWarehouseCode : selectedWarehouseCode;
+  const selectedWarehouse = warehouses.find(w => w.code === effectiveCode) || accessibleWarehouses[0] || null;
 
   const createWarehouse = async (data: Partial<Warehouse>): Promise<Warehouse | null> => {
     try {
@@ -193,9 +226,12 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   return (
     <WarehouseContext.Provider value={{
       warehouses,
-      selectedWarehouseCode,
+      accessibleWarehouses,
+      selectedWarehouseCode: effectiveCode,
       selectedWarehouse,
       isLoading,
+      isAdmin,
+      canChangeWarehouse: isAdmin,
       setSelectedWarehouseCode,
       fetchWarehouses,
       createWarehouse,

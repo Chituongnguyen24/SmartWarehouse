@@ -469,7 +469,7 @@ export const InboundReceiving: React.FC = () => {
           {/* Shelf Placement Recommendation */}
           <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '10px 12px' }}>
             <div style={{ fontSize: '11px', color: '#0284c7', fontWeight: 800 }}>
-              💡 VỊ TRÍ GỢI Ý LƯU KHO TỰ ĐỘNG (FEFO):
+              💡 VỊ TRÍ GỢI Ý LƯU KHO TỰ ĐỘNG:
             </div>
             <div style={{ fontSize: '12.5px', color: '#0f172a', fontWeight: 800, marginTop: '2px' }}>
               Kệ <b>B2-01 (Kho Lạnh B)</b> • Sinh Mã Lô: <b style={{ color: '#d97706' }}>LOT-{new Date().toISOString().slice(0, 10).replace(/-/g, '')}-01</b>

@@ -340,7 +340,7 @@ const OrderManagement: React.FC = () => {
 
     // Optimistic status update
     setOrders(prev => prev.map(o => o.id === targetOrder.id ? { ...o, status: 'PICKING' } : o));
-    showToast(`✅ Đã duyệt đơn #${targetOrder.id.slice(0, 8).toUpperCase()} & tạo lệnh xuất kho FEFO!`, 'success');
+    showToast(`✅ Đã duyệt đơn #${targetOrder.id.slice(0, 8).toUpperCase()} & tạo lệnh xuất kho ưu tiên hạn dùng!`, 'success');
 
     try {
       const whCode = (targetOrder as any).assignedWarehouseCode || (targetOrder as any).assignedWarehouseId || (targetOrder.assignedWarehouseName?.includes('Gò Vấp') ? 'WH-006' : 'WH-001');
@@ -597,7 +597,7 @@ const OrderManagement: React.FC = () => {
               <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '2px 0 0 0' }}>
                 {isManager
                   ? `📍 Tiếp nhận & phân phối đơn hàng trực tiếp cho ${user?.warehouseCode === 'WH-006' ? 'Kho Hàng Gò Vấp (WH-006)' : user?.warehouseCode}`
-                  : 'Tiếp nhận đơn hàng từ Customer Web, duyệt đơn, kích hoạt luồng xuất kho FEFO và theo dõi vận chuyển.'}
+                  : 'Tiếp nhận đơn hàng từ Khách hàng, duyệt đơn, kích hoạt xuất kho tự động và theo dõi vận chuyển.'}
               </p>
             </div>
           </div>
@@ -1050,7 +1050,7 @@ const OrderManagement: React.FC = () => {
                         onClick={() => navigate('/outbound')}
                         style={{ padding: '9px 16px', background: '#0f766e', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', boxShadow: '0 2px 6px rgba(15,118,110,0.25)' }}
                       >
-                        <Truck size={16} /> Đi tới mục Xuất kho (FEFO)
+                        <Truck size={16} /> Đi tới mục Xuất kho
                       </button>
                       <button 
                         onClick={() => handleUpdateStatus(selectedOrder.id, 'COMPLETED')}
@@ -1086,7 +1086,7 @@ const OrderManagement: React.FC = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
                     {[
                       { key: 'PENDING', label: '1. Tiếp nhận' },
-                      { key: 'PICKING', label: '2. Gom hàng (FEFO)' },
+                      { key: 'PICKING', label: '2. Soạn hàng' },
                       { key: 'PACKING', label: '3. Đóng gói' },
                       { key: 'DELIVERING', label: '4. Vận chuyển' },
                       { key: 'COMPLETED', label: '5. Hoàn thành' }
@@ -1197,7 +1197,7 @@ const OrderManagement: React.FC = () => {
                     <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                       <tr>
                         <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700 }}>Sản phẩm</th>
-                        <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700 }}>Mã SKU</th>
+                        <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700 }}>Mã Sản Phẩm</th>
                         <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700, textAlign: 'right' }}>Đơn giá</th>
                         <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700, textAlign: 'center' }}>SL</th>
                         <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700, textAlign: 'right' }}>Thành tiền</th>
@@ -1246,7 +1246,7 @@ const OrderManagement: React.FC = () => {
             <div style={{ padding: '60px 20px', textAlign: 'center', color: '#94a3b8', margin: 'auto' }}>
               <ShoppingCart size={48} color="#cbd5e1" style={{ margin: '0 auto 12px' }} />
               <p style={{ fontWeight: 700, fontSize: '1rem', color: '#64748b' }}>Chọn một đơn hàng để xem chi tiết</p>
-              <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '4px' }}>Duyệt đơn, kích hoạt luồng xuất kho FEFO và theo dõi vận chuyển</p>
+              <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '4px' }}>Duyệt đơn, kích hoạt xuất kho tự động và theo dõi vận chuyển</p>
             </div>
           )}
         </div>

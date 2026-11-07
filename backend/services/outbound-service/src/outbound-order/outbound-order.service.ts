@@ -1225,7 +1225,9 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
           if (matchedLot) {
             item.lotId = matchedLot.id;
             item.lotCode = matchedLot.lotCode;
-            item.slotId = matchedLot.location;
+            if (!order.orderCode?.includes('XK-KHO-MAT-IOT')) {
+              item.slotId = matchedLot.location;
+            }
             item.expiryDate = matchedLot.expiryDate ? new Date(matchedLot.expiryDate) : (item.expiryDate || new Date(Date.now() + 30 * 86400000));
             item.riskScore = matchedLot.riskScore !== undefined ? matchedLot.riskScore : (item.riskScore || 0);
             await this.itemRepository.save(item);
@@ -1334,7 +1336,7 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     return { success: true, message: `🔑 Đã bóp còi Smartkey tìm kệ ${dto.shelfCode}`, payload };
   }
 
-  // IoT Pick-to-Light: Complete Shelf (Auto turn off LED)
+  // IoT Pick-to-Light: Complete Shelf (Auto turn off LED and mark picked)
   async triggerIotCompleteShelf(dto: { warehouseCode?: string; shelfCode: string }) {
     const warehouseCode = dto.warehouseCode || 'WH-006';
     const payload = {
@@ -1347,6 +1349,42 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     // Publish to both WH-006 and GV topics
     await this.publishToMqtt(`citymart/warehouse/WH-006/picking/command`, payload);
     await this.publishToMqtt(`citymart/warehouse/GV/picking/command`, payload);
+
+    // Auto sync picked status for matching shelf in pending picking orders
+    try {
+      const pendingOrders = await this.orderRepository.find({
+        where: { warehouseCode, status: 'PENDING' },
+        relations: ['items'],
+        order: { createdAt: 'DESC' },
+      });
+
+      for (const order of pendingOrders) {
+        let orderChanged = false;
+        for (const item of order.items) {
+          if (item.status !== 'PICKED') {
+            const itemShelf = (item.slotId || '').toLowerCase();
+            const targetShelf = (dto.shelfCode || '').toLowerCase();
+            const isMatch = (targetShelf.includes('a1') && itemShelf.includes('a1')) ||
+                            (targetShelf.includes('a2') && itemShelf.includes('a2')) ||
+                            (targetShelf.includes('a3') && itemShelf.includes('a3')) ||
+                            (targetShelf.includes('1') && itemShelf.includes('a1')) ||
+                            (targetShelf.includes('2') && itemShelf.includes('a2')) ||
+                            (targetShelf.includes('3') && itemShelf.includes('a3'));
+            if (isMatch) {
+              item.status = 'PICKED';
+              item.pickedQuantity = item.requestedQuantity || 1;
+              await this.itemRepository.save(item);
+              orderChanged = true;
+            }
+          }
+        }
+        if (orderChanged) {
+          this.broadcastOrderEvent('outbound_order_updated', { orderId: order.id, orderCode: order.orderCode });
+        }
+      }
+    } catch (e) {
+      console.warn('[IoT Complete Shelf] Auto-pick error:', e);
+    }
 
     return { success: true, message: `Đã quét xong. Tắt đèn kệ ${dto.shelfCode}`, payload };
   }

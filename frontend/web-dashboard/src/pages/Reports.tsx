@@ -837,7 +837,7 @@ const Reports: React.FC = () => {
                 {totalCogsOutAmount.toLocaleString('vi-VN')}đ
               </div>
               <div style={{ fontSize: '11px', color: '#64748b' }}>
-                Tính theo phương pháp FEFO xuất trước
+                Tính theo phương pháp xuất hàng cận hạn dùng
               </div>
             </div>
 
@@ -976,7 +976,7 @@ const Reports: React.FC = () => {
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '11.5px' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#64748b', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase' }}>
-                    <th rowSpan={2} style={{ padding: '8px 10px', borderRight: '1px solid #e2e8f0' }}>Mã SKU / Tên Sản Phẩm</th>
+                    <th rowSpan={2} style={{ padding: '8px 10px', borderRight: '1px solid #e2e8f0' }}>Mã & Tên Sản Phẩm</th>
                     <th rowSpan={2} style={{ padding: '8px 10px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>ĐVT</th>
                     <th rowSpan={2} style={{ padding: '8px 10px', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>Vùng Nhiệt Độ</th>
                     <th colSpan={2} style={{ padding: '8px 10px', textAlign: 'center', borderRight: '1px solid #e2e8f0', backgroundColor: '#f1f5f9' }}>Tồn Đầu Kỳ</th>

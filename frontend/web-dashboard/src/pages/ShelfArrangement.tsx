@@ -416,7 +416,7 @@ const ShelfArrangement: React.FC = () => {
           <input
             type="text"
             className="wh-search__input"
-            placeholder="Tìm kiếm mã lô, SKU hoặc vị trí..."
+            placeholder="Tìm kiếm mã lô, mã sản phẩm hoặc vị trí..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -604,7 +604,7 @@ const ShelfArrangement: React.FC = () => {
                     />
                   </div>
                   <div className="wh-form-group">
-                    <label>Mã SKU (Tùy chọn)</label>
+                    <label>Mã Sản Phẩm (Tùy chọn)</label>
                     <input
                       type="text"
                       placeholder="VD: MILK-001"
@@ -645,7 +645,7 @@ const ShelfArrangement: React.FC = () => {
                     <Package size={16} />
                     <span>
                       Đang lưu trữ Lô: <strong>{selectedSlot.lotCode}</strong>
-                      {selectedSlot.productSku && ` (SKU: ${selectedSlot.productSku})`}
+                      {selectedSlot.productSku && ` (Mã: ${selectedSlot.productSku})`}
                     </span>
                   </div>
                   <div className="wh-modal__actions">

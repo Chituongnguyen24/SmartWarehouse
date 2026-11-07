@@ -343,7 +343,7 @@ export const WarehouseConfigModal: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f0fdf4', padding: '12px 14px', borderRadius: '10px', border: '1px solid #bbf7d0', marginTop: '4px' }}>
                   <div>
                     <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#166534' }}>Trạng Thái Hoạt Động</div>
-                    <div style={{ fontSize: '0.75rem', color: '#15803d' }}>Kho hoạt động sẽ tự động tham gia thuật toán Auto-Routing đơn hàng TMĐT</div>
+                    <div style={{ fontSize: '0.75rem', color: '#15803d' }}>Kho hoạt động sẽ tự động tham gia phân tuyến và điều phối đơn hàng TMĐT</div>
                   </div>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                     <input
@@ -463,9 +463,9 @@ export const WarehouseConfigModal: React.FC = () => {
             {activeTab === 'CAPACITY' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div style={{ backgroundColor: '#f8fafc', padding: '12px 14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#1e293b' }}>📐 Cấu hình layout kệ kho & Sức chứa Digital Twin</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#1e293b' }}>📐 Cấu hình layout kệ kho & Sức chứa</div>
                   <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '4px' }}>
-                    Thiết lập số lượng kệ kho và tải trọng tối đa để mô phỏng không gian 3D và thuật toán gợi ý vị trí sắp xếp hàng hóa.
+                    Thiết lập số lượng kệ kho và tải trọng tối đa để mô phỏng không gian kho 3D và tự động gợi ý vị trí sắp xếp hàng hóa tối ưu.
                   </div>
                 </div>
 

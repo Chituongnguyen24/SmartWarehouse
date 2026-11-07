@@ -130,7 +130,7 @@ function evaluateAIRisk(lot: any, productName: string, sku: string, daysLeft: nu
     return {
       level: 'WARNING' as const,
       reason: `🟡 ${catIcon} Còn ${daysLeft} ngày — Cận hạn sử dụng (${catLabel})`,
-      recommendation: 'Lên kế hoạch xuất trước theo chuẩn FEFO',
+      recommendation: 'Lên kế hoạch xuất trước theo hạn sử dụng',
     };
   }
 
@@ -705,7 +705,7 @@ export const StockLookupScreen: React.FC = () => {
                         </View>
                       </View>
                       <Text style={[styles.lotProductName, isDepleted && { color: '#64748b' }]}>{lot.productName}</Text>
-                      <Text style={styles.lotSkuText}>SKU: {lot.sku}</Text>
+                      <Text style={styles.lotSkuText}>Mã SP: {lot.sku}</Text>
                     </View>
 
                     {/* Status Badge: Hết hàng / Đã kiểm / Báo động đỏ / Có nguy cơ / Bình thường */}
@@ -835,7 +835,7 @@ export const StockLookupScreen: React.FC = () => {
               <View style={styles.stockTop}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.productName}>{stock.productName}</Text>
-                  <Text style={styles.skuText}>Mã SKU: {stock.sku}</Text>
+                  <Text style={styles.skuText}>Mã SP: {stock.sku}</Text>
                 </View>
                 <View style={styles.zoneTag}>
                   <Snowflake size={12} color="#0284c7" />
@@ -923,7 +923,7 @@ export const StockLookupScreen: React.FC = () => {
                 {/* Product & Lot Meta */}
                 <View style={styles.modalInfoBox}>
                   <Text style={styles.modalProductName}>{selectedLot.productName}</Text>
-                  <Text style={styles.modalMetaText}>Mã SKU: {selectedLot.sku} • Vị trí Kệ: {selectedLot.shelfLocation}</Text>
+                  <Text style={styles.modalMetaText}>Mã SP: {selectedLot.sku} • Vị trí Kệ: {selectedLot.shelfLocation}</Text>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
                     <Text style={{ fontSize: 13, color: '#065f46', fontWeight: '900' }}>
                       Mã Lô: {selectedLot.lotCode}

@@ -65,7 +65,7 @@ export const LoginScreen: React.FC = () => {
           </View>
           <Text style={styles.welcomeText}>Đăng Nhập Ca Giao Hàng</Text>
           <Text style={styles.headerDesc}>
-            Hệ thống phân bổ lộ trình VRP & giám sát chuỗi lạnh 0-4°C thời gian thực
+            Hệ thống tối ưu lộ trình & giám sát chuỗi lạnh 0-4°C thời gian thực
           </Text>
         </View>
 

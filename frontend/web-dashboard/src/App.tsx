@@ -103,6 +103,11 @@ function App() {
                 <OrderDispatch />
               </ProtectedRoute>
             } />
+            <Route path="order-dispatch" element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF']}>
+                <OrderDispatch />
+              </ProtectedRoute>
+            } />
             <Route path="ai-alerts" element={
               <ProtectedRoute allowedRoles={['WAREHOUSE_MANAGER']}>
                 <AIAlerts />
@@ -110,12 +115,17 @@ function App() {
             } />
             <Route path="inbound" element={
               <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF']}>
-                <InboundOrder />
+                <InboundOrders />
+              </ProtectedRoute>
+            } />
+            <Route path="inbound-orders" element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF']}>
+                <InboundOrders />
               </ProtectedRoute>
             } />
             <Route path="outbound" element={
               <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF']}>
-                <OutboundOrder />
+                <OutboundOrders />
               </ProtectedRoute>
             } />
             <Route path="outbound-orders" element={

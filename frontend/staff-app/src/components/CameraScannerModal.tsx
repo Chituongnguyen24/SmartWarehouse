@@ -19,6 +19,14 @@ import {
   ShieldCheck,
   ArrowRight,
 } from 'lucide-react';
+import {
+  BrowserMultiFormatReader,
+  BarcodeFormat,
+  DecodeHintType,
+} from '@zxing/library';
+import { Camera as CapCamera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
+import { Capacitor } from '@capacitor/core';
 
 export type ScannerType = 'PICKING' | 'LOOKUP' | 'INBOUND' | 'PACKING';
 
@@ -27,6 +35,20 @@ export interface ScannerMockCode {
   code: string;
   type?: 'LOT' | 'ITEM' | 'DOC' | 'ORDER';
 }
+
+const scanHints = new Map<DecodeHintType, any>();
+scanHints.set(DecodeHintType.POSSIBLE_FORMATS, [
+  BarcodeFormat.QR_CODE,
+  BarcodeFormat.EAN_13,
+  BarcodeFormat.EAN_8,
+  BarcodeFormat.CODE_128,
+  BarcodeFormat.CODE_39,
+  BarcodeFormat.UPC_A,
+  BarcodeFormat.UPC_E,
+  BarcodeFormat.ITF,
+  BarcodeFormat.DATA_MATRIX,
+]);
+scanHints.set(DecodeHintType.TRY_HARDER, true);
 
 interface Props {
   isOpen: boolean;
@@ -71,7 +93,10 @@ export const CameraScannerModal: React.FC<Props> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
+  const readerRef = useRef<BrowserMultiFormatReader | null>(null);
+  const lastScanTimeRef = useRef<number>(0);
+  const isScanningActiveRef = useRef<boolean>(true);
+
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [torchOn, setTorchOn] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<{ isMatch: boolean; message: string; code: string; type: 'LOT' | 'ITEM' | 'DOC' | 'ORDER' } | null>(null);
@@ -99,6 +124,7 @@ export const CameraScannerModal: React.FC<Props> = ({
     if (isOpen) {
       setPickedCount(currentPickedQty || 0);
       setFeedback(null);
+      isScanningActiveRef.current = true;
       setIsScanningActive(true);
       if (expectedQty > 20) {
         setScanMode('LOT');
@@ -108,8 +134,8 @@ export const CameraScannerModal: React.FC<Props> = ({
     }
   }, [isOpen, currentPickedQty, expectedQty]);
 
-  // Play Beep Sound (Web Audio API)
-  const playBeep = (isSuccess: boolean) => {
+  // Play Beep Sound (Web Audio API) & Haptics
+  const playBeep = async (isSuccess: boolean) => {
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const osc = audioCtx.createOscillator();
@@ -122,8 +148,19 @@ export const CameraScannerModal: React.FC<Props> = ({
       osc.start();
       osc.stop(audioCtx.currentTime + (isSuccess ? 0.18 : 0.35));
 
-      // Haptic Vibration if supported on mobile
-      if (navigator.vibrate) {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          if (isSuccess) {
+            await Haptics.impact({ style: ImpactStyle.Heavy });
+          } else {
+            await Haptics.notification({ type: NotificationType.Error });
+          }
+        } catch {
+          if (navigator.vibrate) {
+            navigator.vibrate(isSuccess ? [60, 40, 60] : [200, 100, 200]);
+          }
+        }
+      } else if (navigator.vibrate) {
         navigator.vibrate(isSuccess ? [60, 40, 60] : [200, 100, 200]);
       }
     } catch (e) {
@@ -133,8 +170,9 @@ export const CameraScannerModal: React.FC<Props> = ({
 
   // Toggle Camera Flashlight
   const toggleTorch = async () => {
-    if (!stream) return;
-    const track = stream.getVideoTracks()[0];
+    if (!videoRef.current || !videoRef.current.srcObject) return;
+    const stream = videoRef.current.srcObject as MediaStream;
+    const track = stream.getVideoTracks ? stream.getVideoTracks()[0] : null;
     if (!track) return;
 
     try {
@@ -152,85 +190,143 @@ export const CameraScannerModal: React.FC<Props> = ({
     }
   };
 
-  // Start Live Camera Video Stream
+  // Start ZXing Camera Video Stream & Detection
   useEffect(() => {
     if (!isOpen) {
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-        setStream(null);
+      if (readerRef.current) {
+        try {
+          readerRef.current.reset();
+        } catch (e) {
+          console.warn('Error resetting reader:', e);
+        }
+        readerRef.current = null;
       }
       setFeedback(null);
       setTorchOn(false);
       return;
     }
 
+    isScanningActiveRef.current = true;
     setIsScanningActive(true);
 
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices
-        .getUserMedia({
-          video: {
-            facingMode: 'environment',
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        })
-        .then(s => {
-          setStream(s);
-          setHasPermission(true);
-          if (videoRef.current) {
-            videoRef.current.srcObject = s;
+    let isSubscribed = true;
+
+    const initScanner = async () => {
+      // 1. Proactively request Capacitor camera permission on Android/iOS
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const status = await CapCamera.checkPermissions();
+          if (status.camera !== 'granted') {
+            const req = await CapCamera.requestPermissions();
+            if (req.camera !== 'granted') {
+              if (isSubscribed) setHasPermission(false);
+              return;
+            }
           }
-        })
-        .catch(err => {
-          console.warn('Live WebRTC camera stream blocked (HTTP/iOS):', err);
+        } catch (permErr) {
+          console.warn('Native camera permission check error:', permErr);
+        }
+      }
+
+      // 2. Start ZXing MultiFormat reader on video element
+      try {
+        const reader = new BrowserMultiFormatReader(scanHints);
+        readerRef.current = reader;
+
+        if (!videoRef.current) return;
+
+        await reader.decodeFromVideoDevice(
+          undefined,
+          videoRef.current,
+          (result) => {
+            if (!isSubscribed) return;
+            if (result) {
+              const now = Date.now();
+              if (now - lastScanTimeRef.current < 1500) return;
+              if (!isScanningActiveRef.current) return;
+
+              const scannedText = result.getText();
+              if (scannedText && scannedText.trim()) {
+                lastScanTimeRef.current = now;
+                handleScanCode(scannedText.trim());
+              }
+            }
+          }
+        );
+
+        if (isSubscribed) {
+          setHasPermission(true);
+        }
+      } catch (err) {
+        console.warn('ZXing live camera decode error:', err);
+        if (isSubscribed) {
           setHasPermission(false);
-        });
-    } else {
-      setHasPermission(false);
-    }
+        }
+      }
+    };
+
+    const timer = setTimeout(() => {
+      initScanner();
+    }, 150);
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
+      isSubscribed = false;
+      clearTimeout(timer);
+      if (readerRef.current) {
+        try {
+          readerRef.current.reset();
+        } catch (e) {
+          // ignore
+        }
+        readerRef.current = null;
       }
     };
   }, [isOpen]);
 
-  // Real-time Barcode Detection Loop
-  useEffect(() => {
-    if (!isOpen || !stream || !isScanningActive) return;
+  // Photo scan with native Capacitor Camera
+  const takeNativePhoto = async () => {
+    setIsProcessingPhoto(true);
+    setFeedback(null);
 
-    let intervalId: any;
-    const detector = (window as any).BarcodeDetector
-      ? new (window as any).BarcodeDetector({
-          formats: ['qr_code', 'ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e'],
-        })
-      : null;
+    try {
+      const photo = await CapCamera.getPhoto({
+        quality: 100,
+        allowEditing: false,
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Camera,
+      });
 
-    if (detector) {
-      intervalId = setInterval(async () => {
-        if (!videoRef.current || videoRef.current.readyState < 2) return;
+      if (photo.webPath) {
+        const reader = new BrowserMultiFormatReader(scanHints);
         try {
-          const barcodes = await detector.detect(videoRef.current);
-          if (barcodes && barcodes.length > 0) {
-            const rawValue = barcodes[0].rawValue;
-            if (rawValue) {
-              handleScanCode(rawValue);
-            }
+          const result = await reader.decodeFromImageUrl(photo.webPath);
+          if (result && result.getText && result.getText()) {
+            handleScanCode(result.getText());
+            setIsProcessingPhoto(false);
+            return;
           }
-        } catch (e) {
-          // Frame detection pass
+        } catch (decodeErr) {
+          console.warn('ZXing photo decode failed:', decodeErr);
         }
-      }, 400);
+      }
+
+      playBeep(false);
+      setFeedback({
+        isMatch: false,
+        code: 'NO_CODE_DETECTED',
+        type: 'ITEM',
+        message: '⚠️ Không nhận diện được mã Barcode/QR trong ảnh chụp! Vui lòng chụp rõ nét hoặc chọn mã mẫu bên dưới.',
+      });
+    } catch (err: any) {
+      if (err?.message !== 'User cancelled photos app') {
+        console.warn('Native camera capture error:', err);
+      }
+    } finally {
+      setIsProcessingPhoto(false);
     }
+  };
 
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [isOpen, stream, isScanningActive, pickedCount, scanMode, scannerType]);
-
-  // Handle Photo Capture from Native Phone Camera
+  // Handle Photo Capture from File Input
   const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -239,67 +335,27 @@ export const CameraScannerModal: React.FC<Props> = ({
     setFeedback(null);
 
     try {
-      const img = new Image();
-      img.src = URL.createObjectURL(file);
-      await new Promise(resolve => {
-        img.onload = resolve;
-      });
+      const objectUrl = URL.createObjectURL(file);
+      const reader = new BrowserMultiFormatReader(scanHints);
+      let detectedText: string | null = null;
 
-      // 1. Try native BarcodeDetector API if available
-      if ((window as any).BarcodeDetector) {
-        try {
-          const detector = new (window as any).BarcodeDetector({
-            formats: ['qr_code', 'ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e'],
-          });
-          const barcodes = await detector.detect(img);
-          if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
-            handleScanCode(barcodes[0].rawValue);
-            setIsProcessingPhoto(false);
-            return;
-          }
-        } catch (e) {
-          console.warn('BarcodeDetector pass error, trying ZXing:', e);
+      try {
+        const result = await reader.decodeFromImageUrl(objectUrl);
+        if (result && result.getText()) {
+          detectedText = result.getText();
         }
+      } catch (err) {
+        // ZXing failed on image
       }
 
-      // 2. Try ZXing Multi-Format Reader
-      if ((window as any).ZXing) {
-        try {
-          const reader = new (window as any).ZXing.BrowserMultiFormatReader();
-          const result = await reader.decodeFromImageElement(img);
-          if (result && result.getText && result.getText()) {
-            handleScanCode(result.getText());
-            setIsProcessingPhoto(false);
-            return;
-          }
-        } catch (zxingErr) {
-          // ZXing pass
-        }
+      URL.revokeObjectURL(objectUrl);
+
+      if (detectedText) {
+        handleScanCode(detectedText);
+        setIsProcessingPhoto(false);
+        return;
       }
 
-      // 3. Try jsQR
-      if ((window as any).jsQR) {
-        try {
-          const canvas = document.createElement('canvas');
-          canvas.width = img.naturalWidth || img.width || 600;
-          canvas.height = img.naturalHeight || img.height || 600;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const qrCode = (window as any).jsQR(imgData.data, imgData.width, imgData.height);
-            if (qrCode && qrCode.data) {
-              handleScanCode(qrCode.data);
-              setIsProcessingPhoto(false);
-              return;
-            }
-          }
-        } catch (jsqrErr) {
-          // jsQR pass
-        }
-      }
-
-      // If no barcode was decoded from the image
       playBeep(false);
       setFeedback({
         isMatch: false,
@@ -323,6 +379,15 @@ export const CameraScannerModal: React.FC<Props> = ({
       }
     }
   };
+
+  const handleOpenPhotoCapture = () => {
+    if (Capacitor.isNativePlatform()) {
+      takeNativePhoto();
+    } else {
+      fileInputRef.current?.click();
+    }
+  };
+
 
   // Process code scanning with polymorphic logic
   const handleScanCode = (scannedCode: string) => {
@@ -677,7 +742,7 @@ export const CameraScannerModal: React.FC<Props> = ({
               <span>{expectedShelfLocation || 'Kệ Lấy Hàng'}</span>
             </div>
             <div style={{ color: '#64748b', fontSize: '11px' }}>
-              SKU: <b style={{ color: '#0f172a' }}>{expectedSku || 'EM-01'}</b> • Lô: <b style={{ color: '#d97706' }}>{expectedLotCode || 'LOT-01'}</b>
+              Mã SP: <b style={{ color: '#0f172a' }}>{expectedSku || 'EM-01'}</b> • Lô: <b style={{ color: '#d97706' }}>{expectedLotCode || 'LOT-01'}</b>
             </div>
           </div>
 
@@ -846,7 +911,7 @@ export const CameraScannerModal: React.FC<Props> = ({
           }}
         >
           <Search size={16} color="#4f46e5" />
-          <span>Hướng camera vào Mã Barcode (EAN-13), Mã SKU, Mã Lô (LOT) hoặc Mã Vị Trí Kệ.</span>
+          <span>Hướng camera vào Mã Vạch, Mã Sản Phẩm, Mã Lô hoặc Mã Vị Trí Kệ.</span>
         </div>
       )}
 
@@ -917,19 +982,20 @@ export const CameraScannerModal: React.FC<Props> = ({
           style={{ display: 'none' }}
         />
 
-        {hasPermission ? (
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-            }}
-          />
-        ) : (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: hasPermission === false ? 'none' : 'block',
+          }}
+        />
+
+        {hasPermission === false && (
           /* Native Phone Camera Launcher Card */
           <div
             style={{
@@ -971,11 +1037,11 @@ export const CameraScannerModal: React.FC<Props> = ({
                 ? 'Chụp ảnh phiếu giao hàng của nhà cung cấp để mở biên bản kiểm định QC.'
                 : scannerType === 'PACKING'
                 ? 'Chụp ảnh mã kiện hàng để hoàn tất đóng gói và in tem vận chuyển.'
-                : `Chụp ảnh mã Lô (${expectedLotCode || 'LOT-xxx'}) hoặc SKU (${expectedSku || 'EM-xxx'}) để xác nhận.`}
+                : `Chụp ảnh mã Lô (${expectedLotCode || 'LOT-xxx'}) hoặc Mã SP (${expectedSku || 'EM-xxx'}) để xác nhận.`}
             </p>
 
             <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={handleOpenPhotoCapture}
               disabled={isProcessingPhoto}
               style={{
                 background: theme.headerGradient,
@@ -998,7 +1064,7 @@ export const CameraScannerModal: React.FC<Props> = ({
         )}
 
         {/* Viewfinder Target Reticles Customized Per Type */}
-        {hasPermission && (
+        {hasPermission !== false && (
           <div
             style={{
               position: 'absolute',
@@ -1084,14 +1150,14 @@ export const CameraScannerModal: React.FC<Props> = ({
             type="text"
             placeholder={
               scannerType === 'LOOKUP'
-                ? 'Nhập mã SKU, Barcode hoặc vị trí kệ...'
+                ? 'Nhập mã sản phẩm, mã vạch hoặc vị trí kệ...'
                 : scannerType === 'INBOUND'
                 ? 'Nhập mã phiếu nhập (NK-xxx)...'
                 : scannerType === 'PACKING'
                 ? 'Nhập mã đơn hàng (XK-xxx)...'
                 : scanMode === 'LOT'
                 ? 'Nhập mã Lô (LOT-xxx)...'
-                : 'Nhập mã Barcode SKU...'
+                : 'Nhập mã vạch sản phẩm...'
             }
             value={manualCode}
             onChange={e => setManualCode(e.target.value)}

@@ -578,12 +578,12 @@ const Inventory = () => {
                 {adjustModal.lot.displayName || 'Sản phẩm'}
               </div>
               <div style={{ display: 'flex', gap: '12px', fontSize: '0.75rem', color: '#475569', marginTop: '4px' }}>
-                <span>SKU: <strong>{adjustModal.lot.displaySku || adjustModal.lot.productId}</strong></span>
+                <span>Mã SP: <strong>{adjustModal.lot.displaySku || adjustModal.lot.productId}</strong></span>
                 <span>• Mã Lô: <strong>{adjustModal.lot.lotCode}</strong></span>
                 <span>• Khu: <strong>{adjustModal.lot.zone}</strong></span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #99f6e4' }}>
-                <span style={{ fontSize: '0.8rem', color: '#0f766e', fontWeight: 600 }}>Tồn sổ sách hệ thống (Book Stock):</span>
+                <span style={{ fontSize: '0.8rem', color: '#0f766e', fontWeight: 600 }}>Tồn sổ sách hệ thống:</span>
                 <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f766e' }}>{adjustModal.lot.remainingQty} SP</span>
               </div>
             </div>
@@ -675,7 +675,7 @@ const Inventory = () => {
                 <option value="Kiểm kê định kỳ hàng tháng">Kiểm kê định kỳ hàng tháng (Cycle Count)</option>
                 <option value="Hao hụt tự nhiên / Giảm trọng lượng rã đông">Hao hụt tự nhiên / Giảm trọng lượng rã đông</option>
                 <option value="Hàng dập nát / Hư hỏng trong bảo quản">Hàng dập nát / Hư hỏng trong bảo quản</option>
-                <option value="Hết hạn sử dụng (FEFO Dispose)">Hết hạn sử dụng (Tiêu hủy theo chuẩn FEFO)</option>
+                <option value="Hết hạn sử dụng">Hết hạn sử dụng (Tiêu hủy theo quy định)</option>
                 <option value="Sai lệch khi nhập kho ban đầu">Sai lệch số lượng khi nhập kho ban đầu</option>
                 <option value="Khác">Khác (Có ghi chú)</option>
               </select>
@@ -733,9 +733,9 @@ const Inventory = () => {
       quantity: orderQty,
       destination: isDanger
         ? `Xuất tiêu hủy / Xử lý lô hết hạn - ${lot.lotCode}`
-        : `Xuất bán / Điều phối FEFO lô ${lot.lotCode}`,
+        : `Xuất bán ưu tiên hạn dùng lô ${lot.lotCode}`,
       requesterName: user?.name || 'Quản lý kho',
-      notes: `[${isDanger ? 'XUẤT TIÊU HỦY / TRẢ NCC' : 'XUẤT BÁN FEFO'}] Lô: ${lot.lotCode} | Vị trí: ${lot.location || 'N/A'} | HSD: ${expiryStr} | ${lot.riskReason ? `Lý do: ${lot.riskReason}` : ''}`
+      notes: `[${isDanger ? 'XUẤT TIÊU HỦY / TRẢ NCC' : 'XUẤT BÁN ƯU TIÊN'}] Lô: ${lot.lotCode} | Vị trí: ${lot.location || 'N/A'} | HSD: ${expiryStr} | ${lot.riskReason ? `Lý do: ${lot.riskReason}` : ''}`
     });
   };
 
@@ -1008,7 +1008,7 @@ const Inventory = () => {
               </div>
               <div>
                 <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 900 }}>
-                  {isDanger ? 'Đã Tạo Đơn Xuất Hủy / Xử Lý Hết Hạn' : 'Đã Tạo Đơn Xuất Kho FEFO'}
+                  {isDanger ? 'Đã Tạo Đơn Xuất Hủy / Xử Lý Hết Hạn' : 'Đã Tạo Đơn Xuất Kho Ưu Tiên Hạn Dùng'}
                 </h3>
                 <p style={{ margin: 0, fontSize: '12px', opacity: 0.9 }}>Mã phiếu xuất: <b>{order.orderCode}</b></p>
               </div>
@@ -1116,8 +1116,8 @@ const Inventory = () => {
       {/* 4 KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
         <div style={{ backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-          <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Tổng SKU lưu trữ</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginTop: '4px' }}>{whStock.length} SKU</div>
+          <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Tổng số mặt hàng</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginTop: '4px' }}>{whStock.length} mặt hàng</div>
         </div>
         <div 
           onClick={() => { setSelectedRiskFilter('ALL'); setSelectedZoneFilter('ALL'); setLotsPage(1); }}
@@ -1128,7 +1128,7 @@ const Inventory = () => {
           <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f766e', marginTop: '4px' }}>{whStats?.totalLots} Lô</div>
         </div>
 
-        {/* Clickable Cảnh báo FEFO/Hỏng Card */}
+        {/* Clickable Cảnh báo Hết Hạn / Hỏng Card */}
         <div 
           onClick={() => {
             setSelectedRiskFilter(prev => prev === 'DANGER' ? 'ALL' : 'DANGER');
@@ -1146,11 +1146,11 @@ const Inventory = () => {
             flexDirection: 'column',
             justifyContent: 'space-between'
           }}
-          title="Bấm để lọc nhanh các lô hàng cảnh báo FEFO/Hỏng"
+          title="Bấm để lọc nhanh các lô hàng cảnh báo hết hạn hoặc hư hỏng"
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ fontSize: '0.8rem', color: '#dc2626', fontWeight: 700, textTransform: 'uppercase' }}>
-              Cảnh báo (FEFO/Hỏng)
+              Cảnh báo Hết Hạn / Hư Hỏng
             </div>
             {selectedRiskFilter === 'DANGER' && (
               <span style={{ fontSize: '0.65rem', backgroundColor: '#ef4444', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>
@@ -1222,7 +1222,7 @@ const Inventory = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <input
               type="text"
-              placeholder="Tìm theo SKU hoặc tên..."
+              placeholder="Tìm theo mã sản phẩm hoặc tên..."
               value={stockSearch}
               onChange={e => { setStockSearch(e.target.value); setStockPage(1); }}
               style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.8rem', width: '220px' }}
@@ -1239,7 +1239,7 @@ const Inventory = () => {
             <table className="table" style={{ fontSize: '0.85rem', margin: 0, width: '100%' }}>
               <thead style={{ backgroundColor: '#f8fafc' }}>
                 <tr>
-                  <th style={{ backgroundColor: '#f1f5f9', padding: '10px 14px' }}>Mã SKU</th>
+                  <th style={{ backgroundColor: '#f1f5f9', padding: '10px 14px' }}>Mã Sản Phẩm</th>
                   <th style={{ backgroundColor: '#f1f5f9', padding: '10px 14px' }}>Tên Sản Phẩm</th>
                   <th style={{ textAlign: 'right', backgroundColor: '#f1f5f9', padding: '10px 14px' }}>Số lượng tồn (Kg/Thùng)</th>
                 </tr>
@@ -1320,9 +1320,9 @@ const Inventory = () => {
               </h4>
               <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ backgroundColor: '#f0fdf4', color: '#16a34a', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, border: '1px solid #bbf7d0' }}>
-                  🤖 ML Model Active
+                  🛡️ Giám sát chất lượng tự động
                 </span>
-                <span>Arrhenius Kinetic Gradient-Boosted v2.1 • Độ tin cậy: <strong>96.8%</strong></span>
+                <span>Tiêu chuẩn bảo quản kho lạnh 24/7 • Đảm bảo hạn sử dụng đạt chuẩn</span>
               </div>
             </div>
             
@@ -1331,7 +1331,7 @@ const Inventory = () => {
                 onClick={async () => {
                   if (viewingWh) {
                     await handleViewStock(viewingWh, true);
-                    alert('✅ Đã chạy ML Pipeline & Cập nhật Dự báo Suy hao Thực phẩm cho toàn kho!');
+                    alert('✅ Đã cập nhật đánh giá rủi ro chất lượng cho toàn bộ lô hàng!');
                   }
                 }}
                 style={{
@@ -1348,15 +1348,15 @@ const Inventory = () => {
                   gap: '6px',
                   boxShadow: '0 2px 6px rgba(15,118,110,0.1)'
                 }}
-                title="Chạy lại mô hình Machine Learning dự báo nguy cơ cho toàn bộ lô hàng"
+                title="Cập nhật đánh giá chất lượng và hạn sử dụng cho toàn bộ lô hàng"
               >
-                🤖 Chạy ML Batch Predict
+                🔄 Cập nhật đánh giá
               </button>
 
               {/* Search Input */}
               <input
                 type="text"
-                placeholder="Tìm mã lô, vị trí kệ, SKU..."
+                placeholder="Tìm mã lô, vị trí kệ, mã sản phẩm..."
                 value={lotsSearch}
                 onChange={e => { setLotsSearch(e.target.value); setLotsPage(1); }}
                 style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.82rem', width: '210px' }}
@@ -1522,7 +1522,7 @@ const Inventory = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: selectedRiskFilter === 'DANGER' ? '#fee2e2' : selectedRiskFilter === 'WARNING' ? '#fffbeb' : '#f0fdfa', border: `1px solid ${selectedRiskFilter === 'DANGER' ? '#fca5a5' : selectedRiskFilter === 'WARNING' ? '#fde68a' : '#99f6e4'}`, padding: '8px 14px', borderRadius: '8px', marginBottom: '12px', fontSize: '0.8rem' }}>
               <div style={{ fontWeight: 700, color: selectedRiskFilter === 'DANGER' ? '#991b1b' : selectedRiskFilter === 'WARNING' ? '#b45309' : '#0f766e', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span>
-                  🔍 Đang lọc: {selectedRiskFilter === 'DANGER' ? '🔴 Lô hàng Báo Động Đỏ / Hư hỏng' : selectedRiskFilter === 'WARNING' ? '🟡 Lô hàng Có Nguy Cơ (Cận date FEFO)' : selectedRiskFilter === 'SAFE' ? '🟢 Lô hàng Đạt Chuẩn Bình Thường' : ''} 
+                  🔍 Đang lọc: {selectedRiskFilter === 'DANGER' ? '🔴 Lô hàng Báo Động Đỏ / Hư hỏng' : selectedRiskFilter === 'WARNING' ? '🟡 Lô hàng Có Nguy Cơ (Cận hạn sử dụng)' : selectedRiskFilter === 'SAFE' ? '🟢 Lô hàng Đạt Chuẩn Bình Thường' : ''} 
                   {selectedZoneFilter !== 'ALL' ? ` • Khu vực: ${selectedZoneFilter}` : ''} ({filteredWhLots.length} Lô)
                 </span>
               </div>
@@ -1636,10 +1636,10 @@ const Inventory = () => {
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                               <span style={{ fontSize: '0.66rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-                                🤖 ML Spoilage Index
+                                🛡️ Rủi ro chất lượng
                               </span>
                               <span style={{ fontSize: '0.62rem', backgroundColor: '#e2e8f0', color: '#334155', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>
-                                96.8% Conf.
+                                Chuẩn 97%
                               </span>
                             </div>
                             <span style={{ fontSize: '0.85rem', fontWeight: 900, color: isDanger ? '#dc2626' : isWarning ? '#d97706' : '#15803d' }}>
@@ -1806,9 +1806,9 @@ const Inventory = () => {
                                   boxShadow: existing ? 'none' : isDanger ? '0 2px 8px rgba(220, 38, 38, 0.35)' : '0 2px 8px rgba(2, 132, 199, 0.25)',
                                   opacity: isCreatingOutbound ? 0.7 : 1
                                 }}
-                                title={existing ? `Lô này đã lập đơn ${existing.orderCode}. Bấm để xem cảnh báo & mở phiếu.` : isDanger ? 'Tự động tạo đơn xuất tiêu hủy / trả hàng' : 'Tự động tạo đơn xuất kho FEFO'}
+                                title={existing ? `Lô này đã lập đơn ${existing.orderCode}. Bấm để xem cảnh báo & mở phiếu.` : isDanger ? 'Tự động tạo đơn xuất tiêu hủy / trả hàng' : 'Tự động tạo đơn xuất kho ưu tiên hạn dùng'}
                               >
-                                <Send size={12} /> {existing ? `Đã Lập Đơn (${existing.orderCode})` : isDanger ? 'Xuất Tiêu Hủy' : isWarning ? 'Xuất FEFO' : 'Xuất Kho'}
+                                <Send size={12} /> {existing ? `Đã Lập Đơn (${existing.orderCode})` : isDanger ? 'Xuất Tiêu Hủy' : isWarning ? 'Xuất Hạn Gần' : 'Xuất Kho'}
                               </button>
                             );
                           })()}
@@ -1819,7 +1819,7 @@ const Inventory = () => {
                               isOpen: true,
                               lot,
                               newQty: lot.remainingQty,
-                              reason: isDanger ? 'Hàng hư hỏng / Quá hạn sử dụng (FEFO Dispose)' : isWarning ? 'Hàng dập nát / Hư hỏng trong bảo quản' : 'Kiểm kê định kỳ hàng tháng',
+                              reason: isDanger ? 'Hàng hư hỏng / Quá hạn sử dụng (Tiêu hủy)' : isWarning ? 'Hàng dập nát / Hư hỏng trong bảo quản' : 'Kiểm kê định kỳ hàng tháng',
                               qualityStatus: isDanger ? 'EXPIRED' : isWarning ? 'DAMAGED' : 'GOOD',
                               note: ''
                             })}

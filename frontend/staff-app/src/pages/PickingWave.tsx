@@ -485,7 +485,7 @@ export const PickingWave: React.FC = () => {
       voiceAssistant.playTone('ERROR');
       setToastMessage({
         type: 'ERROR',
-        text: `⚠️ Mã quét "${scannedCode}" không khớp với bất kỳ mặt hàng nào trong đợt sóng!`,
+        text: `⚠️ Mã quét "${scannedCode}" không khớp với bất kỳ mặt hàng nào trong danh sách!`,
       });
       setTimeout(() => setToastMessage(null), 3000);
     }
@@ -548,7 +548,7 @@ export const PickingWave: React.FC = () => {
       }
       setToastMessage({
         type: 'SUCCESS',
-        text: `✅ Xuất kho thành công ${orderIdsToConfirm.length} đơn hàng! Đã tự động trừ tồn DB.`,
+        text: `✅ Xuất kho thành công ${orderIdsToConfirm.length} đơn hàng! Đã tự động trừ tồn kho hệ thống.`,
       });
       setTimeout(() => {
         loadLiveData();
@@ -567,7 +567,7 @@ export const PickingWave: React.FC = () => {
       {availableOrders.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', display: 'flex', justifyContent: 'space-between' }}>
-            <span>ĐỢT SÓNG GOM HÀNG ({availableOrders.length} đơn chờ):</span>
+            <span>DANH SÁCH SOẠN HÀNG ({availableOrders.length} đơn chờ):</span>
             <span style={{ color: '#0284c7' }}>{selectedOrderId === 'ALL' ? 'Hiển thị gộp tất cả món' : 'Đang lọc 1 đơn'}</span>
           </div>
           <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
@@ -645,14 +645,14 @@ export const PickingWave: React.FC = () => {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ fontSize: '10.5px', color: '#0284c7', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                ĐỢT SÓNG GOM HÀNG FEFO (DATABASE LIVE)
+                TIẾN ĐỘ SOẠN HÀNG XUẤT KHO
               </span>
               <span style={{ fontSize: '9px', backgroundColor: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
                 {selectedOrderId === 'ALL' ? `TỔNG HỢP ${availableOrders.length} ĐƠN` : currentSelectedOrder?.orderCode}
               </span>
             </div>
             <h2 style={{ margin: '3px 0 0 0', fontSize: '16px', fontWeight: 900, color: '#0f172a' }}>
-              {selectedOrderId === 'ALL' ? 'Danh Sách Lấy Hàng Gộp (Wave Picking)' : `Soạn Đơn Xuất Kho: ${currentSelectedOrder?.orderCode}`}
+              {selectedOrderId === 'ALL' ? 'Danh Sách Soạn Hàng Tổng Hợp' : `Soạn Đơn Xuất Kho: ${currentSelectedOrder?.orderCode}`}
             </h2>
             <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
               {selectedOrderId === 'ALL'
@@ -687,7 +687,7 @@ export const PickingWave: React.FC = () => {
               title={isVoiceEnabled ? 'Tắt âm thanh hiệu ứng' : 'Bật âm thanh hiệu ứng'}
             >
               {isVoiceEnabled ? <Volume2 size={14} color="#059669" /> : <VolumeX size={14} color="#94a3b8" />}
-              <span>{isVoiceEnabled ? 'Sound ON' : 'Sound OFF'}</span>
+              <span>{isVoiceEnabled ? 'Bật âm' : 'Tắt âm'}</span>
             </button>
 
             {/* Handover Shift Button */}
@@ -780,7 +780,7 @@ export const PickingWave: React.FC = () => {
         {items.length > 0 && (
           <div style={{ marginTop: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 800, color: '#64748b', marginBottom: '4px' }}>
-              <span>Tiến độ đợt gom:</span>
+              <span>Tiến độ soạn hàng:</span>
               <span style={{ color: '#0284c7' }}>{pickedUnits}/{totalUnits} sản phẩm ({progressPercent}%)</span>
             </div>
             <div style={{ height: '8px', backgroundColor: '#f1f5f9', borderRadius: '999px', overflow: 'hidden' }}>
@@ -852,7 +852,7 @@ export const PickingWave: React.FC = () => {
             Chưa có đợt lấy hàng nào đang chờ
           </h3>
           <p style={{ margin: 0, fontSize: '12px', color: '#64748b', maxWidth: '300px', lineHeight: 1.5 }}>
-            Hệ thống đang kết nối 100% vào Database thực và lắng nghe đơn xuất kho mới qua Socket thời gian thực.
+            Hệ thống đang kết nối và chờ đơn xuất kho mới được tạo.
           </p>
           <button
             onClick={loadLiveData}
@@ -870,7 +870,7 @@ export const PickingWave: React.FC = () => {
               gap: '6px',
             }}
           >
-            <RefreshCw size={14} /> Kiểm Tra Đơn Mới Từ DB
+            <RefreshCw size={14} /> Kiểm Tra Đơn Mới
           </button>
         </div>
       )}
@@ -898,7 +898,7 @@ export const PickingWave: React.FC = () => {
               boxShadow: activeTab === '3D_MAP' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
             }}
           >
-            <Compass size={16} /> 3D Lộ Trình S-Shape
+            <Compass size={16} /> Sơ Đồ Kệ 3D
           </button>
           <button
             type="button"
@@ -1143,7 +1143,7 @@ export const PickingWave: React.FC = () => {
                     {item.productName}
                   </h4>
                   <div style={{ fontSize: '11px', color: '#64748b', marginTop: '3px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    <span>SKU: <strong style={{ color: '#0f172a' }}>{item.sku}</strong></span>
+                    <span>Mã SP: <strong style={{ color: '#0f172a' }}>{item.sku}</strong></span>
                     <span>• Lô: <strong style={{ color: '#0284c7' }}>{item.lotCode}</strong></span>
                     <span>• HSD: <strong style={{ color: '#d97706' }}>{item.expiryDate}</strong></span>
                   </div>
@@ -1314,7 +1314,7 @@ export const PickingWave: React.FC = () => {
                     ĐÃ GOM ĐỦ 100% SẢN PHẨM!
                   </h4>
                   <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', color: '#64748b' }}>
-                    Tất cả các món đã được lấy chính xác theo hạn FEFO.
+                    Tất cả các món đã được lấy chính xác theo đúng hạn sử dụng.
                   </p>
                 </div>
               </div>
@@ -1341,7 +1341,7 @@ export const PickingWave: React.FC = () => {
                 }}
               >
                 <PackageCheck size={18} />
-                <span>Chuyển Sang Khâu Đóng Gói (Packing) ➔</span>
+                <span>Chuyển Sang Khâu Đóng Gói ➔</span>
               </button>
             </div>
           )}

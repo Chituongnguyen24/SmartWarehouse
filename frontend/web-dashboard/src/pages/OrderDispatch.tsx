@@ -88,7 +88,7 @@ interface Warehouse {
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; icon: React.ReactNode }> = {
   PENDING:             { label: 'Chờ tiếp nhận', color: '#b45309', bg: '#fef3c7', border: '#fde68a', icon: <Clock size={12} /> },
   PROCESSING:          { label: 'Đang soạn hàng', color: '#1d4ed8', bg: '#dbeafe', border: '#bfdbfe', icon: <Boxes size={12} /> },
-  PICKING:             { label: 'Đang nhặt FEFO', color: '#6d28d9', bg: '#ede9fe', border: '#ddd6fe', icon: <Boxes size={12} /> },
+  PICKING:             { label: 'Đang soạn hàng', color: '#6d28d9', bg: '#ede9fe', border: '#ddd6fe', icon: <Boxes size={12} /> },
   PACKED:              { label: 'Đã đóng gói', color: '#0f766e', bg: '#ccfbf1', border: '#99f6e4', icon: <PackageCheck size={12} /> },
   CONFIRMED:           { label: 'Đã xuất kho', color: '#c2410c', bg: '#ffedd5', border: '#fed7aa', icon: <PackageCheck size={12} /> },
   READY_FOR_DELIVERY:  { label: 'Chờ nhận chuyến', color: '#c2410c', bg: '#fff7ed', border: '#fed7aa', icon: <Clock size={12} /> },
@@ -665,7 +665,7 @@ export default function OrderDispatch() {
       }
 
       showToast(
-        `🤖 AI VRP đã phân bổ thông minh ${candidateOrders.length} đơn: 🚛 ${truckCount} đơn Xe Tải Lạnh/Tiêu hủy, 🛵 ${bikeCount} đơn Xe Máy Thùng Lạnh, 🔄 ${crossHubCount} đơn Liên Kho!`,
+        `✅ Đã tự động phân bổ ${candidateOrders.length} đơn hàng: 🚛 ${truckCount} đơn Xe Tải Lạnh, 🛵 ${bikeCount} đơn Xe Máy Thùng Lạnh, 🔄 ${crossHubCount} đơn Liên Kho!`,
         'success'
       );
       await fetchAllData(true);
@@ -869,7 +869,7 @@ export default function OrderDispatch() {
                 color: '#1e40af',
                 letterSpacing: '0.5px',
               }}>
-                TMS CONTROL TOWER
+                ĐIỀU PHỐI ĐỘI XE
               </span>
               <span style={{ fontSize: '12px', color: '#0f766e', fontWeight: 700, backgroundColor: '#f0fdfa', padding: '2px 8px', borderRadius: '6px', border: '1px solid #ccfbf1' }}>
                 {(() => {
@@ -882,7 +882,7 @@ export default function OrderDispatch() {
               Trung Tâm Điều Phối Đơn Hàng & Giám Sát Đội Xe
             </h1>
             <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
-              Tự động hóa xuất kho FEFO • AI VRP gom chuyến khép kín • Định vị GPS trực tiếp
+              Tự động hóa xuất kho theo hạn dùng • Tối ưu phân tuyến giao hàng • Giám sát phương tiện thời gian thực
             </p>
           </div>
         </div>
@@ -933,7 +933,7 @@ export default function OrderDispatch() {
             }}
           >
             <Boxes size={16} />
-            <span>{autoPickingLoading ? 'Đang xuất kho...' : '⚡ 1-Chạm Soạn Hàng FEFO'}</span>
+            <span>{autoPickingLoading ? 'Đang xuất kho...' : '⚡ Soạn Hàng Nhanh (Ưu Tiên Hạn Gần)'}</span>
           </button>
 
           {/* 1-Chạm AI Gom Tuyến VRP */}
@@ -956,7 +956,7 @@ export default function OrderDispatch() {
             }}
           >
             <Sparkles size={16} />
-            <span>{autoDispatchLoading ? 'AI Đang tối ưu...' : '🤖 1-Chạm AI Gom Tuyến VRP'}</span>
+            <span>{autoDispatchLoading ? 'Đang tối ưu lộ trình...' : '⚡ Tự Động Phân Tuyến Giao Hàng'}</span>
           </button>
 
           {/* Map Toggle Button */}
@@ -976,7 +976,7 @@ export default function OrderDispatch() {
             }}
           >
             <Compass size={16} color="#2563eb" />
-            <span>{showMap ? 'Thu Gọn Bản Đồ' : 'Mở Bản Đồ TMS'}</span>
+            <span>{showMap ? 'Thu Gọn Bản Đồ' : 'Mở Bản Đồ Đội Xe'}</span>
           </button>
 
           {/* Refresh Data */}
@@ -1031,7 +1031,7 @@ export default function OrderDispatch() {
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
             <span style={{ fontSize: '11px', fontWeight: 800, color: '#1d4ed8', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Boxes size={14} /> 1. SOẠN KHO FEFO
+              <Boxes size={14} /> 1. SOẠN HÀNG XUẤT KHO
             </span>
             <span style={{ fontSize: '13px', fontWeight: 900, padding: '2px 8px', borderRadius: '999px', backgroundColor: '#dbeafe', color: '#1e40af' }}>
               {step1Count}
@@ -1054,7 +1054,7 @@ export default function OrderDispatch() {
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
             <span style={{ fontSize: '11px', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <PackageCheck size={14} /> 2. GOM CHUYẾN VRP
+              <PackageCheck size={14} /> 2. GOM CHUYẾN & GÁN XE
             </span>
             <span style={{ fontSize: '13px', fontWeight: 900, padding: '2px 8px', borderRadius: '999px', backgroundColor: '#fef3c7', color: '#92400e' }}>
               {step2Count}
@@ -1100,13 +1100,13 @@ export default function OrderDispatch() {
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
             <span style={{ fontSize: '11px', fontWeight: 800, color: '#047857', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <CheckCircle2 size={14} /> 4. ĐÃ HOÀN TẤT POD
+              <CheckCircle2 size={14} /> 4. ĐÃ GIAO THÀNH CÔNG
             </span>
             <span style={{ fontSize: '13px', fontWeight: 900, padding: '2px 8px', borderRadius: '999px', backgroundColor: '#dcfce7', color: '#166534' }}>
               {completedCount}
             </span>
           </div>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Đã giao tận tay & chụp ảnh S3</div>
+          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Đã giao tận tay & có ảnh ký nhận</div>
         </div>
 
         {/* 5. SỰ CỐ & HÀNG HOÀN */}
@@ -1480,7 +1480,7 @@ export default function OrderDispatch() {
                                 }}
                               >
                                 <Camera size={11} color="#ffffff" />
-                                <span>Ảnh POD</span>
+                                <span>Ảnh Giao Hàng</span>
                               </button>
                             )}
 
@@ -1790,7 +1790,7 @@ export default function OrderDispatch() {
                             }}
                           >
                             <Camera size={12} color="#ffffff" />
-                            <span>Ảnh POD</span>
+                            <span>Ảnh Giao Hàng</span>
                           </button>
                         )}
 
@@ -2115,14 +2115,14 @@ export default function OrderDispatch() {
               <div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: '16px', fontSize: '12px' }}>
                 <div style={{ fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
                   <Boxes size={14} color="#2563eb" />
-                  <span>Mặt hàng chuỗi lạnh (FEFO):</span>
+                  <span>Mặt hàng bảo quản mát:</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {selectedOrder.items.map((item, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px', borderRadius: '10px', backgroundColor: '#ffffff', border: '1px solid #e2e8f0' }}>
                       <div>
                         <div style={{ fontWeight: 800, color: '#0f172a' }}>{item.productName}</div>
-                        <div style={{ fontSize: '10px', color: '#94a3b8', fontFamily: 'monospace' }}>SKU: {item.sku} • 0°C - 4°C</div>
+                        <div style={{ fontSize: '10px', color: '#94a3b8', fontFamily: 'monospace' }}>Mã: {item.sku} • 0°C - 4°C</div>
                       </div>
                       <div style={{ fontWeight: 900, color: '#2563eb' }}>x{item.quantity || 1} {item.unit || 'món'}</div>
                     </div>
@@ -2454,7 +2454,7 @@ export default function OrderDispatch() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '14px', borderBottom: '1px solid #f0fdf4', marginBottom: '16px' }}>
               <h3 style={{ fontSize: '14px', fontWeight: 900, color: '#065f46', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                 <CheckCircle2 size={18} color="#059669" />
-                Bằng Chứng Giao Hàng POD #{podPreviewModalOrder.orderCode}
+                Biên Bản & Ảnh Giao Hàng #{podPreviewModalOrder.orderCode}
               </h3>
               <button onClick={() => setPodPreviewModalOrder(null)} style={{ color: '#94a3b8', border: 'none', background: 'none' }}>
                 <X size={18} />
@@ -2468,7 +2468,7 @@ export default function OrderDispatch() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#2563eb', fontWeight: 800, backgroundColor: '#eff6ff', padding: '3px 8px', borderRadius: '999px' }}>
                 <Cloud size={14} />
-                <span>Amazon S3</span>
+                <span>Lưu Trữ Điện Tử</span>
               </div>
             </div>
 
@@ -2476,7 +2476,7 @@ export default function OrderDispatch() {
             <div style={{ height: '200px', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#f1f5f9', border: '1px solid #e2e8f0', marginBottom: '18px', position: 'relative' }}>
               <img
                 src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&q=80"
-                alt="Ảnh POD"
+                alt="Ảnh giao hàng"
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
               <div style={{ position: 'absolute', bottom: 0, insetInline: 0, backgroundColor: 'rgba(15, 23, 42, 0.8)', padding: '8px 12px', color: '#ffffff', fontSize: '11px' }}>

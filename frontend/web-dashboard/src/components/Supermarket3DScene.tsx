@@ -1400,11 +1400,11 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', backgroundColor: '#1e293b', padding: '6px 10px', borderRadius: '8px' }}>
-              <span style={{ color: '#94a3b8' }}>Mã Barcode SKU:</span>
+              <span style={{ color: '#94a3b8' }}>Mã Sản Phẩm:</span>
               <b style={{ color: '#f8fafc' }}>{activeBoxModal.item.sku}</b>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', backgroundColor: '#1e293b', padding: '6px 10px', borderRadius: '8px' }}>
-              <span style={{ color: '#94a3b8' }}>Mã số Lô (Lot Code):</span>
+              <span style={{ color: '#94a3b8' }}>Mã số Lô:</span>
               <b style={{ color: '#38bdf8' }}>{activeBoxModal.item.lotCode}</b>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', backgroundColor: '#1e293b', padding: '6px 10px', borderRadius: '8px' }}>
@@ -1419,7 +1419,7 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
             <div style={{ backgroundColor: activeBoxModal.item.daysRemaining <= 3 ? '#7f1d1d' : '#1e293b', padding: '8px 10px', borderRadius: '8px', border: activeBoxModal.item.daysRemaining <= 3 ? '1px solid #ef4444' : 'none' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px' }}>
                 <span style={{ color: activeBoxModal.item.daysRemaining <= 3 ? '#fca5a5' : '#94a3b8' }}>
-                  {activeBoxModal.item.daysRemaining <= 3 ? '⚠️ CẢNH BÁO FEFO CẬN DATE' : 'Hạn sử dụng:'}
+                  {activeBoxModal.item.daysRemaining <= 3 ? '⚠️ CẢNH BÁO CẬN HẠN DÙNG' : 'Hạn sử dụng:'}
                 </span>
                 <b style={{ color: activeBoxModal.item.daysRemaining <= 3 ? '#fca5a5' : '#ffffff' }}>
                   {activeBoxModal.item.expiryDate} (Còn {activeBoxModal.item.daysRemaining} ngày)
@@ -1443,7 +1443,7 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '6px' }}>
               <button
-                onClick={() => alert(`Đã tạo lệnh xuất FEFO ưu tiên cho lô hàng: ${activeBoxModal.item.lotCode} (${activeBoxModal.item.name})`)}
+                onClick={() => alert(`Đã tạo lệnh xuất ưu tiên cho lô hàng: ${activeBoxModal.item.lotCode} (${activeBoxModal.item.name})`)}
                 style={{
                   backgroundColor: '#0284c7',
                   color: '#ffffff',
@@ -1459,7 +1459,7 @@ export const Supermarket3DScene: React.FC<Supermarket3DSceneProps> = ({
                   gap: '4px',
                 }}
               >
-                ⚡ Xuất FEFO
+                ⚡ Xuất Hạn Gần
               </button>
               <button
                 onClick={() => alert(`Đang in mã vạch QR cho thùng hàng: [${activeBoxModal.item.sku}] - Lô ${activeBoxModal.item.lotCode}`)}

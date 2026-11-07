@@ -682,7 +682,7 @@ export const StockLookup: React.FC = () => {
           }}
         >
           <Compass size={16} color={displayMode === '3D_SCENE' ? '#ffffff' : '#64748b'} />
-          <span>🌐 Sơ Đồ 3D Digital Twin</span>
+          <span>🌐 Sơ Đồ Kho 3D</span>
         </button>
       </div>
 
@@ -701,11 +701,11 @@ export const StockLookup: React.FC = () => {
       {/*  KPI CARDS — LIGHT THEME EXACT MATCH                      */}
       {/* ───────────────────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-        {/* Card 1: Tổng SKU */}
+        {/* Card 1: Tổng Mặt Hàng */}
         <div style={{ backgroundColor: '#ffffff', padding: '16px 18px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>TỔNG SKU LƯU TRỮ</div>
+          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>TỔNG SỐ MẶT HÀNG</div>
           <div style={{ fontSize: '24px', fontWeight: 900, color: '#0f172a', marginTop: '6px' }}>
-            {isLoading ? '...' : `${warehouseStats.totalSkus.toLocaleString()} SKU`}
+            {isLoading ? '...' : `${warehouseStats.totalSkus.toLocaleString()} mặt hàng`}
           </div>
         </div>
 
@@ -735,7 +735,7 @@ export const StockLookup: React.FC = () => {
           </div>
         </div>
 
-        {/* Card 3: Cảnh Báo FEFO/Hỏng (Clickable with Lọc ngay toggle) */}
+        {/* Card 3: Cảnh Báo Hết Hạn / Hỏng (Clickable with Lọc ngay toggle) */}
         <div
           onClick={() => setSelectedRiskFilter(prev => (prev === 'DANGER' ? 'ALL' : 'DANGER'))}
           style={{
@@ -750,10 +750,10 @@ export const StockLookup: React.FC = () => {
             justifyContent: 'space-between',
             transition: 'all 0.2s ease',
           }}
-          title="Bấm để lọc nhanh các lô hàng cảnh báo FEFO/Hỏng"
+          title="Bấm để lọc nhanh các lô hàng cảnh báo hết hạn"
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: '11px', color: '#dc2626', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>CẢNH BÁO (FEFO/HỎNG)</div>
+            <div style={{ fontSize: '11px', color: '#dc2626', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>CẢNH BÁO HẾT HẠN / HỎNG</div>
             {selectedRiskFilter === 'DANGER' && (
               <span style={{ fontSize: '9px', backgroundColor: '#dc2626', color: '#ffffff', padding: '2px 6px', borderRadius: '4px', fontWeight: 900 }}>ĐANG LỌC</span>
             )}
@@ -880,7 +880,7 @@ export const StockLookup: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm theo Tên SP, Mã SKU, Lô hàng, Vị trí kệ, Barcode..."
+              placeholder="Tìm theo Tên SP, Mã SP, Lô hàng, Vị trí kệ, Barcode..."
               style={{
                 width: '100%',
                 padding: '10px 36px 10px 36px',
@@ -980,7 +980,7 @@ export const StockLookup: React.FC = () => {
                 cursor: 'pointer',
               }}
             >
-              <option value="EXPIRY_ASC" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>Hạn SD Gần Nhất (FEFO)</option>
+              <option value="EXPIRY_ASC" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>Hạn SD Gần Nhất (Ưu tiên xuất)</option>
               <option value="EXPIRY_DESC" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>Hạn SD Xa Nhất</option>
               <option value="QTY_DESC" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>Tồn Kho Nhiều Nhất</option>
               <option value="QTY_ASC" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>Tồn Kho Ít Nhất</option>
@@ -1290,7 +1290,7 @@ export const StockLookup: React.FC = () => {
                 <span style={{ fontSize: '24px' }}>{selectedLot.categoryIcon || '📦'}</span>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 900, color: '#0f172a' }}>{selectedLot.productName}</h3>
-                  <p style={{ margin: 0, fontSize: '11px', color: '#64748b', fontFamily: 'monospace' }}>SKU: {selectedLot.sku}</p>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#64748b', fontFamily: 'monospace' }}>Mã SP: {selectedLot.sku}</p>
                 </div>
               </div>
               <button
@@ -1334,7 +1334,7 @@ export const StockLookup: React.FC = () => {
                 }}
               >
                 <div style={{ fontWeight: 800, fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span>Phân tích rủi ro FEFO (AI Score: {selectedLot.aiScore}/100)</span>
+                  <span>Đánh giá hạn dùng (Điểm chất lượng: {selectedLot.aiScore}/100)</span>
                   <span style={{ padding: '1px 6px', borderRadius: '6px', fontWeight: 900, fontSize: '10px', textTransform: 'uppercase', backgroundColor: '#ffffff', border: '1px solid currentColor' }}>
                     {selectedLot.riskLevel}
                   </span>

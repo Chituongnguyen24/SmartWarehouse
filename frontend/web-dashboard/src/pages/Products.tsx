@@ -335,7 +335,7 @@ const Products = () => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--spacing-4)' }}>
         <div className="card">
           <div className="card-header">
-            <div className="card-title">Tổng SKU tại kho</div>
+            <div className="card-title">Tổng số mặt hàng</div>
             <div className="card-icon primary"><Package size={18} /></div>
           </div>
           <div className="card-value">
@@ -351,7 +351,7 @@ const Products = () => {
             <div className="card-icon warning" style={{ backgroundColor: 'var(--color-warning-100)', color: 'var(--color-warning-500)' }}><AlertCircle size={18} /></div>
           </div>
           <div className="card-value">0</div>
-          <div className="card-desc">SKU lỗi thông tin</div>
+          <div className="card-desc">Sản phẩm lỗi thông tin</div>
         </div>
       </div>
 
@@ -361,7 +361,7 @@ const Products = () => {
           <div style={{ display: 'flex', flex: 1, gap: '0.5rem' }}>
             <input 
               type="text" 
-              placeholder="Tìm kiếm theo mã SKU hoặc tên..." 
+              placeholder="Tìm kiếm theo mã sản phẩm hoặc tên..." 
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
               onKeyDown={e => {
@@ -398,13 +398,13 @@ const Products = () => {
             <thead>
               <tr>
                 <th style={{ width: '60px', textAlign: 'center' }}>Ảnh</th>
-                <th>Mã SKU</th>
+                <th>Mã Sản Phẩm</th>
                 <th>Tên Sản phẩm</th>
-                <th>Phân loại</th>
-                <th>Loại kho</th>
+                <th>Danh mục</th>
+                <th>Điều kiện bảo quản</th>
                 <th>Nhiệt độ (°C)</th>
                 <th>Đơn giá (VNĐ)</th>
-                <th>ĐVT</th>
+                <th>Đơn vị tính</th>
                 {canManage && <th>Thao tác</th>}
               </tr>
             </thead>
@@ -517,11 +517,11 @@ const Products = () => {
             <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', fontWeight: 500 }}>Mã SKU</label>
+                  <label style={{ fontSize: '0.875rem', fontWeight: 500 }}>Mã sản phẩm</label>
                   <input required type="text" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)' }} />
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', fontWeight: 500 }}>Đơn vị tính (Unit)</label>
+                  <label style={{ fontSize: '0.875rem', fontWeight: 500 }}>Đơn vị tính</label>
                   <input required type="text" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)' }} />
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -537,11 +537,11 @@ const Products = () => {
 
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', fontWeight: 500 }}>Ngành hàng (Category)</label>
+                  <label style={{ fontSize: '0.875rem', fontWeight: 500 }}>Ngành hàng</label>
                   <input required type="text" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)' }} />
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', fontWeight: 500 }}>Loại kho (Storage Type)</label>
+                  <label style={{ fontSize: '0.875rem', fontWeight: 500 }}>Điều kiện bảo quản</label>
                   <select value={formData.storageType} onChange={e => setFormData({...formData, storageType: e.target.value})} style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)' }}>
                     <option value="COLD">Kho Mát</option>
                     <option value="FROZEN">Kho Đông Lạnh</option>
@@ -581,7 +581,7 @@ const Products = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
               <div>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Tồn kho: {viewingProduct.name}</h3>
-                <p className="text-muted" style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>Mã SKU: {viewingProduct.sku}</p>
+                <p className="text-muted" style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>Mã sản phẩm: {viewingProduct.sku}</p>
               </div>
               <button onClick={() => setShowStockModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
             </div>

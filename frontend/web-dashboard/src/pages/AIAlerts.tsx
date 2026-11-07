@@ -135,8 +135,8 @@ const AIAlerts = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-6)' }}>
       <div className="flex items-center justify-between">
         <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.25rem' }}>Cảnh báo & AI dự đoán hư hỏng</h2>
-          <p className="text-muted" style={{ fontSize: '0.875rem' }}>Phát hiện bất thường trong bảo quản và đánh giá nguy cơ giảm chất lượng từng lô hàng bằng mô hình AI.</p>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.25rem' }}>Kiểm Soát & Cảnh Báo Chất Lượng Hàng Hóa</h2>
+          <p className="text-muted" style={{ fontSize: '0.875rem' }}>Phát hiện bất thường trong bảo quản và đánh giá nguy cơ giảm chất lượng của từng lô hàng theo thời gian thực.</p>
         </div>
         <button className="btn btn-outline" style={{ fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 6 }} onClick={fetchData}>
           <RefreshCw size={14} /> Làm mới
@@ -144,7 +144,7 @@ const AIAlerts = () => {
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-secondary)' }}>Đang tải dữ liệu cảnh báo từ IoT & AI...</div>
+        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-secondary)' }}>Đang tải dữ liệu cảnh báo chất lượng kho hàng...</div>
       ) : (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--spacing-4)' }}>
@@ -233,9 +233,9 @@ const AIAlerts = () => {
                 <div style={{ padding: 'var(--spacing-5)', borderBottom: '1px solid var(--color-neutral-200)' }}>
                   <h3 className="font-semibold flex items-center" style={{ gap: '0.5rem', fontSize: '1rem', marginBottom: '0.5rem' }}>
                     <BrainCircuit size={18} className="text-success" />
-                    Dự đoán hư hỏng (AI)
+                    Đánh giá nguy cơ chất lượng hàng hóa
                   </h3>
-                  <p className="text-muted" style={{ fontSize: '0.75rem' }}>Random Forest + Isolation Forest dựa trên nhiệt độ, độ ẩm, số lần vượt ngưỡng và HSD.</p>
+                  <p className="text-muted" style={{ fontSize: '0.75rem' }}>Hệ thống tự động phân tích đa chiều dựa trên nhiệt độ, độ ẩm, số lần vượt ngưỡng và hạn sử dụng của từng lô hàng.</p>
                 </div>
                 <div className="table-container">
                   <table className="table">
@@ -250,7 +250,7 @@ const AIAlerts = () => {
                       {predictions.length === 0 ? (
                         <tr>
                           <td colSpan={3} style={{ textAlign: 'center', color: 'var(--color-text-secondary)', padding: '1.5rem' }}>
-                            Không có dữ liệu dự đoán. Chạy mô hình AI để phân tích.
+                            Không có cảnh báo rủi ro. Kho hàng đang được bảo quản trong điều kiện lý tưởng.
                           </td>
                         </tr>
                       ) : (

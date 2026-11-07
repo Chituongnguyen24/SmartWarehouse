@@ -76,9 +76,9 @@ const AuditLog = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-6)' }}>
       <div>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.25rem' }}>Nhật ký Hệ thống (Audit Log)</h2>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.25rem' }}>Nhật ký Hoạt Động Hệ Thống</h2>
         <p className="text-muted" style={{ fontSize: '0.875rem' }}>
-          Ghi nhận tất cả hoạt động quan trọng trong hệ thống: đăng nhập, thao tác dữ liệu, cảnh báo AI và sự cố IoT.
+          Ghi nhận tất cả hoạt động quan trọng trong hệ thống: đăng nhập, thao tác xuất nhập kho, cảnh báo chất lượng và nhật ký vận hành.
         </p>
       </div>
 

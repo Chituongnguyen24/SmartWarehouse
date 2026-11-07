@@ -1,15 +1,9 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-const getBackendHost = () => {
-  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
-    return window.location.hostname || 'localhost';
-  }
-  return 'localhost';
-};
+import { getBackendHost } from '../services/networkConfig';
 
-const BACKEND_HOST = getBackendHost();
-const SOCKET_URL = `http://${BACKEND_HOST}:3004`;
+const getSocketUrl = () => `http://${getBackendHost()}:3004`;
 
 export interface OrderLockInfo {
   userId: string;
@@ -51,7 +45,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Fetch initial active locks from backend
   const refreshLocks = useCallback(async () => {
     try {
-      const res = await fetch(`http://${BACKEND_HOST}:3007/outbound-orders/locks`);
+      const res = await fetch(`http://${getBackendHost()}:3007/outbound-orders/locks`);
       if (res.ok) {
         const data = await res.json();
         setActiveLocks(data || {});
@@ -64,7 +58,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     refreshLocks();
 
-    const s = io(SOCKET_URL, {
+    const s = io(getSocketUrl(), {
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 20,
       reconnectionDelay: 2000,
@@ -128,7 +122,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Acquire Lock on an Order
   const lockOrder = async (orderId: string, user: { userId: string; userName: string; role?: string }): Promise<boolean> => {
     try {
-      const res = await fetch(`http://${BACKEND_HOST}:3007/outbound-orders/${orderId}/lock`, {
+      const res = await fetch(`http://${getBackendHost()}:3007/outbound-orders/${orderId}/lock`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(user),
@@ -154,7 +148,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Release Lock on an Order
   const unlockOrder = async (orderId: string, userId?: string): Promise<boolean> => {
     try {
-      await fetch(`http://${BACKEND_HOST}:3007/outbound-orders/${orderId}/unlock`, {
+      await fetch(`http://${getBackendHost()}:3007/outbound-orders/${orderId}/unlock`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),

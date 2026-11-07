@@ -731,7 +731,7 @@ export const AIDemandForecastPanel: React.FC = () => {
             <thead>
               <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontWeight: 800 }}>
                 <th style={{ padding: '12px 14px' }}>Sản Phẩm & Mã Hàng</th>
-                <th style={{ padding: '12px 14px' }}>Ngành Hàng & Thuật Toán</th>
+                <th style={{ padding: '12px 14px' }}>Ngành Hàng & Phân Loại</th>
                 <th style={{ padding: '12px 14px', textAlign: 'right' }}>Tồn Kho Thực Tế</th>
                 <th style={{ padding: '12px 14px', textAlign: 'right' }}>Điểm Đặt Hàng (Tồn An Toàn)</th>
                 <th style={{ padding: '12px 14px', textAlign: 'right' }}>Nhu Cầu Bán / Ngày</th>
@@ -1242,7 +1242,7 @@ async function generateClientFallbackForecast(warehouseCode?: string): Promise<F
       { sku: 'EM-461129', name: 'Cá hồi Na Uy phi lê tươi sống 300g', category: 'Hải sản', unit: 'Khay', price: 165000, currentStock: 8, leadTimeDays: 2, supplierName: 'Công ty TNHH Hải Sản Biển Đông' },
       { sku: 'EM-901145', name: 'Gạo ST25 Ông Cua Túi 5kg', category: 'Lương thực', unit: 'Túi', price: 195000, currentStock: 120, leadTimeDays: 3, supplierName: 'DNTN Hồ Quang Trí (Gạo Ông Cua)' },
       { sku: 'EM-951109', name: 'Cà phê hòa tan G7 3in1 hộp 50 gói', category: 'Hàng khô', unit: 'Hộp', price: 135000, leadTimeDays: 2, currentStock: 65, supplierName: 'Tập đoàn Trung Nguyên Legend' },
-      { sku: 'COLD-NEW-9901', name: 'Bánh Mì Hoa Cúc Harrys Brioche (Cold-Start SKU Mới)', category: 'Hàng khô', unit: 'Ổ', price: 125000, currentStock: 10, leadTimeDays: 3, supplierName: 'Công ty XNK Bánh Kẹo Châu Âu', isColdStart: true }
+      { sku: 'COLD-NEW-9901', name: 'Bánh Mì Hoa Cúc Harrys Brioche (Sản Phẩm Mới)', category: 'Hàng khô', unit: 'Ổ', price: 125000, currentStock: 10, leadTimeDays: 3, supplierName: 'Công ty XNK Bánh Kẹo Châu Âu', isColdStart: true }
     ];
   }
 

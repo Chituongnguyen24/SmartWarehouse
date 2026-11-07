@@ -99,7 +99,7 @@ const DEFAULT_RACKS: ShelfRack[] = [
     maxCapacity: 500,
     currentCapacity: 340,
     hasAlert: true,
-    alertMsg: 'Lô thịt CP cận date 48h (Ưu tiên xuất FEFO)',
+    alertMsg: 'Lô thịt CP cận date 48h (Ưu tiên xuất trước)',
     items: [
       { sku: 'EM-102544', name: 'Thịt heo xay CP 400g', category: 'Thịt tươi', qty: 85, unit: 'Khay', lotCode: 'LOT-EM-102544-C', expiryDate: '02/09/2026', daysRemaining: 2, price: 56000 },
       { sku: 'EM-103829', name: 'Thịt bò Úc phi lê 500g', category: 'Thịt tươi', qty: 95, unit: 'Khay', lotCode: 'LOT-EM-103829-B', expiryDate: '05/09/2026', daysRemaining: 5, price: 185000 },
@@ -518,14 +518,18 @@ const DEFAULT_RACKS: ShelfRack[] = [
 
 export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ warehouseCode: propWhCode }) => {
   const { user, token } = useAuth();
-  const isManager = user?.role === 'WAREHOUSE_MANAGER';
-  const myWarehouseCode = user?.warehouseCode || 'WH-006';
   const isAdmin = user?.role === 'ADMIN';
+  const myWarehouseCode = user?.warehouseCode || (
+    user?.email?.includes('001') || user?.email?.includes('q12') ? 'WH-001' :
+    user?.email?.includes('002') ? 'WH-002' :
+    user?.email?.includes('005') ? 'WH-005' :
+    'WH-006'
+  );
 
   const { warehouses, selectedWarehouseCode, setSelectedWarehouseCode } = useWarehouse();
 
-  // Effective warehouse code: Manager is strictly locked to their warehouse
-  const effectiveWhCode = isManager ? myWarehouseCode : (propWhCode || selectedWarehouseCode || 'WH-006');
+  // Effective warehouse code: Non-admin users are strictly locked to their warehouse
+  const effectiveWhCode = !isAdmin ? myWarehouseCode : (propWhCode || selectedWarehouseCode || 'WH-006');
 
   const [racks, setRacks] = useState<ShelfRack[]>(DEFAULT_RACKS);
   const [selectedRackId, setSelectedRackId] = useState<string>('RACK-COOL-01');
@@ -1407,10 +1411,11 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
         {/* Warehouse Selector & Action Buttons */}
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Strict Warehouse Locking: Manager cannot change warehouse */}
-          {isManager ? (
+          {!isAdmin ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f0fdf4', padding: '8px 14px', borderRadius: '12px', border: '1.5px solid #86efac', color: '#166534', fontWeight: 800, fontSize: '0.85rem' }}>
               <ShieldCheck size={16} color="#16a34a" />
               <span>📍 {currentWhName} ({myWarehouseCode})</span>
+              <span style={{ fontSize: '10px', background: '#dcfce7', padding: '2px 6px', borderRadius: '4px', marginLeft: '4px' }}>🔒 Cố định</span>
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f8fafc', padding: '6px 12px', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
@@ -1431,6 +1436,9 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                   </option>
                 ))}
               </select>
+              <span style={{ fontSize: '10px', backgroundColor: '#10b981', color: '#ffffff', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                Admin
+              </span>
             </div>
           )}
 
@@ -1507,9 +1515,9 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
             <Boxes size={22} />
           </div>
           <div>
-            <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b' }}>TỔNG SKU LƯU TRỮ</div>
+            <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b' }}>TỔNG SỐ MẶT HÀNG</div>
             <div style={{ fontSize: '20px', fontWeight: 900, color: '#0f172a' }}>
-              {liveSkuCount > 0 ? `${liveSkuCount.toLocaleString()} SKU` : '1,537 SKU'}
+              {liveSkuCount > 0 ? `${liveSkuCount.toLocaleString()} mặt hàng` : '1,537 mặt hàng'}
             </div>
           </div>
         </div>
@@ -1531,7 +1539,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
             <AlertTriangle size={22} />
           </div>
           <div>
-            <div style={{ fontSize: '11px', fontWeight: 800, color: '#dc2626' }}>CẢNH BÁO (FEFO/HỎNG)</div>
+            <div style={{ fontSize: '11px', fontWeight: 800, color: '#dc2626' }}>CẢNH BÁO HẾT HẠN / HƯ HỎNG</div>
             <div style={{ fontSize: '20px', fontWeight: 900, color: '#b91c1c' }}>
               {totalNearExpiryAll > 0 ? `${totalNearExpiryAll.toLocaleString()} Lô` : '186 Lô'}
             </div>
@@ -1634,7 +1642,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
               <Search size={15} color={searchInput ? '#0284c7' : '#64748b'} />
               <input
                 type="text"
-                placeholder="Tìm Barcode SKU, Mã Lô, Tên Hàng..."
+                placeholder="Tìm mã sản phẩm, mã lô, tên hàng..."
                 value={searchInput}
                 onChange={e => setSearchInput(e.target.value)}
                 onKeyDown={e => {
@@ -1992,7 +2000,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                 }}
               >
                 {isCreatingOutbound ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
-                Xuất FEFO Tự Động
+                Xuất Hạn Gần Tự Động
               </button>
 
               <button
@@ -2021,7 +2029,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
               {/* ML Model Active Banner */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#0f766e', backgroundColor: '#f0fdfa', border: '1px solid #99f6e4', padding: '4px 10px', borderRadius: '8px', fontWeight: 700 }}>
                 <Sparkles size={14} />
-                <span>ML Model Active: Arrhenius Kinetic Gradient-Boosted v2.1 • Độ tin cậy: 96.8%</span>
+                <span>🛡️ Giám sát chất lượng bảo quản 24/7 • Tiêu chuẩn nhiệt độ đạt chuẩn</span>
               </div>
             </div>
 
@@ -2218,7 +2226,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                             {it.name}
                           </div>
                           <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>
-                            SKU: <strong>{it.sku}</strong> &nbsp;•&nbsp; Vị trí: <strong>{it.location || selectedRack.id}</strong>
+                            Mã SP: <strong>{it.sku}</strong> &nbsp;•&nbsp; Vị trí: <strong>{it.location || selectedRack.id}</strong>
                           </div>
                         </div>
 
@@ -2399,9 +2407,9 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                                     opacity: isCreatingOutbound ? 0.7 : 1,
                                     boxShadow: existing ? 'none' : isDanger ? '0 2px 6px rgba(220, 38, 38, 0.3)' : '0 2px 6px rgba(2, 132, 199, 0.3)'
                                   }}
-                                  title={existing ? `Lô hàng này đã lập phiếu xuất ${existing.orderCode}. Bấm để xem chi tiết.` : isDanger ? 'Xuất tiêu hủy' : 'Xuất FEFO'}
+                                  title={existing ? `Lô hàng này đã lập phiếu xuất ${existing.orderCode}. Bấm để xem chi tiết.` : isDanger ? 'Xuất tiêu hủy' : 'Xuất hạn gần'}
                                 >
-                                  <Send size={12} /> {existing ? `Đã Lập Đơn (${existing.orderCode})` : isDanger ? 'Xuất Tiêu Hủy' : 'Xuất FEFO'}
+                                  <Send size={12} /> {existing ? `Đã Lập Đơn (${existing.orderCode})` : isDanger ? 'Xuất Tiêu Hủy' : 'Xuất Hạn Gần'}
                                 </button>
                               );
                             })()}
@@ -2867,7 +2875,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                 </div>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '15.5px', fontWeight: 900 }}>
-                    {confirmExportModal.isBatch ? 'Xác Nhận Xuất FEFO Hàng Loạt' : 'Xác Nhận Lập Phiếu Xuất Kho'}
+                    {confirmExportModal.isBatch ? 'Xác Nhận Xuất Hàng Loạt Theo Hạn Dùng' : 'Xác Nhận Lập Phiếu Xuất Kho'}
                   </h3>
                   <p style={{ margin: 0, fontSize: '11.5px', opacity: 0.8 }}>Kệ nguồn: <b>{confirmExportModal.rack.name}</b></p>
                 </div>
@@ -2889,7 +2897,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                     {confirmExportModal.item.name}
                   </div>
                   <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: '#475569', marginTop: '4px', flexWrap: 'wrap' }}>
-                    <span>SKU: <b>{confirmExportModal.item.sku}</b></span>
+                    <span>Mã SP: <b>{confirmExportModal.item.sku}</b></span>
                     <span>Mã Lô: <b style={{ color: '#0284c7' }}>{confirmExportModal.item.lotCode}</b></span>
                     <span>HSD: <b>{confirmExportModal.item.expiryDate}</b> (Còn {confirmExportModal.item.daysRemaining} ngày)</span>
                     <span>Tồn kho: <b style={{ color: '#0f766e' }}>{confirmExportModal.item.qty} {confirmExportModal.item.unit}</b></span>
@@ -2938,7 +2946,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                   type="text"
                   value={confirmExportModal.destination}
                   onChange={e => setConfirmExportModal({ ...confirmExportModal, destination: e.target.value })}
-                  placeholder="Ví dụ: Xuất bán FEFO siêu thị / Xuất điều chuyển chi nhánh..."
+                  placeholder="Ví dụ: Xuất bán siêu thị / Xuất điều chuyển chi nhánh..."
                   style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', color: '#0f172a' }}
                 />
               </div>
@@ -3221,7 +3229,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px', color: '#475569', marginTop: '10px' }}>
-                  <div>🏷️ SKU: <b style={{ color: '#0f172a' }}>{barcodeModalItem.item.sku}</b></div>
+                  <div>🏷️ Mã SP: <b style={{ color: '#0f172a' }}>{barcodeModalItem.item.sku}</b></div>
                   <div>📦 Mã Lô: <b style={{ color: '#0284c7' }}>{barcodeModalItem.item.lotCode || 'N/A'}</b></div>
                   {barcodeModalItem.locationText && (
                     <div style={{ gridColumn: 'span 2' }}>📍 Vị trí: <b style={{ color: '#059669' }}>{barcodeModalItem.locationText}</b></div>
@@ -3270,7 +3278,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
                     boxShadow: barcodeTargetType === 'SKU' ? '0 2px 8px rgba(2, 132, 199, 0.3)' : 'none'
                   }}
                 >
-                  🏷️ Mã Barcode SKU ({barcodeModalItem.item.sku})
+                  🏷️ Mã Barcode Sản Phẩm ({barcodeModalItem.item.sku})
                 </button>
               </div>
 

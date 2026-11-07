@@ -193,7 +193,7 @@ const CustomerProductDetail: React.FC = () => {
           <div style={{ marginBottom: '2rem' }}>
             <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#1e293b', marginBottom: '8px' }}>Mô tả sản phẩm</h4>
             <p style={{ color: '#475569', fontSize: '0.95rem', lineHeight: '1.6', margin: 0 }}>
-              {product.description || 'Thực phẩm tươi sạch chất lượng cao được kiểm duyệt khắt khe theo tiêu chuẩn CityMart FEFO kho lạnh.'}
+              {product.description || 'Thực phẩm tươi sạch chất lượng cao được kiểm duyệt khắt khe theo tiêu chuẩn bảo quản kho lạnh CityMart.'}
             </p>
           </div>
 
@@ -252,7 +252,7 @@ const CustomerProductDetail: React.FC = () => {
           <ShieldCheck size={32} color="#10b981" />
           <div>
             <h5 style={{ margin: '0 0 4px 0', fontSize: '0.95rem', fontWeight: 700 }}>100% Thực Phẩm Sạch</h5>
-            <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>Đạt chuẩn VietGAP & Kiểm định FEFO</p>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>Đạt chuẩn VietGAP & Đảm bảo hạn sử dụng tươi mới</p>
           </div>
         </div>
         <div style={{ backgroundColor: 'white', padding: '1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '1rem' }}>

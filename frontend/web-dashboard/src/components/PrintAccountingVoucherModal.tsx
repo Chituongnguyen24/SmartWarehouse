@@ -171,7 +171,7 @@ export const PrintAccountingVoucherModal: React.FC<Props> = ({ voucherType, data
                   Địa chỉ/Đội xe: <b>Đội Giao Vận Hỏa Tốc Siêu Thị CityMart Gò Vấp</b> ({data?.vehicleType || 'Xe máy'}) - Biển số: <b>{data?.plate || '59-V1 888.99'}</b>
                 </div>
                 <div style={{ marginBottom: '6px' }}>
-                  Lý do nộp: <b>Nộp tiền mặt thu hộ (COD) sau khi hoàn tất {data?.completedOrders || 18} đơn hàng trong ca làm việc ({data?.totalTrips || 3} chuyến VRP)</b>
+                  Lý do nộp: <b>Nộp tiền mặt thu hộ (COD) sau khi hoàn tất {data?.completedOrders || 18} đơn hàng trong ca làm việc ({data?.totalTrips || 3} chuyến giao)</b>
                 </div>
                 <div style={{ marginBottom: '6px' }}>
                   Số tiền nộp: <b style={{ fontSize: '15px', color: '#1e3a8a' }}>{(data?.codCollected || 4850000).toLocaleString('vi-VN')} VNĐ</b>
@@ -180,7 +180,7 @@ export const PrintAccountingVoucherModal: React.FC<Props> = ({ voucherType, data
                   (Viết bằng chữ: <b>Bốn triệu tám trăm năm mươi nghìn đồng chẵn</b>)
                 </div>
                 <div style={{ marginBottom: '6px' }}>
-                  Kèm theo: <b>Bảng kê chi tiết {data?.completedOrders || 18} đơn hàng đã giao thành công có chữ ký/POD</b>
+                  Kèm theo: <b>Bảng kê chi tiết {data?.completedOrders || 18} đơn hàng đã giao thành công có xác nhận người nhận</b>
                 </div>
               </div>
 
@@ -228,10 +228,10 @@ export const PrintAccountingVoucherModal: React.FC<Props> = ({ voucherType, data
                   PHIẾU XUẤT KHO THỰC PHẨM
                 </h2>
                 <div style={{ fontStyle: 'italic', fontSize: '12.5px' }}>
-                  (Xuất bán lẻ & Giao hàng theo chuẩn FEFO)
+                  (Xuất bán lẻ & Giao hàng ưu tiên hạn dùng)
                 </div>
                 <div style={{ fontSize: '13px', marginTop: '2px' }}>
-                  Ngày {currentDateStr} • Số: <b style={{ fontFamily: 'monospace' }}>PXK-2026-FEFO-089</b>
+                  Ngày {currentDateStr} • Số: <b style={{ fontFamily: 'monospace' }}>PXK-2026-089</b>
                 </div>
               </div>
 
@@ -243,7 +243,7 @@ export const PrintAccountingVoucherModal: React.FC<Props> = ({ voucherType, data
 
               <div style={{ marginBottom: '14px', fontSize: '13px' }}>
                 <div>Họ tên người nhận hàng: <b>Đội Giao Hàng Siêu Thị CityMart</b> • Địa chỉ kho xuất: <b>Kho Gò Vấp WH-006</b></div>
-                <div>Lý do xuất kho: <b>Xuất kho giao hàng theo đơn đặt hàng TMĐT (Tối ưu lô cận date FEFO)</b></div>
+                <div>Lý do xuất kho: <b>Xuất kho giao hàng theo đơn đặt hàng TMĐT (Ưu tiên hạn sử dụng)</b></div>
               </div>
 
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left', marginBottom: '20px' }}>
@@ -251,8 +251,8 @@ export const PrintAccountingVoucherModal: React.FC<Props> = ({ voucherType, data
                   <tr style={{ backgroundColor: '#f1f5f9', border: '1px solid #000' }}>
                     <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center', width: '30px' }}>STT</th>
                     <th style={{ border: '1px solid #000', padding: '6px 8px' }}>Tên Hàng Hóa / Quy Cách</th>
-                    <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center' }}>Mã SKU</th>
-                    <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center' }}>Lô FEFO</th>
+                    <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center' }}>Mã Sản Phẩm</th>
+                    <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center' }}>Mã Lô Hàng</th>
                     <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center' }}>ĐVT</th>
                     <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center' }}>SL Yêu Cầu</th>
                     <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center' }}>SL Thực Xuất</th>
@@ -428,7 +428,7 @@ export const PrintAccountingVoucherModal: React.FC<Props> = ({ voucherType, data
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', textAlign: 'left', marginBottom: '16px' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#f1f5f9', border: '1px solid #000' }}>
-                    <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>Mã SKU</th>
+                    <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>Mã Số</th>
                     <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px' }}>Tên Sản Phẩm</th>
                     <th rowSpan={2} style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>ĐVT</th>
                     <th colSpan={2} style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>Tồn Đầu Kỳ</th>

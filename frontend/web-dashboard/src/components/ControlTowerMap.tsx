@@ -684,64 +684,114 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
   });
 
   return (
-    <div className="rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-2xl text-slate-100 mb-6">
+    <div
+      className="rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-2xl text-slate-100 mb-6"
+      style={{
+        backgroundColor: '#020617',
+        color: '#f8fafc',
+        borderRadius: '16px',
+        overflow: 'hidden',
+        border: '1px solid #1e293b',
+        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.4)',
+        textAlign: 'left',
+        marginBottom: '24px'
+      }}
+    >
       
       {/* ── Enterprise Control Tower Top Header ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 bg-slate-900/90 border-b border-slate-800">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-cyan-500/20 text-cyan-400 rounded-xl border border-cyan-500/40 shadow-inner">
+      <div
+        className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 bg-slate-900/90 border-b border-slate-800"
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          padding: '16px 24px',
+          backgroundColor: '#0f172a',
+          borderBottom: '1px solid #1e293b'
+        }}
+      >
+        <div className="flex items-center gap-3" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div
+            className="p-2.5 bg-cyan-500/20 text-cyan-400 rounded-xl border border-cyan-500/40 shadow-inner"
+            style={{ padding: '10px', backgroundColor: 'rgba(6, 182, 212, 0.15)', borderRadius: '12px', border: '1px solid rgba(6, 182, 212, 0.3)', color: '#22d3ee' }}
+          >
             <Navigation size={20} className="animate-spin" style={{ animationDuration: '10s' }} />
           </div>
           <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-base font-black text-white tracking-wide uppercase">
-                TRUNG TÂM GIÁM SÁT TOÀN BỘ ĐỘI XE TMS • ĐỊNH TUYẾN VRP & IOT
+            <div className="flex items-center gap-2 flex-wrap" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <h2 className="text-base font-black text-white tracking-wide uppercase" style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                GIÁM SÁT ĐỘI XE & TIẾN ĐỘ GIAO HÀNG
               </h2>
-              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-extrabold px-2 py-0.5 rounded-full border border-emerald-500/30">
-                9 TÀI XẾ TOÀN TP.HCM
+              <span
+                className="text-[10px] bg-emerald-500/20 text-emerald-300 font-extrabold px-2 py-0.5 rounded-full border border-emerald-500/30"
+                style={{ fontSize: '10px', fontWeight: 800, padding: '2px 8px', borderRadius: '9999px', backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#6ee7b7', border: '1px solid rgba(16, 185, 129, 0.3)' }}
+              >
+                9 XE ĐANG HOẠT ĐỘNG
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Định vị vệ tinh GPS thời gian thực • Giám sát nhiệt độ thùng xe lạnh • Xe Tải Lạnh 2.5T & Xe Máy Thùng Lạnh
+            <p className="text-xs text-slate-400 mt-0.5" style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0 0 0' }}>
+              Theo dõi trực tiếp vị trí phương tiện, lộ trình giao hàng và kiểm soát nhiệt độ bảo quản thực phẩm trên đường giao
             </p>
           </div>
         </div>
 
         {/* Fleet Filter Chips & Zoom All Button */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           {/* Zoom Fit All Button */}
           <button
             onClick={handleFitAllDrivers}
             title="Zoom xem toàn bộ 9 tài xế trên bản đồ TP.HCM"
             className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-300 border border-cyan-500/40 rounded-xl text-xs font-bold transition-all shadow"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: 'rgba(8, 145, 178, 0.3)', color: '#67e8f9', border: '1px solid rgba(6, 182, 212, 0.4)', borderRadius: '12px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
           >
             <Maximize2 size={13} />
             <span>Xem Toàn Bộ ({shippers.length} Xe)</span>
           </button>
 
           {/* Fleet Status Indicator */}
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/90 rounded-xl border border-slate-700 text-xs">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
-            <span className="text-slate-300 font-medium">Trực Tuyến:</span>
-            <span className="font-extrabold text-emerald-400">{shippers.length} Xe</span>
+          <div
+            className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/90 rounded-xl border border-slate-700 text-xs"
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', backgroundColor: '#1e293b', borderRadius: '12px', border: '1px solid #334155', fontSize: '12px' }}
+          >
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#34d399' }}></div>
+            <span className="text-slate-300 font-medium" style={{ color: '#cbd5e1' }}>Trực Tuyến:</span>
+            <span className="font-extrabold text-emerald-400" style={{ fontWeight: 800, color: '#34d399' }}>{shippers.length} Xe</span>
           </div>
 
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/90 rounded-xl border border-slate-700 text-xs">
-            <ThermometerSnowflake size={14} className="text-cyan-400" />
-            <span className="text-slate-300 font-medium">Chuẩn Lạnh (0-4°C):</span>
-            <span className="font-extrabold text-cyan-400">100% Đạt</span>
+          <div
+            className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/90 rounded-xl border border-slate-700 text-xs"
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', backgroundColor: '#1e293b', borderRadius: '12px', border: '1px solid #334155', fontSize: '12px' }}
+          >
+            <ThermometerSnowflake size={14} className="text-cyan-400" style={{ color: '#22d3ee' }} />
+            <span className="text-slate-300 font-medium" style={{ color: '#cbd5e1' }}>Bảo quản đạt chuẩn:</span>
+            <span className="font-extrabold text-cyan-400" style={{ fontWeight: 800, color: '#22d3ee' }}>100%</span>
           </div>
         </div>
       </div>
 
       {/* Fleet Filter Bar */}
-      <div className="flex items-center gap-1.5 px-6 py-2.5 bg-slate-950 border-b border-slate-800/80 overflow-x-auto text-xs">
+      <div
+        className="flex items-center gap-1.5 px-6 py-2.5 bg-slate-950 border-b border-slate-800/80 overflow-x-auto text-xs"
+        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', backgroundColor: '#020617', borderBottom: '1px solid #1e293b', overflowX: 'auto', fontSize: '12px' }}
+      >
         <span className="text-slate-400 font-bold mr-1">Bộ lọc đội xe:</span>
         <button
           onClick={() => setFleetFilter('ALL')}
           className={`px-3 py-1 rounded-lg font-bold transition-all ${
             fleetFilter === 'ALL' ? 'bg-cyan-600 text-white shadow' : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
           }`}
+          style={{
+            padding: '6px 14px',
+            borderRadius: '8px',
+            fontWeight: 700,
+            fontSize: '12px',
+            cursor: 'pointer',
+            backgroundColor: fleetFilter === 'ALL' ? '#0891b2' : '#0f172a',
+            color: fleetFilter === 'ALL' ? '#ffffff' : '#94a3b8',
+            border: `1px solid ${fleetFilter === 'ALL' ? '#06b6d4' : '#1e293b'}`
+          }}
         >
           Tất Cả ({shippers.length})
         </button>
@@ -750,6 +800,19 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
           className={`px-3 py-1 rounded-lg font-bold transition-all flex items-center gap-1 ${
             fleetFilter === 'TRUCK' ? 'bg-amber-600 text-white shadow' : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
           }`}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 14px',
+            borderRadius: '8px',
+            fontWeight: 700,
+            fontSize: '12px',
+            cursor: 'pointer',
+            backgroundColor: fleetFilter === 'TRUCK' ? '#d97706' : '#0f172a',
+            color: fleetFilter === 'TRUCK' ? '#ffffff' : '#94a3b8',
+            border: `1px solid ${fleetFilter === 'TRUCK' ? '#f59e0b' : '#1e293b'}`
+          }}
         >
           <Truck size={13} />
           <span>🚛 Xe Tải & Bán Tải (2)</span>
@@ -759,6 +822,19 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
           className={`px-3 py-1 rounded-lg font-bold transition-all flex items-center gap-1 ${
             fleetFilter === 'BIKE' ? 'bg-cyan-600 text-white shadow' : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
           }`}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 14px',
+            borderRadius: '8px',
+            fontWeight: 700,
+            fontSize: '12px',
+            cursor: 'pointer',
+            backgroundColor: fleetFilter === 'BIKE' ? '#0891b2' : '#0f172a',
+            color: fleetFilter === 'BIKE' ? '#ffffff' : '#94a3b8',
+            border: `1px solid ${fleetFilter === 'BIKE' ? '#06b6d4' : '#1e293b'}`
+          }}
         >
           <Bike size={13} />
           <span>🛵 Xe Máy Thùng Lạnh (7)</span>
@@ -768,6 +844,16 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
           className={`px-3 py-1 rounded-lg font-bold transition-all ${
             fleetFilter === 'WH-006' ? 'bg-emerald-600 text-white shadow' : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
           }`}
+          style={{
+            padding: '6px 14px',
+            borderRadius: '8px',
+            fontWeight: 700,
+            fontSize: '12px',
+            cursor: 'pointer',
+            backgroundColor: fleetFilter === 'WH-006' ? '#059669' : '#0f172a',
+            color: fleetFilter === 'WH-006' ? '#ffffff' : '#94a3b8',
+            border: `1px solid ${fleetFilter === 'WH-006' ? '#10b981' : '#1e293b'}`
+          }}
         >
           🏬 Kho Gò Vấp (7)
         </button>
@@ -776,6 +862,16 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
           className={`px-3 py-1 rounded-lg font-bold transition-all ${
             fleetFilter === 'CROSS_HUB' ? 'bg-indigo-600 text-white shadow' : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
           }`}
+          style={{
+            padding: '6px 14px',
+            borderRadius: '8px',
+            fontWeight: 700,
+            fontSize: '12px',
+            cursor: 'pointer',
+            backgroundColor: fleetFilter === 'CROSS_HUB' ? '#4f46e5' : '#0f172a',
+            color: fleetFilter === 'CROSS_HUB' ? '#ffffff' : '#94a3b8',
+            border: `1px solid ${fleetFilter === 'CROSS_HUB' ? '#6366f1' : '#1e293b'}`
+          }}
         >
           🔄 Liên Kho Bình Thạnh & Tân Bình (2)
         </button>
@@ -801,15 +897,49 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
       )}
 
       {/* GIS Map & Telemetry Split Screen */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 h-[500px]">
+      <div
+        className="grid grid-cols-1 lg:grid-cols-12 h-[520px]"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1.8fr) minmax(340px, 1fr)',
+          height: '520px',
+          minHeight: '520px'
+        }}
+      >
         
         {/* Main Map Box (8 cols) */}
-        <div className="lg:col-span-8 relative h-full bg-slate-950">
-          <div ref={mapRef} className="w-full h-full" />
+        <div
+          className="lg:col-span-8 relative h-full bg-slate-950"
+          style={{ position: 'relative', height: '100%', minHeight: '520px', backgroundColor: '#020617' }}
+        >
+          <div
+            ref={mapRef}
+            className="w-full h-full"
+            style={{ width: '100%', height: '100%', minHeight: '520px', zIndex: 1 }}
+          />
           
           {/* Quick Map Overlay: Current Selected Shipper Info Banner */}
           {selectedShipper && (
-            <div className="absolute top-4 left-4 z-[500] bg-slate-900/95 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-slate-700 shadow-2xl flex items-center gap-3 text-xs max-w-md">
+            <div
+              className="absolute top-4 left-4 z-[500] bg-slate-900/95 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-slate-700 shadow-2xl flex items-center gap-3 text-xs max-w-md"
+              style={{
+                position: 'absolute',
+                top: '16px',
+                left: '16px',
+                zIndex: 500,
+                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                backdropFilter: 'blur(8px)',
+                padding: '10px 14px',
+                borderRadius: '12px',
+                border: '1px solid #334155',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                fontSize: '12px',
+                maxWidth: '420px',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
+              }}
+            >
               <div className={`w-9 h-9 rounded-full text-white font-black flex items-center justify-center text-sm shadow ${
                 selectedShipper.vehicleType === 'TRUCK' ? 'bg-amber-600' : selectedShipper.vehicleType === 'VAN' ? 'bg-purple-600' : 'bg-cyan-600'
               }`}>
@@ -842,15 +972,54 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
         </div>
 
         {/* Selected Driver Telemetry Sidebar (4 cols) */}
-        <div className="lg:col-span-4 p-4 bg-slate-900 border-l border-slate-800 flex flex-col justify-between overflow-y-auto">
+        <div
+          className="lg:col-span-4 p-4 bg-slate-900 border-l border-slate-800 flex flex-col justify-between overflow-y-auto"
+          style={{
+            padding: '16px',
+            backgroundColor: '#0f172a',
+            borderLeft: '1px solid #1e293b',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            height: '100%',
+            maxHeight: '520px',
+            overflowY: 'auto'
+          }}
+        >
           
           {/* Sidebar Tab Switcher */}
-          <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800 mb-3 shrink-0">
+          <div
+            className="flex items-center gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800 mb-3 shrink-0"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '4px',
+              backgroundColor: '#020617',
+              borderRadius: '12px',
+              border: '1px solid #1e293b',
+              marginBottom: '12px'
+            }}
+          >
             <button
               onClick={() => setActiveTab('fleet')}
               className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                 activeTab === 'fleet' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-white'
               }`}
+              style={{
+                flex: 1,
+                padding: '6px 10px',
+                fontSize: '12px',
+                fontWeight: 700,
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                backgroundColor: activeTab === 'fleet' ? '#0891b2' : 'transparent',
+                color: activeTab === 'fleet' ? '#ffffff' : '#94a3b8'
+              }}
             >
               <Users size={13} />
               <span>Toàn Bộ Đội Xe ({shippers.length})</span>
@@ -860,6 +1029,20 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
               className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                 activeTab === 'route' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-white'
               }`}
+              style={{
+                flex: 1,
+                padding: '6px 10px',
+                fontSize: '12px',
+                fontWeight: 700,
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                backgroundColor: activeTab === 'route' ? '#0891b2' : 'transparent',
+                color: activeTab === 'route' ? '#ffffff' : '#94a3b8'
+              }}
             >
               <Route size={13} />
               <span>Lộ Trình Đang Chọn</span>
@@ -881,32 +1064,41 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
                         ? 'bg-cyan-950/60 border-cyan-500 shadow-md'
                         : 'bg-slate-950 hover:bg-slate-800/80 border-slate-800'
                     }`}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '12px',
+                      border: `1px solid ${isSelected ? '#06b6d4' : '#1e293b'}`,
+                      backgroundColor: isSelected ? 'rgba(8, 47, 73, 0.8)' : '#020617',
+                      color: '#ffffff',
+                      marginBottom: '8px',
+                      cursor: 'pointer'
+                    }}
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between mb-1" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <div className="flex items-center gap-2" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span className="text-base">{vIcon}</span>
                         <div>
-                          <div className="font-extrabold text-white text-xs flex items-center gap-1.5">
+                          <div className="font-extrabold text-white text-xs flex items-center gap-1.5" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 800, color: '#ffffff' }}>
                             <span>{s.name}</span>
-                            <span className="text-[10px] text-cyan-300 font-mono">({s.plate})</span>
+                            <span className="text-[10px] text-cyan-300 font-mono" style={{ color: '#67e8f9' }}>({s.plate})</span>
                           </div>
-                          <div className="text-[10px] text-slate-400">{s.warehouseName} • {s.zone}</div>
+                          <div className="text-[10px] text-slate-400" style={{ fontSize: '10px', color: '#94a3b8' }}>{s.warehouseName} • {s.zone}</div>
                         </div>
                       </div>
 
                       <div className="text-right">
                         <span className={`text-[10px] font-black px-2 py-0.5 rounded ${
                           s.temperature > 4.5 ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'
-                        }`}>
+                        }`} style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 900, backgroundColor: s.temperature > 4.5 ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)', color: s.temperature > 4.5 ? '#fcd34d' : '#6ee7b7' }}>
                           {s.temperature}°C
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1.5 border-t border-slate-800/60">
-                      <span>Vận tốc: <b className="text-slate-200">{s.speed} km/h</b></span>
-                      <span>Điểm dừng: <b className="text-cyan-400">{s.routeStops?.length || 0} trạm</b></span>
-                      <span className={`font-bold ${s.status === 'DELIVERING' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1.5 border-t border-slate-800/60" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '10px', color: '#94a3b8', paddingTop: '6px', borderTop: '1px solid #1e293b' }}>
+                      <span>Vận tốc: <b className="text-slate-200" style={{ color: '#e2e8f0' }}>{s.speed} km/h</b></span>
+                      <span>Điểm dừng: <b className="text-cyan-400" style={{ color: '#22d3ee' }}>{s.routeStops?.length || 0} trạm</b></span>
+                      <span className={`font-bold ${s.status === 'DELIVERING' ? 'text-emerald-400' : 'text-amber-400'}`} style={{ fontWeight: 700, color: s.status === 'DELIVERING' ? '#34d399' : '#fbbf24' }}>
                         {s.status === 'DELIVERING' ? '● Đang giao' : '○ Sẵn sàng'}
                       </span>
                     </div>
@@ -916,121 +1108,163 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
             </div>
           ) : selectedShipper ? (
             /* ── TAB: CHI TIẾT LỘ TRÌNH TÀI XẾ ĐANG CHỌN ── */
-            <div className="space-y-3">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {/* Shipper Profile Header Card */}
-              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                <div className="flex items-center gap-2.5">
-                  <div className={`w-10 h-10 rounded-full text-white flex items-center justify-center font-black text-sm uppercase shadow ${
-                    selectedShipper.vehicleType === 'TRUCK' ? 'bg-amber-600' : selectedShipper.vehicleType === 'VAN' ? 'bg-purple-600' : 'bg-cyan-600'
-                  }`}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid #1e293b' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 900,
+                      fontSize: '14px',
+                      backgroundColor: selectedShipper.vehicleType === 'TRUCK' ? '#d97706' : selectedShipper.vehicleType === 'VAN' ? '#9333ea' : '#0891b2',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)'
+                    }}
+                  >
                     {selectedShipper.vehicleType === 'TRUCK' ? '🚛' : selectedShipper.vehicleType === 'VAN' ? '🚐' : '🛵'}
                   </div>
                   <div>
-                    <div className="text-sm font-bold text-white flex items-center gap-1.5">
+                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span>{selectedShipper.name}</span>
-                      <span className="text-[10px] bg-slate-800 text-cyan-300 font-mono px-1.5 py-0.5 rounded border border-slate-700">
+                      <span style={{ fontSize: '10px', backgroundColor: '#1e293b', color: '#67e8f9', fontFamily: 'monospace', padding: '2px 6px', borderRadius: '4px', border: '1px solid #334155' }}>
                         {selectedShipper.plate}
                       </span>
                     </div>
-                    <div className="text-xs text-slate-400">{selectedShipper.phone} • {selectedShipper.warehouseName}</div>
+                    <div style={{ fontSize: '11px', color: '#94a3b8' }}>{selectedShipper.phone} • {selectedShipper.warehouseName}</div>
                   </div>
                 </div>
 
-                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
-                  selectedShipper.status === 'DELIVERING'
-                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                    : selectedShipper.routeStops && selectedShipper.routeStops.length > 0
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                    : 'bg-slate-800 text-slate-400 border-slate-700'
-                }`}>
+                <span
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 800,
+                    padding: '2px 8px',
+                    borderRadius: '9999px',
+                    backgroundColor: selectedShipper.status === 'DELIVERING' ? 'rgba(16, 185, 129, 0.2)' : selectedShipper.routeStops && selectedShipper.routeStops.length > 0 ? 'rgba(245, 158, 11, 0.2)' : '#1e293b',
+                    color: selectedShipper.status === 'DELIVERING' ? '#6ee7b7' : selectedShipper.routeStops && selectedShipper.routeStops.length > 0 ? '#fcd34d' : '#94a3b8',
+                    border: `1px solid ${selectedShipper.status === 'DELIVERING' ? 'rgba(16, 185, 129, 0.3)' : selectedShipper.routeStops && selectedShipper.routeStops.length > 0 ? 'rgba(245, 158, 11, 0.3)' : '#334155'}`
+                  }}
+                >
                   {selectedShipper.status === 'DELIVERING' ? 'ĐANG GIAO' : selectedShipper.routeStops && selectedShipper.routeStops.length > 0 ? 'CHỜ XUẤT PHÁT' : 'HOÀN THÀNH'}
                 </span>
               </div>
 
               {/* Spotlight Card */}
               {selectedShipper.status === 'DELIVERING' && selectedShipper.currentCustomerName ? (
-                <div className="bg-gradient-to-br from-emerald-950/90 via-slate-900 to-slate-900 p-3.5 rounded-xl border border-emerald-500/50 shadow-inner">
-                  <div className="flex items-center justify-between text-[11px] font-bold mb-1.5">
-                    <span className="text-emerald-400 flex items-center gap-1.5 animate-pulse">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <div
+                  style={{
+                    backgroundColor: '#06201b',
+                    padding: '14px',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(16, 185, 129, 0.4)',
+                    boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.2)'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700, marginBottom: '6px' }}>
+                    <span style={{ color: '#34d399', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#34d399', display: 'inline-block' }}></span>
                       ĐANG VẬN CHUYỂN TỚI KHÁCH:
                     </span>
                     {selectedShipper.orderCode && (
-                      <span className="text-[11px] bg-emerald-500/30 text-emerald-300 font-black px-2 py-0.5 rounded">
+                      <span style={{ fontSize: '11px', backgroundColor: 'rgba(16, 185, 129, 0.25)', color: '#a7f3d0', fontWeight: 900, padding: '2px 8px', borderRadius: '4px' }}>
                         #{selectedShipper.orderCode}
                       </span>
                     )}
                   </div>
 
-                  <div className="text-sm font-extrabold text-white mb-0.5">
+                  <div style={{ fontSize: '14px', fontWeight: 800, color: '#ffffff', marginBottom: '4px' }}>
                     👤 {selectedShipper.currentCustomerName}
                   </div>
 
-                  <div className="text-xs text-slate-300 flex items-start gap-1 mb-2">
-                    <MapPin size={13} className="text-rose-400 shrink-0 mt-0.5" />
+                  <div style={{ fontSize: '12px', color: '#cbd5e1', display: 'flex', alignItems: 'flex-start', gap: '4px', marginBottom: '8px' }}>
+                    <MapPin size={13} style={{ color: '#f87171', flexShrink: 0, marginTop: '2px' }} />
                     <span>{selectedShipper.currentCustomerAddress || 'Gò Vấp, TP.HCM'}</span>
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] pt-2 border-t border-emerald-500/20 text-emerald-300">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', paddingTop: '8px', borderTop: '1px solid rgba(16, 185, 129, 0.2)', color: '#6ee7b7' }}>
                     <span>Tuyến đường: <b>{selectedShipper.vehicleType === 'TRUCK' ? 'Trục đường lớn' : 'Ngõ hẻm tối ưu'}</b></span>
                     <span>Vận tốc: <b>{selectedShipper.speed} km/h</b></span>
                   </div>
                 </div>
               ) : selectedShipper.routeStops && selectedShipper.routeStops.length > 0 ? (
-                <div className="bg-slate-950 p-3.5 rounded-xl border border-amber-500/40 text-xs shadow-inner">
-                  <div className="flex items-center justify-between font-bold text-amber-400 mb-1">
-                    <span className="flex items-center gap-1.5">
-                      <Clock size={14} className="text-amber-400" />
+                <div
+                  style={{
+                    backgroundColor: '#020617',
+                    padding: '14px',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(245, 158, 11, 0.4)',
+                    fontSize: '12px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontWeight: 700, color: '#fbbf24', marginBottom: '4px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Clock size={14} style={{ color: '#fbbf24' }} />
                       LỘ TRÌNH ĐÃ PHÂN BỔ ({selectedShipper.routeStops.length} ĐIỂM)
                     </span>
-                    <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-bold">
+                    <span style={{ fontSize: '10px', backgroundColor: 'rgba(245, 158, 11, 0.2)', color: '#fde68a', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
                       Tuyến: {selectedShipper.zone}
                     </span>
                   </div>
-                  <div className="text-slate-300 text-[11px] mt-1">
+                  <div style={{ color: '#cbd5e1', fontSize: '11px', marginTop: '4px' }}>
                     Bấm vào từng trạm dừng bên dưới để theo dõi lộ trình chi tiết.
                   </div>
                 </div>
               ) : (
-                <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs text-slate-400 text-center">
-                  <Check size={18} className="mx-auto mb-1 text-emerald-400" />
-                  <span className="text-emerald-400 font-bold">Đã hoàn thành toàn bộ đơn hàng!</span>
-                  <div className="text-[11px] text-slate-500 mt-0.5">Sẵn sàng nhận chuyến điều phối tiếp theo</div>
+                <div
+                  style={{
+                    backgroundColor: '#020617',
+                    padding: '14px',
+                    borderRadius: '12px',
+                    border: '1px solid #1e293b',
+                    fontSize: '12px',
+                    color: '#94a3b8',
+                    textAlign: 'center'
+                  }}
+                >
+                  <Check size={18} style={{ margin: '0 auto 4px auto', color: '#34d399', display: 'block' }} />
+                  <span style={{ color: '#34d399', fontWeight: 700 }}>Đã hoàn thành toàn bộ đơn hàng!</span>
+                  <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Sẵn sàng nhận chuyến điều phối tiếp theo</div>
                 </div>
               )}
 
               {/* Telemetry Metrics */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                  <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mb-1">
-                    <ThermometerSnowflake size={12} className="text-cyan-400" />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div style={{ backgroundColor: '#020617', padding: '10px', borderRadius: '12px', border: '1px solid #1e293b' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: '#94a3b8', marginBottom: '4px' }}>
+                    <ThermometerSnowflake size={12} style={{ color: '#22d3ee' }} />
                     <span>Nhiệt độ thùng lạnh</span>
                   </div>
-                  <div className={`text-base font-black ${selectedShipper.temperature > 4.5 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                  <div style={{ fontSize: '16px', fontWeight: 900, color: selectedShipper.temperature > 4.5 ? '#fbbf24' : '#34d399' }}>
                     {selectedShipper.temperature}°C
                   </div>
                 </div>
 
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                  <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mb-1">
-                    <Gauge size={12} className="text-cyan-400" />
+                <div style={{ backgroundColor: '#020617', padding: '10px', borderRadius: '12px', border: '1px solid #1e293b' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: '#94a3b8', marginBottom: '4px' }}>
+                    <Gauge size={12} style={{ color: '#22d3ee' }} />
                     <span>Tốc độ di chuyển</span>
                   </div>
-                  <div className="text-base font-black text-cyan-300">{selectedShipper.speed} km/h</div>
+                  <div style={{ fontSize: '16px', fontWeight: 900, color: '#67e8f9' }}>{selectedShipper.speed} km/h</div>
                 </div>
               </div>
 
               {/* Route Stops Sequence */}
               {selectedShipper.routeStops && selectedShipper.routeStops.length > 0 && (
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-xs">
-                  <div className="text-[10px] text-cyan-400 font-bold mb-1.5 flex items-center justify-between">
-                    <div className="flex items-center gap-1">
+                <div style={{ backgroundColor: '#020617', padding: '10px', borderRadius: '12px', border: '1px solid #1e293b', fontSize: '12px' }}>
+                  <div style={{ fontSize: '10px', color: '#22d3ee', fontWeight: 700, marginBottom: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <Route size={12} />
                       <span>Các điểm dừng ({selectedShipper.routeStops.length} điểm):</span>
                     </div>
-                    <span className="text-[9px] text-slate-500">Bấm để chọn</span>
+                    <span style={{ fontSize: '9px', color: '#64748b' }}>Bấm để chọn</span>
                   </div>
-                  <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '120px', overflowY: 'auto', paddingRight: '4px' }}>
                     {selectedShipper.routeStops.map(st => {
                       const isCurrentActive = selectedShipper.status === 'DELIVERING' && (
                         (selectedShipper.currentCustomerName && st.name.toLowerCase().includes(selectedShipper.currentCustomerName.toLowerCase())) ||
@@ -1041,26 +1275,47 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
                         <div
                           key={st.id}
                           onClick={() => handleSelectActiveStop(st)}
-                          className={`flex items-center justify-between gap-1.5 text-[11px] p-1.5 rounded-lg cursor-pointer transition-colors ${
-                            isCurrentActive
-                              ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-bold shadow'
-                              : 'text-slate-300 hover:bg-slate-900 border border-transparent'
-                          }`}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '6px',
+                            fontSize: '11px',
+                            padding: '6px 8px',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            backgroundColor: isCurrentActive ? 'rgba(16, 185, 129, 0.2)' : 'transparent',
+                            border: `1px solid ${isCurrentActive ? 'rgba(16, 185, 129, 0.4)' : 'transparent'}`,
+                            color: isCurrentActive ? '#6ee7b7' : '#cbd5e1',
+                            fontWeight: isCurrentActive ? 700 : 400
+                          }}
                         >
-                          <div className="flex items-center gap-1.5 truncate">
-                            <span className={`w-4 h-4 rounded-full font-black text-[9px] flex items-center justify-center shrink-0 ${
-                              isCurrentActive ? 'bg-emerald-500 text-slate-950' : 'bg-cyan-600 text-white'
-                            }`}>
-                              ${st.seq}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <span
+                              style={{
+                                width: '16px',
+                                height: '16px',
+                                borderRadius: '50%',
+                                fontWeight: 900,
+                                fontSize: '9px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                                backgroundColor: isCurrentActive ? '#10b981' : '#0891b2',
+                                color: isCurrentActive ? '#020617' : '#ffffff'
+                              }}
+                            >
+                              {st.seq}
                             </span>
-                            <span className="truncate">{st.name} - {st.address.split(',')[0]}</span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{st.name} - {st.address.split(',')[0]}</span>
                           </div>
                           {isCurrentActive ? (
-                            <span className="text-[9px] bg-emerald-500 text-slate-950 font-black px-1.5 py-0.5 rounded shrink-0">
+                            <span style={{ fontSize: '9px', backgroundColor: '#10b981', color: '#020617', fontWeight: 900, padding: '2px 6px', borderRadius: '4px', flexShrink: 0 }}>
                               ĐANG GIAO
                             </span>
                           ) : (
-                            <span className="text-[9px] text-slate-500 shrink-0">Trạm #{st.seq}</span>
+                            <span style={{ fontSize: '9px', color: '#64748b', flexShrink: 0 }}>Trạm #{st.seq}</span>
                           )}
                         </div>
                       );
@@ -1076,14 +1331,27 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
           )}
 
           {/* Quick Footer Action Button */}
-          <div className="pt-3 border-t border-slate-800/80 mt-3 flex items-center justify-between text-xs text-slate-400">
-            <span className="flex items-center gap-1">
-              <Sparkles size={13} className="text-amber-400" />
-              <span>AI VRP tối ưu đa điểm</span>
+          <div
+            className="pt-3 border-t border-slate-800/80 mt-3 flex items-center justify-between text-xs text-slate-400"
+            style={{
+              paddingTop: '12px',
+              borderTop: '1px solid #1e293b',
+              marginTop: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: '12px',
+              color: '#94a3b8'
+            }}
+          >
+            <span className="flex items-center gap-1" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Sparkles size={13} className="text-amber-400" style={{ color: '#fbbf24' }} />
+              <span>Lộ trình giao hàng tối ưu</span>
             </span>
             <button
               onClick={handleFitAllDrivers}
               className="text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1 transition-colors"
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#22d3ee', fontWeight: 700, cursor: 'pointer' }}
             >
               <span>Fit Bản Đồ</span>
               <Maximize2 size={12} />

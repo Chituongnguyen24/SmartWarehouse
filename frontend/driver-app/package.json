@@ -8,7 +8,11 @@
     "start:tunnel": "expo start --tunnel",
     "android": "expo start --android --offline",
     "ios": "expo start --ios --offline",
-    "web": "expo start --web --offline"
+    "web": "expo start --web --offline",
+    "prebuild": "npx expo prebuild --platform android",
+    "build:apk": "cd android && gradlew.bat assembleDebug",
+    "build:apk:release": "cd android && gradlew.bat assembleRelease",
+    "run:phone": "cd android && gradlew.bat assembleDebug && adb install -r app/build/outputs/apk/debug/app-debug.apk && adb shell monkey -p vn.ctmart.driver -c android.intent.category.LAUNCHER 1"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",

@@ -118,7 +118,7 @@ export const OutboundReceiptModal: React.FC<OutboundReceiptModalProps> = ({ orde
   // Receipt Classification Config
   const receiptConfig = {
     SALE: {
-      typeTitle: 'PHIẾU XUẤT KHO BÁN HÀNG (FEFO)',
+      typeTitle: 'PHIẾU XUẤT KHO BÁN HÀNG',
       badge: 'Xuất Bán Hàng Thương Mại',
       badgeBg: '#e0f2fe',
       badgeColor: '#0369a1',
@@ -143,7 +143,7 @@ export const OutboundReceiptModal: React.FC<OutboundReceiptModalProps> = ({ orde
       creditTk: '1561 (Hàng hóa kho)',
       receiverName: 'Đại diện Ban Quản Lý Khu Liên Hợp Xử Lý Môi Trường Đa Phước',
       receiverDept: 'Khu Liên Hợp Xử Lý Chất Thải Đa Phước, Xã Đa Phước, Huyện Bình Chánh, TP.HCM',
-      reason: `Xuất tiêu hủy thực phẩm hết hạn sử dụng FEFO / hư hỏng theo Biên bản giám định QC (Mã lệnh: ${order.orderCode})`,
+      reason: `Xuất tiêu hủy thực phẩm hết hạn sử dụng / hư hỏng theo Biên bản giám định QC (Mã lệnh: ${order.orderCode})`,
       docAttached: `01 Biên bản kiểm định chất lượng ATVSTP & Quyết định tiêu hủy số QC-${order.orderCode?.slice(-4) || '2026'}`,
       sig1: { role: 'Người lập phiếu', name: 'Cán bộ Kho Tiếp Nhận' },
       sig2: { role: 'Giám định viên QC', name: 'Trưởng Ban Kiểm Soát CL' },

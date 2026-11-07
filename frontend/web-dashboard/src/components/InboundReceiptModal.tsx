@@ -286,7 +286,7 @@ export const InboundReceiptModal: React.FC<InboundReceiptModalProps> = ({ order,
                   <th rowSpan={2} style={{ border: '1px solid #000', padding: '6px 6px', width: '240px' }}>
                     Tên, nhãn hiệu, quy cách, phẩm chất vật tư, sản phẩm, hàng hóa
                   </th>
-                  <th rowSpan={2} style={{ border: '1px solid #000', padding: '6px 4px', width: '110px' }}>Mã số (SKU)</th>
+                  <th rowSpan={2} style={{ border: '1px solid #000', padding: '6px 4px', width: '110px' }}>Mã số hàng hóa</th>
                   <th rowSpan={2} style={{ border: '1px solid #000', padding: '6px 4px', width: '55px' }}>ĐVT</th>
                   <th colSpan={2} style={{ border: '1px solid #000', padding: '4px 4px' }}>Số lượng</th>
                   <th rowSpan={2} style={{ border: '1px solid #000', padding: '6px 4px', width: '90px' }}>Đơn giá (₫)</th>

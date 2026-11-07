@@ -10,8 +10,12 @@ import {
   AlertCircle,
   RefreshCw,
   Info,
+  Server,
+  Wifi,
+  Check,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getBackendHost, setBackendHost } from '../services/networkConfig';
 
 export const Login: React.FC = () => {
   const { login } = useAuth();
@@ -22,6 +26,9 @@ export const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [currentHost, setCurrentHost] = useState<string>(() => getBackendHost());
+  const [showServerModal, setShowServerModal] = useState<boolean>(false);
+  const [customHostInput, setCustomHostInput] = useState<string>('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -299,11 +306,178 @@ export const Login: React.FC = () => {
           </span>
         </div>
 
-        {/* Security Footer Notice */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '11.5px', color: '#94a3b8', fontWeight: 600 }}>
-          <ShieldCheck size={15} color="#008848" />
-          <span>Bảo mật JWT 24h & Khóa kho độc quyền</span>
+        {/* Security Footer Notice & Server Config Switcher */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '11.5px', color: '#94a3b8', fontWeight: 600 }}>
+            <ShieldCheck size={15} color="#008848" />
+            <span>Bảo mật JWT 24h & Khóa kho độc quyền</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowServerModal(true)}
+            style={{
+              background: '#ffffff',
+              border: '1px solid #cbd5e1',
+              borderRadius: '20px',
+              padding: '5px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '11px',
+              color: '#334155',
+              cursor: 'pointer',
+              fontWeight: 700,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+            }}
+          >
+            <Server size={13} color="#059669" />
+            <span>Máy chủ kết nối: <strong style={{ color: '#059669' }}>{currentHost}</strong></span>
+          </button>
         </div>
+
+        {/* Server IP Config Modal */}
+        {showServerModal && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(15, 23, 42, 0.65)',
+              backdropFilter: 'blur(3px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px',
+              zIndex: 9999,
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '18px',
+                padding: '20px',
+                width: '100%',
+                maxWidth: '380px',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Server size={20} color="#059669" />
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+                  Cấu Hình Máy Chủ Kết Nối
+                </h3>
+              </div>
+
+              <p style={{ margin: 0, fontSize: '12px', color: '#64748b', lineHeight: 1.4 }}>
+                Chọn địa chỉ máy chủ phù hợp với mạng nội bộ kho:
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {[
+                  { label: 'Máy Thật qua Wi-Fi LAN', host: '192.168.2.147', desc: 'Điện thoại thật kết nối cùng Wi-Fi với máy tính (Khuyên dùng)' },
+                  { label: 'Localhost / Cáp USB', host: 'localhost', desc: 'Cắm cáp USB và đã chạy lệnh adb reverse' },
+                  { label: 'Android Máy Ảo (Emulator)', host: '10.0.2.2', desc: 'Dùng cho Android Studio Emulator' },
+                ].map(opt => (
+                  <button
+                    key={opt.host}
+                    type="button"
+                    onClick={() => {
+                      setBackendHost(opt.host);
+                      setCurrentHost(opt.host);
+                      setShowServerModal(false);
+                      window.location.reload();
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 12px',
+                      borderRadius: '12px',
+                      border: currentHost === opt.host ? '2px solid #059669' : '1px solid #e2e8f0',
+                      backgroundColor: currentHost === opt.host ? '#ecfdf5' : '#f8fafc',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: currentHost === opt.host ? '#065f46' : '#0f172a' }}>
+                        {opt.label}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>
+                        {opt.host} • {opt.desc}
+                      </div>
+                    </div>
+                    {currentHost === opt.host && <Check size={18} color="#059669" />}
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom IP Input */}
+              <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                <input
+                  type="text"
+                  placeholder="Nhập IP tùy chỉnh (VD: 192.168.1.50)"
+                  value={customHostInput}
+                  onChange={e => setCustomHostInput(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '9px 12px',
+                    borderRadius: '10px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12px',
+                    outline: 'none',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (customHostInput.trim()) {
+                      setBackendHost(customHostInput.trim());
+                      setCurrentHost(customHostInput.trim());
+                      setShowServerModal(false);
+                      window.location.reload();
+                    }
+                  }}
+                  style={{
+                    padding: '9px 14px',
+                    borderRadius: '10px',
+                    backgroundColor: '#059669',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontWeight: 700,
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Lưu
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowServerModal(false)}
+                style={{
+                  padding: '10px',
+                  borderRadius: '10px',
+                  backgroundColor: '#f1f5f9',
+                  border: 'none',
+                  color: '#64748b',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

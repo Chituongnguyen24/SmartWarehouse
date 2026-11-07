@@ -22,6 +22,7 @@ import {
   Layers,
   Zap,
   Building2,
+  Lock,
   BellRing,
   ExternalLink,
   ChevronRight,
@@ -53,6 +54,16 @@ export const Dashboard: React.FC = () => {
   const { token, user } = useAuth();
   const { selectedWarehouse, selectedWarehouseCode, setSelectedWarehouseCode, warehouses } = useWarehouse();
   const navigate = useNavigate();
+
+  const isAdmin = user?.role === 'ADMIN';
+  const myWarehouseCode = user?.warehouseCode || (
+    user?.email?.includes('001') || user?.email?.includes('q12') ? 'WH-001' :
+    user?.email?.includes('002') ? 'WH-002' :
+    user?.email?.includes('005') ? 'WH-005' :
+    'WH-006'
+  );
+  // Admin is allowed to choose any warehouse. Warehouse accounts are strictly locked to their warehouse.
+  const effectiveWhCode = isAdmin ? (selectedWarehouseCode || 'WH-006') : (user?.warehouseCode || myWarehouseCode || 'WH-006');
 
   // Role Routing: Staff & Drivers are redirected, Managers & Admins view the Dashboard
   useEffect(() => {
@@ -180,7 +191,7 @@ export const Dashboard: React.FC = () => {
   const fetchDashboardData = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const whCode = selectedWarehouseCode || 'WH-006';
+      const whCode = effectiveWhCode;
 
       // 1. Fetch Products
       const pRes = await fetch('http://localhost:3010/products', {
@@ -251,7 +262,7 @@ export const Dashboard: React.FC = () => {
     } finally {
       setIsRefreshing(false);
     }
-  }, [selectedWarehouseCode, token]);
+  }, [effectiveWhCode, token]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -292,7 +303,7 @@ export const Dashboard: React.FC = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            warehouseCode: selectedWarehouseCode || 'GV',
+            warehouseCode: effectiveWhCode || 'WH-006',
             shelfCode,
           }),
         });
@@ -302,7 +313,7 @@ export const Dashboard: React.FC = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            warehouseCode: selectedWarehouseCode || 'GV',
+            warehouseCode: effectiveWhCode || 'WH-006',
             shelfCode,
             productName,
             qty: 1,
@@ -321,7 +332,7 @@ export const Dashboard: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          warehouseCode: selectedWarehouseCode || 'GV',
+          warehouseCode: effectiveWhCode || 'WH-006',
           shelfCode,
         }),
       });
@@ -412,7 +423,7 @@ export const Dashboard: React.FC = () => {
                 🚨 BÁO ĐỘNG KHẨN CẤP: PHÒNG KHO LẠNH VƯỢT NGƯỠNG AN TOÀN ({coolTemp}°C / Ngưỡng max 4.0°C)!
               </div>
               <div style={{ fontSize: '12.5px', color: '#fee2e2', marginTop: '2px' }}>
-                Loa Siren cửa phòng (GPIO 32) và còi tại 3 kệ A1, A2, A3 đang hú cảnh báo liên tục. Nguy cơ vi khuẩn sinh sôi và hỏng chuỗi lạnh thịt tươi/sữa!
+                Hệ thống còi & đèn cảnh báo kho mát đang phát tín hiệu cảnh báo. Nhiệt độ vượt ngưỡng an toàn, nguy cơ ảnh hưởng trực tiếp tới chất lượng hàng hóa!
               </div>
             </div>
           </div>
@@ -503,46 +514,65 @@ export const Dashboard: React.FC = () => {
                 fontWeight: 700,
               }}
             >
-              {isWsConnected ? '● WebSocket Realtime 3004: Connected' : '○ WebSocket Disconnected'}
+              {isWsConnected ? '● Đồng bộ thời gian thực' : '○ Ngoại tuyến'}
             </span>
           </div>
 
           <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 900, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span>Trung Tâm Điều Hành Kho Thông Minh</span>
+            <span>Trung Tâm Điều Hành Kho Hàng</span>
             <span style={{ fontSize: '15px', fontWeight: 600, color: '#99f6e4' }}>
-              ({selectedWarehouse?.name || 'Kho Hàng Gò Vấp - WH-006'})
+              ({selectedWarehouse?.name || `Kho Hàng ${effectiveWhCode}`})
             </span>
           </h1>
           <p style={{ margin: 0, fontSize: '13px', color: '#ccfbf1', opacity: 0.9 }}>
-            Giám sát đa vùng chuỗi lạnh HACCP, điều phối đợt sóng lấy hàng Pick-to-Light và cảnh báo FEFO thời gian thực.
+            Giám sát điều kiện kho hàng, điều phối nhặt hàng xuất kho và kiểm soát hạn sử dụng sản phẩm theo thời gian thực.
           </p>
         </div>
 
         {/* Action Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          {/* Warehouse Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: '12px', padding: '4px 12px' }}>
-            <Building2 size={16} color="#99f6e4" />
-            <select
-              value={selectedWarehouseCode}
-              onChange={(e) => setSelectedWarehouseCode(e.target.value)}
-              style={{
-                backgroundColor: 'transparent',
-                color: '#ffffff',
-                border: 'none',
-                fontWeight: 800,
-                fontSize: '13px',
-                outline: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              {warehouses.map(w => (
-                <option key={w.code} value={w.code} style={{ color: '#0f172a' }}>
-                  {w.name} ({w.code})
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Warehouse Selector (Admin) vs Fixed Warehouse Indicator (Warehouse Accounts) */}
+          {isAdmin ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: '12px', padding: '5px 12px', border: '1px solid rgba(255,255,255,0.22)' }}>
+              <Building2 size={16} color="#99f6e4" />
+              <span style={{ fontSize: '11px', fontWeight: 800, color: '#99f6e4', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Kho:</span>
+              <select
+                value={selectedWarehouseCode}
+                onChange={(e) => setSelectedWarehouseCode(e.target.value)}
+                style={{
+                  backgroundColor: 'transparent',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontWeight: 800,
+                  fontSize: '13px',
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                {warehouses.map(w => (
+                  <option key={w.code} value={w.code} style={{ color: '#0f172a' }}>
+                    {w.name} ({w.code})
+                  </option>
+                ))}
+              </select>
+              <span style={{ fontSize: '10px', backgroundColor: '#10b981', color: '#ffffff', padding: '2px 7px', borderRadius: '6px', fontWeight: 800 }}>
+                Admin
+              </span>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: '12px', padding: '6px 14px', border: '1px solid rgba(255,255,255,0.18)' }}>
+              <Building2 size={16} color="#99f6e4" />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '13px', fontWeight: 800, color: '#ffffff' }}>
+                  {selectedWarehouse?.name || `Kho ${effectiveWhCode}`} ({effectiveWhCode})
+                </span>
+                <span style={{ fontSize: '10px', color: '#99f6e4', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Lock size={10} color="#99f6e4" />
+                  <span>Cố định theo tài khoản kho</span>
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Simulate Overheat Button */}
           {!isSimulatedOverheat ? (
@@ -562,10 +592,10 @@ export const Dashboard: React.FC = () => {
                 cursor: 'pointer',
                 boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
               }}
-              title="Kích hoạt kịch bản quá nhiệt (>4.0°C) để kiểm tra loa báo động phòng lạnh"
+              title="Kích hoạt kịch bản thử nghiệm cảnh báo khi nhiệt độ kho vượt ngưỡng an toàn"
             >
               <AlertTriangle size={15} />
-              <span>⚡ Test Quá Nhiệt (6.2°C)</span>
+              <span>Kiểm Tra Cảnh Báo Nhiệt Độ</span>
             </button>
           ) : (
             <button
@@ -657,11 +687,11 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* KPI 3: IoT Cold-Chain Status */}
+        {/* KPI 3: Cold Storage Temp Status */}
         <div style={kpiCardStyle(isOverheatBreached ? '#ef4444' : '#059669', isOverheatBreached ? 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)' : 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '11px', fontWeight: 800, color: isOverheatBreached ? '#b91c1c' : '#047857', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Chuỗi Lạnh IoT (DHT22)
+              Kiểm Soát Nhiệt Độ Kho Mát
             </span>
             <div style={kpiIconStyle(isOverheatBreached ? '#fecaca' : '#a7f3d0', isOverheatBreached ? '#dc2626' : '#059669')}>
               <Thermometer size={18} />
@@ -672,12 +702,12 @@ export const Dashboard: React.FC = () => {
               {coolTemp.toFixed(1)}°C
             </span>
             <span style={{ fontSize: '13px', fontWeight: 800, color: isOverheatBreached ? '#b91c1c' : '#059669' }}>
-              {isOverheatBreached ? '⚠️ QUÁ NHIỆT' : '🟢 AN TOÀN HACCP'}
+              {isOverheatBreached ? '⚠️ CẢNH BÁO NHIỆT' : '🟢 ĐẠT CHUẨN BẢO QUẢN'}
             </span>
           </div>
           <div style={{ fontSize: '12px', color: '#64748b', marginTop: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
             <span>Độ ẩm: <b>{coolHum.toFixed(1)}%</b></span>
-            <span>Loa Siren: <b>{isOverheatBreached ? (isSirenMuted ? 'Muted' : 'HÚ CÒI') : 'Standby'}</b></span>
+            <span>Hệ thống chuông: <b>{isOverheatBreached ? (isSirenMuted ? 'Đã tắt tiếng' : 'ĐANG CẢNH BÁO') : 'Ổn định'}</b></span>
           </div>
         </div>
 
@@ -685,7 +715,7 @@ export const Dashboard: React.FC = () => {
         <div style={kpiCardStyle(alertCount > 0 ? '#d97706' : '#0f766e', alertCount > 0 ? 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)' : 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '11px', fontWeight: 800, color: alertCount > 0 ? '#b45309' : '#0f766e', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Lô Cận Date & Rủi Ro (FEFO)
+              Lô Cận Hạn Sử Dụng Cần Xuất Gấp
             </span>
             <div style={kpiIconStyle(alertCount > 0 ? '#fde68a' : '#99f6e4', alertCount > 0 ? '#d97706' : '#0f766e')}><ShieldAlert size={18} /></div>
           </div>
@@ -695,7 +725,7 @@ export const Dashboard: React.FC = () => {
           </div>
           <div style={{ fontSize: '12px', color: '#64748b', marginTop: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
             <span>Tổng tồn: <b>{totalLots} lô</b></span>
-            <span>Danh mục: <b>{totalProducts} SKU</b></span>
+            <span>Danh mục: <b>{totalProducts} mặt hàng</b></span>
           </div>
         </div>
 
@@ -706,22 +736,22 @@ export const Dashboard: React.FC = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 900, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>🧊 Giám Sát Cảm Biến Môi Trường 3 Phòng Kho Độc Lập</span>
+              <span>🧊 Giám Sát Điều Kiện Bảo Quản 3 Phân Khu Kho</span>
               <span style={{ fontSize: '12px', fontWeight: 700, color: '#059669', backgroundColor: '#ecfdf5', padding: '2px 8px', borderRadius: '6px', border: '1px solid #a7f3d0' }}>
-                Chuỗi Lạnh & Pick-to-Light Kệ Hàng
+                Định Vị Kệ & Kiểm Soát Nhiệt Độ
               </span>
             </h3>
             <p style={{ margin: '4px 0 0 0', fontSize: '12.5px', color: '#64748b' }}>
-              Mỗi loại sản phẩm được phân chia phòng riêng biệt kèm cảm biến DHT22, loa siren ngoài cửa và còi định vị từng kệ hàng.
+              Phân vùng lưu trữ bảo quản chuyên biệt: Kho Mát (0°C ~ 4°C), Kho Đông (-18°C ~ -22°C) và Kho Khô tiêu chuẩn.
             </p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '12px' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#059669' }} /> An toàn
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#059669' }} /> Đạt chuẩn
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#dc2626' }} /> Vi phạm
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#dc2626' }} /> Cảnh báo
             </span>
           </div>
         </div>
@@ -750,8 +780,8 @@ export const Dashboard: React.FC = () => {
                   <Snowflake size={18} />
                 </div>
                 <div>
-                  <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 900, color: '#0f172a' }}>1. PHÒNG KHO LẠNH</h4>
-                  <span style={{ fontSize: '11px', color: '#64748b' }}>Thịt tươi, sữa thanh trùng, rau củ VietGAP</span>
+                  <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 900, color: '#0f172a' }}>1. PHÒNG KHO MÁT</h4>
+                  <span style={{ fontSize: '11px', color: '#64748b' }}>Thịt tươi sống, sữa thanh trùng, rau củ quả</span>
                 </div>
               </div>
 
@@ -765,7 +795,7 @@ export const Dashboard: React.FC = () => {
                   color: '#ffffff',
                 }}
               >
-                {isOverheatBreached ? '🚨 QUÁ NHIỆT' : '🟢 0°C ~ 4°C AN TOÀN'}
+                {isOverheatBreached ? '🚨 CẢNH BÁO NHIỆT' : '🟢 0°C ~ 4°C ĐẠT CHUẨN'}
               </span>
             </div>
 
@@ -776,14 +806,14 @@ export const Dashboard: React.FC = () => {
                 <div style={{ fontSize: '24px', fontWeight: 900, color: isOverheatBreached ? '#dc2626' : '#059669' }}>
                   {coolTemp.toFixed(1)}°C
                 </div>
-                <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>Ngưỡng: 0.0°C ~ 4.0°C</div>
+                <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>Ngưỡng an toàn: 0.0°C ~ 4.0°C</div>
               </div>
               <div>
                 <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>Độ ẩm không khí:</div>
                 <div style={{ fontSize: '24px', fontWeight: 900, color: '#0284c7' }}>
                   {coolHum.toFixed(1)}%
                 </div>
-                <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>Ngưỡng chuẩn: 70% ~ 85%</div>
+                <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>Ngưỡng tiêu chuẩn: 70% ~ 85%</div>
               </div>
             </div>
 
@@ -792,25 +822,25 @@ export const Dashboard: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Volume2 size={16} color={isOverheatBreached ? '#dc2626' : '#059669'} />
                 <div>
-                  <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#0f172a' }}>LOA LỚN CỬA PHÒNG LẠNH (GPIO 32)</div>
-                  <div style={{ fontSize: '10.5px', color: '#64748b' }}>Hú còi siren cảnh báo ra ngoài khi quá nhiệt</div>
+                  <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#0f172a' }}>HỆ THỐNG CẢNH BÁO CỬA KHO</div>
+                  <div style={{ fontSize: '10.5px', color: '#64748b' }}>Phát chuông báo động tự động khi nhiệt độ vượt ngưỡng an toàn</div>
                 </div>
               </div>
               <span style={{ fontSize: '11px', fontWeight: 800, color: isOverheatBreached ? '#dc2626' : '#059669' }}>
-                {isOverheatBreached ? 'ĐANG BÁO ĐỘNG' : 'Bình thường'}
+                {isOverheatBreached ? 'ĐANG BÁO ĐỘNG' : 'Hoạt động bình thường'}
               </span>
             </div>
 
             {/* 3 Shelves with Pick-to-Light buttons */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ fontSize: '11px', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>
-                3 KỆ HÀNG PICK-TO-LIGHT (PHÒNG LẠNH GÒ VẤP):
+                DANH SÁCH KỆ HÀNG TRỌNG ĐIỂM (PHÒNG MÁT):
               </div>
 
               {[
-                { code: 'Ke A1', name: 'Kệ A1: Thịt tươi CP', tempSafe: '0°C ~ 4°C', buzzer: 'GPIO 23', btn: 'GPIO 14' },
-                { code: 'Ke A2', name: 'Kệ A2: Sữa tươi Đà Lạt Milk', tempSafe: '2°C ~ 6°C', buzzer: 'GPIO 19', btn: 'GPIO 27' },
-                { code: 'Ke A3', name: 'Kệ A3: Rau củ VietGAP', tempSafe: '2°C ~ 8°C', buzzer: 'GPIO 18', btn: 'GPIO 12' },
+                { code: 'Ke A1', name: 'Kệ A1: Thịt tươi CP', tempSafe: '0°C ~ 4°C' },
+                { code: 'Ke A2', name: 'Kệ A2: Sữa tươi Đà Lạt Milk', tempSafe: '2°C ~ 6°C' },
+                { code: 'Ke A3', name: 'Kệ A3: Rau củ VietGAP', tempSafe: '2°C ~ 8°C' },
               ].map(shelf => {
                 const isLocating = activeLocatingShelf === shelf.code;
                 const isChirping = chirpingShelf === shelf.code;
@@ -832,7 +862,7 @@ export const Dashboard: React.FC = () => {
                     <div>
                       <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#0f172a' }}>{shelf.name}</div>
                       <div style={{ fontSize: '10.5px', color: '#64748b' }}>
-                        An toàn: {shelf.tempSafe} • Còi kệ: {shelf.buzzer}
+                        Tiêu chuẩn bảo quản: {shelf.tempSafe}
                       </div>
                     </div>
 
@@ -854,7 +884,7 @@ export const Dashboard: React.FC = () => {
                         }}
                       >
                         <Sparkles size={12} />
-                        <span>{isLocating ? 'Đang nháy' : 'Nháy đèn'}</span>
+                        <span>{isLocating ? 'Đang định vị' : 'Bật đèn vị trí'}</span>
                       </button>
 
                       <button
@@ -874,7 +904,7 @@ export const Dashboard: React.FC = () => {
                         }}
                       >
                         <Volume2 size={12} />
-                        <span>{isChirping ? 'Kêu còi...' : 'Bấm còi'}</span>
+                        <span>{isChirping ? 'Đang báo chuông...' : 'Chuông tìm kệ'}</span>
                       </button>
                     </div>
                   </div>
@@ -1011,14 +1041,14 @@ export const Dashboard: React.FC = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
           <div>
             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 900, color: '#0f172a' }}>
-              📈 Biến Thiên Nhiệt Độ Chuỗi Lạnh 24 Giờ (Phòng Kho Lạnh WH-006)
+              📈 Biểu Đồ Giám Sát Nhiệt Độ Kho Lạnh 24 Giờ (Kho WH-006)
             </h3>
             <span style={{ fontSize: '12px', color: '#64748b' }}>
-              Vạch đỏ thể hiện ngưỡng tối đa an toàn (4.0°C). Nhiệt độ luôn được duy trì ổn định chuẩn HACCP.
+              Đường giới hạn an toàn tối đa (4.0°C). Nhiệt độ bảo quản thực phẩm luôn được kiểm soát chặt chẽ.
             </span>
           </div>
           <span style={{ fontSize: '12px', fontWeight: 800, color: '#0f766e', backgroundColor: '#f0fdfa', padding: '4px 10px', borderRadius: '8px', border: '1px solid #ccfbf1' }}>
-            ● Dữ liệu tự động từ cảm biến DHT22
+            ● Cập nhật liên tục 24/7
           </span>
         </div>
 
@@ -1174,7 +1204,7 @@ export const Dashboard: React.FC = () => {
             <div>
               <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 900, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <ShieldAlert size={18} color="#d97706" />
-                <span>Cảnh Báo Lô Hàng FEFO (AI Early Warning)</span>
+                <span>Cảnh Báo Lô Hàng Cận Hạn Sử Dụng</span>
               </h3>
               <span style={{ fontSize: '12px', color: '#64748b' }}>Ưu tiên xuất trước để bảo vệ lợi nhuận & giảm hủy hàng</span>
             </div>
@@ -1264,7 +1294,7 @@ export const Dashboard: React.FC = () => {
                         Còn {item.daysLeft} ngày
                       </div>
                       <div style={{ fontSize: '10.5px', color: '#64748b' }}>
-                        FEFO: <b>{item.fefoScore} điểm</b>
+                        Ưu tiên: <b>{item.fefoScore} điểm</b>
                       </div>
                     </div>
                   </div>

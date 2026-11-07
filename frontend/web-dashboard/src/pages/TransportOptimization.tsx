@@ -91,7 +91,7 @@ const TransportOptimization = () => {
       return;
     }
     setLoading(true);
-    showToast('Đang chạy thuật toán tối ưu tuyến đường VRP...');
+    showToast('Đang tối ưu lộ trình và ghép chuyến giao hàng...');
 
     const stops = activeOrders.map(o => {
       let requiredVehicleType = 'NORMAL';
@@ -129,13 +129,13 @@ const TransportOptimization = () => {
       if (response.ok) {
         const data = await response.json();
         setVrpResult(data);
-        showToast('✅ Đã giải thuật toán VRP & ghép đơn tài xế tối ưu!');
+        showToast('✅ Đã hoàn tất tối ưu lộ trình và phân bổ chuyến giao hàng!');
       } else {
         throw new Error('Failed to solve VRP');
       }
     } catch (err) {
       console.error(err);
-      showToast('❌ Lỗi khi chạy giải thuật VRP');
+      showToast('❌ Lỗi khi tối ưu lộ trình giao hàng');
     } finally {
       setLoading(false);
     }
@@ -148,7 +148,7 @@ const TransportOptimization = () => {
       return;
     }
     setLoading(true);
-    showToast('Đang gom đơn xuất kho (Batching)...');
+    showToast('Đang gom đơn xuất kho theo khu vực...');
     try {
       const response = await fetch(`${TRANSPORT_API}/transport/optimize-batch`, {
         method: 'POST',
@@ -220,7 +220,7 @@ const TransportOptimization = () => {
     }
     
     setLoading(true);
-    showToast('Đang gửi xác nhận hoàn tất giao hàng (POD)...');
+    showToast('Đang gửi xác nhận hoàn tất giao hàng...');
     try {
       const res = await fetch(`${OUTBOUND_API}/outbound-orders/${selectedPodOrder.id}/confirm`, {
         method: 'PUT',
@@ -315,7 +315,7 @@ const TransportOptimization = () => {
           <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #cbd5e1', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.03)', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Cpu size={16} color="#7c3aed" /> Giám sát IoT Thùng Lạnh
+                <Cpu size={16} color="#7c3aed" /> Giám Sát Nhiệt Độ Thùng Lạnh
               </span>
               <span style={{ fontSize: '#0.7rem', fontWeight: 700, color: '#94a3b8' }}>ID: #BLE-TR08</span>
             </div>
@@ -338,16 +338,16 @@ const TransportOptimization = () => {
             {/* Temp Simulator buttons */}
             <div style={{ display: 'flex', gap: '8px' }}>
               <button
-                onClick={() => { setDriverTemp(2.3); showToast('❄️ Đã mô phỏng: Nhiệt độ kho mát chuẩn 2.3°C'); }}
+                onClick={() => { setDriverTemp(2.3); showToast('❄️ Đã cập nhật: Nhiệt độ kho mát đạt chuẩn 2.3°C'); }}
                 style={{ flex: 1, border: 'none', padding: '6px', fontSize: '0.7rem', fontWeight: 700, borderRadius: '6px', backgroundColor: '#e2e8f0', cursor: 'pointer', color: '#334155' }}
               >
-                Simulate 2.3°C
+                Mức chuẩn 2.3°C
               </button>
               <button
                 onClick={() => { setDriverTemp(5.2); showToast('⚠️ Cảnh báo: Nhiệt độ tăng lên 5.2°C!'); }}
                 style={{ flex: 1, border: 'none', padding: '6px', fontSize: '0.7rem', fontWeight: 700, borderRadius: '6px', backgroundColor: '#fef3c7', cursor: 'pointer', color: '#b45309' }}
               >
-                Simulate 5.2°C
+                Mức cảnh báo 5.2°C
               </button>
             </div>
           </div>
@@ -355,7 +355,7 @@ const TransportOptimization = () => {
           {/* VRP Horizontal Route map */}
           <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #cbd5e1', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.03)', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Route size={16} color="#7c3aed" /> Lộ trình giao hàng tối ưu (VRP)
+              <Route size={16} color="#7c3aed" /> Lộ trình giao hàng tối ưu
             </span>
 
             {driverActiveOrders.length === 0 ? (
@@ -483,7 +483,7 @@ const TransportOptimization = () => {
                       className="btn btn-primary"
                       style={{ width: '100%', borderRadius: '10px', fontWeight: 800, padding: '12px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', backgroundColor: '#7c3aed', color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(124,58,237,0.15)' }}
                     >
-                      <CheckCircle2 size={16} /> Giao hàng thành công (Xác nhận POD)
+                      <CheckCircle2 size={16} /> Giao hàng thành công (Ký nhận & Chụp ảnh)
                     </button>
                   </div>
                 ))}
@@ -532,7 +532,7 @@ const TransportOptimization = () => {
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 }}>
             <div style={{ backgroundColor: '#fff', borderRadius: '20px', width: '90%', maxWidth: '480px', padding: '1.5rem', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', gap: '14px', border: '1px solid #e2e8f0' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
-                <span style={{ fontWeight: 900, fontSize: '1.1rem', color: '#1e1b4b' }}>Xác nhận biên bản POD</span>
+                <span style={{ fontWeight: 900, fontSize: '1.1rem', color: '#1e1b4b' }}>Biên bản giao hàng & Ký nhận</span>
                 <button onClick={() => setSelectedPodOrder(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8' }}><X size={20} /></button>
               </div>
 
@@ -618,10 +618,10 @@ const TransportOptimization = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', padding: '1.25rem 1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.04)' }}>
         <div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            🏍️ Điều Phối Giao Hàng (Shipper / 3PL)
+            🏍️ Điều Phối Giao Hàng (Tài Xế & Đối Tác Vận Chuyển)
           </h2>
           <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>
-            Hỗ trợ tự động gom đơn hàng loạt (Batching) theo khu vực và kết nối API 3PL để gọi Shipper xe máy siêu tốc.
+            Hỗ trợ tự động gom chuyến theo khu vực và điều phối giao hàng siêu tốc.
           </p>
         </div>
         
@@ -632,7 +632,7 @@ const TransportOptimization = () => {
             className="btn btn-warning"
             style={{ borderRadius: '10px', fontWeight: 600, padding: '10px 16px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#ea580c', color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(234,88,12,0.25)' }}
           >
-            <Clock size={16} /> Gom đơn xuất (Batching)
+            <Clock size={16} /> Gom chuyến giao hàng
           </button>
         </div>
       </div>
@@ -677,11 +677,11 @@ const TransportOptimization = () => {
         {/* Column 3: Route Results (VRP or Batching) */}
         <div style={panelCardStyle()}>
           <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1e293b', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            🗺️ Tuyến gom hàng & Đấu nối 3PL
+            🗺️ Tuyến gom hàng & Đối tác vận chuyển
           </h3>
           {batchRoutes.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#94a3b8', fontSize: '0.85rem' }}>
-              Bấm "Gom đơn xuất (Batching)" để hệ thống tính toán đường đi.
+              Bấm "Gom chuyến giao hàng" để hệ thống tính toán đường đi.
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -703,11 +703,11 @@ const TransportOptimization = () => {
                       onClick={() => handleGet3plQuote(route)}
                       style={{ width: '100%', padding: '8px', borderRadius: '8px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer', fontSize: '0.8rem' }}
                     >
-                      Báo giá qua 3PL (GHN, Ahamove)
+                      Báo giá đối tác (GHN, Ahamove)
                     </button>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1e293b' }}>Báo giá 3PL:</div>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1e293b' }}>Báo giá đối tác:</div>
                       {quotes[route.id].map((q: any, i: number) => (
                         <div key={i} style={{ padding: '8px', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div>
@@ -725,7 +725,7 @@ const TransportOptimization = () => {
                         disabled={loading}
                         style={{ marginTop: '4px', width: '100%', padding: '8px', borderRadius: '8px', backgroundColor: '#10b981', color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer', fontSize: '0.8rem' }}
                       >
-                        Đẩy đơn cho Shipper ngay
+                        Bàn giao cho tài xế ngay
                       </button>
                     </div>
                   )}

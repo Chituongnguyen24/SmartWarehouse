@@ -2,18 +2,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { StaffUser } from '../types';
 import { setAuthToken } from '../services/api';
 
-// Dynamic host detection: If accessed from mobile on LAN (e.g. 192.168.4.32), route requests to that LAN IP
-const getBackendHost = () => {
-  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
-    const host = window.location.hostname;
-    if (host !== 'localhost' && host !== '127.0.0.1' && host !== '') {
-      return host;
-    }
-  }
-  return 'localhost';
-};
+import { getBackendHost, setBackendHost, DEFAULT_LAN_IP } from '../services/networkConfig';
 
-const USER_API = `http://${getBackendHost()}:3012`;
+const getUserApi = () => `http://${getBackendHost()}:3012`;
 
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000; // Exactly 24 hours
 
@@ -138,11 +129,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const email = String(emailOrUser || '').trim();
       const password = String(passwordOrToken || '').trim();
 
-      const res = await fetch(`${USER_API}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+      let res: Response;
+      const primaryHost = getBackendHost();
+      const fallbackHost = primaryHost === DEFAULT_LAN_IP ? 'localhost' : DEFAULT_LAN_IP;
+
+      try {
+        res = await fetch(`http://${primaryHost}:3012/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+      } catch (primaryErr) {
+        // If primary host failed (e.g. localhost without adb reverse or switched network)
+        try {
+          res = await fetch(`http://${fallbackHost}:3012/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+          });
+          // Fallback succeeded! Update current host so subsequent calls to other microservices use it
+          setBackendHost(fallbackHost);
+        } catch (fallbackErr) {
+          console.error('Login network error:', primaryErr, fallbackErr);
+          return {
+            success: false,
+            message: `Không thể kết nối đến máy chủ xác thực (Port 3012).
+• Nếu dùng Wi-Fi: Đảm bảo điện thoại bắt cùng Wi-Fi với máy tính và chọn IP ${DEFAULT_LAN_IP}.
+• Nếu cắm cáp USB: Đảm bảo đã bật 'Gỡ lỗi USB' và chạy lệnh reverse port trên máy tính.`,
+          };
+        }
+      }
 
       if (!res.ok) {
         if (res.status === 401) {

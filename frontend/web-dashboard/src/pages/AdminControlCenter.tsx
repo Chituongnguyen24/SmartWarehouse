@@ -57,17 +57,17 @@ export interface AuditLogItem {
 
 // Static service registry — architecture info doesn't change at runtime
 const SERVICE_REGISTRY: Omit<ServiceHealth, 'status' | 'latencyMs' | 'memoryMb' | 'uptimeHours'>[] = [
-  { name: 'product-service', port: 3010, tech: 'NestJS', description: 'Quản lý sản phẩm & SKU' },
-  { name: 'inventory-service', port: 3011, tech: 'NestJS', description: 'Quản lý tồn kho & lô hàng FEFO' },
-  { name: 'user-service', port: 3012, tech: 'NestJS', description: 'Quản lý người dùng, Auth & JWT' },
-  { name: 'transport-service', port: 3013, tech: 'NestJS', description: 'Tối ưu vận chuyển VRP' },
-  { name: 'warehouse-service', port: 3005, tech: 'NestJS', description: 'Quản lý vị trí, kệ kho' },
-  { name: 'inbound-service', port: 3006, tech: 'NestJS', description: 'Nhập kho & QC thực phẩm' },
-  { name: 'outbound-service', port: 3007, tech: 'NestJS', description: 'Xuất kho & Đơn hàng B2B/B2C' },
-  { name: 'report-service', port: 3008, tech: 'NestJS', description: 'Báo cáo tổng hợp PDF/Excel' },
-  { name: 'iot-service', port: 3002, tech: 'NestJS', description: 'Thu thập cảm biến IoT nhiệt độ' },
-  { name: 'ai-service', port: 3003, tech: 'FastAPI (Python)', description: 'Dự báo hư hỏng AI Spoilage' },
-  { name: 'notification-service', port: 3004, tech: 'NestJS', description: 'Gửi thông báo WebSocket & Email' },
+  { name: 'product-service', port: 3010, tech: 'NestJS', description: 'Quản lý danh mục & mã vạch sản phẩm' },
+  { name: 'inventory-service', port: 3011, tech: 'NestJS', description: 'Quản lý tồn kho & hạn sử dụng lô hàng' },
+  { name: 'user-service', port: 3012, tech: 'NestJS', description: 'Phân quyền tài khoản & bảo mật hệ thống' },
+  { name: 'transport-service', port: 3013, tech: 'NestJS', description: 'Quản lý đội xe & phân tuyến giao hàng' },
+  { name: 'warehouse-service', port: 3005, tech: 'NestJS', description: 'Sơ đồ kho & quản lý vị trí kệ' },
+  { name: 'inbound-service', port: 3006, tech: 'NestJS', description: 'Quy trình nhập kho & kiểm định chất lượng' },
+  { name: 'outbound-service', port: 3007, tech: 'NestJS', description: 'Quy trình xuất kho & quản lý đơn hàng' },
+  { name: 'report-service', port: 3008, tech: 'NestJS', description: 'Báo cáo thống kê kinh doanh & xuất nhập tồn' },
+  { name: 'iot-service', port: 3002, tech: 'NestJS', description: 'Giám sát nhiệt độ & môi trường kho tự động' },
+  { name: 'ai-service', port: 3003, tech: 'FastAPI (Python)', description: 'Phân tích & cảnh báo rủi ro chất lượng' },
+  { name: 'notification-service', port: 3004, tech: 'NestJS', description: 'Thông báo & cảnh báo tức thời' },
 ];
 
 const USER_API = 'http://localhost:3012';
@@ -251,7 +251,7 @@ export const AdminControlCenter = () => {
         }),
       });
       if (res.ok) {
-        showToast('⚙️ Đã lưu cấu hình tham số nhiệt độ kho lạnh & cảnh báo FEFO thành công!');
+        showToast('⚙️ Đã lưu cấu hình tham số nhiệt độ kho lạnh & cảnh báo hạn sử dụng thành công!');
       } else {
         showToast('❌ Lỗi khi lưu cấu hình');
       }
@@ -567,7 +567,7 @@ export const AdminControlCenter = () => {
 
             <div style={{ backgroundColor: 'var(--color-bg)', padding: 16, borderRadius: 10 }}>
               <h4 style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: 10, color: 'var(--color-text)' }}>
-                Ngưỡng Cảnh Báo FEFO (Hạn Sử Dụng Ngắn):
+                Ngưỡng Cảnh Báo Lô Hàng Cận Hạn Sử Dụng:
               </h4>
               <div style={{ marginBottom: 10 }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 700 }}>Số ngày trước khi hết hạn:</label>
@@ -580,7 +580,7 @@ export const AdminControlCenter = () => {
                 />
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-                Hệ thống AI sẽ tự động cảnh báo lô hàng sắp hết hạn trước {fefoWarnDays} ngày.
+                Hệ thống sẽ tự động phát cảnh báo khi lô hàng sắp hết hạn trước {fefoWarnDays} ngày.
               </div>
             </div>
           </div>

@@ -311,9 +311,9 @@ export const DashboardHome: React.FC = () => {
             <Boxes size={22} color="#ffffff" />
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 900 }}>Kho 3D Digital Twin</h3>
+            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 900 }}>Sơ Đồ Kho 3D</h3>
             <p style={{ margin: '2px 0 0 0', fontSize: '11px', opacity: 0.9 }}>
-              Mô phỏng kệ 3 phân khu
+              Xem vị trí kệ & hàng hóa
             </p>
           </div>
         </div>
@@ -417,7 +417,7 @@ export const DashboardHome: React.FC = () => {
             </div>
             <div>
               <div style={{ fontSize: '16px', fontWeight: 900, color: '#0f172a', marginTop: '12px' }}>Kiểm kê</div>
-              <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>Tra cứu FEFO & hạn dùng</div>
+              <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>Tra cứu tồn kho & hạn dùng</div>
             </div>
           </div>
 
@@ -572,7 +572,7 @@ export const DashboardHome: React.FC = () => {
             Nhiệt Độ Kho Lạnh: <b style={{ color: '#059669' }}>+2.4°C (Đạt chuẩn)</b>
           </div>
           <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
-            Hầm đông: <b>-19.1°C</b> • Cảm biến IoT kết nối ổn định
+            Hầm đông: <b>-19.1°C</b> • Cảm biến nhiệt độ kết nối ổn định
           </div>
         </div>
       </div>

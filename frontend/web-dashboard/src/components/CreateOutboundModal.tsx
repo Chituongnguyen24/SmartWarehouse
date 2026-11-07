@@ -538,7 +538,7 @@ export const CreateOutboundModal: React.FC<CreateOutboundModalProps> = ({
                   onChange={e => setTransactionType(e.target.value as any)}
                   style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 700, background: '#fff', color: '#1e293b' }}
                 >
-                  <option value="XUAT_BAN_FEFO">🏷️ 1. Xuất bán hàng TMĐT / Siêu thị - FEFO (Nợ 632 - Có 1561)</option>
+                  <option value="XUAT_BAN_FEFO">🏷️ 1. Xuất bán hàng TMĐT / Siêu thị (Nợ 632 - Có 1561)</option>
                   <option value="DIEU_CHUYEN">🏷️ 2. Xuất điều chuyển chi nhánh (Nợ 1561 - Có 1561)</option>
                   <option value="TRA_HANG_NCC">🏷️ 3. Xuất trả lại hàng cho NCC (Nợ 331 - Có 1561)</option>
                   <option value="XUAT_HUY">🏷️ 4. Xuất tiêu hủy hàng hết hạn / hư hỏng (Nợ 632, 811 - Có 1561)</option>
@@ -673,7 +673,7 @@ export const CreateOutboundModal: React.FC<CreateOutboundModalProps> = ({
                     <tr>
                       <th style={{ padding: '10px 10px', width: '32px', textAlign: 'center' }}>STT</th>
                       <th style={{ padding: '10px 12px', minWidth: '260px' }}>Tên Sản Phẩm</th>
-                      <th style={{ padding: '10px 12px', width: '170px' }}>Mã SKU</th>
+                      <th style={{ padding: '10px 12px', width: '170px' }}>Mã Sản Phẩm</th>
                       <th style={{ padding: '10px 8px', width: '60px', textAlign: 'center' }}>ĐVT</th>
                       <th style={{ padding: '10px 8px', width: '130px', textAlign: 'center' }}>Tồn Kho / SL Xuất</th>
                       <th style={{ padding: '10px 10px', width: '100px', textAlign: 'right' }}>Đơn Giá (₫)</th>
@@ -822,7 +822,7 @@ export const CreateOutboundModal: React.FC<CreateOutboundModalProps> = ({
                               <input
                                 type="text"
                                 value={isSkuActive ? searchQuery : it.sku}
-                                placeholder="Nhập mã SKU..."
+                                placeholder="Nhập mã sản phẩm..."
                                 onFocus={() => {
                                   setActiveSearch({ index: idx, field: 'sku' });
                                   setSearchQuery('');
@@ -867,7 +867,7 @@ export const CreateOutboundModal: React.FC<CreateOutboundModalProps> = ({
                               >
                                 {filteredCatalog.length === 0 ? (
                                   <div style={{ padding: '12px', fontSize: '0.8rem', color: '#94a3b8', textAlign: 'center' }}>
-                                    Không tìm thấy SKU
+                                    Không tìm thấy sản phẩm
                                   </div>
                                 ) : (
                                   filteredCatalog.map(p => {
@@ -1034,7 +1034,7 @@ export const CreateOutboundModal: React.FC<CreateOutboundModalProps> = ({
                   {uploadedFileName ? `Đã chọn: ${uploadedFileName}` : 'Nhấn vào đây để tải file danh sách xuất kho'}
                 </p>
                 <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
-                  Hỗ trợ định dạng: .CSV, .XLSX (Tự động đọc mã SKU, số lượng, đơn vị, giá)
+                  Hỗ trợ định dạng: .CSV, .XLSX (Tự động đọc mã sản phẩm, số lượng, đơn vị, giá)
                 </p>
               </div>
 
@@ -1056,7 +1056,7 @@ export const CreateOutboundModal: React.FC<CreateOutboundModalProps> = ({
                         <tr>
                           <th style={{ padding: '8px 12px', width: '38px', textAlign: 'center' }}>STT</th>
                           <th style={{ padding: '8px 12px' }}>Tên Sản Phẩm</th>
-                          <th style={{ padding: '8px 12px' }}>Mã SKU</th>
+                          <th style={{ padding: '8px 12px' }}>Mã Sản Phẩm</th>
                           <th style={{ padding: '8px 12px', textAlign: 'center' }}>ĐVT</th>
                           <th style={{ padding: '8px 12px', textAlign: 'center' }}>Số Lượng</th>
                           <th style={{ padding: '8px 12px', textAlign: 'right' }}>Đơn Giá</th>

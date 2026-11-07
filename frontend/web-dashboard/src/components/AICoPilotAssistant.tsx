@@ -45,7 +45,7 @@ export const AICoPilotAssistant: React.FC = () => {
     {
       id: 'm-1',
       sender: 'AI',
-      text: 'Xin chào! Tôi là **Trợ Lý AI Điều Phối & Quản Trị Kho CityMart**. Tôi có thể giúp bạn tìm shipper gần nhất theo GPS, kiểm tra lô hàng cận date FEFO, in chứng từ MISA hoặc tra cứu báo cáo vận hành tức thì. Bạn cần hỗ trợ gì hôm nay?',
+      text: 'Xin chào! Tôi là **Trợ Lý Điều Phối & Quản Trị Kho CityMart**. Tôi có thể giúp bạn tìm shipper gần nhất, kiểm tra lô hàng cận hạn sử dụng, in chứng từ kế toán MISA hoặc tra cứu báo cáo vận hành tức thì. Bạn cần hỗ trợ gì hôm nay?',
       timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -88,7 +88,7 @@ export const AICoPilotAssistant: React.FC = () => {
           { label: '🗺️ Xem Bản Đồ Control Tower', action: () => navigate('/transport-optimization'), color: '#059669' },
         ];
       } else if (lower.includes('cận date') || lower.includes('hạn dùng') || lower.includes('fefo') || lower.includes('hết hạn')) {
-        aiResponseText = `🥦 **Cảnh báo Lô Hàng Cận Date (Chiến lược FEFO):**\n\n1. **Thịt heo xay CP** - Lô \`LOT-0828-C\` (Còn **2 ngày** - Tồn 15 khay).\n2. **Sữa tươi thanh trùng Đà Lạt Milk** - Lô \`LOT-0820-A\` (Còn **3 ngày** - Tồn 12 chai).\n3. **Rau xà lách thủy canh** - Lô \`LOT-0830-B\` (Còn **1 ngày** - Tồn 10 gói).\n\n💡 *Hệ thống đã tự động ưu tiên xuất các lô này cho các đơn hàng TMĐT tiếp theo.*`;
+        aiResponseText = `🥦 **Cảnh báo Lô Hàng Cận Hạn Sử Dụng (Ưu tiên xuất trước):**\n\n1. **Thịt heo xay CP** - Lô \`LOT-0828-C\` (Còn **2 ngày** - Tồn 15 khay).\n2. **Sữa tươi thanh trùng Đà Lạt Milk** - Lô \`LOT-0820-A\` (Còn **3 ngày** - Tồn 12 chai).\n3. **Rau xà lách thủy canh** - Lô \`LOT-0830-B\` (Còn **1 ngày** - Tồn 10 gói).\n\n💡 *Hệ thống đã tự động ưu tiên xuất các lô này cho các đơn hàng tiếp theo.*`;
         actionButtons = [
           { label: '📋 Xem Sổ Nhập - Xuất - Tồn', action: () => navigate('/reports'), color: '#d97706' },
           { label: '📦 Kiểm Tra Kho Hàng', action: () => navigate('/inventory'), color: '#0f766e' },
@@ -104,13 +104,13 @@ export const AICoPilotAssistant: React.FC = () => {
           { label: '📈 Mở Trung Tâm Báo Cáo', action: () => navigate('/reports'), color: '#059669' },
         ];
       } else if (lower.includes('misa') || lower.includes('nhập kho') || lower.includes('xuất kho')) {
-        aiResponseText = `📥 **Quy Trình Nghiệp Vụ Chuẩn MISA AMIS:**\n\n1. **Nhập Kho (Mẫu 01-VT):** Hỗ trợ 4 loại chứng từ: *Nhập mua NCC (Nợ 1561/1331 - Có 331), Hàng trả lại (Nợ 1561 - Có 632), Điều chuyển nội bộ, Nhập kiểm kê thừa*.\n2. **Xuất Kho (Mẫu 02-VT):** Hỗ trợ: *Xuất bán lẻ FEFO (Nợ 632 - Có 1561), Xuất điều chuyển, Trả hàng NCC, Xuất hủy hết hạn*.\n\nBạn có thể lập phiếu mới hoặc in chứng từ trực tiếp ngay bây giờ.`;
+        aiResponseText = `📥 **Quy Trình Nghiệp Vụ Chuẩn MISA AMIS:**\n\n1. **Nhập Kho (Mẫu 01-VT):** Hỗ trợ 4 loại chứng từ: *Nhập mua NCC (Nợ 1561/1331 - Có 331), Hàng trả lại (Nợ 1561 - Có 632), Điều chuyển nội bộ, Nhập kiểm kê thừa*.\n2. **Xuất Kho (Mẫu 02-VT):** Hỗ trợ: *Xuất bán lẻ theo hạn dùng (Nợ 632 - Có 1561), Xuất điều chuyển, Trả hàng NCC, Xuất hủy hết hạn*.\n\nBạn có thể lập phiếu mới hoặc in chứng từ trực tiếp ngay bây giờ.`;
         actionButtons = [
           { label: '📥 Mở Quản Lý Nhập Kho', action: () => navigate('/inbound-orders'), color: '#0f766e' },
           { label: '📤 Mở Quản Lý Xuất Kho', action: () => navigate('/outbound-orders'), color: '#2563eb' },
         ];
       } else {
-        aiResponseText = `Tôi đã ghi nhận yêu cầu: "${query}".\n\nTôi có thể hỗ trợ bạn thực hiện các thao tác: **Điều phối giao hàng**, **Kiểm tra tồn kho FEFO**, **In chứng từ kế toán MISA** hoặc **Xuất báo cáo thuế GTGT**. Bạn có thể bấm chọn các phím tắt bên dưới để xử lý nhanh.`;
+        aiResponseText = `Tôi đã ghi nhận yêu cầu: "${query}".\n\nTôi có thể hỗ trợ bạn thực hiện các thao tác: **Điều phối giao hàng**, **Kiểm tra tồn kho theo hạn dùng**, **In chứng từ kế toán MISA** hoặc **Xuất báo cáo thuế GTGT**. Bạn có thể bấm chọn các phím tắt bên dưới để xử lý nhanh.`;
         actionButtons = [
           { label: '🚀 Điều Phối Đơn Hàng', action: () => navigate('/order-dispatch'), color: '#2563eb' },
           { label: '📊 Xem Báo Cáo', action: () => navigate('/reports'), color: '#059669' },

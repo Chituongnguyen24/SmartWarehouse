@@ -242,13 +242,13 @@ export const IncidentReportModal: React.FC<Props> = ({
 
               <div>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#334155', marginBottom: '3px' }}>
-                  Mã Lô / SKU (nếu có):
+                  Mã Lô / Mã Sản Phẩm (nếu có):
                 </label>
                 <input
                   type="text"
                   value={skuOrLot}
                   onChange={(e) => setSkuOrLot(e.target.value)}
-                  placeholder="LOT-xxx / SKU-xxx"
+                  placeholder="Mã lô hoặc mã sản phẩm..."
                   style={{
                     width: '100%',
                     padding: '8px 10px',

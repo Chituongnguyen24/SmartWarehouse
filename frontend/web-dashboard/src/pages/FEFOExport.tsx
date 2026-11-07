@@ -106,7 +106,7 @@ const FEFOExport = () => {
       const res = await fetch(`${API_BASE}/inventory/lots/export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ lotCode: lot.lotCode, quantity: exportQty, reason: 'Xuất theo đề xuất FEFO' })
+        body: JSON.stringify({ lotCode: lot.lotCode, quantity: exportQty, reason: 'Xuất theo hạn sử dụng' })
       });
 
       if (res.ok) {
@@ -127,8 +127,8 @@ const FEFOExport = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-6)' }}>
       <div className="flex items-center justify-between">
         <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.25rem' }}>Xuất kho FEFO thông minh</h2>
-          <p className="text-muted" style={{ fontSize: '0.875rem' }}>Xếp hạng lô hàng cần xuất trước theo HSD và AI dự báo hư hỏng (Learning to Rank).</p>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.25rem' }}>Xuất Kho Ưu Tiên Hạn Dùng</h2>
+          <p className="text-muted" style={{ fontSize: '0.875rem' }}>Tự động xếp hạng và đề xuất lô hàng cần xuất trước dựa trên hạn sử dụng và điều kiện bảo quản.</p>
         </div>
         <button className="btn btn-outline" onClick={fetchFefoData} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <RefreshCcw size={16} /> Làm mới
@@ -142,7 +142,7 @@ const FEFOExport = () => {
             <div className="card-icon primary" style={{ backgroundColor: 'var(--color-danger-100)', color: 'var(--color-danger-600)' }}><Zap size={18} /></div>
           </div>
           <div className="card-value text-danger">{urgentLots}</div>
-          <div className="card-desc">điểm FEFO &gt;= 80</div>
+          <div className="card-desc">mức ưu tiên cao</div>
         </div>
         
         <div className="card">
@@ -159,8 +159,8 @@ const FEFOExport = () => {
             <div className="card-title">Nguyên tắc</div>
             <div className="card-icon primary"><Layers size={18} /></div>
           </div>
-          <div className="card-value" style={{ fontSize: '1.25rem' }}>FEFO + AI</div>
-          <div className="card-desc">First Expired First Out</div>
+          <div className="card-value" style={{ fontSize: '1.25rem' }}>Ưu Tiên Hạn Dùng</div>
+          <div className="card-desc">Hàng cận date xuất trước</div>
         </div>
 
         <div className="card">
@@ -169,7 +169,7 @@ const FEFOExport = () => {
             <div className="card-icon primary" style={{ backgroundColor: 'var(--color-primary-100)', color: 'var(--color-primary-600)' }}><TrendingDown size={18} /></div>
           </div>
           <div className="card-value text-success">-24% <span className="card-trend up" style={{ fontSize: '0.875rem' }}><ArrowUpRight size={14}/> tốt</span></div>
-          <div className="card-desc">so với FIFO truyền thống</div>
+          <div className="card-desc">so với xuất hàng thông thường</div>
         </div>
       </div>
 
@@ -180,7 +180,7 @@ const FEFOExport = () => {
             <div key={lot.id} className="card" style={{ border: `1px solid ${lot.fefoScore >= 80 ? 'var(--color-danger-500)' : lot.fefoScore >= 50 ? 'var(--color-warning-500)' : 'var(--border)'}`, backgroundColor: lot.fefoScore >= 80 ? '#fef2f2' : lot.fefoScore >= 50 ? '#fffbeb' : '#fff' }}>
               <div className="flex justify-between items-center" style={{ marginBottom: '1rem' }}>
                 <div style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', backgroundColor: lot.fefoScore >= 80 ? 'var(--color-danger-500)' : lot.fefoScore >= 50 ? 'var(--color-warning-500)' : 'var(--color-neutral-500)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>{index + 1}</div>
-                <span className={`badge badge-${lot.fefoScore >= 80 ? 'danger' : lot.fefoScore >= 50 ? 'warning' : 'neutral'}`}>{lot.fefoScore} điểm FEFO</span>
+                <span className={`badge badge-${lot.fefoScore >= 80 ? 'danger' : lot.fefoScore >= 50 ? 'warning' : 'neutral'}`}>Ưu tiên: {lot.fefoScore}đ</span>
               </div>
               <h4 className="font-bold text-lg">{lot.productName}</h4>
               <p className="text-muted" style={{ fontSize: '0.875rem', marginBottom: '1rem' }}>{lot.lotCode}</p>
@@ -208,9 +208,9 @@ const FEFOExport = () => {
                 <th>Khu vực</th>
                 <th>Số lượng</th>
                 <th>HSD</th>
-                <th>Rủi ro AI</th>
+                <th>Độ rủi ro</th>
                 <th>Vị trí lấy</th>
-                <th>Điểm FEFO</th>
+                <th>Điểm ưu tiên</th>
                 <th>Thao tác</th>
               </tr>
             </thead>

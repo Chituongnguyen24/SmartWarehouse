@@ -46,7 +46,7 @@ export const DEFAULT_RACKS: ShelfRack[] = [
     maxCapacity: 500,
     currentCapacity: 340,
     hasAlert: true,
-    alertMsg: 'Lô thịt CP cận date 48h (Ưu tiên xuất FEFO)',
+    alertMsg: 'Lô thịt CP cận date 48h (Ưu tiên xuất trước)',
     items: [
       { sku: 'EM-102544', name: 'Thịt heo xay CP 400g', category: 'Thịt tươi', qty: 85, unit: 'Khay', lotCode: 'LOT-EM-102544-C', expiryDate: '02/09/2026', daysRemaining: 2, price: 56000 },
       { sku: 'EM-103829', name: 'Thịt bò Úc phi lê 500g', category: 'Thịt tươi', qty: 95, unit: 'Khay', lotCode: 'LOT-EM-103829-B', expiryDate: '05/09/2026', daysRemaining: 5, price: 185000 },

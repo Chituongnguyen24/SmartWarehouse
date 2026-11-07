@@ -262,7 +262,7 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
         <div className="header-actions">
           <div className="search-bar">
             <Search size={18} className="text-muted" />
-            <input type="text" placeholder="Tìm SKU, lô hàng..." />
+            <input type="text" placeholder="Tìm sản phẩm, lô hàng..." />
           </div>
 
           <button className="icon-btn" title="Thông báo hệ thống">

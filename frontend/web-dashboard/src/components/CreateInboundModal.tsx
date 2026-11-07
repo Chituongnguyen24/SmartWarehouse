@@ -636,7 +636,7 @@ export const CreateInboundModal: React.FC<CreateInboundModalProps> = ({
                     <tr>
                       <th style={{ padding: '10px 10px', width: '32px', textAlign: 'center' }}>STT</th>
                       <th style={{ padding: '10px 12px', minWidth: '240px' }}>Tên, Nhãn Hiệu Vật Tư (Search 🔍)</th>
-                      <th style={{ padding: '10px 12px', width: '160px' }}>Mã Số SKU (Search 🔍)</th>
+                      <th style={{ padding: '10px 12px', width: '160px' }}>Mã Sản Phẩm (Search 🔍)</th>
                       <th style={{ padding: '10px 8px', width: '60px', textAlign: 'center' }}>ĐVT</th>
                       <th style={{ padding: '10px 8px', width: '80px', textAlign: 'center' }}>Theo CT</th>
                       <th style={{ padding: '10px 8px', width: '80px', textAlign: 'center' }}>Thực Nhập</th>
@@ -747,7 +747,7 @@ export const CreateInboundModal: React.FC<CreateInboundModalProps> = ({
                               <input
                                 type="text"
                                 value={isSkuActive ? searchQuery : it.sku}
-                                placeholder="Nhập mã SKU..."
+                                placeholder="Nhập mã sản phẩm..."
                                 onFocus={() => {
                                   setActiveSearch({ index: idx, field: 'sku' });
                                   setSearchQuery('');
@@ -792,7 +792,7 @@ export const CreateInboundModal: React.FC<CreateInboundModalProps> = ({
                               >
                                 {filteredCatalog.length === 0 ? (
                                   <div style={{ padding: '12px', fontSize: '0.8rem', color: '#94a3b8', textAlign: 'center' }}>
-                                    Không tìm thấy SKU
+                                    Không tìm thấy sản phẩm
                                   </div>
                                 ) : (
                                   filteredCatalog.map(p => (
@@ -966,7 +966,7 @@ export const CreateInboundModal: React.FC<CreateInboundModalProps> = ({
                         <tr>
                           <th style={{ padding: '8px 12px', width: '38px', textAlign: 'center' }}>STT</th>
                           <th style={{ padding: '8px 12px' }}>Tên Vật Tư</th>
-                          <th style={{ padding: '8px 12px' }}>Mã SKU</th>
+                          <th style={{ padding: '8px 12px' }}>Mã Sản Phẩm</th>
                           <th style={{ padding: '8px 12px', textAlign: 'center' }}>ĐVT</th>
                           <th style={{ padding: '8px 12px', textAlign: 'center' }}>Theo CT</th>
                           <th style={{ padding: '8px 12px', textAlign: 'center' }}>Thực Nhập</th>

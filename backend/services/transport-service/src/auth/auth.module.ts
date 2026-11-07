@@ -14,7 +14,7 @@ import { JwtStrategy } from './jwt.strategy';
         secret: config.get<string>('JWT_SECRET', 'sfwms_jwt_secret_key_2026'),
         signOptions: { expiresIn: '1d' },
       }),
-    }),
+    }) as any,
   ],
   providers: [JwtStrategy],
   exports: [PassportModule, JwtModule],

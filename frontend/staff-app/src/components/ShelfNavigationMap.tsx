@@ -33,7 +33,7 @@ export const ShelfNavigationMap: React.FC<Props> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Compass size={18} color="#0284c7" />
           <span style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
-            Lộ Trình Đi Bộ Ngắn Nhất (FEFO Route)
+            Lộ Trình Di Chuyển Ngắn Nhất
           </span>
         </div>
         <span style={{ fontSize: '10.5px', color: '#059669', backgroundColor: '#dcfce7', border: '1px solid #bbf7d0', padding: '2px 8px', borderRadius: '999px', fontWeight: 800 }}>

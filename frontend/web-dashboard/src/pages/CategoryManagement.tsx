@@ -138,7 +138,7 @@ const CategoryManagement = () => {
         </div>
         <div className="card">
           <div className="card-header">
-            <div className="card-title">Tổng SKU liên kết</div>
+            <div className="card-title">Tổng mặt hàng liên kết</div>
             <div className="card-icon primary"><Package size={18} /></div>
           </div>
           <div className="card-value">{categories.reduce((sum, c) => sum + c.productCount, 0)}</div>

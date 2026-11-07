@@ -219,7 +219,7 @@ export const PackingStation: React.FC = () => {
             qty: Number(it.pickedQuantity || it.quantity || (it as any).requestedQuantity || 1),
             unit: it.unit || 'Đơn vị',
             sku: it.sku,
-            lotCode: it.lotCode || 'LOT-DB',
+            lotCode: it.lotCode || 'LOT-2026',
             shelfLocation: formatShelfLocation(rawShelf),
             zone: it.zone || 'DRY',
             isCold: Boolean(isCold),
@@ -968,7 +968,7 @@ export const PackingStation: React.FC = () => {
                   <div style={{ fontSize: '10px', color: '#64748b' }}>TEM NIÊM PHONG KIỆN HÀNG XUẤT KHO</div>
                 </div>
                 <span style={{ fontSize: '10px', backgroundColor: hasColdItems ? '#e0f2fe' : '#f1f5f9', color: hasColdItems ? '#0369a1' : '#475569', padding: '3px 8px', borderRadius: '6px', fontWeight: 800 }}>
-                  {hasColdItems ? '❄️ CHUỖI LẠNH (FEFO)' : '📦 HÀNG TIÊU CHUẨN'}
+                  {hasColdItems ? '❄️ HÀNG BẢO QUẢN MÁT' : '📦 HÀNG TIÊU CHUẨN'}
                 </span>
               </div>
 

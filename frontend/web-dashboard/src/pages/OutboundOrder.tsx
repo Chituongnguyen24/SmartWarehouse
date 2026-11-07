@@ -937,7 +937,7 @@ const OutboundOrder = () => {
               <div style={{ border: '1px solid var(--color-neutral-200)', borderRadius: 'var(--radius-lg)', padding: '1rem', backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'between', alignItems: 'center' }}>
                   <h4 style={{ fontSize: '0.875rem', fontWeight: 'bold', color: 'var(--color-neutral-800)' }}>
-                    📊 Đề xuất Kho Hàng Tối Ưu (Thuật toán Haversine)
+                    📍 Đề xuất Kho Hàng Gần Khách Hàng Nhất
                   </h4>
                   {calculating && <span style={{ fontSize: '0.75rem', color: 'var(--color-neutral-500)' }}>Đang tính...</span>}
                 </div>

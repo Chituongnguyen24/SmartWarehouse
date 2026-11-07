@@ -168,7 +168,7 @@ export const PackingScreen: React.FC = () => {
               <View style={{ flex: 1 }}>
                 <Text style={styles.itemCheckName}>{it.productName || it.name || it.sku}</Text>
                 <Text style={styles.itemCheckMeta}>
-                  Mã SKU: {it.sku} • Lô: {it.lotCode || 'LOT-FEFO'} • SL: {it.requestedQuantity || it.quantity || 1} {it.unit || 'Kg'}
+                  Mã SP: {it.sku} • Lô: {it.lotCode || 'LOT-2026'} • SL: {it.requestedQuantity || it.quantity || 1} {it.unit || 'Kg'}
                 </Text>
               </View>
               <Snowflake size={14} color="#0284c7" />

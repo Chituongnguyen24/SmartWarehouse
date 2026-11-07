@@ -114,7 +114,7 @@ const INITIAL_CONVERSATIONS: ChatConversation[] = [
     isOnline: true,
     messages: [
       { id: 'm1', sender: 'CUSTOMER', text: 'Chào shop, mình vừa đặt đơn hàng #ORD-WEB-4921, không biết khoảng bao lâu nữa giao tới Quận 5 vậy ạ?', timestamp: '10:15' },
-      { id: 'm2', sender: 'SALES_STAFF', text: 'Dạ em chào anh Test! Đơn hàng của anh đã được ghi nhận trên hệ thống. Nhân viên kho đang tiến hành soạn hàng theo tiêu chuẩn FEFO và sẽ giao trong vòng 2h tới ạ!', timestamp: '10:16' },
+      { id: 'm2', sender: 'SALES_STAFF', text: 'Dạ em chào anh Test! Đơn hàng của anh đã được ghi nhận trên hệ thống. Nhân viên kho đang tiến hành soạn hàng và sẽ giao trong vòng 2h tới ạ!', timestamp: '10:16' },
       { id: 'm3', sender: 'CUSTOMER', text: 'Dạ cảm ơn shop, nhớ đóng gói cẩn thận hàng rau củ giúp mình nhé!', timestamp: '10:18' }
     ]
   },
@@ -131,7 +131,7 @@ const INITIAL_CONVERSATIONS: ChatConversation[] = [
     isOnline: true,
     messages: [
       { id: 'm201', sender: 'CUSTOMER', text: 'Bên em duyệt giúp anh chiết khấu 8% cho đơn hải sản hôm nay với nhé.', timestamp: '09:40' },
-      { id: 'm202', sender: 'SALES_STAFF', text: 'Dạ anh, em đã áp mã chiết khấu B2B 8% và gửi đơn sang kho soạn FEFO rồi ạ!', timestamp: '09:45' },
+      { id: 'm202', sender: 'SALES_STAFF', text: 'Dạ anh, em đã áp mã chiết khấu B2B 8% và gửi đơn sang kho chuẩn bị hàng rồi ạ!', timestamp: '09:45' },
       { id: 'm203', sender: 'CUSTOMER', text: 'OK em, chuyển sớm trước 11h30 để nhà hàng chuẩn bị bữa trưa nha.', timestamp: '09:50' }
     ]
   },
@@ -401,7 +401,7 @@ export const SalesManagement = () => {
     }
 
     setSalesOrders([newSalesOrder, ...salesOrders]);
-    showToast(`🎉 Tạo thành công Đơn Hàng Sales B2B #${newOrderCode}! Đã gửi yêu cầu sang Kho FEFO.`);
+    showToast(`🎉 Tạo thành công Đơn Hàng Sales B2B #${newOrderCode}! Đã gửi yêu cầu sang Kho.`);
     setCartItems([]);
     setActiveTab('ORDER_LIST');
   };
@@ -439,7 +439,7 @@ export const SalesManagement = () => {
             <TrendingUp size={28} color="#008848" /> Trung Tâm Quản Lý Kinh Doanh & Chat Hỗ Trợ Khách Hàng
           </h1>
           <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', marginTop: 4 }}>
-            Giao tiếp trực tiếp với khách hàng mua sắm, theo dõi tiến độ đơn hàng kho FEFO và tư vấn bán hàng
+            Giao tiếp trực tiếp với khách hàng mua sắm, theo dõi tiến độ đơn hàng và tư vấn bán hàng
           </p>
         </div>
 
@@ -507,7 +507,7 @@ export const SalesManagement = () => {
           <FileText size={18} /> 3. Đơn Hàng ({salesOrders.length})
         </button>
         <button onClick={() => setActiveTab('FEFO_INSIGHTS')} style={tabButtonStyle(activeTab === 'FEFO_INSIGHTS')}>
-          <Sparkles size={18} /> 4. Đẩy Hàng FEFO ({fefoItemsCount})
+          <Sparkles size={18} /> 4. Đẩy Bán Cận Hạn ({fefoItemsCount})
         </button>
         <button onClick={() => setActiveTab('CUSTOMERS')} style={tabButtonStyle(activeTab === 'CUSTOMERS')}>
           <Building2 size={18} /> 5. Khách Hàng B2B
@@ -683,10 +683,10 @@ export const SalesManagement = () => {
             {/* QUICK REPLY TEMPLATE CHIPS */}
             <div style={{ padding: '8px 12px', backgroundColor: '#ffffff', borderTop: '1px solid #f1f5f9', display: 'flex', gap: '8px', overflowX: 'auto' }}>
               <button
-                onClick={() => handleQuickReply(`Dạ chào anh/chị, đơn hàng #${activeConversation.orderCode} đã được duyệt và đang được kho soạn hàng FEFO nhé ạ!`)}
+                onClick={() => handleQuickReply(`Dạ chào anh/chị, đơn hàng #${activeConversation.orderCode} đã được duyệt và đang được kho soạn hàng nhé ạ!`)}
                 style={{ backgroundColor: '#f0fdf4', color: '#008848', border: '1px solid #bbf7d0', padding: '6px 12px', borderRadius: '16px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
               >
-                🚀 Báo đang soạn kho FEFO
+                🚀 Báo đang soạn hàng
               </button>
               <button
                 onClick={() => handleQuickReply('Sản phẩm CityMart cam kết 100% tươi sạch, vận chuyển bằng xe lạnh chuyên dụng ạ!')}
@@ -777,7 +777,7 @@ export const SalesManagement = () => {
             {/* QUICK ORDER ACTIONS */}
             <button
               onClick={() => {
-                showToast(`✅ Đã xác nhận duyệt đơn hàng #${activeConversation.orderCode} và chuyển yêu cầu soạn kho FEFO!`);
+                showToast(`✅ Đã xác nhận duyệt đơn hàng #${activeConversation.orderCode} và chuyển yêu cầu soạn kho!`);
               }}
               style={{
                 width: '100%', padding: '12px', borderRadius: '8px', border: 'none',
@@ -786,7 +786,7 @@ export const SalesManagement = () => {
                 justifyContent: 'center', gap: '8px', marginTop: 'auto'
               }}
             >
-              <CheckCheck size={18} /> Duyệt Đơn & Gửi Kho FEFO
+              <CheckCheck size={18} /> Duyệt Đơn & Gửi Sang Kho
             </button>
           </div>
         </div>
@@ -817,13 +817,13 @@ export const SalesManagement = () => {
                 >
                   {prod.isFefoPriority && (
                     <span style={{ position: 'absolute', top: 6, right: 6, backgroundColor: '#F59E0B', color: '#fff', fontSize: '0.65rem', fontWeight: 800, padding: '2px 6px', borderRadius: 4 }}>
-                      ⚡ Ưu tiên FEFO
+                      ⚡ Ưu tiên hạn gần
                     </span>
                   )}
 
                   <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--color-text)' }}>{prod.name}</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>
-                    Mã SKU: <strong>{prod.sku}</strong> | ĐVT: <strong>{prod.unit}</strong>
+                    Mã SP: <strong>{prod.sku}</strong> | ĐVT: <strong>{prod.unit}</strong>
                   </div>
                   <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#008848', marginTop: 6 }}>
                     {prod.price.toLocaleString('vi-VN')}đ / {prod.unit}
@@ -851,7 +851,7 @@ export const SalesManagement = () => {
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>Chọn Đối Tác B2B</label>
               <select
-                value={selectedCustomer.id}
+                value={selectedCustomer?.id || ''}
                 onChange={e => {
                   const cust = customers.find(c => c.id === e.target.value);
                   if (cust) {
@@ -932,7 +932,7 @@ export const SalesManagement = () => {
               className="btn btn-primary"
               style={{ width: '100%', backgroundColor: '#008848', color: '#fff', fontWeight: 900, padding: 12, fontSize: '0.95rem' }}
             >
-              🚀 Duyệt & Gửi Đơn Sang Kho FEFO
+              🚀 Duyệt & Gửi Đơn Sang Kho
             </button>
           </div>
         </div>
@@ -953,7 +953,7 @@ export const SalesManagement = () => {
                   <th style={{ padding: 10, textAlign: 'left' }}>Khách Hàng</th>
                   <th style={{ padding: 10, textAlign: 'left' }}>Loại KH</th>
                   <th style={{ padding: 10, textAlign: 'left' }}>Tổng Số Tiền</th>
-                  <th style={{ padding: 10, textAlign: 'left' }}>Trạng Thái Kho FEFO</th>
+                  <th style={{ padding: 10, textAlign: 'left' }}>Trạng Thái Xuất Kho</th>
                   <th style={{ padding: 10, textAlign: 'left' }}>Thời Gian</th>
                 </tr>
               </thead>
@@ -983,7 +983,7 @@ export const SalesManagement = () => {
       {activeTab === 'FEFO_INSIGHTS' && (
         <div style={{ background: 'var(--color-surface)', borderRadius: 12, padding: '1.25rem', border: '1px solid var(--color-border)' }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Sparkles size={20} color="#F59E0B" /> Đề Xuất Đẩy Hàng Cận Ngày (FEFO Intelligence)
+            <Sparkles size={20} color="#F59E0B" /> Đề Xuất Đẩy Bán Hàng Cận Hạn Dùng
           </h3>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
@@ -994,7 +994,7 @@ export const SalesManagement = () => {
                   <span style={{ color: '#D97706', fontSize: '0.8rem' }}>⚠️ Cận ngày ({p.expiryDaysLeft} ngày nữa)</span>
                 </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: 4 }}>
-                  SKU: <strong>{p.sku}</strong> | Tồn kho: <strong>{p.stock} {p.unit}</strong>
+                  Mã: <strong>{p.sku}</strong> | Tồn kho: <strong>{p.stock} {p.unit}</strong>
                 </div>
                 <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#008848', marginTop: 6 }}>
                   Giá gốc: {p.price.toLocaleString('vi-VN')}đ
@@ -1085,7 +1085,7 @@ const renderStatusBadge = (status: SalesOrder['status']) => {
     case 'PENDING':
       return <span style={{ backgroundColor: '#DBEAFE', color: '#1E40AF', padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 800 }}>Chờ kho nhận</span>;
     case 'PICKING':
-      return <span style={{ backgroundColor: '#FFEDD5', color: '#C2410C', padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 800 }}>Kho đang soạn FEFO</span>;
+      return <span style={{ backgroundColor: '#FFEDD5', color: '#C2410C', padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 800 }}>Kho đang soạn hàng</span>;
     case 'PACKED':
       return <span style={{ backgroundColor: '#DCFCE7', color: '#166534', padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 800 }}>Đã đóng gói</span>;
     case 'SHIPPED':

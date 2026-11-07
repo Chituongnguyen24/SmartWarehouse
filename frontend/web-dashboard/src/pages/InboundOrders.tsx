@@ -10,6 +10,7 @@ import {
 import WarehouseMap3D from '../components/WarehouseMap3D';
 import { InboundReceiptModal } from '../components/InboundReceiptModal';
 import { CreateInboundModal } from '../components/CreateInboundModal';
+import { BarcodeQRScannerModal } from '../components/BarcodeQRScannerModal';
 
 const API_BASE = 'http://localhost:3006'; // inbound-service
 const INVENTORY_API = 'http://localhost:3011'; // inventory-service
@@ -854,7 +855,7 @@ const InboundOrders: React.FC = () => {
             <Search size={15} color="#64748b" />
             <input 
               type="text" 
-              placeholder="Tìm mã phiếu, NCC, số HĐ, người giao, SKU..." 
+              placeholder="Tìm mã phiếu, nhà cung cấp, số HĐ, người giao, mã sản phẩm..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: '0.85rem' }}
@@ -1152,7 +1153,7 @@ const InboundOrders: React.FC = () => {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                   <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                     <tr>
-                      <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700 }}>SKU / Tên Hàng Hóa</th>
+                      <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700 }}>Mã & Tên Sản Phẩm</th>
                       <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700, textAlign: 'center' }}>SL Chứng Từ</th>
                       <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700, textAlign: 'center' }}>SL Thực Nhập</th>
                       <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700 }}>Vị Trí Kệ Lưu Kho</th>
@@ -1460,8 +1461,9 @@ const InboundOrders: React.FC = () => {
       )}
 
       {showScanner && (
-        <BarcodeScannerMock 
-          onScan={handleScan}
+        <BarcodeQRScannerModal 
+          isOpen={showScanner}
+          onScanSuccess={(code) => handleScan(code)}
           onClose={() => setShowScanner(false)}
         />
       )}

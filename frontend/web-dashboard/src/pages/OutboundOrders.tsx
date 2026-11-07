@@ -12,6 +12,7 @@ import {
 import { OutboundReceiptModal } from '../components/OutboundReceiptModal';
 import { CreateOutboundModal } from '../components/CreateOutboundModal';
 import { PrintOrderSlipModal, detectSlipClassification } from '../components/PrintOrderSlipModal';
+import { BarcodeQRScannerModal } from '../components/BarcodeQRScannerModal';
 
 const API_BASE = 'http://localhost:3007'; // outbound-service
 const INVENTORY_API = 'http://localhost:3011'; // inventory-service for FEFO
@@ -52,7 +53,7 @@ interface OutboundOrder {
 export type OutboundTransactionType = 'XUAT_BAN_FEFO' | 'DIEU_CHUYEN' | 'TRA_HANG_NCC' | 'XUAT_HUY' | 'XUAT_HAO_HUT';
 
 export const OUTBOUND_TYPE_CONFIG: Record<OutboundTransactionType, { label: string; bg: string; color: string; border: string; debitTk: string; creditTk: string }> = {
-  XUAT_BAN_FEFO: { label: 'Xuất bán hàng (FEFO)', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', debitTk: 'Nợ 632', creditTk: 'Có 1561' },
+  XUAT_BAN_FEFO: { label: 'Xuất bán hàng (Ưu tiên hạn dùng)', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', debitTk: 'Nợ 632', creditTk: 'Có 1561' },
   DIEU_CHUYEN:   { label: 'Điều chuyển chi nhánh', bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0', debitTk: 'Nợ 1561 (Đích)', creditTk: 'Có 1561 (Nguồn)' },
   TRA_HANG_NCC:  { label: 'Trả hàng lỗi cho NCC', bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', debitTk: 'Nợ 331', creditTk: 'Có 1561' },
   XUAT_HUY:      { label: 'Xuất hủy hết hạn', bg: '#faf5ff', color: '#7c3aed', border: '#e9d5ff', debitTk: 'Nợ 632, 811', creditTk: 'Có 1561' },
@@ -61,7 +62,7 @@ export const OUTBOUND_TYPE_CONFIG: Record<OutboundTransactionType, { label: stri
 
 const STEPS = [
   { key: 'PENDING', label: '1. Lập yêu cầu', icon: <FileText size={16} /> },
-  { key: 'PICKING', label: '2. Soạn hàng FEFO', icon: <BrainCircuit size={16} /> },
+  { key: 'PICKING', label: '2. Soạn hàng theo hạn dùng', icon: <BrainCircuit size={16} /> },
   { key: 'PACKED', label: '3. Đóng gói & QC', icon: <Box size={16} /> },
   { key: 'CONFIRMED', label: '4. Đã xuất kho', icon: <Truck size={16} /> },
   { key: 'DELIVERED', label: '5. Hoàn tất & Ghi sổ', icon: <CheckCircle2 size={16} /> }
@@ -351,7 +352,7 @@ const OutboundOrders: React.FC = () => {
   }, [orders, targetId, targetCode, showToast]);
 
   const runFefoAndApply = useCallback(async (orderId: string) => {
-    showToast('⚡ Đang chạy thuật toán FEFO phân bổ vị trí & lô hàng...', 'info');
+    showToast('⚡ Đang tự động phân bổ lô hàng ưu tiên theo hạn sử dụng...', 'info');
 
     try {
       const target = orders.find(o => o.id === orderId);
@@ -432,11 +433,11 @@ const OutboundOrders: React.FC = () => {
       if (updateRes.ok) {
         const updated = await updateRes.json();
         setOrders(prev => prev.map(o => o.id === orderId ? updated : o));
-        showToast('🎯 Thuật toán FEFO đã phân bổ lô hàng cận date & vị trí kệ chuẩn xác!', 'success');
+        showToast('🎯 Đã tự động phân bổ lô hàng cận date & vị trí kệ chuẩn xác!', 'success');
       }
     } catch (error) {
       console.error('FEFO error:', error);
-      showToast('Phân bổ FEFO hoàn tất!', 'success');
+      showToast('Tự động chọn lô hàng hoàn tất!', 'success');
     }
   }, [orders, token, showToast]);
 
@@ -657,7 +658,7 @@ const OutboundOrders: React.FC = () => {
                 Quản lý Xuất Kho (Outbound)
               </h2>
               <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '2px 0 0 0' }}>
-                Tích hợp thuật toán thông minh FEFO (First-Expired, First-Out), quét mã vạch và in Phiếu xuất kho Mẫu 02-VT.
+                Tự động xuất kho ưu tiên lô cận hạn dùng, hỗ trợ quét mã vạch và in Phiếu xuất kho Mẫu 02-VT.
               </p>
             </div>
           </div>
@@ -736,7 +737,7 @@ const OutboundOrders: React.FC = () => {
 
         <div style={{ background: '#fffbeb', padding: '16px', borderRadius: '14px', border: '1px solid #fde68a' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#b45309', fontSize: '0.8rem', fontWeight: 700 }}>
-            <span>CHỜ CHẠY FEFO</span>
+            <span>CHỜ CHỌN LÔ HÀNG</span>
             <BrainCircuit size={16} color="#f59e0b" />
           </div>
           <p style={{ fontSize: '1.6rem', fontWeight: 800, color: '#b45309', margin: '8px 0 0 0' }}>{kpiStats.pending}</p>
@@ -784,7 +785,7 @@ const OutboundOrders: React.FC = () => {
             {[
               { key: 'ALL', label: 'Tất cả trạng thái' },
               { key: 'PENDING', label: 'Tạo yêu cầu' },
-              { key: 'PICKING', label: 'Soạn hàng (FEFO)' },
+              { key: 'PICKING', label: 'Soạn hàng' },
               { key: 'PACKED', label: 'Đã đóng gói' },
               { key: 'CONFIRMED', label: 'Đã xuất kho' },
               { key: 'DELIVERED', label: 'Giao thành công' },
@@ -814,7 +815,7 @@ const OutboundOrders: React.FC = () => {
             <Search size={15} color="#64748b" />
             <input 
               type="text" 
-              placeholder="Tìm mã phiếu, khách hàng, điểm đến, SKU..." 
+              placeholder="Tìm mã phiếu, khách hàng, điểm đến, mã sản phẩm..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: '0.85rem' }}
@@ -834,7 +835,7 @@ const OutboundOrders: React.FC = () => {
           </span>
           {[
             { key: 'ALL', label: 'Tất cả nghiệp vụ' },
-            { key: 'XUAT_BAN_FEFO', label: '🏷️ Xuất bán hàng FEFO (Nợ 632 - Có 1561)' },
+            { key: 'XUAT_BAN_FEFO', label: '🏷️ Xuất bán hàng (Nợ 632 - Có 1561)' },
             { key: 'DIEU_CHUYEN', label: '🏷️ Điều chuyển chi nhánh (Nợ 1561 - Có 1561)' },
             { key: 'TRA_HANG_NCC', label: '🏷️ Trả hàng NCC lỗi (Nợ 331 - Có 1561)' },
             { key: 'XUAT_HUY', label: '🏷️ Xuất hủy hết hạn (Nợ 632, 811 - Có 1561)' },
@@ -1260,11 +1261,11 @@ const OutboundOrders: React.FC = () => {
             <div style={{ marginTop: '1.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <h4 style={{ fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                  Chi tiết lấy hàng (Picking List - FEFO) {isEditingOrder && <span style={{ fontSize: '12px', color: '#b45309', fontWeight: 600 }}>[Cho phép sửa số lượng từng món bên dưới]</span>}
+                  Danh sách hàng cần lấy (Ưu tiên hạn gần) {isEditingOrder && <span style={{ fontSize: '12px', color: '#b45309', fontWeight: 600 }}>[Cho phép sửa số lượng từng món bên dưới]</span>}
                 </h4>
                 {selectedOrder.status === 'PENDING' && !isEditingOrder && (
                   <button className="btn btn-primary" style={{ backgroundColor: 'var(--color-primary-600)', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => runFefoAndApply(selectedOrder.id)}>
-                    <BrainCircuit size={16} /> Chạy Thuật Toán FEFO
+                    <BrainCircuit size={16} /> Tự Động Chọn Lô Hạn Gần
                   </button>
                 )}
               </div>
@@ -1273,9 +1274,9 @@ const OutboundOrders: React.FC = () => {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                   <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                     <tr>
-                      <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700 }}>SKU / Tên SP</th>
+                      <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700 }}>Mã & Tên Sản Phẩm</th>
                       <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700, width: '130px' }}>SL Yêu cầu</th>
-                      <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700 }}>Lô Đề Xuất (FEFO)</th>
+                      <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700 }}>Lô Đề Xuất (Hạn Dùng)</th>
                       <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700 }}>Vị Trí Kệ</th>
                       <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700 }}>HSD Lô Hàng</th>
                     </tr>
@@ -1467,8 +1468,9 @@ const OutboundOrders: React.FC = () => {
       )}
 
       {showScanner && (
-        <BarcodeScannerMock 
-          onScan={handleScan}
+        <BarcodeQRScannerModal 
+          isOpen={showScanner}
+          onScanSuccess={(code) => handleScan(code)}
           onClose={() => setShowScanner(false)}
         />
       )}

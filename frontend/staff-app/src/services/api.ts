@@ -1,21 +1,14 @@
 import { PickingItem } from '../types';
 
-// Dynamic host detection: If accessed from mobile on LAN, route requests to that LAN IP or localhost
-const getBackendHost = () => {
-  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
-    return window.location.hostname;
-  }
-  return 'localhost';
-};
+import { getBackendHost } from './networkConfig';
 
-const BACKEND_HOST = getBackendHost();
-
-const API_URLS = {
-  OUTBOUND: `http://${BACKEND_HOST}:3007`,
-  INVENTORY: `http://${BACKEND_HOST}:3011`,
-  PRODUCT: `http://${BACKEND_HOST}:3010`,
-  INBOUND: `http://${BACKEND_HOST}:3006`,
-  AUTH: `http://${BACKEND_HOST}:3012`,
+export const API_URLS = {
+  get OUTBOUND() { return `http://${getBackendHost()}:3007`; },
+  get INVENTORY() { return `http://${getBackendHost()}:3011`; },
+  get PRODUCT() { return `http://${getBackendHost()}:3010`; },
+  get INBOUND() { return `http://${getBackendHost()}:3006`; },
+  get AUTH() { return `http://${getBackendHost()}:3012`; },
+  get IOT() { return `http://${getBackendHost()}:3014`; },
 };
 
 let currentAuthToken: string | null = null;

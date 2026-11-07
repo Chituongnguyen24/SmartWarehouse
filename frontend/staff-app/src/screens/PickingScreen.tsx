@@ -247,8 +247,8 @@ export const PickingScreen: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Soạn Hàng Xuất Kho (FEFO)</Text>
-          <Text style={styles.subtitle}>Chỉ dẫn vị trí kệ • Ưu tiên HSD gần nhất (:3007)</Text>
+          <Text style={styles.title}>Soạn Hàng Xuất Kho (Ưu Tiên Hạn Dùng)</Text>
+          <Text style={styles.subtitle}>Chỉ dẫn vị trí kệ • Ưu tiên hạn sử dụng gần nhất</Text>
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -268,7 +268,7 @@ export const PickingScreen: React.FC = () => {
 
           <View style={styles.fefoBadge}>
             <Zap size={13} color="#d97706" />
-            <Text style={styles.fefoBadgeText}>FEFO</Text>
+            <Text style={styles.fefoBadgeText}>HẠN GẦN</Text>
           </View>
         </View>
       </View>
@@ -583,7 +583,7 @@ export const PickingScreen: React.FC = () => {
                     onPress={() => handleProcessScan(activeScanItem.sku)}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.sampleChipText}>🏷️ Mã SKU: {activeScanItem.sku}</Text>
+                    <Text style={styles.sampleChipText}>🏷️ Mã SP: {activeScanItem.sku}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.sampleChip}
@@ -621,7 +621,7 @@ export const PickingScreen: React.FC = () => {
                 style={styles.manualInput}
                 value={manualCode}
                 onChangeText={setManualCode}
-                placeholder="Nhập mã Barcode, SKU, hoặc Mã Lô..."
+                placeholder="Nhập mã vạch, mã sản phẩm, hoặc mã lô..."
                 placeholderTextColor="#94a3b8"
                 autoCapitalize="characters"
                 onSubmitEditing={() => handleProcessScan(manualCode)}

@@ -383,7 +383,7 @@ export const PrintOrderSlipModal: React.FC<Props> = ({ order, onClose }) => {
               )}
               {order.tripNumber && (
                 <div style={{ fontSize: '11.5px', color: '#0284c7', fontWeight: 700, marginTop: '2px' }}>
-                  Chuyến giao hàng: <b>Chuyến #{order.tripNumber} (Lộ trình VRP)</b>
+                  Chuyến giao hàng: <b>Chuyến #{order.tripNumber} (Tuyến giao hàng)</b>
                 </div>
               )}
               <div style={{ fontSize: '11.5px', color: '#475569', marginTop: '3px' }}>
@@ -396,7 +396,7 @@ export const PrintOrderSlipModal: React.FC<Props> = ({ order, onClose }) => {
           <div style={{ marginBottom: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
               <div style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase' }}>
-                Danh Sách Hàng Hóa Thực Phẩm (Chuẩn Xuất FEFO)
+                Danh Sách Hàng Hóa Thực Phẩm (Ưu Tiên Hạn Dùng)
               </div>
               <span style={{ fontSize: '11px', color: '#64748b' }}>
                 Tổng số lượng: <b>{totalQty} {classification === 'DISPOSAL' ? 'món / kiện phế phẩm' : 'món'}</b>
@@ -407,8 +407,8 @@ export const PrintOrderSlipModal: React.FC<Props> = ({ order, onClose }) => {
               <thead>
                 <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
                   <th style={{ padding: '7px 8px', width: '28px', textAlign: 'center' }}>STT</th>
-                  <th style={{ padding: '7px 8px' }}>Tên Sản Phẩm / Mã SKU</th>
-                  <th style={{ padding: '7px 8px' }}>Lô FEFO / Vị Trí Kệ</th>
+                  <th style={{ padding: '7px 8px' }}>Tên Sản Phẩm / Mã Số</th>
+                  <th style={{ padding: '7px 8px' }}>Lô Hàng / Vị Trí Kệ</th>
                   <th style={{ padding: '7px 8px', textAlign: 'center', width: '45px' }}>SL</th>
                   <th style={{ padding: '7px 8px', textAlign: 'right', width: '85px' }}>Đơn Giá</th>
                   <th style={{ padding: '7px 8px', textAlign: 'right', width: '95px' }}>Thành Tiền</th>
@@ -424,7 +424,7 @@ export const PrintOrderSlipModal: React.FC<Props> = ({ order, onClose }) => {
                         <td style={{ padding: '7px 8px', color: '#64748b', textAlign: 'center' }}>{idx + 1}</td>
                         <td style={{ padding: '7px 8px' }}>
                           <div style={{ fontWeight: 700, color: '#0f172a' }}>{item.productName}</div>
-                          <div style={{ fontSize: '10.5px', color: '#64748b', fontFamily: 'monospace' }}>SKU: {item.sku}</div>
+                          <div style={{ fontSize: '10.5px', color: '#64748b', fontFamily: 'monospace' }}>Mã: {item.sku}</div>
                         </td>
                         <td style={{ padding: '7px 8px' }}>
                           <span style={{ fontSize: '10.5px', backgroundColor: classification === 'DISPOSAL' ? '#fef2f2' : '#ecfdf5', color: classification === 'DISPOSAL' ? '#b91c1c' : '#047857', padding: '2px 5px', borderRadius: '4px', fontWeight: 700 }}>

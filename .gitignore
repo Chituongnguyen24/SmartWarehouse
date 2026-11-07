@@ -9,6 +9,12 @@ build/
 .expo-shared/
 web-build/
 *.tsbuildinfo
+*.apk
+frontend/staff-app/emulator_screen.png
+frontend/staff-app/real_phone_screen.png
+
+# External templates & standalone repositories
+frontend/ai-website-cloner-template/
 
 # Environment & Secret files
 .env
