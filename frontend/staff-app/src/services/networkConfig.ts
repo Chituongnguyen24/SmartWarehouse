@@ -16,7 +16,10 @@ export const DEFAULT_LAN_IP = '192.168.2.147';
 export const getBackendHost = (): string => {
   if (typeof window !== 'undefined' && window.localStorage) {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved && saved.trim() !== '') {
+    // Tự động dọn dẹp các IP LAN cũ (như 192.168.x.x) để đảm bảo luôn dùng 'localhost' qua USB adb reverse
+    if (saved && (saved.startsWith('192.168.') || saved === '10.0.2.2')) {
+      localStorage.removeItem(STORAGE_KEY);
+    } else if (saved && saved.trim() !== '') {
       return saved.trim();
     }
   }
@@ -24,11 +27,6 @@ export const getBackendHost = (): string => {
   const envHost = (import.meta as any).env?.VITE_BACKEND_HOST;
   if (envHost && envHost.trim() !== '') {
     return envHost.trim();
-  }
-
-  if (Capacitor.isNativePlatform()) {
-    // Mặc định cho điện thoại thật: IP Wi-Fi LAN máy tính để chạy không cần cắm cáp
-    return DEFAULT_LAN_IP;
   }
 
   if (typeof window !== 'undefined' && window.location && window.location.hostname) {

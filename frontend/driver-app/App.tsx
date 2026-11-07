@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, SafeAreaView } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, SafeAreaView, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { DriverTaskProvider, useDriverTask } from './src/context/DriverTaskContext';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -57,7 +57,7 @@ const DriverMainAppContent: React.FC = () => {
 
       {/* Bottom Nav Bar (Only when not in detail/POD view) */}
       {!selectedTask && !inPOD && (
-        <SafeAreaView style={styles.bottomNavContainer}>
+        <View style={styles.bottomNavContainer}>
           <View style={styles.tabBar}>
             <TouchableOpacity
               style={styles.tabItem}
@@ -127,7 +127,7 @@ const DriverMainAppContent: React.FC = () => {
               </Text>
             </TouchableOpacity>
           </View>
-        </SafeAreaView>
+        </View>
       )}
     </View>
   );
@@ -163,14 +163,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.headerBg,
     borderTopWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
+    flexShrink: 0,
+    paddingBottom: Platform.OS === 'android' ? 26 : 8,
   },
   tabBar: {
     flexDirection: 'row',
-    height: 60,
+    height: 56,
     alignItems: 'center',
     justifyContent: 'space-around',
     backgroundColor: COLORS.headerBg,
-    paddingBottom: 4,
+    paddingBottom: 0,
   },
   tabItem: {
     flex: 1,

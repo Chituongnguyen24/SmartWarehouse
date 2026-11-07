@@ -51,7 +51,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task, onBack
   };
 
   return (
-    <SafeAreaView style={styles.safeContainer}>
+    <View style={styles.safeContainer}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={onBack}>
@@ -60,7 +60,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task, onBack
         <Text style={styles.headerTitle}>Chi Tiết Đơn #{task.orderCode}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* GPS Map Preview Simulator Box */}
         <View style={styles.mapCard}>
           <View style={styles.mapHeaderRow}>
@@ -258,7 +258,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task, onBack
           </View>
         )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -542,9 +542,11 @@ const styles = StyleSheet.create({
   bottomBar: {
     backgroundColor: COLORS.surface,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingTop: 14,
+    paddingBottom: Platform.OS === 'android' ? 24 : 14,
     borderTopWidth: 1,
     borderColor: COLORS.border,
+    flexShrink: 0,
   },
   actionBtnPrimary: {
     backgroundColor: COLORS.routeBlue,

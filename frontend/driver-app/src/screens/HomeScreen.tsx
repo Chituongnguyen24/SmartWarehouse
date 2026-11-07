@@ -137,7 +137,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
     <View style={styles.container}>
       <DriverHeader />
 
-      <ScrollView contentContainerStyle={styles.mainScroll} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.mainScroll} showsVerticalScrollIndicator={false}>
 
         {/* ── CASE 1: RETURNING TO HUB (GIAO XONG ĐỢT -> QUAY VỀ KHO NHẬN ĐỢT MỚI) ── */}
         {tripStatus === 'RETURNING_TO_HUB' && (

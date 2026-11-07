@@ -571,7 +571,7 @@ export const StockLookup: React.FC = () => {
                 }}
               >
                 <Building2 size={15} color="#0284c7" />
-                <span>Kho trực thuộc: <b>{user?.warehouseName || 'Kho Gò Vấp'} ({user?.warehouseCode || 'WH-006'})</b></span>
+                <span>Kho trực thuộc: <b>{(user?.warehouseName || 'Kho Gò Vấp').replace(/\s*\([^)]*\)\s*$/, '')} ({user?.warehouseCode || 'WH-006'})</b></span>
               </div>
             ) : (
               <div style={{ position: 'relative', minWidth: '220px', flex: '0 1 300px' }}>

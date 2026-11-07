@@ -209,7 +209,7 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
   const nowString = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN');
 
   return (
-    <SafeAreaView style={styles.safeContainer}>
+    <View style={styles.safeContainer}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDark} />
 
       {/* Header */}
@@ -248,7 +248,7 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Order Destination Info Banner */}
         <View style={styles.orderBanner}>
           <Text style={styles.customerName}>{task.customerName} • {task.customerPhone}</Text>
@@ -524,7 +524,7 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 

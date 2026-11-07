@@ -241,6 +241,7 @@ export const PickingScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#059669" />}
       >

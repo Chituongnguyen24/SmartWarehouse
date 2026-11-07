@@ -502,13 +502,13 @@ export const EarningsScreen: React.FC = () => {
   const vietQrUrl = `https://img.vietqr.io/image/MB-0901234567-compact2.png?amount=${totalCodCollectedRange}&addInfo=${encodeURIComponent(codTransferInfo)}&accountName=KHO%20TRUNG%20TAM%20SFWMS`;
 
   return (
-    <SafeAreaView style={styles.safeContainer}>
+    <View style={styles.safeContainer}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Báo Cáo Ca Chạy & Đối Soát COD</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* ── DRIVER PROFILE CARD ── */}
         <View style={styles.driverProfileCard}>
           <View style={styles.driverAvatarPill}>
@@ -948,7 +948,7 @@ export const EarningsScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
 

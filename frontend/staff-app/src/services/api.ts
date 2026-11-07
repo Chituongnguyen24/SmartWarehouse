@@ -76,8 +76,8 @@ export interface ApiProduct {
 
 // Fetch Outbound Orders
 export const fetchOutboundOrders = async (warehouseCodeOrToken?: string | null, token?: string | null): Promise<ApiOutboundOrder[]> => {
+  let url = `${API_URLS.OUTBOUND}/outbound-orders?limit=100`;
   try {
-    let url = `${API_URLS.OUTBOUND}/outbound-orders?limit=100`;
     let authToken = token || currentAuthToken;
 
     if (warehouseCodeOrToken) {
@@ -91,11 +91,12 @@ export const fetchOutboundOrders = async (warehouseCodeOrToken?: string | null, 
     const res = await fetch(url, {
       headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
     });
+    console.log('[API SUCCESS] fetchOutboundOrders URL:', url, 'Status:', res.status);
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);
     const data = await res.json();
     return Array.isArray(data) ? data : data.data || [];
   } catch (err) {
-    console.warn('Using local fallback for outbound orders:', err);
+    console.warn('[API ERROR] Using local fallback for outbound orders:', url, err);
     return [];
   }
 };

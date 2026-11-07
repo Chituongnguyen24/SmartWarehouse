@@ -17,8 +17,8 @@ const getResolvedHost = (): string => {
   }
   
   if (Platform.OS === 'android') {
-    // Real Android devices on Wi-Fi LAN
-    return DEFAULT_LAN_IP;
+    // Real Android devices connected over USB adb reverse
+    return 'localhost';
   }
 
   // iOS simulator or default fallback

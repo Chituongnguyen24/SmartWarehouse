@@ -17,6 +17,16 @@ class MainActivity : ReactActivity() {
     // This is required for expo-splash-screen.
     setTheme(R.style.AppTheme);
     super.onCreate(null)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+      setShowWhenLocked(true)
+      setTurnScreenOn(true)
+    } else {
+      window.addFlags(
+        android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+        android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+      )
+    }
+    window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
   }
 
   /**

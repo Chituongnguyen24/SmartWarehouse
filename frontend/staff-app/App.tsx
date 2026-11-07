@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#ffffff',
     paddingVertical: 8,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 14,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 18,
     borderTopWidth: 1,
     borderTopColor: '#e2e8f0',
     shadowColor: '#000',

@@ -9,6 +9,7 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:hardwareAccelerated="true">
 
         <activity
@@ -17,6 +18,8 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
             android:exported="true">
 
             <intent-filter>

@@ -111,14 +111,19 @@ export const DashboardHome: React.FC = () => {
   }, [lastEvent, loadCounts]);
 
   // Generate initials
-  const initials = user?.name
-    ? user.name
-        .split(' ')
+  const cleanName = (user?.name || '').replace(/\([^)]*\)/g, '').trim();
+  const initials = cleanName
+    ? cleanName
+        .split(/\s+/)
+        .filter(Boolean)
         .map(w => w[0])
         .slice(-2)
         .join('')
         .toUpperCase()
     : 'NV';
+
+  const rawWhName = user?.warehouseName || 'Kho Gò Vấp';
+  const cleanWhName = rawWhName.replace(/\s*\([^)]*\)\s*$/, '');
 
   return (
     <div style={{ padding: '16px', paddingBottom: '90px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -214,7 +219,7 @@ export const DashboardHome: React.FC = () => {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#0369a1', fontWeight: 600 }}>
             <MapPin size={14} color="#0284c7" />
-            <span>Kho trực thuộc: <b>{user?.warehouseName || 'Kho Gò Vấp'} ({user?.warehouseCode || 'WH-006'})</b></span>
+            <span>Kho trực thuộc: <b>{cleanWhName} ({user?.warehouseCode || 'WH-006'})</b></span>
           </div>
 
           <button

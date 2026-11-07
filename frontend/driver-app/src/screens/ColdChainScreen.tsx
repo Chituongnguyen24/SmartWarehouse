@@ -24,12 +24,12 @@ export const ColdChainScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeContainer}>
+    <View style={styles.safeContainer}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Giám Sát Nhiệt Độ Thùng Xe (IoT Cold-Chain)</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Sensor Main Gauge Card */}
         <View style={[styles.gaugeCard, isTempGood ? styles.gaugeGood : styles.gaugeWarning]}>
           <View style={styles.gaugeHeader}>
@@ -111,7 +111,7 @@ export const ColdChainScreen: React.FC = () => {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 

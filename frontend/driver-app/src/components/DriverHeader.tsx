@@ -10,7 +10,7 @@ export const DriverHeader: React.FC = () => {
   const isTempNormal = driverProfile.currentTemp <= driverProfile.targetTempMax;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <View style={styles.container}>
         {/* Top Profile & Online Toggle */}
         <View style={styles.topRow}>
@@ -97,7 +97,7 @@ export const DriverHeader: React.FC = () => {
           </View>
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -105,6 +105,7 @@ const styles = StyleSheet.create({
   safeArea: {
     backgroundColor: COLORS.headerBg,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    flexShrink: 0,
   },
   container: {
     backgroundColor: COLORS.headerBg,

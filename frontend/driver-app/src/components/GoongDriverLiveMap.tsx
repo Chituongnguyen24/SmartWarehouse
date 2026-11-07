@@ -203,16 +203,15 @@ export const GoongDriverLiveMap: React.FC<GoongDriverLiveMapProps> = ({
           width: 32px;
           height: 32px;
           border-radius: 50%;
-          background: linear-gradient(135deg, #0284c7, #0369a1);
-          border: 2.5px solid #ffffff;
+          background: #0284c7;
+          border: 2px solid #ffffff;
           box-shadow: 0 4px 10px rgba(2, 132, 199, 0.5);
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 16px;
           z-index: 2;
         ">
-          ${vehicleIconChar}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
         </div>
         <div style="
           position: absolute;
