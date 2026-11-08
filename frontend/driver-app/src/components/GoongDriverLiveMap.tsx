@@ -1,25 +1,29 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
 import { DeliveryTask } from '../types/driver';
 import { resolveCoordsAndCleanAddress } from '../utils/locationHelper';
 import {
   Navigation,
-  Compass,
-  MapPin,
-  Layers,
   Maximize2,
   Minimize2,
-  ExternalLink,
-  Phone,
-  Truck,
-  Bike,
   Route,
-  RefreshCw,
   LocateFixed,
 } from 'lucide-react-native';
 
+let WebViewComponent: any = null;
+if (Platform.OS !== 'web') {
+  try {
+    WebViewComponent = require('react-native-webview').WebView;
+  } catch (e) {
+    console.warn('react-native-webview not loaded:', e);
+  }
+}
+
 const GOONG_MAPTILES_KEY = 'xR9zgCIphv0ZQ7sAS02MRDA9mouqEfatcx24BtYl';
 const GOONG_API_KEY = '9ZLtEkemS6YgqbCVlt5yfFCl0VdvJIN57mCXRge6';
+
+// Warehouse Hub: Kho Gò Vấp
+const WAREHOUSE_HUB_COORDS: [number, number] = [10.8354, 106.6668];
 
 // Decode Google / Goong encoded polyline points
 function decodePolyline(encoded: string): [number, number][] {
@@ -59,6 +63,349 @@ interface GoongDriverLiveMapProps {
   onSelectTask?: (task: DeliveryTask) => void;
 }
 
+interface StopData {
+  id: string;
+  orderCode: string;
+  customerName: string;
+  cleanAddress: string;
+  phone: string;
+  lat: number;
+  lng: number;
+  isCurrentActive: boolean;
+  isDelivered: boolean;
+  seq: number;
+}
+
+// Generate self-contained HTML for Native WebView with Leaflet 1.9.4
+function buildMapHtml(params: {
+  initialLoc: { lat: number; lng: number; speedKmh: number };
+  initialStops: StopData[];
+  initialRoute: [number, number][];
+  driverName: string;
+  vehicleType: string;
+}): string {
+  const jsonInit = JSON.stringify({
+    loc: params.initialLoc,
+    stops: params.initialStops,
+    route: params.initialRoute,
+    driverName: params.driverName,
+    vehicleType: params.vehicleType,
+    hubCoords: WAREHOUSE_HUB_COORDS,
+  });
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+    html, body, #map {
+      width: 100%;
+      height: 100%;
+      background: #090d16;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+    }
+    @keyframes goongPulse {
+      0% { transform: scale(0.6); opacity: 1; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+    .goong-driver-marker {
+      overflow: visible !important;
+      z-index: 1000 !important;
+    }
+    .goong-stop-marker {
+      overflow: visible !important;
+      z-index: 800 !important;
+    }
+    .goong-wh-hub-marker {
+      overflow: visible !important;
+      z-index: 900 !important;
+    }
+    .leaflet-popup-content-wrapper {
+      background: #0f172a;
+      color: #f8fafc;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      padding: 0;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+    }
+    .leaflet-popup-content {
+      margin: 8px 12px;
+      line-height: 1.4;
+    }
+    .leaflet-popup-tip {
+      background: #0f172a;
+    }
+    .leaflet-container {
+      background: #090d16;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    (function() {
+      var config = ${jsonInit};
+      var map = null;
+      var driverMarker = null;
+      var hubMarker = null;
+      var stopsLayer = [];
+      var activeRouteLine = null;
+      var allStopsLine = null;
+
+      function getDriverIconHtml(speed) {
+        var spdText = (speed && speed > 0) ? (speed + ' km/h') : 'Đang đỗ';
+        return '<div style="position:relative;width:48px;height:48px;display:flex;align-items:center;justify-content:center;">' +
+          '<div style="position:absolute;width:44px;height:44px;border-radius:50%;background:rgba(14,165,233,0.25);animation:goongPulse 2s infinite ease-out;border:1.5px solid #0284c7;"></div>' +
+          '<div style="width:32px;height:32px;border-radius:50%;background:#0284c7;border:2px solid #ffffff;box-shadow:0 3px 8px rgba(2,132,199,0.5);display:flex;align-items:center;justify-content:center;z-index:2;">' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>' +
+          '</div>' +
+          '<div id="driver-speed-badge" style="position:absolute;bottom:-14px;background:#0f172a;color:#38bdf8;font-size:9px;font-weight:700;padding:1px 6px;border-radius:999px;border:1px solid #0284c7;white-space:nowrap;z-index:3;box-shadow:0 2px 4px rgba(0,0,0,0.3);">' +
+            spdText +
+          '</div>' +
+        '</div>';
+      }
+
+      function init() {
+        if (!window.L) {
+          setTimeout(init, 100);
+          return;
+        }
+        var L = window.L;
+        var initLat = (config.loc && config.loc.lat) || 10.8354;
+        var initLng = (config.loc && config.loc.lng) || 106.6668;
+
+        map = L.map('map', {
+          center: [initLat, initLng],
+          zoom: 14,
+          zoomControl: false,
+          attributionControl: false
+        });
+
+        // High-performance Google Maps tiles with ArcGIS Street Map fallback
+        var baseLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+          maxZoom: 20,
+          subdomains: ['0', '1', '2', '3'],
+          attribution: '&copy; Goong / Google Maps'
+        });
+        baseLayer.on('tileerror', function() {
+          L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19
+          }).addTo(map);
+        });
+        baseLayer.addTo(map);
+
+        // Force Leaflet to recalculate WebView container dimensions
+        setTimeout(function() {
+          if (map) {
+            map.invalidateSize();
+            fitAll();
+          }
+        }, 300);
+        setTimeout(function() {
+          if (map) {
+            map.invalidateSize();
+          }
+        }, 1200);
+
+        // Warehouse Hub Marker
+        var hubIcon = L.divIcon({
+          className: 'goong-wh-hub-marker',
+          html: '<div style="background:#065f46;color:#ffffff;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;display:flex;align-items:center;border:1.5px solid #10b981;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.3);"><span>Kho Gò Vấp (WH-006)</span></div>',
+          iconSize: [150, 26],
+          iconAnchor: [75, 13]
+        });
+        hubMarker = L.marker(config.hubCoords || [10.8354, 106.6668], { icon: hubIcon }).addTo(map);
+        hubMarker.bindPopup('<div style="font-family:sans-serif;font-size:12px;font-weight:700;color:#0f172a;">Trung tâm điều phối: Kho Gò Vấp (WH-006)</div>');
+
+        // Render Driver Marker
+        updateDriver(config.loc);
+
+        // Render Stops
+        updateStops(config.stops);
+
+        // Render Route
+        if (config.route && config.route.length > 0) {
+          updateRoute(config.route);
+        }
+
+        // Fit bounds
+        setTimeout(fitAll, 200);
+
+        window.driverMap = {
+          map: map,
+          updateDriver: updateDriver,
+          updateStops: updateStops,
+          updateRoute: updateRoute,
+          recenter: recenter,
+          fitAll: fitAll
+        };
+      }
+
+      function updateDriver(loc) {
+        if (!loc || !map || !window.L) return;
+        var L = window.L;
+        if (!driverMarker) {
+          var icon = L.divIcon({
+            className: 'goong-driver-marker',
+            html: getDriverIconHtml(loc.speedKmh || 0),
+            iconSize: [48, 48],
+            iconAnchor: [24, 24]
+          });
+          driverMarker = L.marker([loc.lat, loc.lng], { icon: icon, zIndexOffset: 1000 }).addTo(map);
+          driverMarker.bindPopup(
+            '<div style="font-family:sans-serif;padding:2px;">' +
+              '<div style="font-weight:700;color:#0f172a;font-size:12px;">' + (config.driverName || 'Tài xế') + ' (' + (config.vehicleType || 'TRUCK') + ')</div>' +
+              '<div style="font-size:11px;color:#64748b;margin-top:2px;">Tốc độ: <b>' + (loc.speedKmh || 0) + ' km/h</b></div>' +
+              '<div style="font-size:10px;color:#0284c7;margin-top:2px;">GPS: ' + loc.lat.toFixed(5) + ', ' + loc.lng.toFixed(5) + '</div>' +
+            '</div>'
+          );
+        } else {
+          driverMarker.setLatLng([loc.lat, loc.lng]);
+          var spdEl = document.getElementById('driver-speed-badge');
+          if (spdEl) {
+            spdEl.innerText = (loc.speedKmh && loc.speedKmh > 0) ? (loc.speedKmh + ' km/h') : 'Đang đỗ';
+          }
+        }
+      }
+
+      function updateStops(stops) {
+        if (!map || !window.L) return;
+        var L = window.L;
+        stopsLayer.forEach(function(m) { m.remove(); });
+        stopsLayer = [];
+
+        if (!stops || stops.length === 0) return;
+
+        stops.forEach(function(stop) {
+          var color = stop.isDelivered ? '#10b981' : stop.isCurrentActive ? '#0284c7' : '#f59e0b';
+          var badgeBg = stop.isDelivered ? '#059669' : stop.isCurrentActive ? '#0284c7' : '#d97706';
+          var iconContent = stop.isDelivered
+            ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>'
+            : stop.seq;
+
+          var stopIcon = L.divIcon({
+            className: 'goong-stop-marker',
+            html: '<div style="position:relative;display:flex;flex-direction:column;align-items:center;">' +
+              '<div style="width:26px;height:26px;border-radius:50%;background:' + color + ';border:2px solid #ffffff;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:#ffffff;font-weight:700;font-size:11px;">' +
+                iconContent +
+              '</div>' +
+              '<div style="background:rgba(15,23,42,0.9);color:#ffffff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-top:2px;white-space:nowrap;border:1px solid rgba(255,255,255,0.2);">' +
+                stop.orderCode +
+              '</div>' +
+            '</div>',
+            iconSize: [60, 44],
+            iconAnchor: [30, 22]
+          });
+
+          var marker = L.marker([stop.lat, stop.lng], { icon: stopIcon }).addTo(map);
+          marker.bindPopup(
+            '<div style="font-family:sans-serif;min-width:180px;padding:2px;">' +
+              '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
+                '<span style="background:' + badgeBg + ';color:white;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">' +
+                  (stop.isDelivered ? 'ĐÃ GIAO' : stop.isCurrentActive ? 'ĐANG GIAO (ĐIỂM NÀY)' : ('ĐIỂM DỪNG #' + stop.seq)) +
+                '</span>' +
+                '<span style="font-size:11px;font-weight:700;color:#0f172a;">' + stop.orderCode + '</span>' +
+              '</div>' +
+              '<div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:2px;">' + stop.customerName + '</div>' +
+              '<div style="font-size:11px;color:#475569;margin-bottom:4px;line-height:1.3;">' + (stop.cleanAddress || '') + '</div>' +
+              (stop.phone ? '<div style="font-size:11px;color:#0284c7;font-weight:600;">ĐT: ' + stop.phone + '</div>' : '') +
+            '</div>'
+          );
+          stopsLayer.push(marker);
+        });
+
+        // Remaining coords polyline
+        if (allStopsLine) {
+          allStopsLine.remove();
+          allStopsLine = null;
+        }
+        var remaining = stops.filter(function(s) { return !s.isDelivered; }).map(function(s) { return [s.lat, s.lng]; });
+        if (remaining.length > 1) {
+          allStopsLine = L.polyline(remaining, {
+            color: '#f59e0b',
+            weight: 3,
+            dashArray: '6, 6',
+            opacity: 0.6
+          }).addTo(map);
+        }
+      }
+
+      function updateRoute(points) {
+        if (!map || !window.L) return;
+        var L = window.L;
+        if (activeRouteLine) {
+          activeRouteLine.remove();
+          activeRouteLine = null;
+        }
+        if (!points || points.length === 0) return;
+        activeRouteLine = L.polyline(points, {
+          color: '#0284c7',
+          weight: 5,
+          opacity: 0.9,
+          lineCap: 'round',
+          lineJoin: 'round'
+        }).addTo(map);
+      }
+
+      function recenter() {
+        if (!map || !driverMarker) return;
+        map.setView(driverMarker.getLatLng(), 15, { animate: true });
+      }
+
+      function fitAll() {
+        if (!map || !window.L) return;
+        var L = window.L;
+        map.invalidateSize();
+        var pts = [];
+        if (driverMarker) pts.push(driverMarker.getLatLng());
+        stopsLayer.forEach(function(m) { pts.push(m.getLatLng()); });
+        if (hubMarker) pts.push(hubMarker.getLatLng());
+
+        if (pts.length === 1) {
+          map.setView(pts[0], 15, { animate: true });
+        } else if (pts.length > 1) {
+          var bounds = L.latLngBounds(pts);
+          map.fitBounds(bounds, { padding: [35, 35], maxZoom: 16, animate: true });
+        }
+      }
+
+      function onMsg(event) {
+        try {
+          var msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+          if (!msg) return;
+          if (msg.type === 'UPDATE_DRIVER') {
+            updateDriver({ lat: msg.lat, lng: msg.lng, speedKmh: msg.speed });
+          } else if (msg.type === 'UPDATE_STOPS') {
+            updateStops(msg.stops);
+          } else if (msg.type === 'UPDATE_ROUTE') {
+            updateRoute(msg.points);
+          } else if (msg.type === 'RECENTER') {
+            recenter();
+          } else if (msg.type === 'FIT_ALL') {
+            fitAll();
+          }
+        } catch(e) {}
+      }
+
+      window.addEventListener('message', onMsg);
+      document.addEventListener('message', onMsg);
+
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        init();
+      } else {
+        document.addEventListener('DOMContentLoaded', init);
+      }
+    })();
+  </script>
+</body>
+</html>`;
+}
+
 export const GoongDriverLiveMap: React.FC<GoongDriverLiveMapProps> = ({
   driverLocation,
   tasks,
@@ -74,18 +421,57 @@ export const GoongDriverLiveMap: React.FC<GoongDriverLiveMapProps> = ({
   const stopsLayerRef = useRef<any[]>([]);
   const activeRoutePolylineRef = useRef<any>(null);
   const allStopsPolylineRef = useRef<any>(null);
+  const webViewRef = useRef<any>(null);
 
   const [isMapReady, setIsMapReady] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [distanceEtaText, setDistanceEtaText] = useState<string>('Đang tính lộ trình...');
   const [isRoutingLoading, setIsRoutingLoading] = useState(false);
+  const [activeRoutePoints, setActiveRoutePoints] = useState<[number, number][]>([]);
 
-  // ── Smart API Throttling & Caching Refs (Saves 99% of API Tokens) ──
+  // Smart API Throttling & Caching Refs
   const lastRoutedTaskIdRef = useRef<string | null>(null);
   const lastRoutedCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
   const lastFetchTimeRef = useRef<number>(0);
 
-  // 1. Initialize Leaflet + Map Tiles on Web
+  // Compute prepared stops list for both Web and Native
+  const preparedStops: StopData[] = useMemo(() => {
+    return (tasks || []).map((task, index) => {
+      const isCurrentActive = currentTask?.id === task.id || (index === 0 && task.status === 'IN_TRANSIT');
+      const isDelivered = task.status === 'DELIVERED';
+      const address = (task as any).customerAddress || task.deliveryAddress || '';
+      const latVal = (task as any).customerLat || task.latitude;
+      const lngVal = (task as any).customerLng || task.longitude;
+      const geo = resolveCoordsAndCleanAddress(address, latVal, lngVal);
+
+      return {
+        id: task.id,
+        orderCode: task.orderCode || `#Đơn ${index + 1}`,
+        customerName: task.customerName || 'Khách hàng',
+        cleanAddress: geo.cleanAddress,
+        phone: task.customerPhone || '',
+        lat: geo.lat,
+        lng: geo.lng,
+        isCurrentActive,
+        isDelivered,
+        seq: index + 1,
+      };
+    });
+  }, [tasks, currentTask]);
+
+  // Initial HTML for Native WebView (memoized to prevent reload flashes)
+  const initialMapHtml = useMemo(() => {
+    return buildMapHtml({
+      initialLoc: driverLocation,
+      initialStops: preparedStops,
+      initialRoute: activeRoutePoints,
+      driverName,
+      vehicleType,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [driverName, vehicleType]);
+
+  // ── 1. Web-only Leaflet Initialization ──
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
 
@@ -119,8 +505,8 @@ export const GoongDriverLiveMap: React.FC<GoongDriverLiveMapProps> = ({
       }
 
       const initialCenter: [number, number] = [
-        driverLocation?.lat || 10.8354,
-        driverLocation?.lng || 106.6668,
+        driverLocation?.lat || WAREHOUSE_HUB_COORDS[0],
+        driverLocation?.lng || WAREHOUSE_HUB_COORDS[1],
       ];
 
       const map = L.map(mapContainerRef.current, {
@@ -130,37 +516,36 @@ export const GoongDriverLiveMap: React.FC<GoongDriverLiveMapProps> = ({
         attributionControl: false,
       });
 
-      L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
         maxZoom: 20,
-        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-        attribution: '&copy; Goong.io & Google Maps',
+        subdomains: ['0', '1', '2', '3'],
+        attribution: '&copy; Goong / Google Maps',
       }).addTo(map);
 
-      // Warehouse Hub Marker (Kho Gò Vấp)
+      // Warehouse Hub Marker
       const hubIcon = L.divIcon({
         className: 'goong-wh-hub-marker',
         html: `
           <div style="
-            background: linear-gradient(135deg, #059669, #0f172a);
-            color: white;
-            padding: 5px 8px;
-            border-radius: 8px;
+            background: #065f46;
+            color: #ffffff;
+            padding: 4px 8px;
+            border-radius: 6px;
             font-size: 11px;
-            font-weight: 800;
+            font-weight: 700;
             display: flex;
             align-items: center;
-            gap: 4px;
-            box-shadow: 0 4px 12px rgba(5,150,105,0.4);
-            border: 2px solid #ffffff;
+            border: 1.5px solid #10b981;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
             white-space: nowrap;
           ">
             <span>Kho Gò Vấp (WH-006)</span>
           </div>
         `,
-        iconSize: [160, 30],
-        iconAnchor: [80, 15],
+        iconSize: [150, 26],
+        iconAnchor: [75, 13],
       });
-      L.marker([10.8354, 106.6668], { icon: hubIcon }).addTo(map);
+      L.marker(WAREHOUSE_HUB_COORDS, { icon: hubIcon }).addTo(map);
 
       leafletMapRef.current = map;
       setIsMapReady(true);
@@ -177,198 +562,150 @@ export const GoongDriverLiveMap: React.FC<GoongDriverLiveMapProps> = ({
     };
   }, []);
 
-  // 2. Update Driver GPS Marker & Radar on Location change
+  // ── 2. Real-time Driver GPS Marker Updates (Web & Native) ──
   useEffect(() => {
-    if (!isMapReady || !leafletMapRef.current || typeof window === 'undefined') return;
-    const L = (window as any).L;
-    if (!L) return;
+    // Web Leaflet update
+    if (Platform.OS === 'web' && isMapReady && leafletMapRef.current && (window as any).L) {
+      const L = (window as any).L;
+      const lat = driverLocation.lat;
+      const lng = driverLocation.lng;
+      const speed = driverLocation.speedKmh || 0;
 
-    const lat = driverLocation.lat;
-    const lng = driverLocation.lng;
-    const speed = driverLocation.speedKmh || 0;
-    const isTruck = vehicleType === 'TRUCK' || vehicleType === 'VAN';
-
-    const driverHtml = `
-      <div style="position: relative; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;">
-        <div style="
-          position: absolute;
-          width: 44px;
-          height: 44px;
-          border-radius: 50%;
-          background: rgba(14, 165, 233, 0.25);
-          animation: goongPulse 2s infinite ease-out;
-          border: 1.5px solid #0284c7;
-        "></div>
-        <div style="
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          background: #0284c7;
-          border: 2px solid #ffffff;
-          box-shadow: 0 4px 10px rgba(2, 132, 199, 0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 2;
-        ">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
-        </div>
-        <div style="
-          position: absolute;
-          bottom: -18px;
-          background: #0f172a;
-          color: #38bdf8;
-          font-size: 9px;
-          font-weight: 900;
-          padding: 1px 6px;
-          border-radius: 999px;
-          border: 1px solid #0284c7;
-          white-space: nowrap;
-          z-index: 3;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-        ">
-          ${speed > 0 ? `${speed} km/h` : 'Đang đỗ'}
-        </div>
-      </div>
-      <style>
-        @keyframes goongPulse {
-          0% { transform: scale(0.6); opacity: 1; }
-          100% { transform: scale(1.6); opacity: 0; }
-        }
-      </style>
-    `;
-
-    const icon = L.divIcon({
-      className: 'goong-driver-marker',
-      html: driverHtml,
-      iconSize: [48, 48],
-      iconAnchor: [24, 24],
-    });
-
-    if (!driverMarkerRef.current) {
-      driverMarkerRef.current = L.marker([lat, lng], { icon, zIndexOffset: 1000 }).addTo(leafletMapRef.current);
-      driverMarkerRef.current.bindPopup(`
-        <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 4px;">
-          <div style="font-weight: 800; color: #0f172a; font-size: 12px; margin-bottom: 2px;">
-            ${driverName} (${vehicleType})
+      const driverHtml = `
+        <div style="position: relative; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;">
+          <div style="
+            position: absolute;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(14, 165, 233, 0.25);
+            animation: goongPulse 2s infinite ease-out;
+            border: 1.5px solid #0284c7;
+          "></div>
+          <div style="
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #0284c7;
+            border: 2px solid #ffffff;
+            box-shadow: 0 4px 10px rgba(2, 132, 199, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+          ">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
           </div>
-          <div style="font-size: 11px; color: #64748b;">
-            Tốc độ hiện tại: <b>${speed} km/h</b>
-          </div>
-          <div style="font-size: 10px; color: #0284c7; margin-top: 4px;">
-            Tọa độ GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}
+          <div style="
+            position: absolute;
+            bottom: -16px;
+            background: #0f172a;
+            color: #38bdf8;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 999px;
+            border: 1px solid #0284c7;
+            white-space: nowrap;
+            z-index: 3;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+          ">
+            ${speed > 0 ? `${speed} km/h` : 'Đang đỗ'}
           </div>
         </div>
-      `);
-    } else {
-      driverMarkerRef.current.setLatLng([lat, lng]);
-      driverMarkerRef.current.setIcon(icon);
+      `;
+
+      const icon = L.divIcon({
+        className: 'goong-driver-marker',
+        html: driverHtml,
+        iconSize: [48, 48],
+        iconAnchor: [24, 24],
+      });
+
+      if (!driverMarkerRef.current) {
+        driverMarkerRef.current = L.marker([lat, lng], { icon, zIndexOffset: 1000 }).addTo(leafletMapRef.current);
+      } else {
+        driverMarkerRef.current.setLatLng([lat, lng]);
+        driverMarkerRef.current.setIcon(icon);
+      }
+    }
+
+    // Native WebView update
+    if (Platform.OS !== 'web' && webViewRef.current) {
+      const js = `if(window.driverMap&&window.driverMap.updateDriver){window.driverMap.updateDriver({lat:${driverLocation.lat},lng:${driverLocation.lng},speedKmh:${driverLocation.speedKmh || 0}});}true;`;
+      webViewRef.current.injectJavaScript(js);
     }
   }, [driverLocation.lat, driverLocation.lng, driverLocation.speedKmh, isMapReady, vehicleType, driverName]);
 
-  // 3. Render Delivery Task Stop Markers & Draw Goong Route Polylines
+  // ── 3. Render Delivery Task Stop Markers & Route Calculation ──
   useEffect(() => {
-    if (!isMapReady || !leafletMapRef.current || typeof window === 'undefined') return;
-    const L = (window as any).L;
-    if (!L) return;
+    // Web Leaflet stops render
+    if (Platform.OS === 'web' && isMapReady && leafletMapRef.current && (window as any).L) {
+      const L = (window as any).L;
+      stopsLayerRef.current.forEach((m) => m.remove());
+      stopsLayerRef.current = [];
 
-    stopsLayerRef.current.forEach((m) => m.remove());
-    stopsLayerRef.current = [];
+      preparedStops.forEach((stop) => {
+        const markerColor = stop.isDelivered ? '#10b981' : stop.isCurrentActive ? '#0284c7' : '#f59e0b';
+        const badgeBg = stop.isDelivered ? '#059669' : stop.isCurrentActive ? '#0284c7' : '#d97706';
 
-    if (activeRoutePolylineRef.current) {
-      activeRoutePolylineRef.current.remove();
-      activeRoutePolylineRef.current = null;
+        const stopIcon = L.divIcon({
+          className: 'goong-stop-marker',
+          html: `
+            <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+              <div style="
+                width: 26px;
+                height: 26px;
+                border-radius: 50%;
+                background: ${markerColor};
+                border: 2px solid #ffffff;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #ffffff;
+                font-weight: 700;
+                font-size: 11px;
+              ">
+                ${stop.isDelivered ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>' : stop.seq}
+              </div>
+              <div style="
+                background: rgba(15, 23, 42, 0.9);
+                color: #ffffff;
+                font-size: 9px;
+                font-weight: 700;
+                padding: 1px 5px;
+                border-radius: 4px;
+                margin-top: 2px;
+                white-space: nowrap;
+                border: 1px solid rgba(255,255,255,0.2);
+              ">
+                ${stop.orderCode}
+              </div>
+            </div>
+          `,
+          iconSize: [60, 44],
+          iconAnchor: [30, 22],
+        });
+
+        const stopMarker = L.marker([stop.lat, stop.lng], { icon: stopIcon }).addTo(leafletMapRef.current);
+        stopsLayerRef.current.push(stopMarker);
+      });
     }
-    if (allStopsPolylineRef.current) {
-      allStopsPolylineRef.current.remove();
-      allStopsPolylineRef.current = null;
+
+    // Native WebView stops update
+    if (Platform.OS !== 'web' && webViewRef.current) {
+      const stopsJson = JSON.stringify(preparedStops);
+      const js = `if(window.driverMap&&window.driverMap.updateStops){window.driverMap.updateStops(${stopsJson});}true;`;
+      webViewRef.current.injectJavaScript(js);
     }
 
+    // ── 4. Fetch Goong Direction Route from Driver to Active / Next Stop ──
     if (!tasks || tasks.length === 0) {
       setDistanceEtaText('Chưa có đơn hàng trong chuyến');
       return;
     }
 
-    const map = leafletMapRef.current;
-    const bounds = L.latLngBounds([[driverLocation.lat, driverLocation.lng]]);
-
-    // Add Stop Markers
-    tasks.forEach((task, index) => {
-      const isCurrentActive = currentTask?.id === task.id || (index === 0 && task.status === 'IN_TRANSIT');
-      const isDelivered = task.status === 'DELIVERED';
-      const address = (task as any).customerAddress || task.deliveryAddress || '';
-      const latVal = (task as any).customerLat || task.latitude;
-      const lngVal = (task as any).customerLng || task.longitude;
-      const geo = resolveCoordsAndCleanAddress(address, latVal, lngVal);
-
-      bounds.extend([geo.lat, geo.lng]);
-
-      const markerColor = isDelivered ? '#10b981' : isCurrentActive ? '#0284c7' : '#f59e0b';
-      const badgeBg = isDelivered ? '#059669' : isCurrentActive ? '#0284c7' : '#d97706';
-
-      const stopIcon = L.divIcon({
-        className: 'goong-stop-marker',
-        html: `
-          <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
-            <div style="
-              width: 28px;
-              height: 28px;
-              border-radius: 50%;
-              background: ${markerColor};
-              border: 2.5px solid #ffffff;
-              box-shadow: 0 4px 10px rgba(0,0,0,0.25);
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              color: #ffffff;
-              font-weight: 900;
-              font-size: 11px;
-            ">
-              ${isDelivered ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>' : index + 1}
-            </div>
-            <div style="
-              background: rgba(15, 23, 42, 0.9);
-              color: #ffffff;
-              font-size: 9px;
-              font-weight: 700;
-              padding: 1px 5px;
-              border-radius: 4px;
-              margin-top: 2px;
-              white-space: nowrap;
-              border: 1px solid rgba(255,255,255,0.2);
-            ">
-              ${task.orderCode || `#Đơn ${index + 1}`}
-            </div>
-          </div>
-        `,
-        iconSize: [60, 48],
-        iconAnchor: [30, 24],
-      });
-
-      const stopMarker = L.marker([geo.lat, geo.lng], { icon: stopIcon }).addTo(map);
-
-      stopMarker.bindPopup(`
-        <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; min-width: 180px; padding: 2px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-            <span style="background: ${badgeBg}; color: white; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px;">
-              ${isDelivered ? 'ĐÃ GIAO' : isCurrentActive ? 'ĐANG GIAO (ĐIỂM DỪNG NÀY)' : `ĐIỂM DỪNG #${index + 1}`}
-            </span>
-            <span style="font-size: 11px; font-weight: 800; color: #0f172a;">${task.orderCode}</span>
-          </div>
-          <div style="font-size: 12px; font-weight: 800; color: #0f172a; margin-bottom: 2px;">
-            ${task.customerName}
-          </div>
-          <div style="font-size: 11px; color: #475569; margin-bottom: 4px; line-height: 1.3;">
-            ${geo.cleanAddress}
-          </div>
-          ${task.customerPhone ? `<div style="font-size: 11px; color: #0284c7; font-weight: 700;">ĐT: ${task.customerPhone}</div>` : ''}
-        </div>
-      `);
-
-      stopsLayerRef.current.push(stopMarker);
-    });
-
-    // 4. Fetch Goong Direction Route from Driver to Active / Next Stop (Throttled & Cached)
     const targetTask = currentTask || tasks.find((t) => t.status !== 'DELIVERED') || tasks[0];
     if (targetTask) {
       const address = (targetTask as any).customerAddress || targetTask.deliveryAddress || '';
@@ -379,8 +716,7 @@ export const GoongDriverLiveMap: React.FC<GoongDriverLiveMapProps> = ({
       const now = Date.now();
       const hasTaskChanged = lastRoutedTaskIdRef.current !== targetTask.id;
       const lastCoords = lastRoutedCoordsRef.current;
-      
-      // Calculate distance moved from last API call
+
       let distanceMovedKm = 999;
       if (lastCoords) {
         const dLat = (driverLocation.lat - lastCoords.lat) * 111.32;
@@ -388,10 +724,6 @@ export const GoongDriverLiveMap: React.FC<GoongDriverLiveMapProps> = ({
         distanceMovedKm = Math.sqrt(dLat * dLat + dLng * dLng);
       }
 
-      // ONLY call Goong API if:
-      // 1. Switched to another delivery task/order
-      // 2. Or moved > 300 meters from last route calculation AND > 30s elapsed
-      // Otherwise REUSE existing polyline (0 API tokens consumed)
       const shouldCallGoongApi = hasTaskChanged || (distanceMovedKm > 0.3 && now - lastFetchTimeRef.current > 30000);
 
       if (shouldCallGoongApi) {
@@ -418,91 +750,96 @@ export const GoongDriverLiveMap: React.FC<GoongDriverLiveMapProps> = ({
               const encoded = route.overview_polyline?.points;
               if (encoded) {
                 const polyPoints = decodePolyline(encoded);
-                if (activeRoutePolylineRef.current) activeRoutePolylineRef.current.remove();
+                setActiveRoutePoints(polyPoints);
 
-                activeRoutePolylineRef.current = L.polyline(polyPoints, {
-                  color: '#0284c7',
-                  weight: 5,
-                  opacity: 0.9,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }).addTo(map);
+                // Update Web
+                if (Platform.OS === 'web' && leafletMapRef.current && (window as any).L) {
+                  const L = (window as any).L;
+                  if (activeRoutePolylineRef.current) activeRoutePolylineRef.current.remove();
+                  activeRoutePolylineRef.current = L.polyline(polyPoints, {
+                    color: '#0284c7',
+                    weight: 5,
+                    opacity: 0.9,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                  }).addTo(leafletMapRef.current);
+                }
+
+                // Update Native
+                if (Platform.OS !== 'web' && webViewRef.current) {
+                  const ptsJson = JSON.stringify(polyPoints);
+                  const js = `if(window.driverMap&&window.driverMap.updateRoute){window.driverMap.updateRoute(${ptsJson});}true;`;
+                  webViewRef.current.injectJavaScript(js);
+                }
               }
             } else {
-              const fallbackPoints = [
+              const fallbackPoints: [number, number][] = [
                 [driverLocation.lat, driverLocation.lng],
                 [destGeo.lat, destGeo.lng],
               ];
-              if (activeRoutePolylineRef.current) activeRoutePolylineRef.current.remove();
-              activeRoutePolylineRef.current = L.polyline(fallbackPoints, {
-                color: '#0284c7',
-                weight: 4,
-                dashArray: '8, 8',
-                opacity: 0.8,
-              }).addTo(map);
+              setActiveRoutePoints(fallbackPoints);
               setDistanceEtaText(`Đang dẫn đường đến ${targetTask.customerName}`);
+
+              if (Platform.OS === 'web' && leafletMapRef.current && (window as any).L) {
+                const L = (window as any).L;
+                if (activeRoutePolylineRef.current) activeRoutePolylineRef.current.remove();
+                activeRoutePolylineRef.current = L.polyline(fallbackPoints, {
+                  color: '#0284c7',
+                  weight: 4,
+                  dashArray: '8, 8',
+                }).addTo(leafletMapRef.current);
+              }
+
+              if (Platform.OS !== 'web' && webViewRef.current) {
+                const ptsJson = JSON.stringify(fallbackPoints);
+                const js = `if(window.driverMap&&window.driverMap.updateRoute){window.driverMap.updateRoute(${ptsJson});}true;`;
+                webViewRef.current.injectJavaScript(js);
+              }
             }
           })
           .catch((err) => {
             console.warn('Goong driver route fetch fallback:', err);
-            const fallbackPoints = [
+            const fallbackPoints: [number, number][] = [
               [driverLocation.lat, driverLocation.lng],
               [destGeo.lat, destGeo.lng],
             ];
-            if (activeRoutePolylineRef.current) activeRoutePolylineRef.current.remove();
-            activeRoutePolylineRef.current = L.polyline(fallbackPoints, {
-              color: '#0284c7',
-              weight: 4,
-              dashArray: '8, 8',
-            }).addTo(map);
+            setActiveRoutePoints(fallbackPoints);
+
+            if (Platform.OS !== 'web' && webViewRef.current) {
+              const ptsJson = JSON.stringify(fallbackPoints);
+              const js = `if(window.driverMap&&window.driverMap.updateRoute){window.driverMap.updateRoute(${ptsJson});}true;`;
+              webViewRef.current.injectJavaScript(js);
+            }
           })
           .finally(() => {
             setIsRoutingLoading(false);
           });
       }
     }
+  }, [tasks, currentTask, driverLocation.lat, driverLocation.lng, isMapReady, vehicleType, preparedStops]);
 
-    // Connect upcoming stops with dotted line
-    const remainingCoords: [number, number][] = [];
-    tasks
-      .filter((t) => t.status !== 'DELIVERED')
-      .forEach((t) => {
-        const address = (t as any).customerAddress || t.deliveryAddress || '';
-        const latVal = (t as any).customerLat || t.latitude;
-        const lngVal = (t as any).customerLng || t.longitude;
-        const g = resolveCoordsAndCleanAddress(address, latVal, lngVal);
-        remainingCoords.push([g.lat, g.lng]);
-      });
-
-    if (remainingCoords.length > 1) {
-      allStopsPolylineRef.current = L.polyline(remainingCoords, {
-        color: '#f59e0b',
-        weight: 3,
-        dashArray: '6, 6',
-        opacity: 0.6,
-      }).addTo(map);
-    }
-  }, [tasks, currentTask, driverLocation.lat, driverLocation.lng, isMapReady, vehicleType]);
-
+  // ── HUD Actions ──
   const handleRecenter = () => {
-    if (!leafletMapRef.current) return;
-    leafletMapRef.current.setView([driverLocation.lat, driverLocation.lng], 15, {
-      animate: true,
-    });
+    if (Platform.OS === 'web') {
+      if (leafletMapRef.current) {
+        leafletMapRef.current.setView([driverLocation.lat, driverLocation.lng], 15, { animate: true });
+      }
+    } else {
+      webViewRef.current?.injectJavaScript('if(window.driverMap&&window.driverMap.recenter){window.driverMap.recenter();}true;');
+    }
   };
 
   const handleFitAll = () => {
-    if (!leafletMapRef.current || !(window as any).L) return;
-    const L = (window as any).L;
-    const bounds = L.latLngBounds([[driverLocation.lat, driverLocation.lng]]);
-    tasks.forEach((t) => {
-      const address = (t as any).customerAddress || t.deliveryAddress || '';
-      const latVal = (t as any).customerLat || t.latitude;
-      const lngVal = (t as any).customerLng || t.longitude;
-      const g = resolveCoordsAndCleanAddress(address, latVal, lngVal);
-      bounds.extend([g.lat, g.lng]);
-    });
-    leafletMapRef.current.fitBounds(bounds, { padding: [30, 30], animate: true });
+    if (Platform.OS === 'web') {
+      if (!leafletMapRef.current || !(window as any).L) return;
+      const L = (window as any).L;
+      const bounds = L.latLngBounds([[driverLocation.lat, driverLocation.lng]]);
+      preparedStops.forEach((s) => bounds.extend([s.lat, s.lng]));
+      bounds.extend(WAREHOUSE_HUB_COORDS);
+      leafletMapRef.current.fitBounds(bounds, { padding: [30, 30], animate: true });
+    } else {
+      webViewRef.current?.injectJavaScript('if(window.driverMap&&window.driverMap.fitAll){window.driverMap.fitAll();}true;');
+    }
   };
 
   return (
@@ -520,7 +857,7 @@ export const GoongDriverLiveMap: React.FC<GoongDriverLiveMapProps> = ({
             </View>
             <Text style={styles.gpsCoords}>
               {driverLocation.lat.toFixed(4)}, {driverLocation.lng.toFixed(4)} • Tốc độ:{' '}
-              <Text style={{ color: '#4ade80', fontWeight: '800' }}>
+              <Text style={{ color: '#166534', fontWeight: '700' }}>
                 {driverLocation.speedKmh || 0} km/h
               </Text>
             </Text>
@@ -567,14 +904,34 @@ export const GoongDriverLiveMap: React.FC<GoongDriverLiveMapProps> = ({
             style={{
               width: '100%',
               height: '100%',
-              borderRadius: '0 0 16px 16px',
+              borderRadius: '0 0 10px 10px',
               backgroundColor: '#090d16',
+            }}
+          />
+        ) : WebViewComponent ? (
+          <WebViewComponent
+            ref={webViewRef}
+            originWhitelist={['*']}
+            source={{ html: initialMapHtml }}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            geolocationEnabled={true}
+            nestedScrollEnabled={true}
+            scrollEnabled={false}
+            style={styles.webView}
+            onLoadEnd={() => {
+              // Sync latest route points if available once map loads
+              if (webViewRef.current && activeRoutePoints.length > 0) {
+                const ptsJson = JSON.stringify(activeRoutePoints);
+                webViewRef.current.injectJavaScript(`if(window.driverMap&&window.driverMap.updateRoute){window.driverMap.updateRoute(${ptsJson});}true;`);
+              }
             }}
           />
         ) : (
           <View style={styles.nativeFallback}>
-            <Text style={{ color: '#94a3b8', fontSize: 13, fontWeight: '700' }}>
-              Bản đồ GPS trực tiếp (Vui lòng truy cập trên nền Web/Mobile Web)
+            <ActivityIndicator size="small" color="#0284c7" />
+            <Text style={{ color: '#94a3b8', fontSize: 12, marginTop: 8 }}>
+              Đang khởi tạo bản đồ...
             </Text>
           </View>
         )}
@@ -597,7 +954,7 @@ export const GoongDriverLiveMap: React.FC<GoongDriverLiveMapProps> = ({
 const styles = StyleSheet.create({
   cardContainer: {
     backgroundColor: '#090d16',
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#1e293b',
     marginHorizontal: 16,
@@ -605,10 +962,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
   },
   topHud: {
     flexDirection: 'row',
@@ -627,39 +984,35 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   pulsingDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#22c55e',
-    shadowColor: '#22c55e',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#16a34a',
   },
   gpsTitle: {
     color: '#f8fafc',
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
   liveTag: {
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    backgroundColor: '#f0fdf4',
     paddingHorizontal: 5,
     paddingVertical: 1.5,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.4)',
+    borderColor: '#bbf7d0',
   },
   liveTagText: {
-    color: '#4ade80',
+    color: '#166534',
     fontSize: 8.5,
-    fontWeight: '900',
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
   gpsCoords: {
     color: '#94a3b8',
     fontSize: 10.5,
-    fontWeight: '600',
+    fontWeight: '500',
     marginTop: 2,
   },
   hudActions: {
@@ -670,7 +1023,7 @@ const styles = StyleSheet.create({
   hudBtn: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: 6,
     backgroundColor: '#1e293b',
     alignItems: 'center',
     justifyContent: 'center',
@@ -680,8 +1033,14 @@ const styles = StyleSheet.create({
   mapWrap: {
     width: '100%',
     position: 'relative',
-    transition: 'height 0.3s ease',
-  } as any,
+    backgroundColor: '#090d16',
+  },
+  webView: {
+    flex: 1,
+    backgroundColor: '#090d16',
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
+  },
   nativeFallback: {
     flex: 1,
     alignItems: 'center',
@@ -694,25 +1053,24 @@ const styles = StyleSheet.create({
     bottom: 8,
     left: 10,
     right: 10,
-    backgroundColor: 'rgba(15, 23, 42, 0.92)',
-    backdropFilter: 'blur(8px)',
-    borderRadius: 10,
+    backgroundColor: 'rgba(15, 23, 42, 0.94)',
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
+    borderColor: '#334155',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
     zIndex: 999,
-  } as any,
+  },
   routeBannerText: {
     color: '#f8fafc',
     fontSize: 11.5,
-    fontWeight: '800',
+    fontWeight: '600',
   },
 });

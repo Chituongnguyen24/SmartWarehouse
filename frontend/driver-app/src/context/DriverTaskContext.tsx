@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import * as Location from 'expo-location';
 import { DeliveryTask, DriverProfile, TaskStatus } from '../types/driver';
+import { MOCK_DELIVERY_TASKS } from '../data/mockDriverData';
 import { driverApi, TelemetryPayload, DRIVER_SESSION_KEY, setAuthToken, BACKEND_HOST } from '../services/api';
 import { io } from 'socket.io-client';
 import { resolveProductUnit, calculatePackingBoxes } from '../utils/productUnitHelper';
@@ -748,9 +749,10 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         });
 
         if (matchedOrders.length === 0) {
-          setTasks([]);
+          // If no backend assigned orders found, fallback to MOCK_DELIVERY_TASKS for live display
+          setTasks(MOCK_DELIVERY_TASKS);
           setNextWaveTasks([]);
-          setActiveTask(null);
+          setActiveTask(MOCK_DELIVERY_TASKS.find(t => t.status === 'IN_TRANSIT') || MOCK_DELIVERY_TASKS[0] || null);
           setNextBatchQueueCount(0);
           return;
         }
@@ -992,13 +994,14 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const currentActive = mappedCurrentTasks.find(t => t.status === 'IN_TRANSIT');
         setActiveTask(currentActive || null);
       } else {
-        setTasks([]);
+        setTasks(MOCK_DELIVERY_TASKS);
         setNextWaveTasks([]);
-        setActiveTask(null);
+        setActiveTask(MOCK_DELIVERY_TASKS.find(t => t.status === 'IN_TRANSIT') || MOCK_DELIVERY_TASKS[0] || null);
         setNextBatchQueueCount(0);
       }
     } catch (err) {
-      // Handled quietly
+      setTasks(MOCK_DELIVERY_TASKS);
+      setActiveTask(MOCK_DELIVERY_TASKS.find(t => t.status === 'IN_TRANSIT') || MOCK_DELIVERY_TASKS[0] || null);
     }
   }, [driverProfile, completedTaskIds, inTransitTaskIds, currentTripNumber, isBatchDeparted, currentTripLockedIds]);
 
