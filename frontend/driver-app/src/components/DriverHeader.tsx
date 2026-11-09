@@ -1,16 +1,19 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, StatusBar } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDriverTask } from '../context/DriverTaskContext';
 import { COLORS } from '../theme/colors';
 import { Truck, Thermometer, ShieldCheck, AlertTriangle, Power, LogOut } from 'lucide-react-native';
 
 export const DriverHeader: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const { driverProfile, toggleOnline, logout } = useDriverTask();
 
   const isTempNormal = driverProfile.currentTemp <= driverProfile.targetTempMax;
+  const topPadding = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0);
 
   return (
-    <View style={styles.safeArea}>
+    <View style={[styles.safeArea, { paddingTop: topPadding }]}>
       <View style={styles.container}>
         {/* Top Profile & Online Toggle */}
         <View style={styles.topRow}>
@@ -104,7 +107,6 @@ export const DriverHeader: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     backgroundColor: COLORS.headerBg,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
     flexShrink: 0,
   },
   container: {

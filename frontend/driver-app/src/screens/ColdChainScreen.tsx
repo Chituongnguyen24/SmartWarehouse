@@ -5,19 +5,21 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Platform,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDriverTask } from '../context/DriverTaskContext';
 import { COLORS } from '../theme/colors';
 import { Thermometer, ShieldCheck, AlertTriangle, RefreshCw, Cpu, Fan } from 'lucide-react-native';
 
 export const ColdChainScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const { driverProfile, updateContainerTemp } = useDriverTask();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const isTempGood = driverProfile.currentTemp <= driverProfile.targetTempMax;
+  const topPadding = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0);
 
   const handleSimulateTemp = (newTemp: number) => {
     updateContainerTemp(newTemp);
@@ -25,7 +27,7 @@ export const ColdChainScreen: React.FC = () => {
 
   return (
     <View style={styles.safeContainer}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: topPadding, height: topPadding + 52 }]}>
         <Text style={styles.headerTitle}>Giám Sát Nhiệt Độ Thùng Xe (IoT Cold-Chain)</Text>
       </View>
 
@@ -119,7 +121,6 @@ const styles = StyleSheet.create({
   safeContainer: {
     flex: 1,
     backgroundColor: COLORS.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     height: 50,

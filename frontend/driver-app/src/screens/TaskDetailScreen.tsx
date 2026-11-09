@@ -5,12 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Platform,
   StatusBar,
   Linking,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DeliveryTask } from '../types/driver';
 import { useDriverTask } from '../context/DriverTaskContext';
 import { COLORS } from '../theme/colors';
@@ -34,7 +34,11 @@ interface TaskDetailScreenProps {
 }
 
 export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task, onBack, onOpenPOD }) => {
+  const insets = useSafeAreaInsets();
   const { startDelivery, driverProfile } = useDriverTask();
+
+  const topPadding = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0);
+  const bottomPadding = insets.bottom > 0 ? insets.bottom + 6 : (Platform.OS === 'android' ? 20 : 14);
 
   const formatPrice = (val: number) => val.toLocaleString('vi-VN') + 'đ';
 
@@ -51,7 +55,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task, onBack
   };
 
   return (
-    <View style={styles.safeContainer}>
+    <View style={[styles.safeContainer, { paddingTop: topPadding }]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={onBack}>

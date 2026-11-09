@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { DeliveryTask } from '../types/driver';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDriverTask } from '../context/DriverTaskContext';
 import { COLORS } from '../theme/colors';
 import {
@@ -51,7 +52,11 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
   onBack,
   onSuccess,
 }) => {
+  const insets = useSafeAreaInsets();
   const { tasks, completeDelivery, reportDeliveryFailure, driverProfile } = useDriverTask();
+
+  const topPadding = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0);
+  const bottomPadding = Math.max(insets.bottom, Platform.OS === 'android' ? 48 : 16) + 32;
 
   const [activeMode, setActiveMode] = useState<'POD' | 'EXCEPTION'>('POD');
   const [photoUri, setPhotoUri] = useState<string>('https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&q=80');
@@ -213,7 +218,7 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDark} />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: topPadding + 8, height: topPadding + 56 }]}>
         <TouchableOpacity style={styles.backBtn} onPress={onBack}>
           <ArrowLeft size={20} color={COLORS.surface} />
         </TouchableOpacity>
@@ -248,7 +253,11 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding }]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Order Destination Info Banner */}
         <View style={styles.orderBanner}>
           <Text style={styles.customerName}>{task.customerName} • {task.customerPhone}</Text>

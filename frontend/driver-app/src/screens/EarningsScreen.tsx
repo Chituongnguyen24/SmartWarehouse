@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   Platform,
   StatusBar,
   TouchableOpacity,
@@ -13,6 +12,7 @@ import {
   Alert,
   TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDriverTask } from '../context/DriverTaskContext';
 import { COLORS } from '../theme/colors';
 import {
@@ -498,13 +498,16 @@ export const EarningsScreen: React.FC = () => {
     return 'Toàn bộ thời gian';
   };
 
+  const insets = useSafeAreaInsets();
+  const topPadding = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0);
+
   const codTransferInfo = `NOP COD ${driverProfile?.id || 'TX01'} ${selectedDateFilter}`;
   const vietQrUrl = `https://img.vietqr.io/image/MB-0901234567-compact2.png?amount=${totalCodCollectedRange}&addInfo=${encodeURIComponent(codTransferInfo)}&accountName=KHO%20TRUNG%20TAM%20SFWMS`;
 
   return (
     <View style={styles.safeContainer}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: topPadding, height: topPadding + 52 }]}>
         <Text style={styles.headerTitle}>Báo Cáo Ca Chạy & Đối Soát COD</Text>
       </View>
 
@@ -956,7 +959,6 @@ const styles = StyleSheet.create({
   safeContainer: {
     flex: 1,
     backgroundColor: '#f8fafc',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     height: 52,
