@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "dev": "adb reverse tcp:8081 tcp:8081 && expo start --offline",
     "start": "expo start --offline",
     "start:lan": "expo start --offline --lan",
     "start:tunnel": "expo start --tunnel",

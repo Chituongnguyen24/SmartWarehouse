@@ -18,6 +18,7 @@
     "infra:logs": "docker compose logs -f",
     "customer:start": "npm run start -w frontend/customer-app",
     "driver:start": "npm run start -w frontend/driver-app",
+    "driver:dev": "npm run dev -w frontend/driver-app",
     "driver:phone": "npm run run:phone -w frontend/driver-app",
     "driver:build:apk": "npm run build:apk -w frontend/driver-app",
     "staff:start": "npm run start -w frontend/staff-app",
