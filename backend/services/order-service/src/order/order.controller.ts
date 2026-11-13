@@ -60,6 +60,49 @@ export class OrderController {
     return this.orderService.getLiveDrivers();
   }
 
+  @Get('driver-cod/summary')
+  @ApiOperation({ summary: 'Thống kê đối soát tiền COD theo session ca làm việc của tài xế' })
+  getDriverCodSummary(
+    @Query('driverId') driverId: string,
+    @Query('date') date?: string,
+  ) {
+    return this.orderService.getDriverCodSummary(driverId, date);
+  }
+
+  @Get('cod-reconciliation')
+  @ApiOperation({ summary: 'Báo cáo thống kê đối soát COD toàn diện cho nhân viên/kế toán' })
+  getCodReconciliationReport(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('warehouseCode') warehouseCode?: string,
+    @Query('driverId') driverId?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.orderService.getCodReconciliationReport({
+      startDate,
+      endDate,
+      warehouseCode,
+      driverId,
+      status,
+    });
+  }
+
+  @Post('driver-cod/settle')
+  @ApiOperation({ summary: 'Bàn giao và nộp tiền COD ca làm việc của tài xế vào database' })
+  settleDriverCod(
+    @Body() dto: {
+      driverId: string;
+      driverName?: string;
+      warehouseCode?: string;
+      shiftDate?: string;
+      amount: number;
+      paymentMethod?: string;
+      notes?: string;
+    },
+  ) {
+    return this.orderService.settleDriverCod(dto);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get order by id' })
   findOne(@Param('id') id: string) {

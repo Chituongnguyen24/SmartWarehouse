@@ -67,6 +67,15 @@ export class OutboundOrder {
   @Column({ name: 'customer_phone', nullable: true })
   customerPhone: string;
 
+  @Column({ name: 'pod_photo_url', type: 'text', nullable: true })
+  podPhotoUrl: string;
+
+  @Column({ name: 'failure_reason', type: 'text', nullable: true })
+  failureReason: string;
+
+  @Column({ name: 'failure_photo_url', type: 'text', nullable: true })
+  failurePhotoUrl: string;
+
   @OneToMany(() => OutboundOrderItem, (item) => item.outboundOrder)
   items: OutboundOrderItem[];
 

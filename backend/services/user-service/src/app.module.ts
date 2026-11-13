@@ -6,8 +6,10 @@ import { AuthModule } from './auth/auth.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { SystemSettingsModule } from './system-settings/system-settings.module';
 import { User } from './user/user.entity';
+import { Address } from './user/address.entity';
 import { AuditLog } from './audit-log/audit-log.entity';
 import { SystemSetting } from './system-settings/system-setting.entity';
+import { OtpVerification } from './auth/otp-verification.entity';
 
 @Module({
   imports: [
@@ -22,7 +24,7 @@ import { SystemSetting } from './system-settings/system-setting.entity';
         username: config.get<string>('DB_USER', 'postgres'),
         password: config.get<string>('DB_PASSWORD', 'postgres'),
         database: config.get<string>('DB_NAME', 'sfwms_auth'),
-        entities: [User, AuditLog, SystemSetting],
+        entities: [User, Address, AuditLog, SystemSetting, OtpVerification],
         synchronize: true,
       }),
     }),

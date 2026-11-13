@@ -30,6 +30,8 @@ frontend/ai-website-cloner-template/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.agent/
+scratch/
 
 # System files
 .DS_Store

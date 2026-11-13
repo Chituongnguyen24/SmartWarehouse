@@ -63,7 +63,7 @@ export class InboundOrderService {
       order.qualityCheckPassed = qualityCheckPassed;
     }
     
-    if (status === 'COMPLETED') {
+    if (status === 'COMPLETED' || status === 'STORED') {
       order.receivedDate = new Date();
     }
 
@@ -78,6 +78,7 @@ export class InboundOrderService {
     if (data.assignedZone !== undefined) item.assignedZone = data.assignedZone;
     if (data.assignedSlotId !== undefined) item.assignedSlotId = data.assignedSlotId;
     if (data.lotCode !== undefined) item.lotCode = data.lotCode;
+    if (data.expiryDate !== undefined) item.expiryDate = data.expiryDate;
     if (data.status !== undefined) item.status = data.status;
 
     return this.itemRepo.save(item);

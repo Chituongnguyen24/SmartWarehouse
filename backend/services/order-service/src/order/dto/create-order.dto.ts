@@ -67,6 +67,11 @@ export class CreateOrderDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
+  @IsString()
+  voucherCode?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsNumber()
   shippingLat?: number;
 

@@ -26,22 +26,22 @@ export class CategoryController {
   }
 
   @Post()
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Create a new category (Admin only)' })
+  @Roles(UserRole.ADMIN, UserRole.SALES_STAFF)
+  @ApiOperation({ summary: 'Create a new category (Admin & Saler)' })
   create(@Body() body: any) {
     return this.categoryService.create(body);
   }
 
   @Put(':id')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Update a category (Admin only)' })
+  @Roles(UserRole.ADMIN, UserRole.SALES_STAFF)
+  @ApiOperation({ summary: 'Update a category (Admin & Saler)' })
   update(@Param('id') id: string, @Body() body: any) {
     return this.categoryService.update(id, body);
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Delete a category (Admin only)' })
+  @Roles(UserRole.ADMIN, UserRole.SALES_STAFF)
+  @ApiOperation({ summary: 'Delete a category (Admin & Saler)' })
   remove(@Param('id') id: string) {
     return this.categoryService.remove(id);
   }

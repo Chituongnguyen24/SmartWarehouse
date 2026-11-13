@@ -21,6 +21,17 @@ export class Product {
 const mockProducts: Product[] = [
   {
     id: '11111111-1111-1111-1111-111111111111',
+    sku: 'EM-89553',
+    name: 'Sữa Tươi Tiệt Trùng Nutimilk Tươi Sạch Không Đường 1L',
+    category: 'Sữa Nước',
+    storageType: StorageType.COLD,
+    minTemp: 0,
+    maxTemp: 4,
+    maxHumidity: 80,
+    unit: 'Hộp',
+  },
+  {
+    id: '11111111-1111-1111-1111-111111111111',
     sku: 'MILK-DALAT-1L',
     name: 'Dalat Milk Fresh Milk 1L',
     category: 'Dairy',
@@ -54,6 +65,17 @@ const mockProducts: Product[] = [
   },
   {
     id: '44444444-4444-4444-4444-444444444444',
+    sku: 'EM-11473',
+    name: 'Cà Chua Cherry DALATGAP 300G',
+    category: 'THỰC PHẨM BẢO QUẢN MÁT',
+    storageType: StorageType.COLD,
+    minTemp: 0,
+    maxTemp: 4,
+    maxHumidity: 85,
+    unit: 'Hộp',
+  },
+  {
+    id: '44444444-4444-4444-4444-444444444444',
     sku: 'TOMATO-DALAT',
     name: 'Dalat Organic Tomatoes 1kg',
     category: 'Produce',
@@ -67,11 +89,45 @@ const mockProducts: Product[] = [
 
 @Injectable()
 export class ProductService {
+  private cache = new Map<string, { product: Product; expires: number }>();
+
   async findOneBySku(sku: string): Promise<Product | null> {
-    return mockProducts.find(p => p.sku === sku) || null;
+    return this.findOne(sku);
   }
 
-  async findOne(id: string): Promise<Product | null> {
-    return mockProducts.find(p => p.id === id) || null;
+  async findOne(idOrSku: string): Promise<Product | null> {
+    if (!idOrSku) return null;
+    const now = Date.now();
+    const cached = this.cache.get(idOrSku);
+    if (cached && cached.expires > now) {
+      return cached.product;
+    }
+
+    try {
+      const res = await fetch(`http://localhost:3010/products/${encodeURIComponent(idOrSku)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && (data.id || data.sku)) {
+          const product: Product = {
+            id: data.id,
+            sku: data.sku,
+            name: data.name,
+            category: data.category,
+            storageType: data.storageType,
+            minTemp: data.minTemp,
+            maxTemp: data.maxTemp,
+            maxHumidity: data.maxHumidity,
+            unit: data.unit || 'Cái',
+          };
+          this.cache.set(data.id, { product, expires: now + 60000 });
+          this.cache.set(data.sku, { product, expires: now + 60000 });
+          return product;
+        }
+      }
+    } catch (e) {}
+
+    // Dự phòng tìm trong danh sách mẫu nếu product-service chưa sẵn sàng
+    const mock = mockProducts.find(p => p.id === idOrSku || p.sku === idOrSku);
+    return mock || null;
   }
 }

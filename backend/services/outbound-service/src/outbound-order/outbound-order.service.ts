@@ -571,10 +571,46 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
   }
 
   async findOne(id: string): Promise<OutboundOrder> {
-    const order = await this.orderRepository.findOne({
-      where: [{ id }, { orderCode: id }],
+    const rawId = (id || '').trim();
+    const cleanId = rawId.replace(/^ECOMM-/, '').replace(/^OB-/, '').replace(/^OUT-/, '').trim();
+    const obId = `OB-${cleanId}`;
+
+    const isUuid = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+    const whereConditions: any[] = [];
+    if (isUuid(rawId)) whereConditions.push({ id: rawId });
+    if (cleanId && isUuid(cleanId)) whereConditions.push({ id: cleanId });
+    if (rawId) whereConditions.push({ orderCode: rawId });
+    if (cleanId) {
+      whereConditions.push({ orderCode: cleanId });
+      whereConditions.push({ orderCode: obId });
+      whereConditions.push({ orderCode: `ECOMM-${cleanId}` });
+    }
+
+    let order = await this.orderRepository.findOne({
+      where: whereConditions,
       relations: ['items'],
-    });
+    }).catch(() => null);
+
+    if (!order && cleanId.length >= 3) {
+      const allOrders = await this.orderRepository.find({ relations: ['items'] }).catch(() => []);
+      const lowerRaw = rawId.toLowerCase();
+      const lowerClean = cleanId.toLowerCase();
+      order = allOrders.find(o => {
+        const oId = (o.id || '').toLowerCase();
+        const oCode = (o.orderCode || '').toLowerCase();
+        const oNotes = (o.notes || '').toLowerCase();
+        return (
+          oId === lowerRaw ||
+          oId === lowerClean ||
+          oCode === lowerRaw ||
+          oCode === lowerClean ||
+          oCode.endsWith(lowerClean) ||
+          lowerClean.endsWith(oCode) ||
+          (oNotes && (oNotes.includes(lowerClean) || oNotes.includes(lowerRaw)))
+        );
+      });
+    }
+
     if (!order) throw new NotFoundException(`OutboundOrder ${id} not found`);
     return order;
   }
@@ -608,17 +644,20 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     this.broadcastOrderEvent('order_status_updated', saved);
 
     // Broadcast live event to Order Gateway Socket on port 3004
-    fetch(`http://localhost:3004/orders/sync-status/${saved.id}`, {
-      method: 'PUT',
+    fetch(`http://localhost:3004/orders/broadcast`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        id: saved.id,
-        orderCode: saved.orderCode,
-        status: saved.status,
-        assignedDriverId: saved.assignedDriverId,
-        assignedDriverName: saved.assignedDriverName,
-        assignedDriverPhone: saved.assignedDriverPhone,
-        assignedDriverPlate: saved.assignedDriverPlate,
+        event: 'order_status_updated',
+        payload: {
+          id: saved.id,
+          orderCode: saved.orderCode,
+          status: saved.status,
+          assignedDriverId: saved.assignedDriverId,
+          assignedDriverName: saved.assignedDriverName,
+          assignedDriverPhone: saved.assignedDriverPhone,
+          assignedDriverPlate: saved.assignedDriverPlate,
+        },
       }),
     }).catch(() => {});
 
@@ -892,14 +931,35 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     return saved;
   }
 
-  async updateStatus(orderId: string, status: string): Promise<OutboundOrder> {
+  async updateStatus(orderId: string, status: string, extraBody?: any): Promise<OutboundOrder> {
     const order = await this.findOne(orderId);
     const prevStatus = order.status;
-    order.status = status;
+    if (status) order.status = status;
     if ((status === 'CONFIRMED' || status === 'DELIVERED') && !order.confirmedAt) {
       order.confirmedAt = new Date();
       order.confirmedBy = order.confirmedBy || 'Quản lý kho';
     }
+
+    if (extraBody) {
+      if (extraBody.podPhotoUrl || extraBody.pod_photo_url) {
+        order.podPhotoUrl = extraBody.podPhotoUrl || extraBody.pod_photo_url;
+      }
+      if (extraBody.failureReason || extraBody.failure_reason) {
+        order.failureReason = extraBody.failureReason || extraBody.failure_reason;
+      }
+      if (extraBody.failurePhotoUrl || extraBody.failure_photo_url) {
+        order.failurePhotoUrl = extraBody.failurePhotoUrl || extraBody.failure_photo_url;
+      }
+      const dId = extraBody.assignedDriverId || extraBody.driverId;
+      if (dId) order.assignedDriverId = dId;
+      const dName = extraBody.assignedDriverName || extraBody.driverName;
+      if (dName) order.assignedDriverName = dName;
+      const dPhone = extraBody.assignedDriverPhone || extraBody.driverPhone;
+      if (dPhone) order.assignedDriverPhone = dPhone;
+      const dPlate = extraBody.assignedDriverPlate || extraBody.driverPlate;
+      if (dPlate) order.assignedDriverPlate = dPlate;
+    }
+
     const saved = await this.orderRepository.save(order);
     
     // If transitioning to CONFIRMED or DELIVERED, ensure inventory lots are deducted
@@ -911,12 +971,33 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     const mapped = 
       status === 'DELIVERED' ? 'COMPLETED' :
       status === 'SHIPPED' ? 'DELIVERING' :
-      status === 'CONFIRMED' || status === 'PACKED' ? 'PACKING' :
+      status === 'CONFIRMED' || status === 'READY_FOR_DELIVERY' ? 'READY_FOR_DELIVERY' :
+      status === 'PACKED' ? 'PACKED' :
       status === 'PICKING' ? 'PICKING' :
       status === 'CANCELLED' ? 'CANCELLED' : status;
 
     await this.syncStatusToOrderService(order, mapped);
     this.broadcastOrderEvent('order_status_updated', { orderId: order.id, status, order: saved });
+
+    // Live broadcast to Order Gateway Socket on port 3004 so Web Dashboard updates instantly
+    fetch(`http://localhost:3004/orders/broadcast`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'order_status_updated',
+        payload: {
+          id: saved.id,
+          orderCode: saved.orderCode,
+          status: mapped,
+          assignedDriverId: saved.assignedDriverId,
+          assignedDriverName: saved.assignedDriverName,
+          assignedDriverPhone: saved.assignedDriverPhone,
+          assignedDriverPlate: saved.assignedDriverPlate,
+          podPhotoUrl: saved.podPhotoUrl,
+        },
+      }),
+    }).catch(() => {});
+
     return saved;
   }
 
@@ -954,26 +1035,51 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     if (updateDto.status !== undefined) order.status = updateDto.status;
 
     if (updateDto.items && Array.isArray(updateDto.items)) {
+      const orderItems = await this.itemRepository.find({ where: { outboundOrderId: order.id } });
+      const isUuid = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
       for (const itemUpdate of updateDto.items) {
-        if (itemUpdate.id) {
-          const item = await this.itemRepository.findOne({ where: { id: itemUpdate.id } });
-          if (item) {
-            if (itemUpdate.requestedQuantity !== undefined) item.requestedQuantity = Number(itemUpdate.requestedQuantity);
-            if (itemUpdate.pickedQuantity !== undefined) item.pickedQuantity = Number(itemUpdate.pickedQuantity);
-            if (itemUpdate.lotCode !== undefined) item.lotCode = itemUpdate.lotCode;
-            if (itemUpdate.slotId !== undefined) item.slotId = itemUpdate.slotId;
-            if (itemUpdate.status !== undefined) item.status = itemUpdate.status;
-            await this.itemRepository.save(item);
-          }
+        let item: OutboundOrderItem | null = null;
+
+        // 1. Match by valid UUID id
+        if (itemUpdate.id && isUuid(String(itemUpdate.id).trim())) {
+          const cleanId = String(itemUpdate.id).trim();
+          item = orderItems.find(i => i.id === cleanId) || await this.itemRepository.findOne({ where: { id: cleanId } });
+        }
+
+        // 2. Fallback match by SKU within this order
+        if (!item && itemUpdate.sku) {
+          item = orderItems.find(i => i.sku === itemUpdate.sku) || null;
+        }
+
+        // 3. Fallback match by lotCode within this order
+        if (!item && itemUpdate.lotCode) {
+          item = orderItems.find(i => i.lotCode === itemUpdate.lotCode) || null;
+        }
+
+        // 4. Fallback match by id substring (e.g. pk-<uuid>-1)
+        if (!item && itemUpdate.id) {
+          const rawIdStr = String(itemUpdate.id);
+          item = orderItems.find(i => rawIdStr.includes(i.id)) || null;
+        }
+
+        if (item) {
+          if (itemUpdate.requestedQuantity !== undefined) item.requestedQuantity = Number(itemUpdate.requestedQuantity);
+          if (itemUpdate.pickedQuantity !== undefined) item.pickedQuantity = Number(itemUpdate.pickedQuantity);
+          if (itemUpdate.lotCode !== undefined) item.lotCode = itemUpdate.lotCode;
+          if (itemUpdate.slotId !== undefined) item.slotId = itemUpdate.slotId;
+          if (itemUpdate.status !== undefined) item.status = itemUpdate.status;
+          await this.itemRepository.save(item);
         }
       }
-      const refreshedItems = await this.itemRepository.find({ where: { outboundOrderId: id } });
+
+      const refreshedItems = await this.itemRepository.find({ where: { outboundOrderId: order.id } });
       order.totalItems = refreshedItems.length;
       order.totalQuantity = refreshedItems.reduce((s, i) => s + (Number(i.requestedQuantity) || 0), 0);
     }
 
     await this.orderRepository.save(order);
-    const updated = await this.findOne(id);
+    const updated = await this.findOne(order.id);
     this.broadcastOrderEvent('outbound_order_updated', updated || order);
     return updated || order;
   }

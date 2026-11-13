@@ -43,6 +43,9 @@ export class Product {
   @Column({ type: 'float', default: 25000 })
   price: number;
 
+  @Column({ name: 'original_price', type: 'float', nullable: true })
+  originalPrice: number;
+
   @Column({ name: 'image_url', type: 'text', nullable: true })
   imageUrl: string;
 
@@ -67,7 +70,7 @@ export class Product {
   @Column({ name: 'sold_count', default: 0 })
   soldCount: number;
 
-  @Column({ default: 100 })
+  @Column({ default: 0 })
   stock: number;
 
   @CreateDateColumn({ name: 'created_at' })

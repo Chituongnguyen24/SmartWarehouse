@@ -1,23 +1,37 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { OrderModule } from './order/order.module';
+import { Order } from './order/entities/order.entity';
+import { OrderItem } from './order/entities/order-item.entity';
+import { CodSettlement } from './order/entities/cod-settlement.entity';
+import { ChatModule } from './chat/chat.module';
+import { ChatSession } from './chat/entities/chat-session.entity';
+import { ChatMessage } from './chat/entities/chat-message.entity';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT, 10) || 5432,
-      username: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASSWORD || 'postgres',
-      database: process.env.DB_NAME || 'sfwms_order',
-      autoLoadEntities: true,
-      synchronize: true, // DEV ONLY
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+    }),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        type: 'postgres',
+        host: config.get<string>('DB_HOST', 'localhost'),
+        port: config.get<number>('DB_PORT', 5432),
+        username: config.get<string>('DB_USER', 'postgres'),
+        password: config.get<string>('DB_PASSWORD', 'postgres'),
+        database: config.get<string>('DB_NAME', 'sfwms_order'),
+        entities: [Order, OrderItem, CodSettlement, ChatSession, ChatMessage],
+        autoLoadEntities: true,
+        synchronize: true, // DEV ONLY
+      }),
     }),
     OrderModule,
+    ChatModule,
   ],
 })
-// Auto-reloaded with driver dispatch support
 export class AppModule {}

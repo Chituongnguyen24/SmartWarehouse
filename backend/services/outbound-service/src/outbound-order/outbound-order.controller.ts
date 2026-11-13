@@ -140,14 +140,14 @@ export class OutboundOrderController {
 
   @Patch(':id/status')
   @ApiOperation({ summary: 'Cập nhật trạng thái đơn xuất kho' })
-  updateStatus(@Param('id') id: string, @Body() body: { status: string }) {
-    return this.service.updateStatus(id, body.status);
+  updateStatus(@Param('id') id: string, @Body() body: any) {
+    return this.service.updateStatus(id, body?.status, body);
   }
 
   @Put(':id/deliver')
   @ApiOperation({ summary: 'Xác nhận giao hàng thành công (DELIVERED)' })
-  deliver(@Param('id') id: string) {
-    return this.service.updateStatus(id, 'DELIVERED');
+  deliver(@Param('id') id: string, @Body() body?: any) {
+    return this.service.updateStatus(id, 'DELIVERED', body);
   }
 
   @Patch(':id')

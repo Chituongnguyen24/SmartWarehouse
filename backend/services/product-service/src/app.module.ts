@@ -5,6 +5,8 @@ import { Product } from './product/product.entity';
 import { ProductModule } from './product/product.module';
 import { Category } from './category/category.entity';
 import { CategoryModule } from './category/category.module';
+import { Voucher } from './voucher/voucher.entity';
+import { VoucherModule } from './voucher/voucher.module';
 import { AuthModule } from './auth/auth.module';
 
 @Module({
@@ -20,12 +22,13 @@ import { AuthModule } from './auth/auth.module';
         username: config.get<string>('DB_USER', 'postgres'),
         password: config.get<string>('DB_PASSWORD', 'postgres'),
         database: config.get<string>('DB_NAME', 'sfwms_product'),
-        entities: [Product, Category],
+        entities: [Product, Category, Voucher],
         synchronize: true,
       }),
     }),
     ProductModule,
     CategoryModule,
+    VoucherModule,
     AuthModule,
   ],
 })

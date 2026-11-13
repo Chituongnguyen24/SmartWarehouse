@@ -97,40 +97,40 @@ export class InventoryService implements OnModuleInit {
     const seedWarehouseLots = [
 
       // WH-001 (HCM North - District 12)
-      { warehouseCode: 'WH-001', sku: 'MILK-DALAT-1L', quantity: 100, lotCode: 'LOT-MILK-WH1', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 5, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-001', sku: 'EM-89553', quantity: 100, lotCode: 'LOT-EM-89553-WH1', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 5, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-001', sku: 'NOODLE-HAOHAO', quantity: 500, lotCode: 'LOT-NOODLE-WH1', zone: 'DRY', location: 'dry-shelf-A1', daysOffset: 60, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-001', sku: 'BEEF-STEAK-US', quantity: 50, lotCode: 'LOT-BEEF-WH1', zone: 'FROZEN', location: 'frozen-shelf-A1', daysOffset: 30, riskScore: 0, status: LotStatus.NORMAL },
-      { warehouseCode: 'WH-001', sku: 'TOMATO-DALAT', quantity: 60, lotCode: 'LOT-TOMATO-WH1', zone: 'COLD', location: 'cold-shelf-A3', daysOffset: 4, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-001', sku: 'EM-11473', quantity: 60, lotCode: 'LOT-EM-11473-WH1', zone: 'COLD', location: 'cold-shelf-A3', daysOffset: 4, riskScore: 0, status: LotStatus.NORMAL },
 
       // WH-002 (HCM East - Thu Duc)
-      { warehouseCode: 'WH-002', sku: 'MILK-DALAT-1L', quantity: 150, lotCode: 'LOT-MILK-WH2', zone: 'COLD', location: 'cold-shelf-A2', daysOffset: 10, riskScore: 75, status: LotStatus.AT_RISK },
+      { warehouseCode: 'WH-002', sku: 'EM-89553', quantity: 150, lotCode: 'LOT-EM-89553-WH2', zone: 'COLD', location: 'cold-shelf-A2', daysOffset: 10, riskScore: 75, status: LotStatus.AT_RISK },
       { warehouseCode: 'WH-002', sku: 'NOODLE-HAOHAO', quantity: 300, lotCode: 'LOT-NOODLE-WH2', zone: 'DRY', location: 'dry-shelf-A2', daysOffset: 90, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-002', sku: 'BEEF-STEAK-US', quantity: 70, lotCode: 'LOT-BEEF-WH2', zone: 'FROZEN', location: 'frozen-shelf-A2', daysOffset: 45, riskScore: 0, status: LotStatus.NORMAL },
-      { warehouseCode: 'WH-002', sku: 'TOMATO-DALAT', quantity: 80, lotCode: 'LOT-TOMATO-WH2', zone: 'COLD', location: 'cold-shelf-A4', daysOffset: 6, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-002', sku: 'EM-11473', quantity: 80, lotCode: 'LOT-EM-11473-WH2', zone: 'COLD', location: 'cold-shelf-A4', daysOffset: 6, riskScore: 0, status: LotStatus.NORMAL },
 
       // WH-003 (HCM West - Binh Chanh)
-      { warehouseCode: 'WH-003', sku: 'MILK-DALAT-1L', quantity: 80, lotCode: 'LOT-MILK-WH3', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 15, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-003', sku: 'EM-89553', quantity: 80, lotCode: 'LOT-EM-89553-WH3', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 15, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-003', sku: 'NOODLE-HAOHAO', quantity: 400, lotCode: 'LOT-NOODLE-WH3', zone: 'DRY', location: 'dry-shelf-A1', daysOffset: 45, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-003', sku: 'BEEF-STEAK-US', quantity: 30, lotCode: 'LOT-BEEF-WH3', zone: 'FROZEN', location: 'frozen-shelf-A1', daysOffset: 20, riskScore: 0, status: LotStatus.NORMAL },
-      { warehouseCode: 'WH-003', sku: 'TOMATO-DALAT', quantity: 40, lotCode: 'LOT-TOMATO-WH3', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 3, riskScore: 10, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-003', sku: 'EM-11473', quantity: 40, lotCode: 'LOT-EM-11473-WH3', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 3, riskScore: 10, status: LotStatus.NORMAL },
 
       // WH-004 (HCM South - District 7)
-      { warehouseCode: 'WH-004', sku: 'MILK-DALAT-1L', quantity: 200, lotCode: 'LOT-MILK-WH4', zone: 'COLD', location: 'cold-shelf-A3', daysOffset: 8, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-004', sku: 'EM-89553', quantity: 200, lotCode: 'LOT-EM-89553-WH4', zone: 'COLD', location: 'cold-shelf-A3', daysOffset: 8, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-004', sku: 'NOODLE-HAOHAO', quantity: 600, lotCode: 'LOT-NOODLE-WH4', zone: 'DRY', location: 'dry-shelf-A3', daysOffset: 120, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-004', sku: 'BEEF-STEAK-US', quantity: 100, lotCode: 'LOT-BEEF-WH4', zone: 'FROZEN', location: 'frozen-shelf-A3', daysOffset: 60, riskScore: 0, status: LotStatus.NORMAL },
-      { warehouseCode: 'WH-004', sku: 'TOMATO-DALAT', quantity: 120, lotCode: 'LOT-TOMATO-WH4', zone: 'COLD', location: 'cold-shelf-A3', daysOffset: 7, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-004', sku: 'EM-11473', quantity: 120, lotCode: 'LOT-EM-11473-WH4', zone: 'COLD', location: 'cold-shelf-A3', daysOffset: 7, riskScore: 0, status: LotStatus.NORMAL },
 
       // WH-005 (HCM Center-East - Binh Thạnh)
-      { warehouseCode: 'WH-005', sku: 'MILK-DALAT-1L', quantity: 120, lotCode: 'LOT-MILK-WH5', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 6, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-005', sku: 'EM-89553', quantity: 120, lotCode: 'LOT-EM-89553-WH5', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 6, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-005', sku: 'NOODLE-HAOHAO', quantity: 450, lotCode: 'LOT-NOODLE-WH5', zone: 'DRY', location: 'dry-shelf-A1', daysOffset: 50, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-005', sku: 'BEEF-STEAK-US', quantity: 40, lotCode: 'LOT-BEEF-WH5', zone: 'FROZEN', location: 'frozen-shelf-A1', daysOffset: 25, riskScore: 0, status: LotStatus.NORMAL },
-      { warehouseCode: 'WH-005', sku: 'TOMATO-DALAT', quantity: 70, lotCode: 'LOT-TOMATO-WH5', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 5, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-005', sku: 'EM-11473', quantity: 70, lotCode: 'LOT-EM-11473-WH5', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 5, riskScore: 0, status: LotStatus.NORMAL },
 
       // WH-006 (HCM Northwest - Go Vap)
-      { warehouseCode: 'WH-006', sku: 'MILK-DALAT-1L', quantity: 90, lotCode: 'LOT-MILK-WH6', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 4, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-006', sku: 'EM-89553', quantity: 90, lotCode: 'LOT-EM-89553-WH6', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 4, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-006', sku: 'NOODLE-HAOHAO', quantity: 250, lotCode: 'LOT-NOODLE-WH6', zone: 'DRY', location: 'dry-shelf-A1', daysOffset: 35, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-006', sku: 'BEEF-STEAK-US', quantity: 60, lotCode: 'LOT-BEEF-WH6', zone: 'FROZEN', location: 'frozen-shelf-A1', daysOffset: 15, riskScore: 0, status: LotStatus.NORMAL },
-      { warehouseCode: 'WH-006', sku: 'TOMATO-DALAT', quantity: 50, lotCode: 'LOT-TOMATO-WH6', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 3, riskScore: 0, status: LotStatus.NORMAL },
+      { warehouseCode: 'WH-006', sku: 'EM-11473', quantity: 50, lotCode: 'LOT-EM-11473-WH6', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 3, riskScore: 0, status: LotStatus.NORMAL },
     ];
 
     for (const lotData of seedWarehouseLots) {
@@ -361,6 +361,7 @@ export class InventoryService implements OnModuleInit {
     await this.outboxService.recordEvent('INVENTORY_LOT', savedLot.id, 'lot_imported', eventPayload);
 
     this.invalidateLotsCache();
+    this.syncProductServiceStock(canonicalSku);
 
     return savedLot;
   }
@@ -705,7 +706,8 @@ export class InventoryService implements OnModuleInit {
   }
 
   async getWarehouseStock(skus: string[]): Promise<any> {
-    const results = {};
+    const results: Record<string, Record<string, number>> = {};
+    const processedLots = new Set<string>();
 
     for (const rawSku of skus) {
       const sku = (rawSku || '').trim();
@@ -734,6 +736,14 @@ export class InventoryService implements OnModuleInit {
 
       for (const lot of lots) {
         const whCode = lot.warehouseCode || 'UNKNOWN';
+        const lotKey = `${lot.id}_${whCode}`;
+        
+        // Tránh cộng dồn 2 lần cùng một lô khi skus truyền lên đồng thời cả SKU và Product ID
+        if (processedLots.has(lotKey)) {
+          continue;
+        }
+        processedLots.add(lotKey);
+
         if (!results[whCode]) {
           results[whCode] = {};
         }
@@ -934,5 +944,25 @@ export class InventoryService implements OnModuleInit {
       updatedToWarning,
       message: `Successfully synchronized ML Spoilage Risk Scores for ${lots.length} active lots.`,
     };
+  }
+
+  private async syncProductServiceStock(skuOrProductId: string) {
+    if (!skuOrProductId) return;
+    try {
+      const lots = await this.lotRepository.find({
+        where: [
+          { productId: skuOrProductId },
+        ]
+      });
+      const totalRemaining = lots.reduce((sum, l) => sum + (Number(l.remainingQty) > 0 ? Number(l.remainingQty) : 0), 0);
+      await fetch('http://localhost:3010/products/sync-stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sku: skuOrProductId, stock: totalRemaining })
+      });
+      console.log(`[INVENTORY SERVICE] 🔄 Synced stock for ${skuOrProductId} to product-service: ${totalRemaining}`);
+    } catch (e: any) {
+      console.warn(`[INVENTORY SERVICE] Failed to sync stock to product-service: ${e.message}`);
+    }
   }
 }

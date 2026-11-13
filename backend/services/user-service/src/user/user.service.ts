@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit, NotFoundException, ConflictException, BadRequ
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, ILike } from 'typeorm';
 import { User, UserRole } from './user.entity';
+import { Address } from './address.entity';
 import * as bcrypt from 'bcrypt';
 
 export interface CreateStaffDto {
@@ -39,11 +40,47 @@ export class UserService implements OnModuleInit {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(Address)
+    private addressRepository: Repository<Address>,
   ) {}
 
   async onModuleInit() {
+    // Luôn đảm bảo tài khoản và địa chỉ mặc định của hệ thống tồn tại ngay cả khi reset CSDL
+    await this.ensureDefaultAccountsAndAddresses();
+
+    // Only auto-seed full staff list if database has no users at all
+    const existingCount = await this.userRepository.count();
+    if (existingCount > 0) {
+      console.log(`[UserService] Cơ sở dữ liệu đã có ${existingCount} người dùng. Bỏ qua auto-seed để bảo toàn thao tác xóa của quản trị viên.`);
+      return;
+    }
+
     // Auto-seed default realistic accounts
     const initialUsers = [
+      {
+        email: 'lecongchung@sfwms.vn',
+        name: 'Lê Công Chung',
+        role: UserRole.ADMIN,
+        warehouseCode: 'WH-006',
+        code: 'ADMIN-CHUNG',
+        phone: '0377019958',
+        department: 'Ban Quản Trị Hệ Thống',
+        assignedZone: 'Toàn bộ kho',
+        shift: 'HANH_CHINH',
+        status: 'ACTIVE',
+      },
+      {
+        email: 'customer@sfwms.vn',
+        name: 'Khách Hàng Thử Nghiệm',
+        role: UserRole.CUSTOMER,
+        warehouseCode: undefined,
+        code: 'KH-001',
+        phone: '0909999999',
+        department: 'Khách hàng',
+        assignedZone: 'Online',
+        shift: 'HANH_CHINH',
+        status: 'ACTIVE',
+      },
       {
         email: 'admin@sfwms.vn',
         name: 'Nguyễn Chi Tường',
@@ -58,7 +95,7 @@ export class UserService implements OnModuleInit {
       },
       // WH-006 (Kho Gò Vấp)
       {
-        email: 'manager_wh006@sfwms.vn',
+        email: 'govap@sfwms.vn',
         name: 'Nguyễn Hoàng Nam (Thủ Kho)',
         role: UserRole.WAREHOUSE_MANAGER,
         warehouseCode: 'WH-006',
@@ -70,18 +107,6 @@ export class UserService implements OnModuleInit {
         status: 'ACTIVE',
         tasksCompleted: 1420,
         rating: 4.9,
-      },
-      {
-        email: 'govap@sfwms.vn',
-        name: 'Nguyễn Hoàng Nam (Kho Gò Vấp)',
-        role: UserRole.WAREHOUSE_MANAGER,
-        warehouseCode: 'WH-006',
-        code: 'NV-GV01-B',
-        phone: '0908123456',
-        department: 'Quản trị kho',
-        assignedZone: 'Toàn bộ Kho Gò Vấp',
-        shift: 'HANH_CHINH',
-        status: 'ACTIVE',
       },
       {
         email: 'staff@sfwms.vn',
@@ -228,30 +253,6 @@ export class UserService implements OnModuleInit {
         shift: 'CA_SANG',
         status: 'ACTIVE',
       },
-      {
-        email: 'phuc.dang@sfwms.vn',
-        name: 'Đặng Hoàng Phúc',
-        role: UserRole.DRIVER,
-        warehouseCode: 'WH-006',
-        code: 'NV-TK01',
-        phone: '0944778899',
-        department: 'Đội Xe Tải Lạnh 2.5T',
-        assignedZone: 'Tuyến Tiêu Hủy Đa Phước & Chuyển Kho',
-        shift: 'CA_SANG',
-        status: 'ACTIVE',
-      },
-      {
-        email: 'danghoangphuc@gmail.com',
-        name: 'Đặng Hoàng Phúc',
-        role: UserRole.DRIVER,
-        warehouseCode: 'WH-006',
-        code: 'NV-TK01',
-        phone: '0944778899',
-        department: 'Đội Xe Tải Lạnh 2.5T',
-        assignedZone: 'Tuyến Tiêu Hủy Đa Phước & Chuyển Kho',
-        shift: 'CA_SANG',
-        status: 'ACTIVE',
-      },
       // 2. Xe Bán Tải 1.5T (Phan Hữu Nam)
       {
         email: 'van@sfwms.vn',
@@ -265,31 +266,7 @@ export class UserService implements OnModuleInit {
         shift: 'CA_SANG',
         status: 'ACTIVE',
       },
-      {
-        email: 'nam.phan@sfwms.vn',
-        name: 'Phan Hữu Nam',
-        role: UserRole.DRIVER,
-        warehouseCode: 'WH-006',
-        code: 'NV-VAN01',
-        phone: '0918776655',
-        department: 'Đội Xe Bán Tải 1.5T',
-        assignedZone: 'Gò Vấp - Tân Bình - Q12',
-        shift: 'CA_SANG',
-        status: 'ACTIVE',
-      },
-      // 3. Xe Máy Thùng Lạnh Gò Vấp (WH-006)
-      {
-        email: 'driver@sfwms.vn',
-        name: 'Võ Minh Trí',
-        role: UserRole.DRIVER,
-        warehouseCode: 'WH-006',
-        code: 'NV-GV05',
-        phone: '0977112233',
-        department: 'Vận chuyển Hẻm Phố (Fleet)',
-        assignedZone: '🛵 Xe Máy Thùng Lạnh (59-V1 888.99)',
-        shift: 'CA_SANG',
-        status: 'ACTIVE',
-      },
+      // 3. Đội Xe Máy Gò Vấp (WH-006)
       {
         email: 'hung.nguyen@sfwms.vn',
         name: 'Nguyễn Văn Hùng',
@@ -311,18 +288,6 @@ export class UserService implements OnModuleInit {
         phone: '0933445566',
         department: 'Vận chuyển (Fleet)',
         assignedZone: '🛵 Xe Máy Thùng Mát (59-P1 456.78)',
-        shift: 'CA_SANG',
-        status: 'ACTIVE',
-      },
-      {
-        email: 'nam.hoang@sfwms.vn',
-        name: 'Phạm Hoàng Nam',
-        role: UserRole.DRIVER,
-        warehouseCode: 'WH-006',
-        code: 'NV-GV08',
-        phone: '0918776655',
-        department: 'Vận chuyển (Fleet)',
-        assignedZone: '🛵 Xe Máy Thùng Mát (59-K1 234.56)',
         shift: 'CA_SANG',
         status: 'ACTIVE',
       },
@@ -436,11 +401,150 @@ export class UserService implements OnModuleInit {
     }
   }
 
+  private async ensureDefaultAccountsAndAddresses() {
+    const defaultAccounts = [
+      {
+        email: 'lecongchung@sfwms.vn',
+        name: 'Lê Công Chung',
+        phone: '0377019958',
+        role: UserRole.ADMIN,
+        code: 'ADMIN-CHUNG',
+        department: 'Ban Quản Trị Hệ Thống',
+        warehouseCode: 'WH-006',
+        assignedZone: 'Toàn bộ kho',
+        shift: 'HANH_CHINH',
+        address: '618/51/18 Quang Trung, Phường Thông Tây Hội, Thành phố Hồ Chí Minh',
+        lat: 10.8407,
+        lng: 106.6578,
+      },
+      {
+        email: 'customer@sfwms.vn',
+        name: 'Khách Hàng Thử Nghiệm',
+        phone: '0909999999',
+        role: UserRole.CUSTOMER,
+        code: 'KH-001',
+        department: 'Khách hàng',
+        address: '456 Lê Văn Thọ, Phường 11, Quận Gò Vấp, TP.HCM',
+        lat: 10.8465,
+        lng: 106.6622,
+      },
+      {
+        email: 'admin@sfwms.vn',
+        name: 'Nguyễn Chi Tường',
+        phone: '0909000001',
+        role: UserRole.ADMIN,
+        code: 'ADMIN-01',
+        department: 'Ban Giám Đốc',
+        address: '123 Đường Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP.HCM',
+        lat: 10.7769,
+        lng: 106.7009,
+      },
+    ];
+
+    for (const acc of defaultAccounts) {
+      try {
+        let user = await this.userRepository.findOne({
+          where: [{ email: ILike(acc.email) }, { phone: acc.phone }],
+          relations: ['addresses'],
+        });
+
+        if (!user) {
+          const passwordHash = await bcrypt.hash('password123', 10);
+          user = this.userRepository.create({
+            email: acc.email,
+            name: acc.name,
+            phone: acc.phone,
+            role: acc.role,
+            code: acc.code,
+            department: acc.department,
+            warehouseCode: acc.warehouseCode,
+            assignedZone: acc.assignedZone,
+            shift: acc.shift || 'HANH_CHINH',
+            status: 'ACTIVE',
+            passwordHash,
+          });
+          user = await this.userRepository.save(user);
+          console.log(`[UserService] Đã khởi tạo tài khoản mặc định: ${acc.email} (${acc.name})`);
+        } else {
+          // Luôn đảm bảo số điện thoại chính xác
+          if (!user.phone && acc.phone) {
+            user.phone = acc.phone;
+            await this.userRepository.save(user);
+          }
+        }
+
+        // Đảm bảo luôn có địa chỉ mặc định
+        if (!user.addresses || user.addresses.length === 0) {
+          const addr = this.addressRepository.create({
+            user,
+            streetAddress: acc.address,
+            latitude: acc.lat as any,
+            longitude: acc.lng as any,
+            isDefault: true,
+          });
+          await this.addressRepository.save(addr);
+          console.log(`[UserService] Đã tự động gắn địa chỉ mặc định cho ${acc.email}: ${acc.address}`);
+        }
+      } catch (err: any) {
+        console.warn(`[UserService] ensureDefaultAccountsAndAddresses error for ${acc.email}:`, err.message);
+      }
+    }
+  }
+
   async findOneByEmail(email: string): Promise<User | null> {
     if (!email) return null;
-    const cleanEmail = email.trim().toLowerCase();
+    return this.findOneByIdentifier(email);
+  }
+
+  async findOneByIdentifier(identifier: string): Promise<User | null> {
+    if (!identifier) return null;
+    const clean = identifier.trim().toLowerCase();
+    const digits = clean.replace(/\D/g, '');
+
+    // Common phone & employee code alias mapping to guaranteed seed accounts
+    const emailAliases: Record<string, string> = {
+      '0377019958': 'lecongchung@sfwms.vn',
+      'admin-chung': 'lecongchung@sfwms.vn',
+      'driver@sfwms.vn': 'driver.tri@sfwms.vn',
+      '0977112233': 'driver.tri@sfwms.vn',
+      '0944778899': 'truck@sfwms.vn',
+      '0918776655': 'van@sfwms.vn',
+      '0909888111': 'hung.nguyen@sfwms.vn',
+      '0933445566': 'bao.tran@sfwms.vn',
+      '0966332211': 'tung.le@sfwms.vn',
+      '0988112244': 'long.bui@sfwms.vn',
+      '0977223344': 'huy.truong@sfwms.vn',
+      'nv-tk01': 'truck@sfwms.vn',
+      'nv-van01': 'van@sfwms.vn',
+      'nv-gv05': 'driver.tri@sfwms.vn',
+      'tx-gv05': 'driver.tri@sfwms.vn',
+      'nv-gv06': 'hung.nguyen@sfwms.vn',
+      'nv-gv07': 'bao.tran@sfwms.vn',
+      'nv-gv09': 'tung.le@sfwms.vn',
+      'nv-bt01': 'long.bui@sfwms.vn',
+      'nv-tb01': 'huy.truong@sfwms.vn',
+    };
+
+    const targetEmail = emailAliases[clean] || (digits.length >= 8 ? emailAliases[digits] : null);
+    if (targetEmail) {
+      const userByAlias = await this.userRepository.findOne({
+        where: { email: ILike(targetEmail) },
+        relations: ['addresses'],
+      });
+      if (userByAlias) return userByAlias;
+    }
+
+    const whereConditions: any[] = [
+      { email: ILike(clean) },
+      { code: ILike(clean) },
+    ];
+    if (digits.length >= 8) {
+      whereConditions.push({ phone: ILike(`%${digits}%`) });
+    }
+
     return this.userRepository.findOne({
-      where: { email: ILike(cleanEmail) },
+      where: whereConditions,
+      relations: ['addresses'],
     });
   }
 
@@ -645,6 +749,17 @@ export class UserService implements OnModuleInit {
     await this.userRepository.delete(id);
   }
 
+  async updatePasswordDirect(userId: string, newPasswordPlain: string): Promise<User> {
+    const user = await this.findOneById(userId);
+    if (!user) throw new NotFoundException('Không tìm thấy người dùng!');
+    user.passwordHash = await bcrypt.hash(newPasswordPlain.trim(), 10);
+    return this.userRepository.save(user);
+  }
+
+  async saveUser(user: User): Promise<User> {
+    return this.userRepository.save(user);
+  }
+
   async create(userDto: Partial<User>): Promise<User> {
     const passwordHash = await bcrypt.hash(userDto.passwordHash || 'password123', 10);
     const user = this.userRepository.create({
@@ -692,10 +807,53 @@ export class UserService implements OnModuleInit {
   async updateProfile(userId: string, body: any): Promise<User> {
     const user = await this.findOneById(userId);
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
-    Object.assign(user, body);
-    return this.userRepository.save(user);
+
+    if (body.name !== undefined && body.name !== null) user.name = body.name.toString().trim();
+    if (body.gender !== undefined && body.gender !== null) user.gender = body.gender.toString();
+    if (body.dob !== undefined && body.dob !== null) user.dob = body.dob.toString();
+    if (body.phone !== undefined && body.phone !== null && body.phone !== '') user.phone = body.phone.toString().trim();
+    if (body.email !== undefined && body.email !== null && body.email !== '') user.email = body.email.toString().trim();
+
+    await this.userRepository.save(user);
+
+    // Xử lý lưu địa chỉ vào bảng addresses
+    const addressStr = (body.addressStr || body.streetAddress || body.address || '').toString().trim();
+    const lat = body.lat !== undefined ? body.lat : (body.latitude !== undefined ? body.latitude : null);
+    const lng = body.lng !== undefined ? body.lng : (body.longitude !== undefined ? body.longitude : null);
+
+    if (addressStr) {
+      let addr = await this.addressRepository.findOne({
+        where: { userId, isDefault: true },
+      });
+      if (!addr) {
+        addr = await this.addressRepository.findOne({
+          where: { userId },
+          order: { createdAt: 'DESC' },
+        });
+      }
+
+      if (addr) {
+        addr.streetAddress = addressStr;
+        if (lat !== null && lat !== undefined) addr.latitude = lat;
+        if (lng !== null && lng !== undefined) addr.longitude = lng;
+        addr.isDefault = true;
+        await this.addressRepository.save(addr);
+      } else {
+        addr = this.addressRepository.create({
+          userId,
+          streetAddress: addressStr,
+          latitude: lat || null,
+          longitude: lng || null,
+          isDefault: true,
+        });
+        await this.addressRepository.save(addr);
+      }
+    }
+
+    const updatedUser = await this.findOneById(userId);
+    return updatedUser!;
   }
 
   async toggleLock(id: string): Promise<any> {

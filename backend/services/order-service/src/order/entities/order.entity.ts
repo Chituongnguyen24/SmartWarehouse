@@ -54,6 +54,9 @@ export class Order {
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   discount: number;
 
+  @Column({ name: 'voucher_code', nullable: true })
+  voucherCode: string;
+
   @Column({ type: 'float', nullable: true })
   shippingLat: number; // Tọa độ vĩ độ
 
@@ -94,6 +97,19 @@ export class Order {
 
   @Column({ nullable: true })
   podSignature: string; // Chữ ký điện tử hoặc mã OTP nhận hàng
+
+  // COD & FINANCIAL RECONCILIATION FIELDS
+  @Column({ type: 'boolean', default: false })
+  isPaid: boolean;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  codCollectedAmount: number;
+
+  @Column({ nullable: true, default: 'UNSETTLED' })
+  codSettledStatus: string; // UNSETTLED / SETTLED
+
+  @Column({ type: 'timestamp', nullable: true })
+  codSettledAt: Date;
 
   // IOT & TRAFFIC TELEMETRY FIELDS
   @Column({ type: 'float', nullable: true })

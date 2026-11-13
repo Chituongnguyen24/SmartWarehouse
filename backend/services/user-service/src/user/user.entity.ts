@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
+import { Address } from './address.entity';
 
 export enum UserRole {
   ADMIN = 'ADMIN',
@@ -58,6 +59,12 @@ export class User {
 
   @Column({ nullable: true })
   gender: string;
+
+  @Column({ nullable: true })
+  dob: string;
+
+  @OneToMany(() => Address, (address) => address.user, { cascade: true })
+  addresses: Address[];
 
   @Column({ name: 'locked_at', type: 'timestamp', nullable: true })
   lockedAt: Date;

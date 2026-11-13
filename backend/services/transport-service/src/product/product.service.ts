@@ -21,6 +21,17 @@ export class Product {
 const mockProducts: Product[] = [
   {
     id: '11111111-1111-1111-1111-111111111111',
+    sku: 'EM-89553',
+    name: 'Sữa Tươi Tiệt Trùng Nutimilk Tươi Sạch Không Đường 1L',
+    category: 'Sữa Nước',
+    storageType: StorageType.COLD,
+    minTemp: 0,
+    maxTemp: 4,
+    maxHumidity: 80,
+    unit: 'Hộp',
+  },
+  {
+    id: '11111111-1111-1111-1111-111111111111',
     sku: 'MILK-DALAT-1L',
     name: 'Dalat Milk Fresh Milk 1L',
     category: 'Dairy',
@@ -51,6 +62,17 @@ const mockProducts: Product[] = [
     maxTemp: 35,
     maxHumidity: 70,
     unit: 'box',
+  },
+  {
+    id: '44444444-4444-4444-4444-444444444444',
+    sku: 'EM-11473',
+    name: 'Cà Chua Cherry DALATGAP 300G',
+    category: 'THỰC PHẨM BẢO QUẢN MÁT',
+    storageType: StorageType.COLD,
+    minTemp: 0,
+    maxTemp: 4,
+    maxHumidity: 85,
+    unit: 'Hộp',
   },
   {
     id: '44444444-4444-4444-4444-444444444444',
