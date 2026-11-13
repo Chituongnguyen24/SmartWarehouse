@@ -438,6 +438,28 @@ export const driverApi = {
   },
 
   /**
+   * Lấy danh sách toàn bộ tài xế từ User Service (:3012)
+   */
+  async getAllDrivers(): Promise<any[]> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const response = await fetch(`${API_CONFIG.AUTH_SERVICE}/users/drivers`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (response.ok) {
+        return await response.json();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  /**
    * Đăng nhập tài xế chuẩn JWT qua Auth Service (:3012)
    */
   async login(emailOrPhone: string, password: string = 'password123'): Promise<{ token?: string; user?: any } | null> {

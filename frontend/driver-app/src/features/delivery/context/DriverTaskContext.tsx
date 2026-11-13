@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import * as Location from 'expo-location';
 import { DeliveryTask, DriverProfile, TaskStatus } from '@/types/driver';
-import { MOCK_DELIVERY_TASKS } from '@/shared';
 import { driverApi, TelemetryPayload, DRIVER_SESSION_KEY, setAuthToken, BACKEND_HOST } from '@/shared';
 import { storageHelper } from '@/shared';
 import { io } from 'socket.io-client';
@@ -55,602 +54,27 @@ interface DriverTaskContextType {
   totalCurrentTripWeightKg: number;
 }
 
-export const DRIVER_DB: Record<string, DriverProfile> = {
-  '0377019958': {
-    id: 'ADMIN-CHUNG',
-    name: 'Lê Công Chung (Toàn Quyền)',
-    phone: '0377 019 958',
-    licensePlate: '51-A1 999.99',
-    vehicleType: 'Xe Giao Hàng & Giám Sát Quản Trị',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Tổng Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 3.2,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 5.0,
-    completedTasksToday: 15,
-    totalEarningsToday: 550000,
-  },
-  'ADMIN-CHUNG': {
-    id: 'ADMIN-CHUNG',
-    name: 'Lê Công Chung (Toàn Quyền)',
-    phone: '0377 019 958',
-    licensePlate: '51-A1 999.99',
-    vehicleType: 'Xe Giao Hàng & Giám Sát Quản Trị',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Tổng Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 3.2,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 5.0,
-    completedTasksToday: 15,
-    totalEarningsToday: 550000,
-  },
-  'lecongchung@sfwms.vn': {
-    id: 'ADMIN-CHUNG',
-    name: 'Lê Công Chung (Toàn Quyền)',
-    phone: '0377 019 958',
-    licensePlate: '51-A1 999.99',
-    vehicleType: 'Xe Giao Hàng & Giám Sát Quản Trị',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Tổng Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 3.2,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 5.0,
-    completedTasksToday: 15,
-    totalEarningsToday: 550000,
-  },
-  '0977112233': {
-    id: 'NV-GV05',
-    name: 'Võ Minh Trí',
-    phone: '0977 112 233',
-    licensePlate: '59-V1 888.99',
-    vehicleType: 'Xe Máy Thùng Lạnh',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 3.2,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.95,
-    completedTasksToday: 12,
-    totalEarningsToday: 420000,
-  },
-  'NV-GV05': {
-    id: 'NV-GV05',
-    name: 'Võ Minh Trí',
-    phone: '0977 112 233',
-    licensePlate: '59-V1 888.99',
-    vehicleType: 'Xe Máy Thùng Lạnh',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 3.2,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.95,
-    completedTasksToday: 12,
-    totalEarningsToday: 420000,
-  },
-  '0909888111': {
-    id: 'NV-GV06',
-    name: 'Nguyễn Văn Hùng',
-    phone: '0909 888 111',
-    licensePlate: '59-G2 688.39',
-    vehicleType: 'Xe Máy Giao Siêu Tốc',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 2.8,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.9,
-    completedTasksToday: 10,
-    totalEarningsToday: 350000,
-  },
-  'NV-GV06': {
-    id: 'NV-GV06',
-    name: 'Nguyễn Văn Hùng',
-    phone: '0909 888 111',
-    licensePlate: '59-G2 688.39',
-    vehicleType: 'Xe Máy Giao Siêu Tốc',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 2.8,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.9,
-    completedTasksToday: 10,
-    totalEarningsToday: 350000,
-  },
-  '0933445566': {
-    id: 'NV-GV07',
-    name: 'Trần Quốc Bảo',
-    phone: '0933 445 566',
-    licensePlate: '59-P1 456.78',
-    vehicleType: 'Xe Máy Thùng Mát',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 3.5,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.85,
-    completedTasksToday: 8,
-    totalEarningsToday: 280000,
-  },
-  'NV-GV07': {
-    id: 'NV-GV07',
-    name: 'Trần Quốc Bảo',
-    phone: '0933 445 566',
-    licensePlate: '59-P1 456.78',
-    vehicleType: 'Xe Máy Thùng Mát',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 3.5,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.85,
-    completedTasksToday: 8,
-    totalEarningsToday: 280000,
-  },
-  '0966332211': {
-    id: 'NV-GV09',
-    name: 'Lê Thanh Tùng',
-    phone: '0966 332 211',
-    licensePlate: '59-X1 999.11',
-    vehicleType: 'Xe Máy Thùng Lạnh',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 3.1,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.90,
-    completedTasksToday: 9,
-    totalEarningsToday: 320000,
-  },
-  '0966 332 211': {
-    id: 'NV-GV09',
-    name: 'Lê Thanh Tùng',
-    phone: '0966 332 211',
-    licensePlate: '59-X1 999.11',
-    vehicleType: 'Xe Máy Thùng Lạnh',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 3.1,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.90,
-    completedTasksToday: 9,
-    totalEarningsToday: 320000,
-  },
-  'NV-GV09': {
-    id: 'NV-GV09',
-    name: 'Lê Thanh Tùng',
-    phone: '0966 332 211',
-    licensePlate: '59-X1 999.11',
-    vehicleType: 'Xe Máy Thùng Lạnh',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 3.1,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.90,
-    completedTasksToday: 9,
-    totalEarningsToday: 320000,
-  },
-  'tung.le@sfwms.vn': {
-    id: 'NV-GV09',
-    name: 'Lê Thanh Tùng',
-    phone: '0966 332 211',
-    licensePlate: '59-X1 999.11',
-    vehicleType: 'Xe Máy Thùng Lạnh',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 3.1,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.90,
-    completedTasksToday: 9,
-    totalEarningsToday: 320000,
-  },
-  '0988112244': {
-    id: 'NV-BT01',
-    name: 'Bùi Hoàng Long',
-    phone: '0988 112 244',
-    licensePlate: '59-S2 555.66',
-    vehicleType: 'Xe Máy Thùng Lạnh',
-    warehouseCode: 'WH-002',
-    warehouseName: 'Kho Bình Thạnh (123 Bạch Đằng)',
-    isOnline: true,
-    currentTemp: 3.0,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.9,
-    completedTasksToday: 11,
-    totalEarningsToday: 385000,
-  },
-  'NV-BT01': {
-    id: 'NV-BT01',
-    name: 'Bùi Hoàng Long',
-    phone: '0988 112 244',
-    licensePlate: '59-S2 555.66',
-    vehicleType: 'Xe Máy Thùng Lạnh',
-    warehouseCode: 'WH-002',
-    warehouseName: 'Kho Bình Thạnh (123 Bạch Đằng)',
-    isOnline: true,
-    currentTemp: 3.0,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.9,
-    completedTasksToday: 11,
-    totalEarningsToday: 385000,
-  },
-  '0977223344': {
-    id: 'NV-TB01',
-    name: 'Trương Gia Huy',
-    phone: '0977 223 344',
-    licensePlate: '59-H1 333.22',
-    vehicleType: 'Xe Máy Thùng Lạnh',
-    warehouseCode: 'WH-003',
-    warehouseName: 'Kho Tân Bình (45 Trường Chinh)',
-    isOnline: true,
-    currentTemp: 2.7,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.88,
-    completedTasksToday: 10,
-    totalEarningsToday: 350000,
-  },
-  'NV-TB01': {
-    id: 'NV-TB01',
-    name: 'Trương Gia Huy',
-    phone: '0977 223 344',
-    licensePlate: '59-H1 333.22',
-    vehicleType: 'Xe Máy Thùng Lạnh',
-    warehouseCode: 'WH-003',
-    warehouseName: 'Kho Tân Bình (45 Trường Chinh)',
-    isOnline: true,
-    currentTemp: 2.7,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.88,
-    completedTasksToday: 10,
-    totalEarningsToday: 350000,
-  },
-
-  // ── Đội Xe Tải & Bán Tải (Tiêu Hủy / Chuyển Kho / Đơn Lớn) ──
-  'NV-TK01': {
-    id: 'NV-TK01',
-    name: 'Đặng Hoàng Phúc',
-    phone: '0944 778 899',
-    licensePlate: '51D-892.45',
-    vehicleType: 'Xe Tải Lạnh 2.5 Tấn',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: -2.0,
-    targetTempMin: -5.0,
-    targetTempMax: 4.0,
-    rating: 4.98,
-    completedTasksToday: 6,
-    totalEarningsToday: 750000,
-  },
-  '0944778899': {
-    id: 'NV-TK01',
-    name: 'Đặng Hoàng Phúc',
-    phone: '0944 778 899',
-    licensePlate: '51D-892.45',
-    vehicleType: 'Xe Tải Lạnh 2.5 Tấn',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: -2.0,
-    targetTempMin: -5.0,
-    targetTempMax: 4.0,
-    rating: 4.98,
-    completedTasksToday: 6,
-    totalEarningsToday: 750000,
-  },
-  'truck@sfwms.vn': {
-    id: 'NV-TK01',
-    name: 'Đặng Hoàng Phúc',
-    phone: '0944 778 899',
-    licensePlate: '51D-892.45',
-    vehicleType: 'Xe Tải Lạnh 2.5 Tấn',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: -2.0,
-    targetTempMin: -5.0,
-    targetTempMax: 4.0,
-    rating: 4.98,
-    completedTasksToday: 6,
-    totalEarningsToday: 750000,
-  },
-  'phuc.dang@sfwms.vn': {
-    id: 'NV-TK01',
-    name: 'Đặng Hoàng Phúc',
-    phone: '0944 778 899',
-    licensePlate: '51D-892.45',
-    vehicleType: 'Xe Tải Lạnh 2.5 Tấn',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: -2.0,
-    targetTempMin: -5.0,
-    targetTempMax: 4.0,
-    rating: 4.98,
-    completedTasksToday: 6,
-    totalEarningsToday: 750000,
-  },
-  'danghoangphuc@sfwms.vn': {
-    id: 'NV-TK01',
-    name: 'Đặng Hoàng Phúc',
-    phone: '0944 778 899',
-    licensePlate: '51D-892.45',
-    vehicleType: 'Xe Tải Lạnh 2.5 Tấn',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: -2.0,
-    targetTempMin: -5.0,
-    targetTempMax: 4.0,
-    rating: 4.98,
-    completedTasksToday: 6,
-    totalEarningsToday: 750000,
-  },
-  'danghoangphuc@gmail.com': {
-    id: 'NV-TK01',
-    name: 'Đặng Hoàng Phúc',
-    phone: '0944 778 899',
-    licensePlate: '51D-892.45',
-    vehicleType: 'Xe Tải Lạnh 2.5 Tấn',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: -2.0,
-    targetTempMin: -5.0,
-    targetTempMax: 4.0,
-    rating: 4.98,
-    completedTasksToday: 6,
-    totalEarningsToday: 750000,
-  },
-  'phuc.dang@gmail.com': {
-    id: 'NV-TK01',
-    name: 'Đặng Hoàng Phúc',
-    phone: '0944 778 899',
-    licensePlate: '51D-892.45',
-    vehicleType: 'Xe Tải Lạnh 2.5 Tấn',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: -2.0,
-    targetTempMin: -5.0,
-    targetTempMax: 4.0,
-    rating: 4.98,
-    completedTasksToday: 6,
-    totalEarningsToday: 750000,
-  },
-  'phuc@sfwms.vn': {
-    id: 'NV-TK01',
-    name: 'Đặng Hoàng Phúc',
-    phone: '0944 778 899',
-    licensePlate: '51D-892.45',
-    vehicleType: 'Xe Tải Lạnh 2.5 Tấn',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: -2.0,
-    targetTempMin: -5.0,
-    targetTempMax: 4.0,
-    rating: 4.98,
-    completedTasksToday: 6,
-    totalEarningsToday: 750000,
-  },
-  '0918776655': {
-    id: 'NV-VAN01',
-    name: 'Phan Hữu Nam',
-    phone: '0918 776 655',
-    licensePlate: '51C-734.12',
-    vehicleType: 'Xe Bán Tải Thùng Kín 1.5 Tấn',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 3.0,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.90,
-    completedTasksToday: 8,
-    totalEarningsToday: 550000,
-  },
-  '0918 776 655': {
-    id: 'NV-VAN01',
-    name: 'Phan Hữu Nam',
-    phone: '0918 776 655',
-    licensePlate: '51C-734.12',
-    vehicleType: 'Xe Bán Tải Thùng Kín 1.5 Tấn',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 3.0,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.90,
-    completedTasksToday: 8,
-    totalEarningsToday: 550000,
-  },
-  'NV-VAN01': {
-    id: 'NV-VAN01',
-    name: 'Phan Hữu Nam',
-    phone: '0918 776 655',
-    licensePlate: '51C-734.12',
-    vehicleType: 'Xe Bán Tải Thùng Kín 1.5 Tấn',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 3.0,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.90,
-    completedTasksToday: 8,
-    totalEarningsToday: 550000,
-  },
-  'van@sfwms.vn': {
-    id: 'NV-VAN01',
-    name: 'Phan Hữu Nam',
-    phone: '0918 776 655',
-    licensePlate: '51C-734.12',
-    vehicleType: 'Xe Bán Tải Thùng Kín 1.5 Tấn',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 3.0,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.90,
-    completedTasksToday: 8,
-    totalEarningsToday: 550000,
-  },
-  'nam.phan@sfwms.vn': {
-    id: 'NV-VAN01',
-    name: 'Phan Hữu Nam',
-    phone: '0918 776 655',
-    licensePlate: '51C-734.12',
-    vehicleType: 'Xe Bán Tải Thùng Kín 1.5 Tấn',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 3.0,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.90,
-    completedTasksToday: 8,
-    totalEarningsToday: 550000,
-  },
-
-  // ── Email Aliases cho Tài Xế Xe Máy ──
-  'driver@sfwms.vn': {
-    id: 'NV-GV05',
-    name: 'Võ Minh Trí',
-    phone: '0977 112 233',
-    licensePlate: '59-V1 888.99',
-    vehicleType: 'Xe Máy Thùng Lạnh',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 3.2,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.95,
-    completedTasksToday: 12,
-    totalEarningsToday: 420000,
-  },
-  'tri.vo@sfwms.vn': {
-    id: 'NV-GV05',
-    name: 'Võ Minh Trí',
-    phone: '0977 112 233',
-    licensePlate: '59-V1 888.99',
-    vehicleType: 'Xe Máy Thùng Lạnh',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 3.2,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.95,
-    completedTasksToday: 12,
-    totalEarningsToday: 420000,
-  },
-  'hung.nguyen@sfwms.vn': {
-    id: 'NV-GV06',
-    name: 'Nguyễn Văn Hùng',
-    phone: '0909 888 111',
-    licensePlate: '59-G2 688.39',
-    vehicleType: 'Xe Máy Giao Siêu Tốc',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 2.8,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.9,
-    completedTasksToday: 10,
-    totalEarningsToday: 350000,
-  },
-  'bao.tran@sfwms.vn': {
-    id: 'NV-GV07',
-    name: 'Trần Quốc Bảo',
-    phone: '0933 445 566',
-    licensePlate: '59-P1 456.78',
-    vehicleType: 'Xe Máy Thùng Mát',
-    warehouseCode: 'WH-006',
-    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
-    isOnline: true,
-    currentTemp: 3.5,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.85,
-    completedTasksToday: 8,
-    totalEarningsToday: 280000,
-  },
-  'long.bui@sfwms.vn': {
-    id: 'NV-BT01',
-    name: 'Bùi Hoàng Long',
-    phone: '0988 112 244',
-    licensePlate: '59-S2 555.66',
-    vehicleType: 'Xe Máy Thùng Lạnh',
-    warehouseCode: 'WH-002',
-    warehouseName: 'Kho Bình Thạnh (123 Bạch Đằng)',
-    isOnline: true,
-    currentTemp: 3.0,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.9,
-    completedTasksToday: 11,
-    totalEarningsToday: 385000,
-  },
-  'huy.truong@sfwms.vn': {
-    id: 'NV-TB01',
-    name: 'Trương Gia Huy',
-    phone: '0977 223 344',
-    licensePlate: '59-H1 333.22',
-    vehicleType: 'Xe Máy Thùng Lạnh',
-    warehouseCode: 'WH-003',
-    warehouseName: 'Kho Tân Bình (45 Trường Chinh)',
-    isOnline: true,
-    currentTemp: 2.7,
-    targetTempMin: 0.0,
-    targetTempMax: 4.0,
-    rating: 4.88,
-    completedTasksToday: 10,
-    totalEarningsToday: 350000,
-  }
+export const DEFAULT_PROFILE: DriverProfile = {
+  id: 'NV-GV05',
+  name: 'Võ Minh Trí',
+  phone: '0977 112 233',
+  licensePlate: '59-V1 888.99',
+  vehicleType: 'Xe Máy Thùng Lạnh Tiêu Chuẩn',
+  warehouseCode: 'WH-006',
+  warehouseName: 'Tổng Kho Gò Vấp (350 Quang Trung)',
+  isOnline: true,
+  currentTemp: 3.5,
+  targetTempMin: 0.0,
+  targetTempMax: 4.0,
+  rating: 4.95,
+  completedTasksToday: 0,
+  totalEarningsToday: 0,
 };
 
-export const SELECTABLE_DRIVERS: DriverProfile[] = [
-  DRIVER_DB['0377019958'], // Lê Công Chung (Toàn Quyền Quản Trị)
-  DRIVER_DB['0977112233'], // Võ Minh Trí (Xe Máy Thùng Lạnh - WH-006)
-  DRIVER_DB['NV-TK01'],     // Đặng Hoàng Phúc (Xe Tải Lạnh 2.5T - WH-006 & Đa Phước)
-  DRIVER_DB['0918776655'], // Phan Hữu Nam (Xe Bán Tải 1.5T - WH-006)
-  DRIVER_DB['0909888111'], // Nguyễn Văn Hùng (Xe Máy Siêu Tốc - WH-006)
-  DRIVER_DB['0933445566'], // Trần Quốc Bảo (Xe Máy Thùng Mát - WH-006)
-  DRIVER_DB['0966332211'], // Lê Thanh Tùng (Xe Máy Thùng Lạnh - WH-006)
-  DRIVER_DB['NV-BT01'],     // Bùi Hoàng Long (Tài xế Liên Kho Bình Thạnh - Gò Vấp)
-  DRIVER_DB['NV-TB01'],     // Trương Gia Huy (Tài xế Liên Kho Tân Bình - Gò Vấp)
-].filter(Boolean);
+// Dynamic registries (backed by user-service database)
+export const DRIVER_DB: Record<string, DriverProfile> = {};
+export const SELECTABLE_DRIVERS: DriverProfile[] = [];
 
-const DEFAULT_PROFILE = DRIVER_DB['0977112233'];
 
 const DriverTaskContext = createContext<DriverTaskContextType | undefined>(undefined);
 
@@ -689,6 +113,39 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [isSessionChecking, setIsSessionChecking] = useState<boolean>(true);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [driverProfile, setDriverProfile] = useState<DriverProfile>(DEFAULT_PROFILE);
+  const [availableDrivers, setAvailableDrivers] = useState<DriverProfile[]>([]);
+
+  useEffect(() => {
+    driverApi.getAllDrivers().then(list => {
+      if (Array.isArray(list) && list.length > 0) {
+        const mapped: DriverProfile[] = list.map((d: any) => {
+          const wCode = d.warehouseCode || 'WH-006';
+          const wName = wCode === 'WH-001'
+            ? 'Kho Bình Thạnh (123 Lê Quang Định)'
+            : wCode === 'WH-002'
+            ? 'Kho Tân Bình (45 Cộng Hòa)'
+            : 'Tổng Kho Gò Vấp (350 Quang Trung)';
+          return {
+            id: d.code || String(d.id),
+            name: d.fullName || d.name,
+            phone: d.phone || '',
+            licensePlate: d.licensePlate || '59-X1 999.99',
+            vehicleType: d.vehicleType || 'Xe Giao Hàng',
+            warehouseCode: wCode,
+            warehouseName: wName,
+            isOnline: true,
+            currentTemp: d.currentTemp !== undefined ? Number(d.currentTemp) : 3.2,
+            targetTempMin: d.targetTempMin !== undefined ? Number(d.targetTempMin) : 0.0,
+            targetTempMax: d.targetTempMax !== undefined ? Number(d.targetTempMax) : 4.0,
+            rating: 5.0,
+            completedTasksToday: 0,
+            totalEarningsToday: d.totalEarningsToday ? Number(d.totalEarningsToday) : 0,
+          };
+        });
+        setAvailableDrivers(mapped);
+      }
+    }).catch(() => {});
+  }, []);
   const [tasks, setTasks] = useState<DeliveryTask[]>([]);
   const [nextWaveTasks, setNextWaveTasks] = useState<DeliveryTask[]>([]);
   const [activeTask, setActiveTask] = useState<DeliveryTask | null>(null);
@@ -1314,92 +771,38 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     // 1. Authenticate with User Service to obtain JWT
     const authResult = await driverApi.login(cleanInput, pass);
     if (!authResult || !authResult.token) {
-      console.warn(`[DriverAuth] Đăng nhập thất bại: mật khẩu không chính xác hoặc tài khoản chưa hợp lệ cho "${emailOrPhone}"`);
+      console.warn(`[DriverAuth] Đăng nhập thất bại: thông tin xác thực chưa hợp lệ cho "${emailOrPhone}"`);
       return false;
     }
     const token = authResult.token;
     const remoteUser = authResult.user;
 
-    // 2. Intelligent Driver Directory & Profile Matching
-    const cleanDigits = cleanInput.replace(/\D/g, '');
-    let matchedProfile: DriverProfile | undefined = 
-      DRIVER_DB[cleanInput] || 
-      DRIVER_DB[cleanDigits] ||
-      DRIVER_DB[cleanInput.toUpperCase()] ||
-      DRIVER_DB[emailOrPhone.replace(/\s+/g, '')];
-
-    if (!matchedProfile) {
-      const allProfiles: DriverProfile[] = Object.values(DRIVER_DB);
-
-      matchedProfile = allProfiles.find(p => {
-        const pPhone = p.phone.replace(/\D/g, '');
-        const pName = p.name.toLowerCase();
-        const pId = p.id.toLowerCase();
-        const pPlate = p.licensePlate.toLowerCase().replace(/\s+/g, '');
-
-        return (
-          (cleanDigits.length >= 8 && (pPhone === cleanDigits || pPhone.includes(cleanDigits))) ||
-          pId === cleanInput ||
-          pPlate === cleanInput.replace(/\s+/g, '') ||
-          (cleanInput.includes('phuc') && (pName.includes('phúc') || pId === 'nv-tk01')) ||
-          (cleanInput.includes('truck') && p.id === 'NV-TK01') ||
-          (cleanInput.includes('van') && p.id === 'NV-VAN01') ||
-          (cleanInput.includes('tri') && pName.includes('trí')) ||
-          (cleanInput.includes('hung') && pName.includes('hùng')) ||
-          (cleanInput.includes('bao') && pName.includes('bảo')) ||
-          (cleanInput.includes('nam') && (pName.includes('nam') || pId === 'nv-van01')) ||
-          (cleanInput.includes('tung') && pName.includes('tùng')) ||
-          (cleanInput.includes('long') && pName.includes('long')) ||
-          (cleanInput.includes('huy') && pName.includes('huy')) ||
-          (cleanInput.length >= 3 && pName.includes(cleanInput))
-        );
-      });
-    }
-
-    if (!matchedProfile) {
-      if (remoteUser) {
-        // Tự động gán profile tài xế cho Admin hoặc tài khoản đã xác thực hợp lệ qua User-Service
-        matchedProfile = {
-          id: remoteUser.code || remoteUser.id || 'ADMIN-CHUNG',
-          name: remoteUser.fullName || remoteUser.name || 'Lê Công Chung (Toàn Quyền)',
-          phone: remoteUser.phone || '0377 019 958',
-          licensePlate: '51-A1 999.99',
-          vehicleType: 'Xe Giao Hàng & Giám Sát Quản Trị',
-          warehouseCode: remoteUser.warehouseCode || 'WH-006',
-          warehouseName: 'Tổng Kho Gò Vấp (350 Quang Trung)',
-          isOnline: true,
-          currentTemp: 3.2,
-          targetTempMin: 0.0,
-          targetTempMax: 4.0,
-          rating: 5.0,
-          completedTasksToday: 15,
-          totalEarningsToday: 550000,
-        };
-      } else {
-        console.warn(`[DriverAuth] Không tìm thấy tài xế trong hệ thống: "${emailOrPhone}"`);
-        return false;
-      }
-    }
+    const warehouseCode = remoteUser?.warehouseCode || 'WH-006';
+    const warehouseName = warehouseCode === 'WH-001'
+      ? 'Kho Bình Thạnh (123 Lê Quang Định)'
+      : warehouseCode === 'WH-002'
+      ? 'Kho Tân Bình (45 Cộng Hòa)'
+      : 'Tổng Kho Gò Vấp (350 Quang Trung)';
 
     const finalProfile: DriverProfile = {
-      id: matchedProfile.id,
-      name: matchedProfile.name,
-      phone: matchedProfile.phone,
-      licensePlate: matchedProfile.licensePlate,
-      vehicleType: matchedProfile.vehicleType,
-      warehouseCode: matchedProfile.warehouseCode,
-      warehouseName: matchedProfile.warehouseName,
+      id: remoteUser?.code || String(remoteUser?.id || 'DRV-001'),
+      name: remoteUser?.fullName || remoteUser?.name || 'Tài xế SmartWarehouse',
+      phone: remoteUser?.phone || emailOrPhone,
+      licensePlate: remoteUser?.licensePlate || '59-X1 999.99',
+      vehicleType: remoteUser?.vehicleType || 'Xe Giao Hàng Tiêu Chuẩn',
+      warehouseCode,
+      warehouseName,
       isOnline: true,
-      currentTemp: matchedProfile.currentTemp,
-      targetTempMin: matchedProfile.targetTempMin,
-      targetTempMax: matchedProfile.targetTempMax,
-      rating: matchedProfile.rating,
-      completedTasksToday: matchedProfile.completedTasksToday,
-      totalEarningsToday: matchedProfile.totalEarningsToday,
+      currentTemp: remoteUser?.currentTemp !== undefined ? Number(remoteUser.currentTemp) : 3.2,
+      targetTempMin: remoteUser?.targetTempMin !== undefined ? Number(remoteUser.targetTempMin) : 0.0,
+      targetTempMax: remoteUser?.targetTempMax !== undefined ? Number(remoteUser.targetTempMax) : 4.0,
+      rating: 5.0,
+      completedTasksToday: 0,
+      totalEarningsToday: remoteUser?.totalEarningsToday ? Number(remoteUser.totalEarningsToday) : 0,
       token,
     };
 
-    // 1. Dọn dẹp toàn bộ dữ liệu phiên cũ trước khi gán phiên mới để tránh nhấp nháy lộ trình người khác
+    // Dọn dẹp dữ liệu chuyến cũ
     setTasks([]);
     setNextWaveTasks([]);
     setActiveTask(null);
@@ -1408,32 +811,30 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setIsBatchDeparted(false);
     setCurrentTripLockedIds(new Set());
 
+    // Thiết lập phiên đăng nhập
     setDriverProfile(finalProfile);
-    setAuthToken(token);
     setIsAuthenticated(true);
-    setCurrentTripNumber(1);
-    setTripStatus('IN_TRANSIT');
+    setAuthToken(token);
 
-    // Save session in persistent storage
     try {
-      storageHelper.saveItem(DRIVER_SESSION_KEY, JSON.stringify({ token, profile: finalProfile }));
       const dId = finalProfile.id || '';
-      storageHelper.removeItem(`sfwms_driver_batch_departed_${dId}`);
-      storageHelper.removeItem(`sfwms_driver_locked_trip_ids_${dId}`);
-      storageHelper.removeItem(`sfwms_driver_trip_number_${dId}`);
-      storageHelper.removeItem(`sfwms_driver_intransit_ids_${dId}`);
-    } catch (e) {}
+      await storageHelper.saveItem(DRIVER_SESSION_KEY, JSON.stringify({ token, profile: finalProfile }));
+      await storageHelper.removeItem(`sfwms_driver_batch_departed_${dId}`);
+      await storageHelper.removeItem(`sfwms_driver_locked_trip_ids_${dId}`);
+      await storageHelper.removeItem(`sfwms_driver_trip_number_${dId}`);
+      await storageHelper.removeItem(`sfwms_driver_intransit_ids_${dId}`);
+    } catch (e) {
+      console.warn('Lỗi lưu phiên đăng nhập:', e);
+    }
 
-    setTimeout(fetchLiveAssignedOrders, 50);
-
+    setTimeout(fetchLiveAssignedOrders, 100);
     return true;
   };
 
   const logout = () => {
     setIsAuthenticated(false);
     setAuthToken(null);
-    setCurrentTripNumber(1);
-    setTripStatus('IN_TRANSIT');
+    setDriverProfile(DEFAULT_PROFILE);
     setTasks([]);
     setNextWaveTasks([]);
     setActiveTask(null);
@@ -1454,11 +855,11 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const switchDriverProfile = async (driverIdOrPhone: string): Promise<boolean> => {
     const clean = driverIdOrPhone.trim().toLowerCase();
     const cleanDigits = driverIdOrPhone.replace(/\D/g, '');
-    const target = SELECTABLE_DRIVERS.find(d => {
+    const target = availableDrivers.find(d => {
       const pPhone = d.phone.replace(/\D/g, '');
       const pId = d.id.toLowerCase();
       return pId === clean || (cleanDigits.length >= 8 && pPhone.includes(cleanDigits));
-    }) || DRIVER_DB[clean] || DRIVER_DB[driverIdOrPhone];
+    });
 
     if (target) {
       setDriverProfile(target);
@@ -1948,7 +1349,7 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     <DriverTaskContext.Provider
       value={{
         driverProfile,
-        availableDrivers: SELECTABLE_DRIVERS,
+        availableDrivers,
         switchDriverProfile,
         isAuthenticated,
         isSessionChecking,
