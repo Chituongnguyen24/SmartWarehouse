@@ -109,10 +109,7 @@ export const CreateInboundModal: React.FC<CreateInboundModalProps> = ({
             price: Number(p.price) || 25000,
             category: p.category || 'Hàng hóa'
           }));
-          setProductCatalog(prev => {
-            const combined = [...mapped, ...DEFAULT_PRODUCTS];
-            return combined.filter((v, i, a) => a.findIndex(t => t.sku === v.sku) === i);
-          });
+          setProductCatalog(mapped);
         }
       })
       .catch(() => {});

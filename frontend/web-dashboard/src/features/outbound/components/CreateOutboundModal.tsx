@@ -104,11 +104,7 @@ export const CreateOutboundModal: React.FC<CreateOutboundModalProps> = ({
             category: p.category || 'Hàng hóa'
           }));
           
-          setProductCatalog(prev => {
-            const combined = [...mapped, ...DEFAULT_PRODUCTS];
-            const unique = combined.filter((v, i, a) => a.findIndex(t => t.sku === v.sku) === i);
-            return unique;
-          });
+          setProductCatalog(mapped);
         }
       })
       .catch(() => {});
