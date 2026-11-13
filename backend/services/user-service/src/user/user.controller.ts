@@ -75,6 +75,20 @@ export class UserController {
     return this.userService.findDriverProfile(userId);
   }
 
+  @Get('b2b-customers')
+  @ApiOperation({ summary: 'Lấy danh sách khách hàng doanh nghiệp B2B đối tác' })
+  @ApiQuery({ name: 'search', required: false })
+  async findAllB2BCustomers(@Query('search') search?: string) {
+    return this.userService.findAllB2BCustomers(search);
+  }
+
+  @Post('b2b-customers')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Tạo mới hồ sơ khách hàng doanh nghiệp B2B' })
+  async createB2BCustomer(@Body() body: any) {
+    return this.userService.createB2BCustomer(body);
+  }
+
   // ─────────────────────────────────────────────────────────────
   //  STAFF MANAGEMENT ENDPOINTS (Full CRUD & Multi-Warehouse)
   // ─────────────────────────────────────────────────────────────

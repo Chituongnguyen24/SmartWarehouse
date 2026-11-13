@@ -36,21 +36,17 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
+import {
+  B2BCustomersPanel,
+  CreateB2BCustomerModal,
+  FefoClearancePanel,
+  CreateB2BOrderPanel,
+  B2BOrderDetailModal,
+} from '../index';
+import type { B2BCustomer, OrderCartItem } from '../index';
 
 const OUTBOUND_API = 'http://localhost:3007/outbound-orders';
 const PRODUCT_API = 'http://localhost:3010/products';
-
-export interface B2BCustomer {
-  id: string;
-  code: string;
-  name: string;
-  type: 'Nhà hàng' | 'Siêu thị' | 'Đại lý sỉ' | 'Khách lẻ VIP';
-  phone: string;
-  email: string;
-  address: string;
-  discountRate: number; // % Chiết khấu
-  creditLimit: number;
-}
 
 export interface ProductInventoryItem {
   id: string;
@@ -178,7 +174,11 @@ export const SalesManagement = () => {
 
   // Form State for Order Entry
   const [selectedCustomer, setSelectedCustomer] = useState<B2BCustomer | null>(null);
-  const [cartItems, setCartItems] = useState<Array<{ product: ProductInventoryItem; quantity: number }>>([]);
+  const [cartItems, setCartItems] = useState<OrderCartItem[]>([]);
+  const [fefoLotsCount, setFefoLotsCount] = useState<number>(0);
+  const [selectedOrderDetail, setSelectedOrderDetail] = useState<any | null>(null);
+  const [orderSearchQuery, setOrderSearchQuery] = useState<string>('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>('ALL');
   const [customDiscountRate, setCustomDiscountRate] = useState<number>(0);
   const [orderNotes, setOrderNotes] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -223,27 +223,30 @@ export const SalesManagement = () => {
     }
   };
 
-  // Fetch customers from users API
+  // Fetch real B2B enterprise customers from user-service (:3012)
   const fetchCustomers = async () => {
     try {
       if (!token) return;
-      const res = await fetch('http://localhost:3012/users', {
-        headers: { 'Authorization': `Bearer ${token}` },
+      const res = await fetch('http://localhost:3012/users/b2b-customers', {
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
         const usersList = Array.isArray(data) ? data : (data.items || data.data || []);
-        const customerUsers = usersList.filter((u: any) => u.role === 'CUSTOMER' || u.role === 'SALES_STAFF');
-        const mapped: B2BCustomer[] = customerUsers.map((u: any, idx: number) => ({
+        const mapped: B2BCustomer[] = usersList.map((u: any) => ({
           id: u.id,
-          code: `B2B-${String(idx + 1).padStart(3, '0')}`,
+          code: u.code || `B2B-${u.id.substring(0, 4)}`,
           name: u.name,
-          type: 'Khách lẻ VIP' as const,
+          companyName: u.companyName || u.name,
+          type: u.b2bType || 'DAILY',
           phone: u.phone || '',
-          email: u.email,
-          address: '',
-          discountRate: 0,
-          creditLimit: 50000000,
+          email: u.email || '',
+          taxCode: u.taxCode || '',
+          address: u.billingAddress || (u.addresses && u.addresses[0]?.address) || 'Hồ Chí Minh',
+          billingAddress: u.billingAddress || '',
+          discountRate: u.discountRate !== undefined ? Number(u.discountRate) : 5,
+          creditLimit: u.creditLimit ? Number(u.creditLimit) : 50000000,
+          debtBalance: u.debtBalance ? Number(u.debtBalance) : 0,
         }));
         setCustomers(mapped);
         if (mapped.length > 0 && !selectedCustomer) {
@@ -252,7 +255,21 @@ export const SalesManagement = () => {
         }
       }
     } catch (err) {
-      console.error('Error fetching customers:', err);
+      console.error('Error fetching B2B customers:', err);
+    }
+  };
+
+  const fetchFefoLotsCount = async () => {
+    try {
+      const res = await fetch('http://localhost:3011/inventory/expiry-alert?days=45');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setFefoLotsCount(data.length);
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching FEFO count:', e);
     }
   };
 
@@ -260,6 +277,7 @@ export const SalesManagement = () => {
     fetchLiveOrders();
     fetchProducts();
     fetchCustomers();
+    fetchFefoLotsCount();
   }, [token]);
 
   const fetchLiveOrders = async () => {
@@ -699,6 +717,158 @@ export const SalesManagement = () => {
   const totalMonthlySales = 145800000;
   const totalOrdersCount = salesOrders.length;
   const fefoItemsCount = products.filter(p => p.isFefoPriority).length;
+
+  const productsMap = React.useMemo(() => {
+    const map: Record<string, { price: number; unit: string; category?: string }> = {};
+    products.forEach(p => {
+      map[p.sku] = { price: p.price, unit: p.unit, category: p.category };
+      map[p.id] = { price: p.price, unit: p.unit, category: p.category };
+    });
+    return map;
+  }, [products]);
+
+  const handleAddToCart = (prod: ProductInventoryItem, quantity: number = 1) => {
+    setCartItems(prev => {
+      const existing = prev.find(i => i.product.id === prod.id || i.product.sku === prod.sku);
+      if (existing) {
+        return prev.map(i =>
+          (i.product.id === prod.id || i.product.sku === prod.sku)
+            ? { ...i, quantity: i.quantity + quantity }
+            : i
+        );
+      }
+      return [...prev, { product: prod, quantity, unitPrice: prod.price }];
+    });
+  };
+
+  const handleUpdateCartQty = (productId: string, delta: number) => {
+    setCartItems(prev =>
+      prev
+        .map(i => {
+          if (i.product.id === productId || i.product.sku === productId) {
+            const next = i.quantity + delta;
+            return next > 0 ? { ...i, quantity: next } : null;
+          }
+          return i;
+        })
+        .filter(Boolean) as OrderCartItem[]
+    );
+  };
+
+  const handleSetCartQty = (productId: string, qty: number) => {
+    if (qty <= 0) {
+      setCartItems(prev => prev.filter(i => i.product.id !== productId && i.product.sku !== productId));
+      return;
+    }
+    setCartItems(prev =>
+      prev.map(i => (i.product.id === productId || i.product.sku === productId ? { ...i, quantity: qty } : i))
+    );
+  };
+
+  const handleRemoveCartItem = (productId: string) => {
+    setCartItems(prev => prev.filter(i => i.product.id !== productId && i.product.sku !== productId));
+  };
+
+  const handleAddFefoToOrder = (fefoItem: any) => {
+    const matching = products.find(p => p.sku === fefoItem.sku || p.id === fefoItem.id) || {
+      id: fefoItem.id,
+      sku: fefoItem.sku,
+      name: fefoItem.name,
+      category: fefoItem.category || 'Hàng Cận Hạn',
+      price: fefoItem.price,
+      unit: fefoItem.unit || 'Kg',
+      stock: fefoItem.stock,
+      zone: fefoItem.zone,
+      isFefoPriority: true,
+    };
+
+    setCartItems(prev => {
+      const existing = prev.find(i => i.product.id === matching.id || i.product.sku === matching.sku);
+      if (existing) {
+        return prev.map(i =>
+          (i.product.id === matching.id || i.product.sku === matching.sku)
+            ? { ...i, quantity: i.quantity + 5, unitPrice: fefoItem.price, lotCode: fefoItem.lotCode, discountRate: fefoItem.discountRate }
+            : i
+        );
+      }
+      return [...prev, {
+        product: matching,
+        quantity: 5,
+        unitPrice: fefoItem.price,
+        lotCode: fefoItem.lotCode,
+        discountRate: fefoItem.discountRate,
+      }];
+    });
+
+    setActiveTab('CREATE_ORDER');
+    showToast(`Đã đưa ${fefoItem.name} (Lô ${fefoItem.lotCode}) vào đơn hàng B2B với giá giảm FEFO.`);
+  };
+
+  const handleSelectCustomerForOrder = (cust: B2BCustomer) => {
+    setSelectedCustomer(cust);
+    setActiveTab('CREATE_ORDER');
+    showToast(`Đã chọn đối tác ${cust.name}. Bạn có thể lên đơn B2B.`);
+  };
+
+  const handleSubmitB2BOrder = async (orderDetails: {
+    warehouseCode: string;
+    paymentTerms: string;
+    deliveryDate: string;
+    deliveryNotes: string;
+    vatRate: number;
+    shippingFee: number;
+  }) => {
+    if (!selectedCustomer) {
+      showToast('Vui lòng chọn đối tác B2B trước khi tạo đơn');
+      return;
+    }
+    if (cartItems.length === 0) {
+      showToast('Vui lòng chọn ít nhất 1 sản phẩm vào đơn hàng');
+      return;
+    }
+
+    const newOrderCode = `SO-B2B-${Date.now().toString().slice(-6)}`;
+    const rawSub = cartItems.reduce((acc, i) => acc + i.unitPrice * i.quantity, 0);
+    const disc = Math.round(rawSub * ((selectedCustomer.discountRate || 0) / 100));
+    const vat = Math.round((rawSub - disc) * (orderDetails.vatRate / 100));
+    const finalAmount = rawSub - disc + vat + orderDetails.shippingFee;
+
+    const payload = {
+      orderCode: newOrderCode,
+      type: 'NORMAL',
+      warehouseCode: orderDetails.warehouseCode,
+      requesterName: selectedCustomer.companyName || selectedCustomer.name,
+      customerPhone: selectedCustomer.phone,
+      destination: selectedCustomer.address || selectedCustomer.billingAddress || 'Hồ Chí Minh',
+      notes: `[B2B - ${orderDetails.paymentTerms}] ${orderDetails.deliveryNotes} (Hẹn giao: ${orderDetails.deliveryDate})`,
+      totalAmount: finalAmount,
+      items: cartItems.map(item => ({
+        productId: item.product.id,
+        sku: item.product.sku,
+        productName: item.product.name,
+        requestedQuantity: item.quantity,
+        unitPrice: item.unitPrice,
+        unit: item.product.unit,
+        lotCode: item.lotCode,
+      })),
+    };
+
+    const res = await fetch(OUTBOUND_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Lỗi khi gửi yêu cầu xuất kho');
+    }
+
+    showToast(`Tạo thành công Đơn Sales B2B #${newOrderCode}. Đã đẩy sang Kho ${orderDetails.warehouseCode}!`);
+    setCartItems([]);
+    await fetchLiveOrders();
+    setActiveTab('ORDER_LIST');
+  };
 
   const handleAddItemToCart = (prod: ProductInventoryItem) => {
     setCartItems(prev => {
@@ -1161,7 +1331,7 @@ export const SalesManagement = () => {
           <FileText size={18} /> 3. Đơn Hàng ({salesOrders.length})
         </button>
         <button onClick={() => setActiveTab('FEFO_INSIGHTS')} style={tabButtonStyle(activeTab === 'FEFO_INSIGHTS')}>
-          <TrendingUp size={18} /> 4. Đẩy Bán Cận Hạn ({fefoItemsCount})
+          <TrendingUp size={18} /> 4. Đẩy Bán Cận Hạn ({fefoLotsCount})
         </button>
         <button onClick={() => setActiveTab('CUSTOMERS')} style={tabButtonStyle(activeTab === 'CUSTOMERS')}>
           <Building2 size={18} /> 5. Khách Hàng B2B
@@ -1624,254 +1794,173 @@ export const SalesManagement = () => {
         </div>
       )}
 
-      {/* TAB 1: CREATE SALES ORDER */}
+      {/* TAB 2: CREATE B2B SALES ORDER */}
       {activeTab === 'CREATE_ORDER' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 420px', gap: '1.5rem' }}>
-          {/* Left Product Catalog Selector */}
-          <div style={{ background: 'var(--color-surface)', borderRadius: 12, padding: '1.25rem', border: '1px solid var(--color-border)' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <ShoppingBag size={20} color="#008848" /> Chọn Thực Phẩm Từ Kho CityMart (Tồn Kho Thực Tế)
-            </h3>
-
-            {/* Product Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
-              {products.map(prod => (
-                <div
-                  key={prod.id}
-                  style={{
-                    backgroundColor: 'var(--color-bg)',
-                    borderRadius: 10,
-                    padding: 12,
-                    border: prod.isFefoPriority ? '2px solid #F59E0B' : '1px solid var(--color-border)',
-                    position: 'relative',
-                  }}
-                >
-                  {prod.isFefoPriority && (
-                    <span style={{ position: 'absolute', top: 6, right: 6, backgroundColor: '#F59E0B', color: '#fff', fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: 4 }}>
-                      Ưu tiên hạn gần
-                    </span>
-                  )}
-
-                  <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--color-text)' }}>{prod.name}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>
-                    Mã SP: <strong>{prod.sku}</strong> | ĐVT: <strong>{prod.unit}</strong>
-                  </div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#008848', marginTop: 6 }}>
-                    {prod.price.toLocaleString('vi-VN')}đ / {prod.unit}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: 4 }}>
-                    Tồn kho: <strong>{prod.stock} {prod.unit}</strong> ({prod.zone})
-                  </div>
-
-                  <button
-                    onClick={() => handleAddItemToCart(prod)}
-                    className="btn btn-primary"
-                    style={{ width: '100%', marginTop: 10, backgroundColor: '#008848', color: '#fff', fontSize: '0.8rem', fontWeight: 700, padding: '6px' }}
-                  >
-                    + Thêm 5 {prod.unit}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Right Order Summary & Customer Details */}
-          <div style={{ background: 'var(--color-surface)', borderRadius: 12, padding: '1.25rem', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text)' }}>Thông Tin Khách Hàng & Đơn Hàng B2B</h3>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>Chọn Đối Tác B2B</label>
-              <select
-                value={selectedCustomer?.id || ''}
-                onChange={e => {
-                  const cust = customers.find(c => c.id === e.target.value);
-                  if (cust) {
-                    setSelectedCustomer(cust);
-                    setCustomDiscountRate(cust.discountRate);
-                  }
-                }}
-                style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--color-border)' }}
-              >
-                {customers.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.type} - Chiết khấu {c.discountRate}%)
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Cart Items List */}
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 6 }}>
-                Danh Sách Sản Phẩm Đã Chọn ({cartItems.length})
-              </label>
-              {cartItems.length === 0 ? (
-                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', padding: '1rem', textAlign: 'center', border: '1px dashed var(--color-border)', borderRadius: 8 }}>
-                  Chưa chọn sản phẩm nào vào đơn
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto' }}>
-                  {cartItems.map(item => (
-                    <div key={item.product.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 8, backgroundColor: 'var(--color-bg)', borderRadius: 6, fontSize: '0.85rem' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 700 }}>{item.product.name}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-                          {item.product.price.toLocaleString('vi-VN')}đ x {item.quantity} {item.product.unit}
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <button onClick={() => handleUpdateQty(item.product.id, -1)} style={qtyBtnStyle}>-</button>
-                        <span style={{ fontWeight: 800 }}>{item.quantity}</span>
-                        <button onClick={() => handleUpdateQty(item.product.id, 1)} style={qtyBtnStyle}>+</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Discount Adjustment */}
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>Chiết Khấu B2B Áp Dụng (%)</label>
-              <input
-                type="number"
-                value={customDiscountRate}
-                onChange={e => setCustomDiscountRate(Number(e.target.value))}
-                style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--color-border)' }}
-              />
-            </div>
-
-            {/* Calculations */}
-            <div style={{ borderTop: '1px dashed var(--color-border)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 4, fontSize: '0.85rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Tổng giá trị hàng:</span>
-                <span>{rawTotalAmount.toLocaleString('vi-VN')}đ</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#008848', fontWeight: 700 }}>
-                <span>Chiết khấu ({customDiscountRate}%):</span>
-                <span>-{calculatedDiscount.toLocaleString('vi-VN')}đ</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 900, fontSize: '1.1rem', color: '#2563EB', marginTop: 4 }}>
-                <span>THÀNH TIỀN:</span>
-                <span>{finalOrderAmount.toLocaleString('vi-VN')}đ</span>
-              </div>
-            </div>
-
-            <button
-              onClick={handleCreateSalesOrder}
-              className="btn btn-primary"
-              style={{ width: '100%', backgroundColor: '#008848', color: '#fff', fontWeight: 700, padding: 12, fontSize: '0.95rem' }}
-            >
-              Duyệt & Gửi Đơn Sang Kho
-            </button>
-          </div>
-        </div>
+        <CreateB2BOrderPanel
+          products={products}
+          customers={customers}
+          selectedCustomer={selectedCustomer}
+          onSelectCustomer={setSelectedCustomer}
+          cartItems={cartItems}
+          onUpdateQty={handleUpdateCartQty}
+          onSetQty={handleSetCartQty}
+          onRemoveItem={handleRemoveCartItem}
+          onAddToCart={handleAddToCart}
+          onSubmitOrder={handleSubmitB2BOrder}
+          onPreviewQuote={() => window.print()}
+          showToast={showToast}
+        />
       )}
 
-      {/* TAB 2: ORDER LIST */}
+      {/* TAB 3: ENTERPRISE B2B ORDER LIST */}
       {activeTab === 'ORDER_LIST' && (
-        <div style={{ background: 'var(--color-surface)', borderRadius: 12, padding: '1.25rem', border: '1px solid var(--color-border)' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--color-text)' }}>
-            Danh Sách Đơn Hàng Bán & Khách Hàng (Kết Nối Liên Thông Kho)
-          </h3>
+        <div style={{ background: '#ffffff', borderRadius: 10, padding: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+            <div>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>
+                Quản Lý Đơn Hàng B2B & Điều Phối Xuất Kho
+              </h3>
+              <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0, marginTop: 2 }}>
+                Đồng bộ liên thông trực tiếp với hệ thống Outbound (:3007) và Pick-to-Light của nhân viên kho
+              </p>
+            </div>
 
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ position: 'relative', width: 260 }}>
+                <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                <input
+                  type="text"
+                  value={orderSearchQuery}
+                  onChange={e => setOrderSearchQuery(e.target.value)}
+                  placeholder="Tìm theo mã đơn, khách hàng, SĐT..."
+                  style={{
+                    width: '100%',
+                    padding: '6px 10px 6px 30px',
+                    borderRadius: 6,
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.825rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <select
+                value={orderStatusFilter}
+                onChange={e => setOrderStatusFilter(e.target.value)}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 6,
+                  border: '1px solid #cbd5e1',
+                  fontSize: '0.825rem',
+                  color: '#334155',
+                  backgroundColor: '#ffffff',
+                  outline: 'none',
+                }}
+              >
+                <option value="ALL">Tất Cả Trạng Thái</option>
+                <option value="PENDING">Chờ xử lý (Pending)</option>
+                <option value="PICKING">Đang nhặt hàng (Picking)</option>
+                <option value="PACKED">Đã đóng gói (Packed)</option>
+                <option value="SHIPPED">Đang giao hàng (Shipped)</option>
+                <option value="DELIVERED">Đã hoàn tất (Delivered)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
               <thead>
-                <tr style={{ backgroundColor: 'var(--color-bg)', borderBottom: '2px solid var(--color-border)' }}>
-                  <th style={{ padding: 10, textAlign: 'left' }}>Mã Đơn Hàng</th>
-                  <th style={{ padding: 10, textAlign: 'left' }}>Khách Hàng</th>
-                  <th style={{ padding: 10, textAlign: 'left' }}>Loại KH</th>
-                  <th style={{ padding: 10, textAlign: 'left' }}>Tổng Số Tiền</th>
-                  <th style={{ padding: 10, textAlign: 'left' }}>Trạng Thái Xuất Kho</th>
-                  <th style={{ padding: 10, textAlign: 'left' }}>Thời Gian</th>
+                <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'left' }}>
+                  <th style={{ padding: '10px 12px' }}>Mã Đơn B2B</th>
+                  <th style={{ padding: '10px 12px' }}>Đối Tác / Khách Hàng</th>
+                  <th style={{ padding: '10px 12px' }}>Phân Loại</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'right' }}>Tổng Giá Trị</th>
+                  <th style={{ padding: '10px 12px' }}>Trạng Thái Xuất Kho</th>
+                  <th style={{ padding: '10px 12px' }}>Thời Gian</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>Thao Tác</th>
                 </tr>
               </thead>
               <tbody>
-                {salesOrders.map(order => (
-                  <tr key={order.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                    <td style={{ padding: 10, fontWeight: 800, color: '#008848' }}>{order.orderCode}</td>
-                    <td style={{ padding: 10 }}>
-                      <div style={{ fontWeight: 700 }}>{order.customerName}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>SĐT: {order.customerPhone}</div>
-                    </td>
-                    <td style={{ padding: 10 }}>{order.customerType}</td>
-                    <td style={{ padding: 10, fontWeight: 800, color: '#2563EB' }}>
-                      {order.finalAmount.toLocaleString('vi-VN')}đ
-                    </td>
-                    <td style={{ padding: 10 }}>{renderStatusBadge(order.status)}</td>
-                    <td style={{ padding: 10, color: 'var(--color-text-secondary)' }}>{order.createdAt}</td>
-                  </tr>
-                ))}
+                {salesOrders
+                  .filter(o => {
+                    const q = orderSearchQuery.trim().toLowerCase();
+                    const matchQ =
+                      !q ||
+                      (o.orderCode || '').toLowerCase().includes(q) ||
+                      (o.customerName || '').toLowerCase().includes(q) ||
+                      (o.customerPhone || '').includes(q);
+                    const matchStatus = orderStatusFilter === 'ALL' || o.status === orderStatusFilter;
+                    return matchQ && matchStatus;
+                  })
+                  .map(order => (
+                    <tr key={order.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '10px 12px', fontWeight: 700, color: '#0f766e', fontFamily: 'monospace' }}>
+                        {order.orderCode}
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <div style={{ fontWeight: 600, color: '#0f172a' }}>{order.customerName}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>SĐT: {order.customerPhone}</div>
+                      </td>
+                      <td style={{ padding: '10px 12px', color: '#475569' }}>
+                        <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: 4, backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                          {order.customerType}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#0284c7' }}>
+                        {order.finalAmount.toLocaleString('vi-VN')}đ
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>{renderStatusBadge(order.status)}</td>
+                      <td style={{ padding: '10px 12px', color: '#64748b', fontSize: '0.8rem' }}>{order.createdAt}</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                        <button
+                          onClick={() => setSelectedOrderDetail(order)}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: 6,
+                            border: '1px solid #cbd5e1',
+                            backgroundColor: '#ffffff',
+                            color: '#0f766e',
+                            fontSize: '0.775rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Chi Tiết
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
+
+          {/* Modal xem chi tiết đơn hàng B2B */}
+          <B2BOrderDetailModal
+            order={selectedOrderDetail}
+            onClose={() => setSelectedOrderDetail(null)}
+          />
         </div>
       )}
 
-      {/* TAB 3: FEFO INSIGHTS */}
+      {/* TAB 4: SMART FEFO CLEARANCE ENGINE */}
       {activeTab === 'FEFO_INSIGHTS' && (
-        <div style={{ background: 'var(--color-surface)', borderRadius: 12, padding: '1.25rem', border: '1px solid var(--color-border)' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <TrendingUp size={18} color="#D97706" /> Đề Xuất Đẩy Bán Hàng Cận Hạn Dùng
-          </h3>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
-            {products.filter(p => p.isFefoPriority).map(p => (
-              <div key={p.id} style={{ border: '1px solid #fde68a', borderRadius: 8, padding: 14, backgroundColor: '#FEFCE8' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-                  <span>{p.name}</span>
-                  <span style={{ color: '#D97706', fontSize: '0.8rem' }}>Cận ngày ({p.expiryDaysLeft} ngày nữa)</span>
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: 4 }}>
-                  Mã: <strong>{p.sku}</strong> | Tồn kho: <strong>{p.stock} {p.unit}</strong>
-                </div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#008848', marginTop: 6 }}>
-                  Giá gốc: {p.price.toLocaleString('vi-VN')}đ
-                </div>
-
-                <button
-                  onClick={() => {
-                    handleAddItemToCart(p);
-                    setActiveTab('CREATE_ORDER');
-                    showToast(`Đã đưa ${p.name} vào đơn khuyến mãi B2B.`);
-                  }}
-                  className="btn btn-primary"
-                  style={{ width: '100%', marginTop: 12, backgroundColor: '#D97706', color: '#fff', fontWeight: 700 }}
-                >
-                  Đưa Vào Đơn Khuyến Mãi B2B
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
+        <FefoClearancePanel
+          onAddFefoToOrder={handleAddFefoToOrder}
+          showToast={showToast}
+          productsMap={productsMap}
+        />
       )}
 
-      {/* TAB 4: B2B CUSTOMERS */}
+      {/* TAB 5: B2B CUSTOMER MANAGEMENT */}
       {activeTab === 'CUSTOMERS' && (
-        <div style={{ background: 'var(--color-surface)', borderRadius: 12, padding: '1.25rem', border: '1px solid var(--color-border)' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--color-text)' }}>
-            Danh Sách Đối Tác B2B & Khách Hàng Sỉ
-          </h3>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
-            {customers.map(c => (
-              <div key={c.id} style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 14, backgroundColor: 'var(--color-bg)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '0.95rem' }}>
-                  <span>{c.name}</span>
-                  <span style={{ color: '#008848' }}>-{c.discountRate}%</span>
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: 4 }}>Mã KH: <strong>{c.code}</strong> • Phân loại: <strong>{c.type}</strong></div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>SĐT: {c.phone} | {c.email}</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>Địa chỉ: {c.address}</div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#2563EB', marginTop: 6 }}>
-                  Hạn mức tín dụng B2B: {c.creditLimit.toLocaleString('vi-VN')}đ
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <B2BCustomersPanel
+          customers={customers}
+          onSelectCustomerForOrder={handleSelectCustomerForOrder}
+          onRefreshCustomers={fetchCustomers}
+          token={token}
+          showToast={showToast}
+        />
       )}
 
       {/* Lightbox Preview Modal for Chat Media */}

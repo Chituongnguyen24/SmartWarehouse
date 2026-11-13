@@ -96,6 +96,27 @@ export class User {
   @Column({ name: 'total_earnings_today', type: 'int', default: 0 })
   totalEarningsToday: number;
 
+  @Column({ name: 'company_name', nullable: true })
+  companyName: string;
+
+  @Column({ name: 'tax_code', nullable: true })
+  taxCode: string;
+
+  @Column({ name: 'b2b_type', nullable: true, default: 'DAILY' })
+  b2bType: string;
+
+  @Column({ name: 'credit_limit', type: 'bigint', default: 50000000 })
+  creditLimit: number;
+
+  @Column({ name: 'debt_balance', type: 'bigint', default: 0 })
+  debtBalance: number;
+
+  @Column({ name: 'discount_rate', type: 'float', default: 0 })
+  discountRate: number;
+
+  @Column({ name: 'billing_address', nullable: true })
+  billingAddress: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

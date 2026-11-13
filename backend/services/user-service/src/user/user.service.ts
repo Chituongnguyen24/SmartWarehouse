@@ -705,6 +705,43 @@ export class UserService implements OnModuleInit {
     return this.findOneByIdentifier(identifier);
   }
 
+  async findAllB2BCustomers(search?: string): Promise<User[]> {
+    const qb = this.userRepository.createQueryBuilder('user')
+      .where('user.role = :role', { role: UserRole.CUSTOMER });
+
+    if (search && search.trim()) {
+      const q = `%${search.trim().toLowerCase()}%`;
+      qb.andWhere('(LOWER(user.name) LIKE :q OR LOWER(user.companyName) LIKE :q OR LOWER(user.phone) LIKE :q OR LOWER(user.code) LIKE :q)', { q });
+    }
+
+    qb.orderBy('user.code', 'ASC');
+    return qb.getMany();
+  }
+
+  async createB2BCustomer(data: Partial<User>): Promise<User> {
+    const count = await this.userRepository.count({ where: { role: UserRole.CUSTOMER } });
+    const code = data.code || `B2B-${String(count + 1).padStart(3, '0')}`;
+    const email = data.email || `b2b.${code.toLowerCase()}@sfwms.vn`;
+
+    const user = this.userRepository.create({
+      ...data,
+      name: data.name || data.companyName || 'Khách Hàng Doanh Nghiệp',
+      companyName: data.companyName || data.name,
+      code,
+      email,
+      role: UserRole.CUSTOMER,
+      passwordHash: data.passwordHash || '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6x8ek5q79G/y/5qg9eG.', // password123
+      creditLimit: data.creditLimit ? Number(data.creditLimit) : 50000000,
+      debtBalance: data.debtBalance ? Number(data.debtBalance) : 0,
+      discountRate: data.discountRate !== undefined ? Number(data.discountRate) : 5,
+      b2bType: data.b2bType || 'DAILY',
+      billingAddress: data.billingAddress || '',
+      status: 'ACTIVE',
+    });
+
+    return this.userRepository.save(user);
+  }
+
   async findAllStaff(query?: { warehouseCode?: string; role?: string; search?: string; status?: string }): Promise<User[]> {
     const qb = this.userRepository.createQueryBuilder('user');
 
