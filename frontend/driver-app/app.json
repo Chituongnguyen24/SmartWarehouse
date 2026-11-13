@@ -2,6 +2,7 @@
   "expo": {
     "name": "C.T Mart Driver",
     "slug": "ctmart-driver-app",
+    "scheme": "ctmart-driver",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -13,7 +14,14 @@
       "bundleIdentifier": "vn.ctmart.driver"
     },
     "android": {
-      "package": "vn.ctmart.driver"
+      "package": "vn.ctmart.driver",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "bundler": "metro"

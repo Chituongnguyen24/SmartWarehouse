@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
-import { DeliveryTask } from '../types/driver';
-import { resolveCoordsAndCleanAddress } from '../utils/locationHelper';
+import { DeliveryTask } from '@/types/driver';
+import { resolveCoordsAndCleanAddress } from '@/features/delivery';
 import {
   Navigation,
   Maximize2,

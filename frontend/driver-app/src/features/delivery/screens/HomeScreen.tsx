@@ -9,13 +9,14 @@ import {
   Linking,
   Modal,
   Image,
+  Platform,
 } from 'react-native';
-import { DriverHeader } from '../components/DriverHeader';
-import { TaskCard } from '../components/TaskCard';
-import { GoongDriverLiveMap } from '../components/GoongDriverLiveMap';
-import { useDriverTask } from '../context/DriverTaskContext';
-import { COLORS } from '../theme/colors';
-import { DeliveryTask } from '../types/driver';
+import { DriverHeader } from '@/shared';
+import { TaskCard } from '@/features/delivery';
+import { GoongDriverLiveMap } from '@/features/delivery';
+import { useDriverTask } from '@/features/delivery';
+import { COLORS } from '@/shared';
+import { DeliveryTask } from '@/types/driver';
 import {
   Navigation,
   CheckCircle2,
@@ -37,14 +38,19 @@ import {
   Copy,
   Check,
   X,
+  Phone,
+  MessageSquare,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react-native';
-import { openMultiStopGoogleMapsRoute, openSingleGoogleMapsNavigation } from '../utils/locationHelper';
+import { openMultiStopGoogleMapsRoute, openSingleGoogleMapsNavigation } from '@/features/delivery';
 
 interface HomeScreenProps {
   onSelectTask: (task: DeliveryTask) => void;
+  onOpenPOD?: (task: DeliveryTask) => void;
 }
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
+export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask, onOpenPOD }) => {
   const {
     tasks,
     assignedTasks,
@@ -78,15 +84,73 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
   const [showVietQrModal, setShowVietQrModal] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
+  // Map View Mode (Collapsible for maximizing task card visibility)
+  const [isMapExpanded, setIsMapExpanded] = useState<boolean>(false);
+
+  // Customer Contact Modal State (Phone & SMS)
+  const [contactModal, setContactModal] = useState<{
+    visible: boolean;
+    type: 'CALL' | 'SMS';
+    customerName: string;
+    phone: string;
+    orderCode?: string;
+    address?: string;
+  } | null>(null);
+  const [contactCopiedToast, setContactCopiedToast] = useState<string | null>(null);
+
   const handleCallCustomer = (phone: string, name: string) => {
-    Alert.alert(
-      'Gọi điện cho khách hàng',
-      `Liên hệ ${name} qua số ${phone}?`,
-      [
-        { text: 'Hủy', style: 'cancel' },
-        { text: 'Gọi ngay', onPress: () => Linking.openURL(`tel:${phone.replace(/\s+/g, '')}`) },
-      ]
-    );
+    const cleanPhone = phone.replace(/\s+/g, '');
+    if (Platform.OS !== 'web') {
+      Linking.openURL(`tel:${cleanPhone}`).catch(() => {
+        setContactModal({
+          visible: true,
+          type: 'CALL',
+          customerName: name,
+          phone,
+        });
+      });
+      return;
+    }
+    setContactModal({
+      visible: true,
+      type: 'CALL',
+      customerName: name,
+      phone,
+    });
+  };
+
+  const handleSmsCustomer = (task: DeliveryTask) => {
+    const cleanPhone = task.customerPhone.replace(/\s+/g, '');
+    const msg = `Chào bạn, tài xế C.T Mart đang giao đơn hàng #${task.orderCode} đến ${task.deliveryAddress}. Dự kiến đến nơi sau 5-10 phút. Vui lòng chuẩn bị nhận hàng nhé!`;
+    if (Platform.OS !== 'web') {
+      Linking.openURL(`sms:${cleanPhone}?body=${encodeURIComponent(msg)}`).catch(() => {
+        setContactModal({
+          visible: true,
+          type: 'SMS',
+          customerName: task.customerName,
+          phone: task.customerPhone,
+          orderCode: task.orderCode,
+          address: task.deliveryAddress,
+        });
+      });
+      return;
+    }
+    setContactModal({
+      visible: true,
+      type: 'SMS',
+      customerName: task.customerName,
+      phone: task.customerPhone,
+      orderCode: task.orderCode,
+      address: task.deliveryAddress,
+    });
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text);
+    }
+    setContactCopiedToast(`Đã sao chép ${label}!`);
+    setTimeout(() => setContactCopiedToast(null), 2500);
   };
 
   const getFilteredTasks = () => {
@@ -102,7 +166,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
   const handleOpenMasterGoogleMapsRoute = () => {
     const activeStops = tasks.filter(t => t.status === 'IN_TRANSIT' || t.status === 'ASSIGNED');
     if (activeStops.length === 0) {
-      Alert.alert('Thông báo', 'Hiện không có điểm dừng nào cần điều hướng.');
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.alert('Lộ trình trống: Hiện không có điểm dừng nào cần điều hướng.');
+      } else {
+        Alert.alert('Thông báo', 'Hiện không có điểm dừng nào cần điều hướng.');
+      }
       return;
     }
 
@@ -132,6 +200,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
   const totalTripItems = tasks.reduce((sum, t) => sum + (t.items?.reduce((s, it) => s + (it.quantity || 1), 0) || 1), 0);
   const nextTripBoxes = nextWaveTasks.reduce((sum, t) => sum + (t.packageCount || 1), 0);
   const nextTripItems = nextWaveTasks.reduce((sum, t) => sum + (t.items?.reduce((s, it) => s + (it.quantity || 1), 0) || 1), 0);
+
+  // Group pending/in-transit orders that share the exact same location (e.g. 5 orders at Đa Phước)
+  const pendingOrActiveTasks = tasks.filter(t => t.status !== 'DELIVERED');
+  const clusterMap: Record<string, DeliveryTask[]> = {};
+  pendingOrActiveTasks.forEach(t => {
+    const rawDest = ((t as any).customerAddress || t.deliveryAddress || t.customerName || '').toLowerCase().trim();
+    const clusterKey = rawDest.includes('đa phước') ? 'Khu Liên Hợp Xử Lý Đa Phước' : (t.customerName || t.deliveryAddress || 'Điểm Giao');
+    clusterMap[clusterKey] = clusterMap[clusterKey] || [];
+    clusterMap[clusterKey].push(t);
+  });
+  const sameDestinationClusters = Object.entries(clusterMap).filter(([_, list]) => list.length > 1);
 
   return (
     <View style={styles.container}>
@@ -225,7 +304,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={styles.waitingTitle}>ĐỢT PHÂN BỔ MỚI: CHUYẾN #{currentTripNumber}</Text>
                 <Text style={styles.waitingSub}>
-                  Thuật toán gom: {tasks.length} đơn ({totalTripBoxes} thùng đóng gói • {totalTripItems} sản phẩm)
+                  Đợt giao hàng: {tasks.length} đơn ({totalTripBoxes} thùng đóng gói • {totalTripItems} sản phẩm)
                 </Text>
               </View>
             </View>
@@ -248,108 +327,95 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
             >
               <PackageCheck size={18} color="#fff" style={{ marginRight: 8 }} />
               <Text style={styles.acceptBatchBtnText}>
-                NHẬN {tasks.length} ĐƠN ({totalTripBoxes} THÙNG ĐÓNG GÓI) & XUẤT PHÁT
+                NHẬN {tasks.length} ĐƠN HÀNG ({totalTripBoxes} KIỆN HÀNG) & XUẤT PHÁT
               </Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* ── GOONG MAPS INTERACTIVE LIVE ROUTE & GPS TRACKING ── */}
-        <GoongDriverLiveMap
-          driverLocation={currentDriverLocation}
-          tasks={tasks}
-          currentTask={tasks.find(t => t.status === 'IN_TRANSIT') || null}
-          driverName={driverProfile?.name || 'Tài xế'}
-          vehicleType={(driverProfile?.vehicleType as any) || 'TRUCK'}
-          isBatchDeparted={tripStatus === 'IN_TRANSIT'}
-        />
+        {/* ── 1. ROUTE CORRIDOR BAR & MAP EXPAND TOGGLE ── */}
+        <View style={styles.corridorBar}>
+          <View style={styles.corridorLeft}>
+            <Route size={14} color="#0284c7" style={{ marginRight: 6 }} />
+            <Text style={styles.corridorText} numberOfLines={1}>
+              Kho Gò Vấp • {tasks.length} Đơn hàng • Tổng {totalTripBoxes} Kiện ({totalTripItems} sản phẩm • {totalCurrentTripWeightKg} kg)
+            </Text>
+          </View>
+          <View style={styles.corridorActions}>
+            <TouchableOpacity
+              style={[styles.corridorPillBtn, isMapExpanded && styles.corridorPillBtnActive]}
+              onPress={() => setIsMapExpanded(!isMapExpanded)}
+              activeOpacity={0.8}
+            >
+              <MapPin size={11} color={isMapExpanded ? '#ffffff' : '#0284c7'} style={{ marginRight: 3 }} />
+              <Text style={[styles.corridorPillText, isMapExpanded && styles.corridorPillTextActive]}>
+                {isMapExpanded ? 'Đóng map' : 'Bản đồ'}
+              </Text>
+            </TouchableOpacity>
 
-        {/* ── TRIP WAVE SELECTOR (ĐỢT CHẤT LÊN XE vs ĐỢT TIẾP THEO) ── */}
-        <View style={styles.waveSelectorContainer}>
+            <TouchableOpacity
+              style={styles.corridorPillBtn}
+              onPress={handleOpenMasterGoogleMapsRoute}
+              activeOpacity={0.8}
+            >
+              <Compass size={11} color="#0284c7" style={{ marginRight: 3 }} />
+              <Text style={styles.corridorPillText}>Google Maps</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ── 2. EXPANDABLE LIVE GOONG MAP ── */}
+        {isMapExpanded && (
+          <View style={styles.mapExpandWrapper}>
+            <GoongDriverLiveMap
+              driverLocation={currentDriverLocation}
+              tasks={tasks}
+              currentTask={tasks.find(t => t.status === 'IN_TRANSIT') || null}
+              driverName={driverProfile?.name || 'Tài xế'}
+              vehicleType={(driverProfile?.vehicleType as any) || 'TRUCK'}
+              isBatchDeparted={tripStatus === 'IN_TRANSIT'}
+            />
+          </View>
+        )}
+
+        {/* ── 3. MODERN SEGMENTED WAVE CONTROLLER ── */}
+        <View style={styles.waveSegmentBar}>
           <TouchableOpacity
-            style={[
-              styles.waveSelectorBtn,
-              waveMode === 'CURRENT_BATCH' && styles.waveSelectorBtnActive,
-            ]}
+            style={[styles.waveSegmentBtn, waveMode === 'CURRENT_BATCH' && styles.waveSegmentBtnActive]}
             onPress={() => setWaveMode('CURRENT_BATCH')}
             activeOpacity={0.85}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-              <Layers size={16} color={waveMode === 'CURRENT_BATCH' ? '#ffffff' : '#94a3b8'} style={{ marginRight: 6 }} />
-              <Text style={[
-                styles.waveSelectorBtnText,
-                waveMode === 'CURRENT_BATCH' && styles.waveSelectorBtnTextActive,
-              ]}>
-                CHUYẾN #{currentTripNumber} (ĐỢT HIỆN TẠI)
-              </Text>
-            </View>
-            <Text style={[
-              styles.waveSelectorSubText,
-              waveMode === 'CURRENT_BATCH' && { color: '#a7f3d0' },
-            ]}>
-              {tasks.length} đơn • {totalTripBoxes} Thùng đóng gói ({totalTripItems} món • {totalCurrentTripWeightKg} kg)
+            <Layers size={13} color={waveMode === 'CURRENT_BATCH' ? '#0f766e' : '#64748b'} style={{ marginRight: 5 }} />
+            <Text style={[styles.waveSegmentText, waveMode === 'CURRENT_BATCH' && styles.waveSegmentTextActive]}>
+              Chuyến #{currentTripNumber}: {tasks.length} Đơn ({totalTripBoxes} Kiện)
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.waveSelectorBtn,
-              waveMode === 'NEXT_WAVE' && styles.waveSelectorBtnActivePurple,
-            ]}
+            style={[styles.waveSegmentBtn, waveMode === 'NEXT_WAVE' && styles.waveSegmentBtnActivePurple]}
             onPress={() => setWaveMode('NEXT_WAVE')}
             activeOpacity={0.85}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-              <Clock size={16} color={waveMode === 'NEXT_WAVE' ? '#ffffff' : '#94a3b8'} style={{ marginRight: 6 }} />
-              <Text style={[
-                styles.waveSelectorBtnText,
-                waveMode === 'NEXT_WAVE' && styles.waveSelectorBtnTextActive,
-              ]}>
-                CHUYẾN #{currentTripNumber + 1} (ĐỢT KẾ TIẾP)
-              </Text>
-            </View>
-            <Text style={[
-              styles.waveSelectorSubText,
-              waveMode === 'NEXT_WAVE' && { color: '#e9d5ff' },
-            ]}>
-              {nextWaveTasks.length} đơn • {nextTripBoxes} Thùng đóng gói (Đang đóng gói tại kho)
+            <Clock size={13} color={waveMode === 'NEXT_WAVE' ? '#7c3aed' : '#64748b'} style={{ marginRight: 5 }} />
+            <Text style={[styles.waveSegmentText, waveMode === 'NEXT_WAVE' && styles.waveSegmentTextActivePurple]}>
+              Chuyến #{currentTripNumber + 1}: {nextWaveTasks.length} Đơn ({nextTripBoxes} Kiện)
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* ── HUB LOADING MANIFEST CHECKLIST (KHI Ở ĐỢT HIỆN TẠI) ── */}
+        {/* ── 4. COMPACT LOADING / DEPARTURE ACTION BAR ── */}
         {waveMode === 'CURRENT_BATCH' && assignedTasks.length > 0 && (
-          <View style={styles.hubManifestCard}>
-            <View style={styles.hubManifestHeader}>
-              <View style={styles.hubManifestIconBox}>
-                <PackageCheck size={20} color="#ffffff" />
-              </View>
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={styles.hubManifestTitle}>KIỂM ĐẾM GOM HÀNG CHUYẾN #{currentTripNumber}</Text>
-                <Text style={styles.hubManifestSub}>Xác nhận đã bốc đủ hàng từ kho vào thùng lạnh</Text>
-              </View>
-              <View style={styles.hubManifestBadge}>
-                <Text style={styles.hubManifestBadgeText}>{totalCurrentTripWeightKg} kg</Text>
-              </View>
+          <View style={styles.loadingBanner}>
+            <View style={{ flex: 1, marginRight: 8 }}>
+              <Text style={styles.loadingBannerTitle}>
+                Kiểm đếm xe: {tasks.length} Đơn hàng ({totalTripBoxes} Kiện hàng)
+              </Text>
+              <Text style={styles.loadingBannerSub} numberOfLines={1}>
+                {assignedTasks.length} đơn chờ nhận • Tổng {totalTripItems} sản phẩm ({totalCurrentTripWeightKg} kg)
+              </Text>
             </View>
-
-            <View style={styles.hubManifestBody}>
-              <View style={styles.hubManifestInfoRow}>
-                <Text style={styles.hubManifestLabel}>Điểm xuất phát gom hàng:</Text>
-                <Text style={styles.hubManifestVal}>Kho Trung Tâm Gò Vấp (WH-006)</Text>
-              </View>
-              <View style={styles.hubManifestInfoRow}>
-                <Text style={styles.hubManifestLabel}>Tổng số kiện / đơn chất xe:</Text>
-                <Text style={styles.hubManifestValBold}>{tasks.length} đơn hàng ({assignedTasks.length} đơn chờ nhận)</Text>
-              </View>
-              <View style={styles.hubManifestInfoRow}>
-                <Text style={styles.hubManifestLabel}>Yêu cầu bảo quản lạnh:</Text>
-                <Text style={styles.hubManifestValGreen}>Chuẩn 0 - 4°C (Thùng Xe Lạnh + Gel đá)</Text>
-              </View>
-            </View>
-
             <TouchableOpacity
-              style={styles.confirmLoadVehicleBtn}
+              style={styles.loadingBannerBtn}
               onPress={async () => {
                 confirmLoadOntoVehicle();
                 await startBatchDelivery();
@@ -357,194 +423,106 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
               }}
               activeOpacity={0.85}
             >
-              <CheckCheck size={18} color="#ffffff" style={{ marginRight: 8 }} />
-              <Text style={styles.confirmLoadVehicleBtnText}>
-                ĐÃ XẾP ĐỦ {tasks.length} ĐƠN LÊN XE • BẮT ĐẦU XUẤT PHÁT
-              </Text>
+              <CheckCheck size={14} color="#ffffff" style={{ marginRight: 4 }} />
+              <Text style={styles.loadingBannerBtnText}>ĐÃ XẾP LÊN XE</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* ── NEXT WAVE EXPLANATION BANNER (KHI XEM ĐỢT TIẾP THEO) ── */}
+        {/* ── 5. NEXT WAVE INFO ── */}
         {waveMode === 'NEXT_WAVE' && (
           <View style={styles.nextWaveBanner}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-              <Clock size={18} color="#a855f7" style={{ marginRight: 6 }} />
-              <Text style={styles.nextWaveBannerTitle}>
-                DANH SÁCH ĐỢT TIẾP THEO (CHUYẾN #{currentTripNumber + 1})
-              </Text>
-            </View>
-            <Text style={styles.nextWaveBannerDesc}>
-              Các đơn hàng dưới đây đang được nhân viên kho soạn hàng tại <Text style={{ fontWeight: 'bold', color: '#0f172a' }}>Kho Gò Vấp (WH-006)</Text>. Tài xế sẽ quay về kho nhận đợt này sau khi hoàn tất Chuyến #{currentTripNumber}.
+            <Clock size={15} color="#7c3aed" style={{ marginRight: 6 }} />
+            <Text style={styles.nextWaveBannerTitle}>
+              Chuyến #{currentTripNumber + 1}: {nextWaveTasks.length} đơn đang soạn hàng tại Kho Gò Vấp (14:00 - 16:00)
             </Text>
-            <View style={styles.nextWaveBadgeRow}>
-              <View style={styles.nextWaveInfoBadge}>
-                <Text style={styles.nextWaveInfoBadgeText}>{nextWaveTasks.length} Đơn hàng dự kiến</Text>
-              </View>
-              <View style={styles.nextWaveInfoBadge}>
-                <Text style={styles.nextWaveInfoBadgeText}>Khung giờ 14:00 - 16:00</Text>
-              </View>
-            </View>
           </View>
         )}
 
-        {/* ── VRP OPTIMIZED MULTI-STOP ROUTE MASTER CARD ── */}
-        <View style={styles.vrpMasterCard}>
-          <View style={styles.vrpTitleRow}>
-            <View style={styles.vrpTitleLeft}>
-              <View style={styles.vrpIconBox}>
-                <Route size={16} color="#fff" />
-              </View>
-              <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={styles.vrpMainTitle} numberOfLines={1}>
-                  Lộ Trình VRP ({waveMode === 'CURRENT_BATCH' ? `Chuyến #${currentTripNumber}` : `Chuyến #${currentTripNumber + 1}`})
-                </Text>
-                <Text style={styles.vrpSubCorridor} numberOfLines={1}>
-                  {driverProfile?.vehicleType || 'Tuyến Giao Tối Ưu'}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.vrpBadge}>
-              <Text style={styles.vrpBadgeText}>-35% km</Text>
-            </View>
+        {/* ── 6. SAME-DESTINATION CLUSTER BATCH HANDOVER ── */}
+        {sameDestinationClusters.length > 0 && (
+          <View style={styles.clusterBannerBox}>
+            {sameDestinationClusters.map(([locName, clusterTasks]) => {
+              const clusterTotalCod = clusterTasks.reduce((s, t) => s + (t.codAmount || 0), 0);
+              const clusterTotalBoxes = clusterTasks.reduce((s, t) => s + (t.packageCount || 1), 0);
+
+              return (
+                <View key={locName} style={styles.clusterRow}>
+                  <Layers size={15} color="#0284c7" style={{ marginRight: 8 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.clusterTitle} numberOfLines={1}>
+                      Cụm {clusterTasks.length} đơn cùng điểm: {clusterTasks[0].customerName} ({clusterTotalBoxes} kiện)
+                    </Text>
+                    <Text style={styles.clusterDesc} numberOfLines={1}>
+                      {clusterTasks.map(t => `#${t.orderCode} (${t.codAmount > 0 ? (t.codAmount).toLocaleString('vi-VN') + 'đ' : '0đ COD'})`).join(' • ')}
+                    </Text>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: clusterTotalCod > 0 ? '#b91c1c' : '#047857', marginTop: 2 }}>
+                      {clusterTotalCod > 0 ? `Tổng thu hộ COD cả cụm: ${clusterTotalCod.toLocaleString('vi-VN')}đ` : 'Đã thanh toán Online (0đ COD)'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.clusterBtn}
+                    onPress={() => {
+                      if (onOpenPOD) onOpenPOD(clusterTasks[0]);
+                      else onSelectTask(clusterTasks[0]);
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <CheckCheck size={13} color="#ffffff" style={{ marginRight: 4 }} />
+                    <Text style={styles.clusterBtnText}>Bàn giao cả cụm</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
           </View>
+        )}
 
-          {/* Stepper Điểm Dừng Thực Tế */}
-          <View style={styles.stepperContainer}>
-            <View style={styles.originRow}>
-              <View style={styles.originDot} />
-              <Text style={styles.originText} numberOfLines={1}>
-                Xuất phát: <Text style={{ fontWeight: '800', color: '#0f172a' }}>Kho Gò Vấp (350 Quang Trung)</Text>
-              </Text>
-            </View>
-
-            {(waveMode === 'CURRENT_BATCH' ? tasks : nextWaveTasks).filter(t => t.status === 'IN_TRANSIT' || t.status === 'ASSIGNED').length > 0 ? (
-              <View style={styles.stopsSummaryList}>
-                {(waveMode === 'CURRENT_BATCH' ? tasks : nextWaveTasks)
-                  .filter(t => t.status === 'IN_TRANSIT' || t.status === 'ASSIGNED')
-                  .slice(0, 4)
-                  .map((task, idx) => (
-                    <View key={task.id} style={styles.stopSummaryItem}>
-                      <View style={styles.stopNumberBadge}>
-                        <Text style={styles.stopNumberText}>{idx + 1}</Text>
-                      </View>
-                      <Text style={styles.stopAddressShort} numberOfLines={1}>
-                        {task.customerName} - {task.deliveryAddress.split(',')[0]} ({task.distanceKm} km)
-                      </Text>
-                    </View>
-                  ))}
-                {(waveMode === 'CURRENT_BATCH' ? tasks : nextWaveTasks).filter(t => t.status === 'IN_TRANSIT' || t.status === 'ASSIGNED').length > 4 && (
-                  <Text style={styles.moreStopsText}>
-                    + {(waveMode === 'CURRENT_BATCH' ? tasks : nextWaveTasks).filter(t => t.status === 'IN_TRANSIT' || t.status === 'ASSIGNED').length - 4} điểm dừng tiếp theo...
-                  </Text>
-                )}
-              </View>
-            ) : (
-              <Text style={styles.noActiveRouteText}>
-                {tasks.length === 0
-                  ? 'Chưa có đơn hàng nào được phân bổ cho chuyến này.'
-                  : `Toàn bộ đơn hàng của Chuyến #${currentTripNumber} đã giao xong!`}
-              </Text>
-            )}
-          </View>
-
-          {/* Google Maps Master Action Button */}
+        {/* ── 7. SLEEK STATUS FILTER TABS (UBER/GRAB SEGMENTED BAR) ── */}
+        <View style={styles.statusTabsRow}>
           <TouchableOpacity
-            style={styles.openGoogleMapsMasterBtn}
-            onPress={handleOpenMasterGoogleMapsRoute}
-            activeOpacity={0.85}
-          >
-            <Compass size={16} color="#fff" style={{ marginRight: 6 }} />
-            <Text style={styles.openGoogleMapsMasterText} numberOfLines={1}>
-              Mở Toàn Tuyến Trên Google Maps
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── 3 HIGH-PROMINENCE STATUS FILTER CARDS (ĐÃ BỎ TAB TẤT CẢ) ── */}
-        <View style={styles.prominentTabsContainer}>
-          
-          {/* TAB 1: ĐANG GIAO (MÀU XANH LỤC PHÁT SÁNG NỔI BẬT) */}
-          <TouchableOpacity
-            style={[
-              styles.prominentTabBtn,
-              activeTab === 'ACTIVE' && styles.prominentTabBtnActiveEmerald,
-            ]}
+            style={[styles.statusTabItem, activeTab === 'ACTIVE' && styles.statusTabItemActiveEmerald]}
             onPress={() => setActiveTab('ACTIVE')}
             activeOpacity={0.85}
           >
-            <View style={styles.tabBadgeRow}>
-              <View style={[
-                styles.largeCountBadge,
-                inTransitTasks.length > 0 ? styles.countBadgeEmerald : styles.countBadgeMuted,
-              ]}>
-                <Text style={styles.largeCountText}>{inTransitTasks.length}</Text>
-              </View>
-              {inTransitTasks.length > 0 && (
-                <View style={styles.livePulseDot} />
-              )}
-            </View>
-            <Text style={[
-              styles.prominentTabTitle,
-              activeTab === 'ACTIVE' ? styles.tabTitleActiveEmerald : styles.tabTitleMuted,
-            ]}>
-              ĐANG GIAO
+            <Text style={[styles.statusTabTitle, activeTab === 'ACTIVE' && styles.statusTabTitleActiveEmerald]}>
+              Đang giao
             </Text>
-            <Text style={styles.tabSubText}>Tiến trình live</Text>
+            <View style={[styles.statusBadge, activeTab === 'ACTIVE' ? styles.statusBadgeActiveEmerald : styles.statusBadgeMuted]}>
+              <Text style={[styles.statusBadgeText, activeTab === 'ACTIVE' && styles.statusBadgeTextActiveEmerald]}>
+                {inTransitTasks.length}
+              </Text>
+            </View>
           </TouchableOpacity>
 
-          {/* TAB 2: CHỜ NHẬN / CHỜ GIAO (MÀU CAM NỔI BẬT) */}
           <TouchableOpacity
-            style={[
-              styles.prominentTabBtn,
-              activeTab === 'PENDING' && styles.prominentTabBtnActiveAmber,
-            ]}
+            style={[styles.statusTabItem, activeTab === 'PENDING' && styles.statusTabItemActiveAmber]}
             onPress={() => setActiveTab('PENDING')}
             activeOpacity={0.85}
           >
-            <View style={styles.tabBadgeRow}>
-              <View style={[
-                styles.largeCountBadge,
-                assignedTasks.length > 0 ? styles.countBadgeAmber : styles.countBadgeMuted,
-              ]}>
-                <Text style={styles.largeCountText}>{assignedTasks.length}</Text>
-              </View>
-            </View>
-            <Text style={[
-              styles.prominentTabTitle,
-              activeTab === 'PENDING' ? styles.tabTitleActiveAmber : styles.tabTitleMuted,
-            ]}>
-              CHỜ NHẬN
+            <Text style={[styles.statusTabTitle, activeTab === 'PENDING' && styles.statusTabTitleActiveAmber]}>
+              Chờ nhận
             </Text>
-            <Text style={styles.tabSubText}>Chờ xuất phát</Text>
+            <View style={[styles.statusBadge, activeTab === 'PENDING' ? styles.statusBadgeActiveAmber : styles.statusBadgeMuted]}>
+              <Text style={[styles.statusBadgeText, activeTab === 'PENDING' && styles.statusBadgeTextActiveAmber]}>
+                {assignedTasks.length}
+              </Text>
+            </View>
           </TouchableOpacity>
 
-          {/* TAB 3: ĐÃ GIAO (MÀU XANH DƯƠNG / SLATE) */}
           <TouchableOpacity
-            style={[
-              styles.prominentTabBtn,
-              activeTab === 'DONE' && styles.prominentTabBtnActiveBlue,
-            ]}
+            style={[styles.statusTabItem, activeTab === 'DONE' && styles.statusTabItemActiveBlue]}
             onPress={() => setActiveTab('DONE')}
             activeOpacity={0.85}
           >
-            <View style={styles.tabBadgeRow}>
-              <View style={[
-                styles.largeCountBadge,
-                deliveredTasks.length > 0 ? styles.countBadgeBlue : styles.countBadgeMuted,
-              ]}>
-                <Text style={styles.largeCountText}>{deliveredTasks.length}</Text>
-              </View>
-            </View>
-            <Text style={[
-              styles.prominentTabTitle,
-              activeTab === 'DONE' ? styles.tabTitleActiveBlue : styles.tabTitleMuted,
-            ]}>
-              ĐÃ GIAO
+            <Text style={[styles.statusTabTitle, activeTab === 'DONE' && styles.statusTabTitleActiveBlue]}>
+              Đã giao
             </Text>
-            <Text style={styles.tabSubText}>Hoàn tất POD</Text>
+            <View style={[styles.statusBadge, activeTab === 'DONE' ? styles.statusBadgeActiveBlue : styles.statusBadgeMuted]}>
+              <Text style={[styles.statusBadgeText, activeTab === 'DONE' && styles.statusBadgeTextActiveBlue]}>
+                {deliveredTasks.length}
+              </Text>
+            </View>
           </TouchableOpacity>
-
         </View>
 
         {/* TASK LIST */}
@@ -552,7 +530,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
           {waveMode === 'NEXT_WAVE' ? (
             nextWaveTasks.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <CheckCircle2 size={48} color={COLORS.textMuted} />
+                <CheckCircle2 size={44} color={COLORS.textMuted} />
                 <Text style={styles.emptyTitle}>Chưa có đơn hàng trong đợt tiếp theo</Text>
                 <Text style={styles.emptySub}>Kho sẽ tiếp tục gom đơn khi có đợt phát sinh mới.</Text>
               </View>
@@ -563,12 +541,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
                   task={task}
                   onPress={() => onSelectTask(task)}
                   onCallCustomer={() => handleCallCustomer(task.customerPhone, task.customerName)}
+                  onOpenSms={() => handleSmsCustomer(task)}
                 />
               ))
             )
           ) : currentTasks.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <CheckCircle2 size={48} color={COLORS.textMuted} />
+              <CheckCircle2 size={44} color={COLORS.textMuted} />
               <Text style={styles.emptyTitle}>
                 {activeTab === 'ACTIVE'
                   ? 'Chưa có đơn hàng đang giao'
@@ -588,7 +567,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
                 key={task.id}
                 task={task}
                 onPress={() => onSelectTask(task)}
+                onOpenPOD={(t) => {
+                  if (onOpenPOD) onOpenPOD(t);
+                  else onSelectTask(t);
+                }}
                 onCallCustomer={() => handleCallCustomer(task.customerPhone, task.customerName)}
+                onOpenSms={() => handleSmsCustomer(task)}
                 onStartDelivery={() => {
                   startDelivery(task.id);
                   setActiveTab('ACTIVE');
@@ -702,6 +686,112 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask }) => {
           </View>
         </View>
       </Modal>
+
+      {/* ── INTERACTIVE CUSTOMER CONTACT MODAL (CALL & SMS) ── */}
+      <Modal
+        visible={!!contactModal?.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setContactModal(null)}
+      >
+        <View style={styles.contactModalOverlay}>
+          <View style={styles.contactModalBox}>
+            <View style={styles.contactModalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {contactModal?.type === 'CALL' ? (
+                  <Phone size={18} color="#0f766e" style={{ marginRight: 8 }} />
+                ) : (
+                  <MessageSquare size={18} color="#0284c7" style={{ marginRight: 8 }} />
+                )}
+                <Text style={styles.contactModalTitle}>
+                  {contactModal?.type === 'CALL' ? 'Liên Hệ Khách Hàng' : 'Soạn Tin Nhắn Giao Hàng'}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setContactModal(null)} style={styles.contactModalCloseBtn}>
+                <X size={18} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            {contactCopiedToast && (
+              <View style={styles.contactToast}>
+                <Check size={14} color="#166534" style={{ marginRight: 5 }} />
+                <Text style={styles.contactToastText}>{contactCopiedToast}</Text>
+              </View>
+            )}
+
+            <View style={styles.contactCustomerCard}>
+              <Text style={styles.contactCustName}>{contactModal?.customerName}</Text>
+              <Text style={styles.contactCustPhone}>{contactModal?.phone}</Text>
+              {contactModal?.orderCode && (
+                <Text style={styles.contactCustOrder}>Mã đơn hàng: #{contactModal.orderCode}</Text>
+              )}
+            </View>
+
+            {contactModal?.type === 'SMS' && (
+              <View style={styles.smsPreviewBox}>
+                <Text style={styles.smsPreviewLabel}>Nội dung tin nhắn mẫu:</Text>
+                <Text style={styles.smsPreviewContent}>
+                  {`Chào bạn, tài xế C.T Mart đang giao đơn hàng #${contactModal.orderCode || ''} tới ${contactModal.address || ''}. Dự kiến đến nơi sau ít phút. Vui lòng chuẩn bị nhận hàng nhé!`}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.contactActionButtonsRow}>
+              {contactModal?.type === 'CALL' ? (
+                <>
+                  <TouchableOpacity
+                    style={styles.contactSecondaryBtn}
+                    onPress={() => copyToClipboard(contactModal.phone, 'số điện thoại')}
+                    activeOpacity={0.8}
+                  >
+                    <Copy size={15} color="#0f172a" style={{ marginRight: 6 }} />
+                    <Text style={styles.contactSecondaryBtnText}>Sao chép số</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.contactPrimaryBtn}
+                    onPress={() => {
+                      const clean = contactModal.phone.replace(/\D/g, '');
+                      Linking.openURL(`tel:${clean}`);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Phone size={15} color="#ffffff" style={{ marginRight: 6 }} />
+                    <Text style={styles.contactPrimaryBtnText}>Gọi điện ngay</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={styles.contactSecondaryBtn}
+                    onPress={() => {
+                      const msg = `Chào bạn, tài xế C.T Mart đang giao đơn hàng #${contactModal?.orderCode || ''} tới ${contactModal?.address || ''}. Dự kiến đến nơi sau ít phút. Vui lòng chuẩn bị nhận hàng nhé!`;
+                      copyToClipboard(msg, 'tin nhắn mẫu');
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Copy size={15} color="#0f172a" style={{ marginRight: 6 }} />
+                    <Text style={styles.contactSecondaryBtnText}>Sao chép tin</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.contactPrimaryBtn}
+                    onPress={() => {
+                      const clean = (contactModal?.phone || '').replace(/\D/g, '');
+                      const msg = `Chào bạn, tài xế C.T Mart đang giao đơn hàng #${contactModal?.orderCode || ''} tới ${contactModal?.address || ''}. Dự kiến đến nơi sau ít phút. Vui lòng chuẩn bị nhận hàng nhé!`;
+                      Linking.openURL(`sms:${clean}?body=${encodeURIComponent(msg)}`);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <MessageSquare size={15} color="#ffffff" style={{ marginRight: 6 }} />
+                    <Text style={styles.contactPrimaryBtnText}>Mở app SMS</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -719,16 +809,16 @@ const styles = StyleSheet.create({
   // ── RETURN TO HUB CARD ──
   returnHubCard: {
     backgroundColor: '#0f172a',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: '#38bdf8',
-    shadowColor: '#0284c7',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 5,
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#0284c7',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   returnHeaderRow: {
     flexDirection: 'row',
@@ -1114,455 +1204,432 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 
-  // ── TRIP WAVE SELECTOR ──
-  waveSelectorContainer: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 14,
-  },
-  waveSelectorBtn: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderWidth: 1.5,
-    borderColor: '#e2e8f0',
-    alignItems: 'center',
-  },
-  waveSelectorBtnActive: {
-    backgroundColor: '#065f46',
-    borderColor: '#059669',
-  },
-  waveSelectorBtnActivePurple: {
-    backgroundColor: '#581c87',
-    borderColor: '#7e22ce',
-  },
-  waveSelectorBtnText: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#64748b',
-  },
-  waveSelectorBtnTextActive: {
-    color: '#ffffff',
-  },
-  waveSelectorSubText: {
-    fontSize: 9.5,
-    color: '#94a3b8',
-    marginTop: 2,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-
-  // ── HUB LOADING MANIFEST CARD ──
-  hubManifestCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 14,
-    borderWidth: 1.5,
-    borderColor: '#10b981',
-    shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  hubManifestHeader: {
+  // ── 1. CORRIDOR BAR & MAP TOGGLE ──
+  corridorBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
-  },
-  hubManifestIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#059669',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hubManifestTitle: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: '#0f172a',
-  },
-  hubManifestSub: {
-    fontSize: 11,
-    color: '#64748b',
-    marginTop: 1,
-  },
-  hubManifestBadge: {
-    backgroundColor: '#ecfdf5',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#a7f3d0',
-  },
-  hubManifestBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#059669',
-  },
-  hubManifestBody: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 10,
-    padding: 10,
-    gap: 6,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
-  },
-  hubManifestInfoRow: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  corridorLeft: {
+    flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    marginRight: 6,
   },
-  hubManifestLabel: {
-    fontSize: 11.5,
-    color: '#64748b',
-  },
-  hubManifestVal: {
+  corridorText: {
     fontSize: 11.5,
     fontWeight: '700',
     color: '#0f172a',
+    flex: 1,
   },
-  hubManifestValBold: {
-    fontSize: 11.5,
-    fontWeight: '800',
+  corridorActions: {
+    flexDirection: 'row',
+    gap: 5,
+  },
+  corridorPillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f9ff',
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+    paddingHorizontal: 7,
+    paddingVertical: 3.5,
+    borderRadius: 5,
+  },
+  corridorPillBtnActive: {
+    backgroundColor: '#0284c7',
+    borderColor: '#0284c7',
+  },
+  corridorPillText: {
+    fontSize: 10.5,
+    fontWeight: '700',
     color: '#0284c7',
   },
-  hubManifestValGreen: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#059669',
-  },
-  confirmLoadVehicleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#059669',
-    borderRadius: 12,
-    paddingVertical: 12,
-  },
-  confirmLoadVehicleBtnText: {
+  corridorPillTextActive: {
     color: '#ffffff',
-    fontSize: 12.5,
-    fontWeight: '900',
   },
-
-  // ── NEXT WAVE BANNER ──
-  nextWaveBanner: {
-    backgroundColor: '#faf5ff',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 14,
-    borderWidth: 1.5,
-    borderColor: '#d8b4fe',
-  },
-  nextWaveBannerTitle: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: '#6b21a8',
-  },
-  nextWaveBannerDesc: {
-    fontSize: 11.5,
-    color: '#475569',
-    lineHeight: 17,
-  },
-  nextWaveBadgeRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 10,
-  },
-  nextWaveInfoBadge: {
-    backgroundColor: '#f3e8ff',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  mapExpandWrapper: {
+    marginBottom: 8,
     borderRadius: 8,
-  },
-  nextWaveInfoBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#7e22ce',
+    overflow: 'hidden',
   },
 
-  // ── VRP MASTER CARD ──
-  vrpMasterCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  vrpTitleRow: {
+  // ── 2. MODERN SEGMENTED WAVE CONTROLLER ──
+  waveSegmentBar: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-    gap: 6,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 8,
+    padding: 3,
+    marginBottom: 8,
   },
-  vrpTitleLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  waveSegmentBtn: {
     flex: 1,
-  },
-  vrpIconBox: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    backgroundColor: '#0284c7',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  vrpMainTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  vrpSubCorridor: {
-    fontSize: 10.5,
-    color: '#64748b',
-    marginTop: 1,
-  },
-  vrpBadge: {
-    backgroundColor: '#ecfdf5',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    paddingVertical: 6,
     borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#a7f3d0',
-    flexShrink: 0,
   },
-  vrpBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#059669',
-  },
-  stepperContainer: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
-  },
-  originRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  originDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#059669',
-    marginRight: 6,
-  },
-  originText: {
-    fontSize: 11.5,
-    color: '#475569',
-    flex: 1,
-  },
-  stopsSummaryList: {
-    marginLeft: 3,
-    paddingLeft: 7,
-    borderLeftWidth: 2,
-    borderLeftColor: '#cbd5e1',
-    gap: 4,
-  },
-  stopSummaryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  stopNumberBadge: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#0284c7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 6,
-  },
-  stopNumberText: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: '#ffffff',
-  },
-  stopAddressShort: {
-    fontSize: 11,
-    color: '#334155',
-    flex: 1,
-  },
-  moreStopsText: {
-    fontSize: 10.5,
-    color: '#64748b',
-    fontStyle: 'italic',
-    marginTop: 2,
-  },
-  noActiveRouteText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#059669',
-    textAlign: 'center',
-    paddingVertical: 4,
-    lineHeight: 16,
-  },
-  openGoogleMapsMasterBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0f172a',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-  },
-  openGoogleMapsMasterText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-
-  // ── 3 HIGH-PROMINENCE STATUS FILTER CARDS ──
-  prominentTabsContainer: {
-    flexDirection: 'row',
-    gap: 6,
-    marginBottom: 14,
-  },
-  prominentTabBtn: {
-    flex: 1,
+  waveSegmentBtnActive: {
     backgroundColor: '#ffffff',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#e2e8f0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  prominentTabBtnActiveEmerald: {
-    backgroundColor: '#ecfdf5',
-    borderColor: '#10b981',
-    shadowColor: '#10b981',
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  prominentTabBtnActiveAmber: {
-    backgroundColor: '#fffbeb',
-    borderColor: '#f59e0b',
-    shadowColor: '#f59e0b',
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  prominentTabBtnActiveBlue: {
-    backgroundColor: '#f0f9ff',
-    borderColor: '#0284c7',
-    shadowColor: '#0284c7',
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  tabBadgeRow: {
-    position: 'relative',
-    marginBottom: 3,
-  },
-  largeCountBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  countBadgeEmerald: {
-    backgroundColor: '#059669',
+  waveSegmentBtnActivePurple: {
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  countBadgeAmber: {
-    backgroundColor: '#d97706',
+  waveSegmentText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#64748b',
   },
-  countBadgeBlue: {
-    backgroundColor: '#0284c7',
+  waveSegmentTextActive: {
+    color: '#0f766e',
+    fontWeight: '700',
   },
-  countBadgeMuted: {
-    backgroundColor: '#94a3b8',
-  },
-  largeCountText: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  livePulseDot: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#22c55e',
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
-  prominentTabTitle: {
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 0.3,
-    marginTop: 2,
-  },
-  tabTitleActiveEmerald: {
-    color: '#059669',
-  },
-  tabTitleActiveAmber: {
-    color: '#b45309',
-  },
-  tabTitleActiveBlue: {
-    color: '#0284c7',
-  },
-  tabTitleMuted: {
-    color: '#475569',
-  },
-  tabSubText: {
-    fontSize: 9.5,
-    color: '#94a3b8',
-    marginTop: 1,
+  waveSegmentTextActivePurple: {
+    color: '#7c3aed',
+    fontWeight: '700',
   },
 
-  // ── TASK LIST ──
+  // ── 3. COMPACT LOADING / DEPARTURE ACTION BAR ──
+  loadingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  loadingBannerTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#065f46',
+  },
+  loadingBannerSub: {
+    fontSize: 10.5,
+    color: '#047857',
+    marginTop: 1,
+  },
+  loadingBannerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#059669',
+    borderRadius: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+  },
+  loadingBannerBtnText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  // ── 4. NEXT WAVE BANNER ──
+  nextWaveBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#faf5ff',
+    borderWidth: 1,
+    borderColor: '#e9d5ff',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
+  },
+  nextWaveBannerTitle: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#6b21a8',
+    flex: 1,
+  },
+
+  // ── 5. SAME-DESTINATION CLUSTER BANNER ──
+  clusterBannerBox: {
+    marginBottom: 8,
+    gap: 6,
+  },
+  clusterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f9ff',
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  clusterTitle: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#0369a1',
+  },
+  clusterDesc: {
+    fontSize: 10.5,
+    color: '#64748b',
+    marginTop: 1,
+  },
+  clusterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0284c7',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 5,
+    marginLeft: 6,
+  },
+  clusterBtnText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  // ── 6. SLEEK STATUS FILTER TABS (UBER/GRAB SEGMENTED BAR) ──
+  statusTabsRow: {
+    flexDirection: 'row',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 3,
+    marginBottom: 10,
+    gap: 4,
+  },
+  statusTabItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 7,
+    borderRadius: 6,
+    gap: 5,
+  },
+  statusTabItemActiveEmerald: {
+    backgroundColor: '#f0fdf4',
+  },
+  statusTabItemActiveAmber: {
+    backgroundColor: '#fffbeb',
+  },
+  statusTabItemActiveBlue: {
+    backgroundColor: '#f0f9ff',
+  },
+  statusTabTitle: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  statusTabTitleActiveEmerald: {
+    color: '#0f766e',
+    fontWeight: '700',
+  },
+  statusTabTitleActiveAmber: {
+    color: '#92400e',
+    fontWeight: '700',
+  },
+  statusTabTitleActiveBlue: {
+    color: '#0284c7',
+    fontWeight: '700',
+  },
+  statusBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  statusBadgeActiveEmerald: {
+    backgroundColor: '#dcfce7',
+  },
+  statusBadgeActiveAmber: {
+    backgroundColor: '#fef3c7',
+  },
+  statusBadgeActiveBlue: {
+    backgroundColor: '#e0f2fe',
+  },
+  statusBadgeMuted: {
+    backgroundColor: '#f1f5f9',
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  statusBadgeTextActiveEmerald: {
+    color: '#166534',
+  },
+  statusBadgeTextActiveAmber: {
+    color: '#92400e',
+  },
+  statusBadgeTextActiveBlue: {
+    color: '#0369a1',
+  },
+
+  // ── 7. TASK LIST ──
   taskListContainer: {
-    gap: 12,
+    gap: 8,
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingVertical: 32,
   },
   emptyTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: COLORS.textPrimary,
-    marginTop: 12,
+    marginTop: 10,
   },
   emptySub: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: COLORS.textMuted,
-    marginTop: 4,
+    marginTop: 3,
     textAlign: 'center',
+  },
+
+  // ── 8. CUSTOMER CONTACT MODAL (CALL & SMS) ──
+  contactModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  contactModalBox: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 380,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  contactModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    paddingBottom: 8,
+  },
+  contactModalTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  contactModalCloseBtn: {
+    padding: 4,
+  },
+  contactToast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+    marginBottom: 10,
+  },
+  contactToastText: {
+    fontSize: 11,
+    color: '#166534',
+    fontWeight: '600',
+  },
+  contactCustomerCard: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 12,
+    marginBottom: 10,
+  },
+  contactCustName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  contactCustPhone: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0f766e',
+    marginTop: 3,
+  },
+  contactCustOrder: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  smsPreviewBox: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    padding: 10,
+    marginBottom: 12,
+  },
+  smsPreviewLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#166534',
+    marginBottom: 4,
+  },
+  smsPreviewContent: {
+    fontSize: 11.5,
+    color: '#1e293b',
+    lineHeight: 16,
+  },
+  contactActionButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  contactSecondaryBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 8,
+    paddingVertical: 10,
+  },
+  contactSecondaryBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  contactPrimaryBtn: {
+    flex: 1.2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0f766e',
+    borderRadius: 8,
+    paddingVertical: 10,
+  },
+  contactPrimaryBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffffff',
   },
 });

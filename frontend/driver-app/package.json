@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "dev": "adb reverse tcp:8081 tcp:8081 && expo start --offline",
+    "dev": "npm run reverse:ports && expo start --offline",
+    "reverse:ports": "adb reverse tcp:8081 tcp:8081 && adb reverse tcp:3004 tcp:3004 && adb reverse tcp:3007 tcp:3007 && adb reverse tcp:3012 tcp:3012",
     "start": "expo start --offline",
     "start:lan": "expo start --offline --lan",
     "start:tunnel": "expo start --tunnel",
@@ -13,11 +14,12 @@
     "prebuild": "npx expo prebuild --platform android",
     "build:apk": "cd android && gradlew.bat assembleDebug",
     "build:apk:release": "cd android && gradlew.bat assembleRelease",
-    "run:phone": "cd android && gradlew.bat assembleDebug && adb install -r app/build/outputs/apk/debug/app-debug.apk && adb shell monkey -p vn.ctmart.driver -c android.intent.category.LAUNCHER 1"
+    "run:phone": "npm run reverse:ports && cd android && gradlew.bat assembleDebug && adb install -r app/build/outputs/apk/debug/app-debug.apk && adb shell monkey -p vn.ctmart.driver -c android.intent.category.LAUNCHER 1"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
     "expo": "~54.0.0",
+    "expo-image-picker": "~17.0.11",
     "expo-location": "~19.0.8",
     "expo-status-bar": "~3.0.9",
     "lucide-react-native": "^0.395.0",

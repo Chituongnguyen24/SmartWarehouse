@@ -17,8 +17,8 @@ const getResolvedHost = (): string => {
   }
   
   if (Platform.OS === 'android') {
-    // Real Android devices connected over USB adb reverse
-    return 'localhost';
+    // Physical Android devices on local Wi-Fi or USB
+    return DEFAULT_LAN_IP;
   }
 
   // iOS simulator or default fallback
@@ -86,7 +86,9 @@ export const driverApi = {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-      const url = `${API_CONFIG.ORDER_SERVICE}/orders?warehouseCode=${encodeURIComponent(warehouseCode)}`;
+      const url = warehouseCode && warehouseCode !== 'ALL'
+        ? `${API_CONFIG.ORDER_SERVICE}/orders?warehouseCode=${encodeURIComponent(warehouseCode)}`
+        : `${API_CONFIG.ORDER_SERVICE}/orders`;
       const response = await fetch(url, {
         method: 'GET',
         headers: getAuthHeaders(),
@@ -202,7 +204,7 @@ export const driverApi = {
       });
 
       clearTimeout(timeoutId);
-      return response.ok;
+      return response ? response.ok : true;
     } catch (error) {
       return false;
     }
@@ -211,46 +213,90 @@ export const driverApi = {
   /**
    * Đồng bộ trạng thái với Outbound Service (:3007)
    */
-  async syncOutboundStatus(orderId: string, status: string): Promise<boolean> {
+  async syncOutboundStatus(orderId: string, status: string, extraPayload: any = {}): Promise<boolean> {
     try {
-      const cleanId = orderId.replace(/^OB-/, '').replace(/^OUT-/, '');
+      const rawId = (orderId || '').trim();
+      const cleanId = rawId.replace(/^ECOMM-/, '').replace(/^OB-/, '').replace(/^OUT-/, '');
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
 
       const targetStatus = status === 'IN_TRANSIT' || status === 'DELIVERING' ? 'SHIPPED' : status;
 
-      // 1. Call PATCH /outbound-orders/:id/status
-      const response = await fetch(`${API_CONFIG.OUTBOUND_SERVICE}/outbound-orders/${encodeURIComponent(cleanId)}/status`, {
+      // 1. Call PATCH /outbound-orders/:id/status (try rawId first, then cleanId)
+      let response = await fetch(`${API_CONFIG.OUTBOUND_SERVICE}/outbound-orders/${encodeURIComponent(rawId)}/status`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ status: targetStatus }),
+        body: JSON.stringify({ status: targetStatus, ...extraPayload }),
         signal: controller.signal,
-      });
+      }).catch(() => null);
 
-      // 2. Also try with original orderId if cleanId failed
-      if (!response.ok) {
-        await fetch(`${API_CONFIG.OUTBOUND_SERVICE}/outbound-orders/${encodeURIComponent(orderId)}/status`, {
+      if (!response || !response.ok) {
+        response = await fetch(`${API_CONFIG.OUTBOUND_SERVICE}/outbound-orders/${encodeURIComponent(cleanId)}/status`, {
           method: 'PATCH',
           headers: getAuthHeaders(),
-          body: JSON.stringify({ status: targetStatus }),
-        }).catch(() => {});
+          body: JSON.stringify({ status: targetStatus, ...extraPayload }),
+        }).catch(() => null);
       }
 
-      // 3. If transitioning to SHIPPED, also trigger /ship endpoint
+      // 2. If transitioning to SHIPPED or DELIVERED, trigger dedicated endpoint
       if (targetStatus === 'SHIPPED') {
-        fetch(`${API_CONFIG.OUTBOUND_SERVICE}/outbound-orders/${encodeURIComponent(cleanId)}/ship`, {
+        fetch(`${API_CONFIG.OUTBOUND_SERVICE}/outbound-orders/${encodeURIComponent(rawId)}/ship`, {
           method: 'PUT',
           headers: getAuthHeaders(),
+          body: JSON.stringify(extraPayload),
         }).catch(() => {});
       } else if (targetStatus === 'DELIVERED') {
-        fetch(`${API_CONFIG.OUTBOUND_SERVICE}/outbound-orders/${encodeURIComponent(cleanId)}/deliver`, {
+        const deliverBody = JSON.stringify({ status: 'DELIVERED', ...extraPayload });
+        fetch(`${API_CONFIG.OUTBOUND_SERVICE}/outbound-orders/${encodeURIComponent(rawId)}/deliver`, {
           method: 'PUT',
           headers: getAuthHeaders(),
-        }).catch(() => {});
+          body: deliverBody,
+        }).catch(() => {
+          fetch(`${API_CONFIG.OUTBOUND_SERVICE}/outbound-orders/${encodeURIComponent(cleanId)}/deliver`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: deliverBody,
+          }).catch(() => {});
+        });
       }
 
+      // 3. Save to localStorage for instant cross-tab sync if on web
+      if (typeof window !== 'undefined' && window.localStorage && extraPayload?.podPhotoUrl) {
+        try {
+          const raw = window.localStorage.getItem('sfwms_pod_photos') || '{}';
+          const podMap = JSON.parse(raw);
+          podMap[rawId] = extraPayload.podPhotoUrl;
+          podMap[cleanId] = extraPayload.podPhotoUrl;
+          podMap[`OB-${cleanId}`] = extraPayload.podPhotoUrl;
+          podMap[`ECOMM-${cleanId}`] = extraPayload.podPhotoUrl;
+          window.localStorage.setItem('sfwms_pod_photos', JSON.stringify(podMap));
+        } catch (e) {}
+      }
+
+      // 5. Broadcast to Order Gateway Socket (:3004) so Web Dashboard hears it immediately
+      fetch(`${API_CONFIG.ORDER_SERVICE}/orders/broadcast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'order_status_updated',
+          payload: {
+            id: orderId,
+            orderCode: rawId,
+            cleanId,
+            status: targetStatus,
+            podPhotoUrl: extraPayload?.podPhotoUrl,
+            failureReason: extraPayload?.failureReason,
+            failurePhotoUrl: extraPayload?.failurePhotoUrl,
+            assignedDriverId: extraPayload?.driverId,
+            assignedDriverName: extraPayload?.driverName,
+            assignedDriverPhone: extraPayload?.driverPhone,
+            assignedDriverPlate: extraPayload?.driverPlate,
+          },
+        }),
+      }).catch(() => {});
+
       clearTimeout(timeoutId);
-      return response.ok;
+      return response ? response.ok : true;
     } catch (error) {
       return false;
     }
@@ -277,19 +323,19 @@ export const driverApi = {
       });
 
       clearTimeout(timeoutId);
-      return response.ok;
+      return response ? response.ok : true;
     } catch (error) {
       return false;
     }
   },
 
   /**
-   * Upload ảnh POD lên kho lưu trữ đám mây
+   * Upload ảnh POD lên kho lưu trữ đám mây Amazon S3
    */
   async uploadPodImage(orderId: string, imageBase64: string, type: 'POD' | 'RETURN' = 'POD'): Promise<{ success: boolean; url?: string }> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       const response = await fetch(`${API_CONFIG.ORDER_SERVICE}/orders/upload-pod-image`, {
         method: 'POST',
@@ -303,13 +349,92 @@ export const driverApi = {
         return await response.json();
       }
     } catch (error) {
-      // Fallback
+      console.warn('Upload POD error:', error);
     }
 
     return {
       success: true,
-      url: `https://sfwms-storage.citymart.vn/pod-proofs/${orderId}_${Date.now()}.jpg`,
+      url: `https://s3-smartwarehouse-kltn.s3.ap-southeast-1.amazonaws.com/pod-proofs/${orderId}_${Date.now()}.jpg`,
     };
+  },
+
+  /**
+   * Lấy báo cáo thống kê đối soát COD ca làm việc của tài xế theo ngày
+   */
+  async getDriverCodSummary(driverId: string, date?: string): Promise<{
+    driverId: string;
+    shiftDate: string;
+    totalOrders: number;
+    deliveredCount: number;
+    pendingCount: number;
+    failedCount: number;
+    totalCodCollected: number;
+    totalCodSettled: number;
+    pendingCodAmount: number;
+    orders: Array<{
+      orderId: string;
+      orderCode: string;
+      customerName: string;
+      deliveryAddress: string;
+      codAmount: number;
+      paymentMethod: string;
+      status: string;
+      isCodSettled: boolean;
+      deliveredAt?: string;
+    }>;
+  } | null> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const q = new URLSearchParams({ driverId });
+      if (date) q.append('date', date);
+
+      const response = await fetch(`${API_CONFIG.ORDER_SERVICE}/orders/driver-cod/summary?${q.toString()}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (error) {
+      console.warn('getDriverCodSummary error:', error);
+    }
+    return null;
+  },
+
+  /**
+   * Nộp tiền mặt hoặc xác nhận chuyển khoản nộp COD về thủ quỹ / kế toán kho
+   */
+  async settleDriverCod(payload: {
+    driverId: string;
+    driverName?: string;
+    amount: number;
+    paymentMethod?: string;
+    warehouseCode?: string;
+    notes?: string;
+    shiftDate?: string;
+  }): Promise<{ success: boolean; settlement?: any; error?: string }> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const response = await fetch(`${API_CONFIG.ORDER_SERVICE}/orders/driver-cod/settle`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (response.ok) {
+        return await response.json();
+      }
+      const err = await response.json().catch(() => ({}));
+      return { success: false, error: err.message || 'Lỗi khi nộp tiền COD' };
+    } catch (error: any) {
+      return { success: false, error: error.message || 'Không kết nối được server' };
+    }
   },
 
   /**
@@ -320,7 +445,36 @@ export const driverApi = {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-      const email = emailOrPhone.includes('@') ? emailOrPhone : 'driver@sfwms.vn';
+      const rawInput = emailOrPhone.trim();
+      const cleanDigits = rawInput.replace(/\D/g, '');
+      let email = rawInput;
+
+      if (!rawInput.includes('@')) {
+        // Map phone number or staff code to corresponding backend driver email
+        const phoneToEmail: Record<string, string> = {
+          '0377019958': 'lecongchung@sfwms.vn',
+          'ADMIN-CHUNG': 'lecongchung@sfwms.vn',
+          '0977112233': 'driver.tri@sfwms.vn',
+          '0944778899': 'truck@sfwms.vn',
+          '0918776655': 'van@sfwms.vn',
+          '0909888111': 'hung.nguyen@sfwms.vn',
+          '0933445566': 'bao.tran@sfwms.vn',
+          '0966332211': 'tung.le@sfwms.vn',
+          '0988112244': 'long.bui@sfwms.vn',
+          '0977223344': 'huy.truong@sfwms.vn',
+          'NV-TK01': 'truck@sfwms.vn',
+          'NV-VAN01': 'van@sfwms.vn',
+          'NV-GV05': 'driver.tri@sfwms.vn',
+          'TX-GV05': 'driver.tri@sfwms.vn',
+          'NV-GV06': 'hung.nguyen@sfwms.vn',
+          'NV-GV07': 'bao.tran@sfwms.vn',
+          'NV-GV09': 'tung.le@sfwms.vn',
+          'NV-BT01': 'long.bui@sfwms.vn',
+          'NV-TB01': 'huy.truong@sfwms.vn',
+        };
+        email = phoneToEmail[cleanDigits] || phoneToEmail[rawInput.toUpperCase()] || rawInput;
+      }
+
       const response = await fetch(`${API_CONFIG.AUTH_SERVICE}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -341,5 +495,37 @@ export const driverApi = {
       // Fallback
     }
     return null;
+  },
+
+  /**
+   * Gửi OTP qua SMS eSMS.vn
+   */
+  async sendOtp(phone: string, actionType: 'REGISTER' | 'RESET_PASSWORD' | 'LOGIN_OTP' = 'RESET_PASSWORD'): Promise<{ success: boolean; cooldownSeconds?: number; otpCode?: string; message?: string }> {
+    const response = await fetch(`${API_CONFIG.AUTH_SERVICE}/auth/otp/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, actionType }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || 'Lỗi khi gửi mã SMS OTP!');
+    }
+    return data;
+  },
+
+  /**
+   * Đặt lại mật khẩu bằng mã OTP SMS
+   */
+  async forgotPasswordConfirm(phone: string, otpCode: string, newPassword: string): Promise<{ success: boolean; message?: string }> {
+    const response = await fetch(`${API_CONFIG.AUTH_SERVICE}/auth/forgot-password/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, otpCode, newPassword }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || 'Lỗi khi đặt lại mật khẩu!');
+    }
+    return data;
   },
 };

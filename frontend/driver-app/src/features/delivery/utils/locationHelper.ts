@@ -76,6 +76,11 @@ export const openSingleGoogleMapsNavigation = (address: string, lat?: number, ln
   // 1. Dùng Universal Map Direction URL với GPS đích đến (Chính xác 100% không bị lệch)
   const universalUrl = `https://www.google.com/maps/dir/?api=1&destination=${targetLat},${targetLng}&travelmode=two_wheeler`;
 
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    window.open(universalUrl, '_blank');
+    return;
+  }
+
   // 2. Android Geo Intent with Label (hiển thị đúng tên địa chỉ thay vì "Vị trí đã ghim")
   const androidIntentUrl = `geo:${targetLat},${targetLng}?q=${targetLat},${targetLng}(${label})`;
 
@@ -103,7 +108,11 @@ export const openMultiStopGoogleMapsRoute = (
   stops: Array<{ address: string; lat?: number; lng?: number; customerName?: string }>,
 ) => {
   if (!stops || stops.length === 0) {
-    Alert.alert('Thông báo', 'Không có điểm dừng nào trong lộ trình.');
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.alert('Lộ trình trống: Hiện chưa có điểm dừng nào cần giao.');
+    } else {
+      Alert.alert('Thông báo', 'Không có điểm dừng nào trong lộ trình.');
+    }
     return;
   }
 
@@ -121,6 +130,11 @@ export const openMultiStopGoogleMapsRoute = (
     waypoints.length > 0
       ? `https://www.google.com/maps/dir/?api=1&destination=${destination}&waypoints=${waypoints}&travelmode=two_wheeler`
       : `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=two_wheeler`;
+
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    window.open(url, '_blank');
+    return;
+  }
 
   Linking.openURL(url).catch(() => {
     Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${destination}`);

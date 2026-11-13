@@ -1,16 +1,13 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Platform, Image, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { DriverTaskProvider, useDriverTask } from './src/context/DriverTaskContext';
-import { HomeScreen } from './src/screens/HomeScreen';
-import { TaskDetailScreen } from './src/screens/TaskDetailScreen';
-import { ProofOfDeliveryScreen } from './src/screens/ProofOfDeliveryScreen';
-import { ColdChainScreen } from './src/screens/ColdChainScreen';
-import { EarningsScreen } from './src/screens/EarningsScreen';
-import { LoginScreen } from './src/screens/LoginScreen';
-import { COLORS } from './src/theme/colors';
-import { DeliveryTask } from './src/types/driver';
+import { DriverTaskProvider, useDriverTask, HomeScreen, TaskDetailScreen, ProofOfDeliveryScreen } from '@/features/delivery';
+import { ColdChainScreen } from '@/features/cold-chain';
+import { EarningsScreen } from '@/features/earnings';
+import { LoginScreen } from '@/features/auth';
+import { COLORS } from '@/shared';
+import { DeliveryTask } from '@/types/driver';
 import { Navigation, Thermometer, Receipt } from 'lucide-react-native';
 
 type ActiveTab = 'ROUTE' | 'COLD_CHAIN' | 'EARNINGS';
@@ -21,11 +18,15 @@ const DriverMainAppContent: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<DeliveryTask | null>(null);
   const [inPOD, setInPOD] = useState(false);
 
-  const { inTransitTasks, assignedTasks } = useDriverTask();
+  const { inTransitTasks, assignedTasks, tasks } = useDriverTask();
   const totalActiveTasks = inTransitTasks.length + assignedTasks.length;
 
   // Dynamic safe area bottom padding to protect tab bar from 3-button or gesture nav bar
   const bottomNavPadding = insets.bottom > 0 ? insets.bottom + 2 : (Platform.OS === 'android' ? 16 : 8);
+
+  const liveSelectedTask = selectedTask
+    ? tasks.find(t => t.id === selectedTask.id || (t.orderCode && t.orderCode === selectedTask.orderCode)) || selectedTask
+    : null;
 
   return (
     <View style={styles.container}>
@@ -33,9 +34,9 @@ const DriverMainAppContent: React.FC = () => {
 
       {/* Main Screen Body */}
       <View style={styles.screenContainer}>
-        {inPOD && selectedTask ? (
+        {inPOD && liveSelectedTask ? (
           <ProofOfDeliveryScreen
-            task={selectedTask}
+            task={liveSelectedTask}
             onBack={() => setInPOD(false)}
             onSuccess={() => {
               setInPOD(false);
@@ -43,16 +44,22 @@ const DriverMainAppContent: React.FC = () => {
               setCurrentTab('ROUTE');
             }}
           />
-        ) : selectedTask ? (
+        ) : liveSelectedTask ? (
           <TaskDetailScreen
-            task={selectedTask}
+            task={liveSelectedTask}
             onBack={() => setSelectedTask(null)}
             onOpenPOD={() => setInPOD(true)}
           />
         ) : (
           <>
             {currentTab === 'ROUTE' && (
-              <HomeScreen onSelectTask={(task) => setSelectedTask(task)} />
+              <HomeScreen
+                onSelectTask={(task) => setSelectedTask(task)}
+                onOpenPOD={(task) => {
+                  setSelectedTask(task);
+                  setInPOD(true);
+                }}
+              />
             )}
             {currentTab === 'COLD_CHAIN' && <ColdChainScreen />}
             {currentTab === 'EARNINGS' && <EarningsScreen />}
@@ -107,7 +114,7 @@ const DriverMainAppContent: React.FC = () => {
                   currentTab === 'COLD_CHAIN' && styles.tabLabelActive,
                 ]}
               >
-                Kho lạnh IoT
+                Nhiệt độ thùng xe
               </Text>
             </TouchableOpacity>
 
@@ -139,7 +146,20 @@ const DriverMainAppContent: React.FC = () => {
 };
 
 const DriverAppRoot: React.FC = () => {
-  const { isAuthenticated } = useDriverTask();
+  const { isAuthenticated, isSessionChecking } = useDriverTask();
+
+  if (isSessionChecking) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center' }}>
+        <Image
+          source={require('./assets/logos/logo_full.png')}
+          style={{ width: 220, height: 60, marginBottom: 16 }}
+          resizeMode="contain"
+        />
+        <ActivityIndicator size="small" color="#059669" />
+      </View>
+    );
+  }
 
   if (!isAuthenticated) {
     return <LoginScreen />;

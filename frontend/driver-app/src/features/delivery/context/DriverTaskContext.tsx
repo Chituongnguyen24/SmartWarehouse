@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import * as Location from 'expo-location';
-import { DeliveryTask, DriverProfile, TaskStatus } from '../types/driver';
-import { MOCK_DELIVERY_TASKS } from '../data/mockDriverData';
-import { driverApi, TelemetryPayload, DRIVER_SESSION_KEY, setAuthToken, BACKEND_HOST } from '../services/api';
+import { DeliveryTask, DriverProfile, TaskStatus } from '@/types/driver';
+import { MOCK_DELIVERY_TASKS } from '@/shared';
+import { driverApi, TelemetryPayload, DRIVER_SESSION_KEY, setAuthToken, BACKEND_HOST } from '@/shared';
+import { storageHelper } from '@/shared';
 import { io } from 'socket.io-client';
-import { resolveProductUnit, calculatePackingBoxes } from '../utils/productUnitHelper';
+import { resolveProductUnit, calculatePackingBoxes } from '@/shared';
 
 export type TripStatus = 'WAITING_ACCEPT' | 'IN_TRANSIT' | 'RETURNING_TO_HUB';
 
@@ -17,7 +18,10 @@ export interface DriverLiveLocation {
 
 interface DriverTaskContextType {
   driverProfile: DriverProfile;
+  availableDrivers: DriverProfile[];
+  switchDriverProfile: (driverIdOrPhone: string) => Promise<boolean>;
   isAuthenticated: boolean;
+  isSessionChecking: boolean;
   login: (phoneOrCode: string, password?: string) => Promise<boolean>;
   logout: () => void;
   toggleOnline: () => void;
@@ -27,6 +31,7 @@ interface DriverTaskContextType {
   setActiveTask: (task: DeliveryTask | null) => void;
   startDelivery: (taskId: string) => Promise<void>;
   completeDelivery: (taskId: string, proofImageUri?: string) => Promise<void>;
+  completeBatchDelivery: (taskIds: string[], proofImageUri?: string) => Promise<void>;
   reportDeliveryFailure: (taskId: string, reason: string, photoUrl?: string) => Promise<void>;
   assignedTasks: DeliveryTask[];
   inTransitTasks: DeliveryTask[];
@@ -51,6 +56,54 @@ interface DriverTaskContextType {
 }
 
 export const DRIVER_DB: Record<string, DriverProfile> = {
+  '0377019958': {
+    id: 'ADMIN-CHUNG',
+    name: 'Lê Công Chung (Toàn Quyền)',
+    phone: '0377 019 958',
+    licensePlate: '51-A1 999.99',
+    vehicleType: 'Xe Giao Hàng & Giám Sát Quản Trị',
+    warehouseCode: 'WH-006',
+    warehouseName: 'Tổng Kho Gò Vấp (350 Quang Trung)',
+    isOnline: true,
+    currentTemp: 3.2,
+    targetTempMin: 0.0,
+    targetTempMax: 4.0,
+    rating: 5.0,
+    completedTasksToday: 15,
+    totalEarningsToday: 550000,
+  },
+  'ADMIN-CHUNG': {
+    id: 'ADMIN-CHUNG',
+    name: 'Lê Công Chung (Toàn Quyền)',
+    phone: '0377 019 958',
+    licensePlate: '51-A1 999.99',
+    vehicleType: 'Xe Giao Hàng & Giám Sát Quản Trị',
+    warehouseCode: 'WH-006',
+    warehouseName: 'Tổng Kho Gò Vấp (350 Quang Trung)',
+    isOnline: true,
+    currentTemp: 3.2,
+    targetTempMin: 0.0,
+    targetTempMax: 4.0,
+    rating: 5.0,
+    completedTasksToday: 15,
+    totalEarningsToday: 550000,
+  },
+  'lecongchung@sfwms.vn': {
+    id: 'ADMIN-CHUNG',
+    name: 'Lê Công Chung (Toàn Quyền)',
+    phone: '0377 019 958',
+    licensePlate: '51-A1 999.99',
+    vehicleType: 'Xe Giao Hàng & Giám Sát Quản Trị',
+    warehouseCode: 'WH-006',
+    warehouseName: 'Tổng Kho Gò Vấp (350 Quang Trung)',
+    isOnline: true,
+    currentTemp: 3.2,
+    targetTempMin: 0.0,
+    targetTempMax: 4.0,
+    rating: 5.0,
+    completedTasksToday: 15,
+    totalEarningsToday: 550000,
+  },
   '0977112233': {
     id: 'NV-GV05',
     name: 'Võ Minh Trí',
@@ -147,37 +200,69 @@ export const DRIVER_DB: Record<string, DriverProfile> = {
     completedTasksToday: 8,
     totalEarningsToday: 280000,
   },
-  '0918776655': {
-    id: 'NV-GV08',
-    name: 'Phạm Hoàng Nam',
-    phone: '0918 776 655',
-    licensePlate: '59-K1 234.56',
-    vehicleType: 'Xe Máy Thùng Mát',
+  '0966332211': {
+    id: 'NV-GV09',
+    name: 'Lê Thanh Tùng',
+    phone: '0966 332 211',
+    licensePlate: '59-X1 999.11',
+    vehicleType: 'Xe Máy Thùng Lạnh',
     warehouseCode: 'WH-006',
     warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
     isOnline: true,
     currentTemp: 3.1,
     targetTempMin: 0.0,
     targetTempMax: 4.0,
-    rating: 4.8,
+    rating: 4.90,
     completedTasksToday: 9,
-    totalEarningsToday: 315000,
+    totalEarningsToday: 320000,
   },
-  'NV-GV08': {
-    id: 'NV-GV08',
-    name: 'Phạm Hoàng Nam',
-    phone: '0918 776 655',
-    licensePlate: '59-K1 234.56',
-    vehicleType: 'Xe Máy Thùng Mát',
+  '0966 332 211': {
+    id: 'NV-GV09',
+    name: 'Lê Thanh Tùng',
+    phone: '0966 332 211',
+    licensePlate: '59-X1 999.11',
+    vehicleType: 'Xe Máy Thùng Lạnh',
     warehouseCode: 'WH-006',
     warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
     isOnline: true,
     currentTemp: 3.1,
     targetTempMin: 0.0,
     targetTempMax: 4.0,
-    rating: 4.8,
+    rating: 4.90,
     completedTasksToday: 9,
-    totalEarningsToday: 315000,
+    totalEarningsToday: 320000,
+  },
+  'NV-GV09': {
+    id: 'NV-GV09',
+    name: 'Lê Thanh Tùng',
+    phone: '0966 332 211',
+    licensePlate: '59-X1 999.11',
+    vehicleType: 'Xe Máy Thùng Lạnh',
+    warehouseCode: 'WH-006',
+    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
+    isOnline: true,
+    currentTemp: 3.1,
+    targetTempMin: 0.0,
+    targetTempMax: 4.0,
+    rating: 4.90,
+    completedTasksToday: 9,
+    totalEarningsToday: 320000,
+  },
+  'tung.le@sfwms.vn': {
+    id: 'NV-GV09',
+    name: 'Lê Thanh Tùng',
+    phone: '0966 332 211',
+    licensePlate: '59-X1 999.11',
+    vehicleType: 'Xe Máy Thùng Lạnh',
+    warehouseCode: 'WH-006',
+    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
+    isOnline: true,
+    currentTemp: 3.1,
+    targetTempMin: 0.0,
+    targetTempMax: 4.0,
+    rating: 4.90,
+    completedTasksToday: 9,
+    totalEarningsToday: 320000,
   },
   '0988112244': {
     id: 'NV-BT01',
@@ -373,6 +458,38 @@ export const DRIVER_DB: Record<string, DriverProfile> = {
     completedTasksToday: 6,
     totalEarningsToday: 750000,
   },
+  '0918776655': {
+    id: 'NV-VAN01',
+    name: 'Phan Hữu Nam',
+    phone: '0918 776 655',
+    licensePlate: '51C-734.12',
+    vehicleType: 'Xe Bán Tải Thùng Kín 1.5 Tấn',
+    warehouseCode: 'WH-006',
+    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
+    isOnline: true,
+    currentTemp: 3.0,
+    targetTempMin: 0.0,
+    targetTempMax: 4.0,
+    rating: 4.90,
+    completedTasksToday: 8,
+    totalEarningsToday: 550000,
+  },
+  '0918 776 655': {
+    id: 'NV-VAN01',
+    name: 'Phan Hữu Nam',
+    phone: '0918 776 655',
+    licensePlate: '51C-734.12',
+    vehicleType: 'Xe Bán Tải Thùng Kín 1.5 Tấn',
+    warehouseCode: 'WH-006',
+    warehouseName: 'Kho Gò Vấp (350 Quang Trung)',
+    isOnline: true,
+    currentTemp: 3.0,
+    targetTempMin: 0.0,
+    targetTempMax: 4.0,
+    rating: 4.90,
+    completedTasksToday: 8,
+    totalEarningsToday: 550000,
+  },
   'NV-VAN01': {
     id: 'NV-VAN01',
     name: 'Phan Hữu Nam',
@@ -521,6 +638,18 @@ export const DRIVER_DB: Record<string, DriverProfile> = {
   }
 };
 
+export const SELECTABLE_DRIVERS: DriverProfile[] = [
+  DRIVER_DB['0377019958'], // Lê Công Chung (Toàn Quyền Quản Trị)
+  DRIVER_DB['0977112233'], // Võ Minh Trí (Xe Máy Thùng Lạnh - WH-006)
+  DRIVER_DB['NV-TK01'],     // Đặng Hoàng Phúc (Xe Tải Lạnh 2.5T - WH-006 & Đa Phước)
+  DRIVER_DB['0918776655'], // Phan Hữu Nam (Xe Bán Tải 1.5T - WH-006)
+  DRIVER_DB['0909888111'], // Nguyễn Văn Hùng (Xe Máy Siêu Tốc - WH-006)
+  DRIVER_DB['0933445566'], // Trần Quốc Bảo (Xe Máy Thùng Mát - WH-006)
+  DRIVER_DB['0966332211'], // Lê Thanh Tùng (Xe Máy Thùng Lạnh - WH-006)
+  DRIVER_DB['NV-BT01'],     // Bùi Hoàng Long (Tài xế Liên Kho Bình Thạnh - Gò Vấp)
+  DRIVER_DB['NV-TB01'],     // Trương Gia Huy (Tài xế Liên Kho Tân Bình - Gò Vấp)
+].filter(Boolean);
+
 const DEFAULT_PROFILE = DRIVER_DB['0977112233'];
 
 const DriverTaskContext = createContext<DriverTaskContextType | undefined>(undefined);
@@ -557,7 +686,8 @@ export function calculateLiveDistance(
 }
 
 export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isSessionChecking, setIsSessionChecking] = useState<boolean>(true);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [driverProfile, setDriverProfile] = useState<DriverProfile>(DEFAULT_PROFILE);
   const [tasks, setTasks] = useState<DeliveryTask[]>([]);
   const [nextWaveTasks, setNextWaveTasks] = useState<DeliveryTask[]>([]);
@@ -599,41 +729,70 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // Throttle ref for GPS telemetry
   const lastTelemetryTime = useRef<number>(0);
 
-  // 1. Session Persistence: Check saved JWT session on initial startup
+  // 1. Session Persistence: Check saved session on initial startup
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.localStorage) {
+    let isMounted = true;
+    const restoreSession = async () => {
       try {
-        const saved = window.localStorage.getItem(DRIVER_SESSION_KEY);
+        const saved = await storageHelper.getItem(DRIVER_SESSION_KEY);
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed && parsed.profile) {
             setDriverProfile(parsed.profile);
             if (parsed.token) setAuthToken(parsed.token);
             setIsAuthenticated(true);
+
+            // Scope storage by driver id so session state never leaks across drivers
+            const dId = parsed.profile.id || '';
+            const savedDeparted = await storageHelper.getItem(`sfwms_driver_batch_departed_${dId}`);
+            if (savedDeparted) setIsBatchDeparted(JSON.parse(savedDeparted));
+            const savedLocked = await storageHelper.getItem(`sfwms_driver_locked_trip_ids_${dId}`);
+            if (savedLocked) setCurrentTripLockedIds(new Set(JSON.parse(savedLocked)));
+            const savedTrip = await storageHelper.getItem(`sfwms_driver_trip_number_${dId}`);
+            if (savedTrip) setCurrentTripNumber(Number(savedTrip));
+            const savedInTransit = await storageHelper.getItem(`sfwms_driver_intransit_ids_${dId}`);
+            if (savedInTransit) setInTransitTaskIds(new Set(JSON.parse(savedInTransit)));
+            const savedCompleted = await storageHelper.getItem(`sfwms_driver_completed_ids_${dId}`);
+            if (savedCompleted) setCompletedTaskIds(new Set(JSON.parse(savedCompleted)));
+          } else {
+            setIsAuthenticated(false);
           }
+        } else {
+          setIsAuthenticated(false);
         }
-        const savedDeparted = window.localStorage.getItem('sfwms_driver_batch_departed');
-        if (savedDeparted) setIsBatchDeparted(JSON.parse(savedDeparted));
-        const savedLocked = window.localStorage.getItem('sfwms_driver_locked_trip_ids');
-        if (savedLocked) setCurrentTripLockedIds(new Set(JSON.parse(savedLocked)));
-        const savedTrip = window.localStorage.getItem('sfwms_driver_trip_number');
-        if (savedTrip) setCurrentTripNumber(Number(savedTrip));
-        const savedInTransit = window.localStorage.getItem('sfwms_driver_intransit_ids');
-        if (savedInTransit) setInTransitTaskIds(new Set(JSON.parse(savedInTransit)));
-        const savedCompleted = window.localStorage.getItem('sfwms_driver_completed_ids');
-        if (savedCompleted) setCompletedTaskIds(new Set(JSON.parse(savedCompleted)));
-      } catch (e) {}
-    }
+      } catch (e) {
+        setIsAuthenticated(false);
+      } finally {
+        if (isMounted) {
+          setIsSessionChecking(false);
+        }
+      }
+    };
+
+    restoreSession();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const fetchLiveAssignedOrders = useCallback(async () => {
+    // Chỉ tải lộ trình khi đã xác thực tài xế thành công để tránh nhấp nháy / tải nhầm đơn người khác
+    if (!isAuthenticated || !driverProfile?.id) {
+      setTasks([]);
+      setNextWaveTasks([]);
+      setActiveTask(null);
+      setNextBatchQueueCount(0);
+      return;
+    }
+
     try {
       const warehouseCode = driverProfile.warehouseCode || 'WH-006';
       
       // 1. Fetch E-commerce orders (:3004) and Outbound / Disposal orders (:3007) in parallel
+      // Fetch across warehouses so fleet/truck drivers receive all assigned orders
       const [dbOrders, obOrders] = await Promise.all([
-        driverApi.getOrders(warehouseCode).catch(() => []),
-        driverApi.getOutboundOrders(warehouseCode).catch(() => []),
+        driverApi.getOrders('ALL').catch(() => []),
+        driverApi.getOutboundOrders('ALL').catch(() => []),
       ]);
 
       // 2. Read local storage assignments from Web Dashboard (cross-tab sync)
@@ -654,8 +813,8 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (!o) return;
         const code = (o.orderCode || (isOb ? `OB-${(o.id || '').slice(0, 8).toUpperCase()}` : `ECOMM-${(o.id || '').slice(0, 8).toUpperCase()}`)).trim();
         const rawId = String(o.id || code).trim();
-        const rawKey = (code || rawId).toUpperCase();
-        const primaryKey = rawKey.replace(/^ECOMM-/, '').replace(/^OB-/, '').replace(/[^A-Z0-9]/g, '').slice(0, 8) || rawKey;
+        // Unique key: Preserve each individual order by its unique ID or orderCode
+        const primaryKey = String(o.id || code).toLowerCase().trim();
 
         const saved = savedDriverMap[rawId] || savedDriverMap[code] || savedDriverMap[rawId.slice(0, 8)];
         const rawCode = (code || '').toUpperCase();
@@ -676,10 +835,20 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const driverPhone = o.assignedDriverPhone || saved?.phone || saved?.driverPhone;
         const driverPlate = o.assignedDriverPlate || saved?.plate || saved?.driverPlate;
 
+        const isOutboundOrder = isOb || Boolean(
+          o.isOutbound ||
+          rawCode.startsWith('OB-') ||
+          rawCode.startsWith('XK-') ||
+          rawCode.startsWith('OUT-') ||
+          rawId.startsWith('XK-') ||
+          rawId.startsWith('OB-')
+        );
+
         const orderObj = {
           ...o,
           id: rawId,
           orderCode: code,
+          isOutbound: isOutboundOrder,
           customerName: isDisposal 
             ? 'Trạm Xử Lý Môi Trường Đa Phước (QC Tiêu Hủy)' 
             : (o.requesterName || o.customerName || 'Khách Hàng C.T Mart'),
@@ -717,42 +886,53 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const profileName = (driverProfile.name || '').toLowerCase();
         const isPhucTruckDriver = cleanProfileId === 'NV-TK01' || profileName.includes('phúc') || cleanProfilePhone.includes('0944778899');
         const isNamVanDriver = cleanProfileId === 'NV-VAN01' || profileName.includes('nam') || cleanProfilePhone.includes('0918776655');
+        const isTriBikeDriver = cleanProfileId === 'NV-GV05' || profileName.includes('trí') || cleanProfilePhone.includes('0977112233');
 
         // Match orders strictly assigned to this driver
-        const matchedOrders = combinedOrders.filter((o: any) => {
+        let matchedOrders = combinedOrders.filter((o: any) => {
           const oPhone = (o.assignedDriverPhone || '').replace(/\D/g, '');
-          const oId = (o.assignedDriverId || '').toUpperCase();
-          const oName = (o.assignedDriverName || '').toLowerCase();
+          const oId = (o.assignedDriverId || '').toUpperCase().trim();
+          const oName = (o.assignedDriverName || '').toLowerCase().trim();
 
-          // 1. If this order has an assigned driver that does not match this driver profile -> Exclude!
+          // 1. If this order has an assigned driver
           const hasAssignedDriver = Boolean(oId || oPhone || oName);
           if (hasAssignedDriver) {
-            const isDriverMatch = 
-              (cleanProfilePhone && oPhone && (oPhone === cleanProfilePhone || cleanProfilePhone.includes(oPhone) || oPhone.includes(cleanProfilePhone))) ||
-              (cleanProfileId && oId && (oId === cleanProfileId || cleanProfileId.includes(oId) || oId.includes(cleanProfileId))) ||
-              (profileName && oName && (oName.includes(profileName) || profileName.includes(oName)));
+            // Strict ID match
+            const isIdMatch = Boolean(cleanProfileId && oId && (oId === cleanProfileId));
 
-            return isDriverMatch;
+            // Strict Phone match
+            const isPhoneMatch = Boolean(cleanProfilePhone && oPhone && (
+              oPhone === cleanProfilePhone ||
+              (cleanProfilePhone.length >= 9 && oPhone.includes(cleanProfilePhone)) ||
+              (oPhone.length >= 9 && cleanProfilePhone.includes(oPhone))
+            ));
+
+            // Strict Driver Name match (1-to-1 without blanket startsWith)
+            let isNameMatch = false;
+            if (profileName && oName) {
+              if (profileName.includes('phúc') && oName.includes('phúc')) isNameMatch = true;
+              else if (profileName.includes('trí') && oName.includes('trí')) isNameMatch = true;
+              else if (profileName.includes('hùng') && oName.includes('hùng')) isNameMatch = true;
+              else if (profileName.includes('bảo') && oName.includes('bảo')) isNameMatch = true;
+              else if (profileName.includes('tùng') && oName.includes('tùng')) isNameMatch = true;
+              else if (profileName.includes('long') && oName.includes('long')) isNameMatch = true;
+              else if (profileName.includes('huy') && oName.includes('huy')) isNameMatch = true;
+              else if (profileName.includes('nam') && oName.includes('nam') && !oName.includes('hoàng nam')) isNameMatch = true;
+            }
+
+            return isIdMatch || isPhoneMatch || isNameMatch;
           }
 
-          // 2. If unassigned and disposal -> defaults to Truck Driver Đặng Hoàng Phúc
-          if (!hasAssignedDriver && isPhucTruckDriver && o.isDisposal) {
-            return true;
-          }
-
-          // 3. If unassigned and van -> defaults to Van Driver Phan Hữu Nam
-          if (!hasAssignedDriver && isNamVanDriver && o.isVan) {
-            return true;
-          }
-
+          // Không tự ý gán đơn chưa được phân công: Chỉ nhận đơn khi Quản lý kho đã phân công tài xế chính thức
           return false;
         });
 
         if (matchedOrders.length === 0) {
-          // If no backend assigned orders found, fallback to MOCK_DELIVERY_TASKS for live display
-          setTasks(MOCK_DELIVERY_TASKS);
+          // If no orders specifically assigned to this driver, show empty tasks cleanly
+          // (NEVER capture other drivers' orders or dump the whole warehouse)
+          setTasks([]);
           setNextWaveTasks([]);
-          setActiveTask(MOCK_DELIVERY_TASKS.find(t => t.status === 'IN_TRANSIT') || MOCK_DELIVERY_TASKS[0] || null);
+          setActiveTask(null);
           setNextBatchQueueCount(0);
           return;
         }
@@ -760,106 +940,57 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const currentBatchOrders: any[] = [];
         const nextWaveOrders: any[] = [];
 
-        matchedOrders.forEach((o: any) => {
-          const isCurrentTripLocked = currentTripLockedIds.has(o.id) || currentTripLockedIds.has(o.orderCode);
-          const isAlreadyDelivered = completedTaskIds.has(o.id) || completedTaskIds.has(o.orderCode) || o.status === 'COMPLETED' || o.status === 'DELIVERED';
-          const isAlreadyInTransit = inTransitTaskIds.has(o.id) || inTransitTaskIds.has(o.orderCode) || o.status === 'DELIVERING' || o.status === 'SHIPPED' || o.status === 'IN_TRANSIT';
+        // Check if there are any active deliveries actually running right now
+        const hasActiveDeliveriesRunning = matchedOrders.some((o: any) => {
+          const isServerInTransit = o.status === 'DELIVERING' || o.status === 'SHIPPED' || o.status === 'IN_TRANSIT';
+          const isClientInTransit = inTransitTaskIds.has(o.id) || inTransitTaskIds.has(o.orderCode);
+          return isServerInTransit || isClientInTransit;
+        });
 
-          // If the driver has departed for the current trip:
-          // Any newly dispatched order that wasn't locked in this trip moves to next wave!
-          if (isBatchDeparted && !isCurrentTripLocked && !isAlreadyInTransit && !isAlreadyDelivered) {
+        // If driver has in-transit deliveries OR has confirmed departure, current batch is strictly locked in flight
+        let effectiveBatchDeparted = (isBatchDeparted || hasActiveDeliveriesRunning);
+        if (!hasActiveDeliveriesRunning && isBatchDeparted && matchedOrders.every(o => o.status === 'COMPLETED' || o.status === 'DELIVERED')) {
+          // All orders in current trip have completed -> prompt return to hub
+          effectiveBatchDeparted = true;
+        }
+
+        matchedOrders.forEach((o: any) => {
+          const isServerDelivered = o.status === 'COMPLETED' || o.status === 'DELIVERED';
+          const isServerInTransit = o.status === 'DELIVERING' || o.status === 'SHIPPED' || o.status === 'IN_TRANSIT';
+          const isServerAssigned = o.status === 'READY_FOR_DELIVERY' || o.status === 'CONFIRMED' || o.status === 'PROCESSING' || o.status === 'ASSIGNED' || o.status === 'PENDING';
+
+          const isCurrentTripLocked = currentTripLockedIds.has(o.id) || currentTripLockedIds.has(o.orderCode);
+          // Backend DB status is the authoritative source of truth for real-time synchronization
+          const isAlreadyDelivered = isServerDelivered || (!isServerAssigned && (completedTaskIds.has(o.id) || completedTaskIds.has(o.orderCode)));
+          const isAlreadyInTransit = isServerInTransit || (!isServerDelivered && !isServerAssigned && (inTransitTaskIds.has(o.id) || inTransitTaskIds.has(o.orderCode)));
+
+          // QUY TẮC PHÂN CHUYẾN CHUẨN TMS:
+          // Nếu chuyến hiện tại đã xuất bến/đang lăn bánh giao hàng (effectiveBatchDeparted):
+          // Bất kỳ đơn hàng mới nào được phân bổ (chưa xuất bến, chưa giao, không thuộc locked ban đầu)
+          // -> BẮT BUỘC CHUYỂN VÀO CHUYẾN KẾ TIẾP (nextWaveOrders) để không làm xáo trộn lộ trình đang giao!
+          if (effectiveBatchDeparted && !isAlreadyInTransit && !isAlreadyDelivered && (!isCurrentTripLocked || nextWaveOrders.length > 0)) {
             nextWaveOrders.push(o);
           } else {
             currentBatchOrders.push(o);
           }
         });
 
-        // ── Helper: Consolidate multi-lot disposal orders into 1 single shipment task ──
-        const consolidateOrders = (orderList: any[]) => {
-          const regularOrders: any[] = [];
-          const disposalOrders: any[] = [];
-
-          orderList.forEach((o) => {
-            if (o.isDisposal) {
-              disposalOrders.push(o);
-            } else {
-              regularOrders.push(o);
-            }
-          });
-
-          const result: any[] = [...regularOrders];
-
-          if (disposalOrders.length > 0) {
-            const allItems: any[] = [];
-            let totalQty = 0;
-            const allIds: string[] = [];
-
-            disposalOrders.forEach((d) => {
-              allIds.push(d.id);
-              if (Array.isArray(d.items) && d.items.length > 0) {
-                d.items.forEach((it: any) => {
-                  const pName = it.productName || it.name || `Hàng tiêu hủy #${d.orderCode || d.id}`;
-                  const pUnit = resolveProductUnit(pName, it.unit);
-                  allItems.push({
-                    sku: it.sku || it.productId || 'DISPOSAL-ITEM',
-                    name: pName,
-                    quantity: Number(it.quantity || it.requestedQuantity || 1),
-                    unit: pUnit,
-                    storageType: 'FROZEN',
-                    temperatureNote: '-2.0°C (Xe Tải Lạnh 2.5T)',
-                  });
-                  totalQty += Number(it.quantity || it.requestedQuantity || 1);
-                });
-              } else {
-                const pName = d.productName || `Lô hàng tiêu hủy #${d.orderCode}`;
-                const pUnit = resolveProductUnit(pName, d.unit);
-                allItems.push({
-                  sku: d.sku || 'DISPOSAL-LOT',
-                  name: pName,
-                  quantity: Number(d.totalQuantity || 1),
-                  unit: pUnit,
-                  storageType: 'FROZEN',
-                  temperatureNote: '-2.0°C (Xe Tải Lạnh 2.5T)',
-                });
-                totalQty += Number(d.totalQuantity || 1);
-              }
-            });
-
-            const packingBoxes = calculatePackingBoxes(totalQty, disposalOrders[0].packageCount);
-
-            // Single consolidated disposal delivery task
-            const mergedDisposal: any = {
-              ...disposalOrders[0],
-              id: disposalOrders[0].id,
-              consolidatedIds: allIds,
-              orderCode: disposalOrders.length > 1 ? 'DISPOSAL-BATCH' : disposalOrders[0].orderCode,
-              customerName: 'Trạm Xử Lý Môi Trường Đa Phước (QC Tiêu Hủy)',
-              customerPhone: '1900 6868',
-              customerAddress: 'Khu Liên Hợp Xử Lý Chất Thải Đa Phước, Xã Đa Phước, Bình Chánh, TP.HCM',
-              items: allItems,
-              totalQuantity: totalQty,
-              packageCount: packingBoxes,
-              isDisposal: true,
-              totalAmount: 0,
-              paymentMethod: 'Xuất Tiêu Hủy (COD 0đ)',
-              notes: `Chuyến xe gom ${packingBoxes} thùng (${totalQty} sản phẩm) tiêu hủy niêm phong QC`,
-            };
-
-            result.push(mergedDisposal);
-          }
-
-          return result;
-        };
-
-        const finalCurrentOrders = consolidateOrders(currentBatchOrders);
-        const finalNextOrders = consolidateOrders(nextWaveOrders);
+        // Display each dispatched order individually as a distinct delivery task
+        const finalCurrentOrders = currentBatchOrders;
+        const finalNextOrders = nextWaveOrders;
 
         // 1. Map Current Batch Tasks (Chuyến hiện tại)
         const mappedCurrentTasks: DeliveryTask[] = finalCurrentOrders.map((o: any, idx: number) => {
           let taskStatus: TaskStatus = 'ASSIGNED';
-          if (completedTaskIds.has(o.id) || completedTaskIds.has(o.orderCode) || o.status === 'COMPLETED' || o.status === 'DELIVERED') {
+          if (o.status === 'COMPLETED' || o.status === 'DELIVERED') {
             taskStatus = 'DELIVERED';
-          } else if (inTransitTaskIds.has(o.id) || inTransitTaskIds.has(o.orderCode) || o.status === 'DELIVERING' || o.status === 'SHIPPED' || o.status === 'IN_TRANSIT') {
+          } else if (o.status === 'DELIVERING' || o.status === 'SHIPPED' || o.status === 'IN_TRANSIT') {
+            taskStatus = 'IN_TRANSIT';
+          } else if (o.status === 'READY_FOR_DELIVERY' || o.status === 'CONFIRMED' || o.status === 'PROCESSING' || o.status === 'ASSIGNED' || o.status === 'PENDING') {
+            taskStatus = 'ASSIGNED';
+          } else if (completedTaskIds.has(o.id) || completedTaskIds.has(o.orderCode)) {
+            taskStatus = 'DELIVERED';
+          } else if (inTransitTaskIds.has(o.id) || inTransitTaskIds.has(o.orderCode)) {
             taskStatus = 'IN_TRANSIT';
           }
 
@@ -882,7 +1013,7 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             else { lat = 10.8385 + idx * 0.003; lng = 106.6650 + idx * 0.002; }
           }
 
-          const orderItems = (o.items || []).map((item: any) => {
+          let orderItems = (o.items || []).map((item: any) => {
             const pName = item.productName || item.name || 'Thực phẩm tươi sạch';
             const pUnit = resolveProductUnit(pName, item.unit);
             return {
@@ -894,6 +1025,17 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               temperatureNote: o.isDisposal ? '-2.0°C (Xe Tải Lạnh 2.5T)' : '0 - 4°C (Thùng Lạnh)',
             };
           });
+
+          if (orderItems.length === 0 && o.isDisposal) {
+            orderItems = [{
+              sku: o.orderCode || 'DISPOSAL-LOT',
+              name: o.notes || 'Lô hàng thực phẩm xuất tiêu hủy môi trường',
+              quantity: Number(o.totalQuantity || 1),
+              unit: 'Thùng',
+              storageType: 'FROZEN' as const,
+              temperatureNote: '-2.0°C (Xe Tải Lạnh 2.5T)',
+            }];
+          }
 
           const totalQty = orderItems.reduce((s: number, i: any) => s + (i.quantity || 1), 0);
           const packingBoxes = calculatePackingBoxes(totalQty, o.packageCount || o.boxCount);
@@ -926,6 +1068,7 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               ? `${packingBoxes} Thùng Tiêu Hủy (Niêm phong QC)` 
               : `${packingBoxes} Thùng đóng gói (${totalQty} món • Khâu QC đóng gói)`,
             notes: o.notes || o.note || (o.isDisposal ? 'Vận chuyển tiêu hủy tại Khu xử lý chất thải Đa Phước' : 'Giao hàng tận tay khách'),
+            isOutbound: o.isOutbound,
           };
         });
 
@@ -984,6 +1127,7 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               ? `${packingBoxes} Thùng Tiêu Hủy (Niêm phong QC)` 
               : `${packingBoxes} Thùng đóng gói (${totalQty} món • Khâu QC đóng gói)`,
             notes: o.notes || o.note || 'Đang chờ gom hàng tại kho cho chuyến tiếp theo',
+            isOutbound: o.isOutbound,
           };
         });
 
@@ -994,18 +1138,27 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const currentActive = mappedCurrentTasks.find(t => t.status === 'IN_TRANSIT');
         setActiveTask(currentActive || null);
       } else {
-        setTasks(MOCK_DELIVERY_TASKS);
+        // Tài xế chưa được phân bổ đơn: hiển thị danh sách trống sạch sẽ, tuyệt đối không chèn đơn giả / đơn người khác
+        setTasks([]);
         setNextWaveTasks([]);
-        setActiveTask(MOCK_DELIVERY_TASKS.find(t => t.status === 'IN_TRANSIT') || MOCK_DELIVERY_TASKS[0] || null);
+        setActiveTask(null);
         setNextBatchQueueCount(0);
       }
     } catch (err) {
-      setTasks(MOCK_DELIVERY_TASKS);
-      setActiveTask(MOCK_DELIVERY_TASKS.find(t => t.status === 'IN_TRANSIT') || MOCK_DELIVERY_TASKS[0] || null);
+      console.warn('[DriverTaskContext] Lỗi tải danh sách đơn hàng:', err);
+      setTasks([]);
+      setNextWaveTasks([]);
+      setActiveTask(null);
+      setNextBatchQueueCount(0);
     }
-  }, [driverProfile, completedTaskIds, inTransitTaskIds, currentTripNumber, isBatchDeparted, currentTripLockedIds]);
+  }, [isAuthenticated, driverProfile, completedTaskIds, inTransitTaskIds, currentTripNumber, isBatchDeparted, currentTripLockedIds]);
 
   useEffect(() => {
+    // Không chạy sync hay socket khi chưa đăng nhập hoặc đang kiểm tra phiên
+    if (!isAuthenticated || isSessionChecking) {
+      return;
+    }
+
     // 1. Initial fetch immediately
     fetchLiveAssignedOrders();
 
@@ -1048,7 +1201,7 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         } catch (err) {}
       }
     };
-  }, [fetchLiveAssignedOrders]);
+  }, [isAuthenticated, isSessionChecking, fetchLiveAssignedOrders]);
 
   // Real-time Phone GPS Hardware Tracking with Telemetry Throttle & Safe Polyfill Cleanup
   useEffect(() => {
@@ -1160,16 +1313,22 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     // 1. Authenticate with User Service to obtain JWT
     const authResult = await driverApi.login(cleanInput, pass);
-    const token = authResult?.token || `JWT_DRIVER_${Date.now()}`;
-    const remoteUser = authResult?.user;
+    if (!authResult || !authResult.token) {
+      console.warn(`[DriverAuth] Đăng nhập thất bại: mật khẩu không chính xác hoặc tài khoản chưa hợp lệ cho "${emailOrPhone}"`);
+      return false;
+    }
+    const token = authResult.token;
+    const remoteUser = authResult.user;
 
     // 2. Intelligent Driver Directory & Profile Matching
+    const cleanDigits = cleanInput.replace(/\D/g, '');
     let matchedProfile: DriverProfile | undefined = 
       DRIVER_DB[cleanInput] || 
+      DRIVER_DB[cleanDigits] ||
+      DRIVER_DB[cleanInput.toUpperCase()] ||
       DRIVER_DB[emailOrPhone.replace(/\s+/g, '')];
 
     if (!matchedProfile) {
-      const cleanDigits = cleanInput.replace(/\D/g, '');
       const allProfiles: DriverProfile[] = Object.values(DRIVER_DB);
 
       matchedProfile = allProfiles.find(p => {
@@ -1179,26 +1338,47 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const pPlate = p.licensePlate.toLowerCase().replace(/\s+/g, '');
 
         return (
-          (cleanDigits.length >= 8 && pPhone.includes(cleanDigits)) ||
+          (cleanDigits.length >= 8 && (pPhone === cleanDigits || pPhone.includes(cleanDigits))) ||
           pId === cleanInput ||
           pPlate === cleanInput.replace(/\s+/g, '') ||
-          (cleanInput.includes('phuc') && (pName.includes('phúc') || pId === 'NV-TK01')) ||
+          (cleanInput.includes('phuc') && (pName.includes('phúc') || pId === 'nv-tk01')) ||
           (cleanInput.includes('truck') && p.id === 'NV-TK01') ||
           (cleanInput.includes('van') && p.id === 'NV-VAN01') ||
           (cleanInput.includes('tri') && pName.includes('trí')) ||
           (cleanInput.includes('hung') && pName.includes('hùng')) ||
           (cleanInput.includes('bao') && pName.includes('bảo')) ||
-          (cleanInput.includes('nam') && pName.includes('nam')) ||
+          (cleanInput.includes('nam') && (pName.includes('nam') || pId === 'nv-van01')) ||
           (cleanInput.includes('tung') && pName.includes('tùng')) ||
           (cleanInput.includes('long') && pName.includes('long')) ||
           (cleanInput.includes('huy') && pName.includes('huy')) ||
-          pName.includes(cleanInput)
+          (cleanInput.length >= 3 && pName.includes(cleanInput))
         );
       });
     }
 
     if (!matchedProfile) {
-      matchedProfile = DEFAULT_PROFILE;
+      if (remoteUser) {
+        // Tự động gán profile tài xế cho Admin hoặc tài khoản đã xác thực hợp lệ qua User-Service
+        matchedProfile = {
+          id: remoteUser.code || remoteUser.id || 'ADMIN-CHUNG',
+          name: remoteUser.fullName || remoteUser.name || 'Lê Công Chung (Toàn Quyền)',
+          phone: remoteUser.phone || '0377 019 958',
+          licensePlate: '51-A1 999.99',
+          vehicleType: 'Xe Giao Hàng & Giám Sát Quản Trị',
+          warehouseCode: remoteUser.warehouseCode || 'WH-006',
+          warehouseName: 'Tổng Kho Gò Vấp (350 Quang Trung)',
+          isOnline: true,
+          currentTemp: 3.2,
+          targetTempMin: 0.0,
+          targetTempMax: 4.0,
+          rating: 5.0,
+          completedTasksToday: 15,
+          totalEarningsToday: 550000,
+        };
+      } else {
+        console.warn(`[DriverAuth] Không tìm thấy tài xế trong hệ thống: "${emailOrPhone}"`);
+        return false;
+      }
     }
 
     const finalProfile: DriverProfile = {
@@ -1219,11 +1399,7 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       token,
     };
 
-    setDriverProfile(finalProfile);
-    setAuthToken(token);
-    setIsAuthenticated(true);
-    setCurrentTripNumber(1);
-    setTripStatus('IN_TRANSIT');
+    // 1. Dọn dẹp toàn bộ dữ liệu phiên cũ trước khi gán phiên mới để tránh nhấp nháy lộ trình người khác
     setTasks([]);
     setNextWaveTasks([]);
     setActiveTask(null);
@@ -1232,17 +1408,21 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setIsBatchDeparted(false);
     setCurrentTripLockedIds(new Set());
 
-    // Save session in localStorage
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        window.localStorage.setItem(DRIVER_SESSION_KEY, JSON.stringify({ token, profile: finalProfile }));
-        window.localStorage.removeItem('sfwms_driver_batch_departed');
-        window.localStorage.removeItem('sfwms_driver_locked_trip_ids');
-        window.localStorage.removeItem('sfwms_driver_trip_number');
-        window.localStorage.removeItem('sfwms_driver_intransit_ids');
-        window.localStorage.removeItem('sfwms_driver_completed_ids');
-      } catch (e) {}
-    }
+    setDriverProfile(finalProfile);
+    setAuthToken(token);
+    setIsAuthenticated(true);
+    setCurrentTripNumber(1);
+    setTripStatus('IN_TRANSIT');
+
+    // Save session in persistent storage
+    try {
+      storageHelper.saveItem(DRIVER_SESSION_KEY, JSON.stringify({ token, profile: finalProfile }));
+      const dId = finalProfile.id || '';
+      storageHelper.removeItem(`sfwms_driver_batch_departed_${dId}`);
+      storageHelper.removeItem(`sfwms_driver_locked_trip_ids_${dId}`);
+      storageHelper.removeItem(`sfwms_driver_trip_number_${dId}`);
+      storageHelper.removeItem(`sfwms_driver_intransit_ids_${dId}`);
+    } catch (e) {}
 
     setTimeout(fetchLiveAssignedOrders, 50);
 
@@ -1261,16 +1441,43 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setInTransitTaskIds(new Set());
     setIsBatchDeparted(false);
     setCurrentTripLockedIds(new Set());
-    if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const dId = driverProfile.id || '';
+      storageHelper.removeItem(DRIVER_SESSION_KEY);
+      storageHelper.removeItem(`sfwms_driver_batch_departed_${dId}`);
+      storageHelper.removeItem(`sfwms_driver_locked_trip_ids_${dId}`);
+      storageHelper.removeItem(`sfwms_driver_trip_number_${dId}`);
+      storageHelper.removeItem(`sfwms_driver_intransit_ids_${dId}`);
+    } catch (e) {}
+  };
+
+  const switchDriverProfile = async (driverIdOrPhone: string): Promise<boolean> => {
+    const clean = driverIdOrPhone.trim().toLowerCase();
+    const cleanDigits = driverIdOrPhone.replace(/\D/g, '');
+    const target = SELECTABLE_DRIVERS.find(d => {
+      const pPhone = d.phone.replace(/\D/g, '');
+      const pId = d.id.toLowerCase();
+      return pId === clean || (cleanDigits.length >= 8 && pPhone.includes(cleanDigits));
+    }) || DRIVER_DB[clean] || DRIVER_DB[driverIdOrPhone];
+
+    if (target) {
+      setDriverProfile(target);
+      setIsBatchDeparted(false);
+      setCurrentTripLockedIds(new Set());
+      setTasks([]);
+      setNextWaveTasks([]);
+      setActiveTask(null);
+      setCompletedTaskIds(new Set());
+      setInTransitTaskIds(new Set());
       try {
-        window.localStorage.removeItem(DRIVER_SESSION_KEY);
-        window.localStorage.removeItem('sfwms_driver_batch_departed');
-        window.localStorage.removeItem('sfwms_driver_locked_trip_ids');
-        window.localStorage.removeItem('sfwms_driver_trip_number');
-        window.localStorage.removeItem('sfwms_driver_intransit_ids');
-        window.localStorage.removeItem('sfwms_driver_completed_ids');
+        await storageHelper.saveItem(DRIVER_SESSION_KEY, JSON.stringify({ token: `JWT_DRIVER_${target.id}`, profile: target }));
+        await storageHelper.removeItem('sfwms_driver_batch_departed');
+        await storageHelper.removeItem('sfwms_driver_locked_trip_ids');
       } catch (e) {}
+      setTimeout(fetchLiveAssignedOrders, 50);
+      return true;
     }
+    return false;
   };
 
   const toggleOnline = () => {
@@ -1363,8 +1570,13 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const startDelivery = async (taskId: string) => {
     setIsBatchDeparted(true);
 
-    const target = tasks.find(t => t.id === taskId);
-    const newIds = [taskId, target?.orderCode || ''].filter(Boolean);
+    const cleanTargetId = (taskId || '').toLowerCase();
+    const target = tasks.find(t => 
+      t.id === taskId || 
+      t.id?.toLowerCase() === cleanTargetId || 
+      (t.orderCode && t.orderCode.toLowerCase().includes(cleanTargetId))
+    );
+    const newIds = [taskId, cleanTargetId, target?.id || '', target?.orderCode || ''].filter(Boolean);
 
     // Lock all current tasks into this trip
     const allCurrentIds = new Set(tasks.flatMap(t => [t.id, t.orderCode]).filter(Boolean));
@@ -1389,7 +1601,13 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     // If the task has matching destination orders, start them all together or start this task
     setTasks(prev =>
-      prev.map(t => (t.id === taskId ? { ...t, status: 'IN_TRANSIT' } : t))
+      prev.map(t => (
+        t.id === taskId || 
+        t.id?.toLowerCase() === cleanTargetId || 
+        (target?.orderCode && t.orderCode === target.orderCode)
+          ? { ...t, status: 'IN_TRANSIT' } 
+          : t
+      ))
     );
     if (target) {
       setActiveTask({ ...target, status: 'IN_TRANSIT' });
@@ -1424,8 +1642,14 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const completeDelivery = async (taskId: string, proofImageUri?: string) => {
     const timeNow = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' Hôm nay';
-    const targetTask = tasks.find(t => t.id === taskId);
-    const completedIds = [taskId, targetTask?.id || '', targetTask?.orderCode || ''].filter(Boolean);
+    const targetTask = tasks.find(t => t.id === taskId || t.orderCode === taskId);
+    const rawKeys = [taskId, targetTask?.id || '', targetTask?.orderCode || ''].filter(Boolean);
+    const completedIds: string[] = [];
+    rawKeys.forEach(k => {
+      completedIds.push(k);
+      const cleanK = k.replace(/^ECOMM-/, '').replace(/^OB-/, '');
+      if (cleanK) completedIds.push(cleanK);
+    });
 
     // Track completed ID locally
     setCompletedTaskIds(prev => {
@@ -1494,10 +1718,188 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     });
 
     if (targetTask) {
-      // Sync completed status to order-service & outbound-service
-      await driverApi.syncOrderStatus(targetTask.id, 'COMPLETED');
-      await driverApi.syncOutboundStatus(targetTask.id, 'DELIVERED');
+      const isOutbound = Boolean(
+        targetTask.isOutbound ||
+        targetTask.orderCode?.startsWith('OB-') ||
+        targetTask.orderCode?.startsWith('XK-') ||
+        targetTask.orderCode?.startsWith('OUT-') ||
+        targetTask.id?.startsWith('XK-') ||
+        targetTask.id?.startsWith('OB-') ||
+        (targetTask as any).isOutbound
+      );
+      const driverPayload = {
+        podPhotoUrl: proofImageUri,
+        isPaid: true,
+        codCollectedAmount: targetTask.codAmount || 0,
+        driverId: driverProfile.id,
+        driverName: driverProfile.name,
+        driverPhone: driverProfile.phone,
+        driverPlate: driverProfile.licensePlate,
+      };
+
+      // Save POD photo to localStorage for instant local/cross-tab display
+      if (typeof window !== 'undefined' && window.localStorage && proofImageUri) {
+        try {
+          const raw = window.localStorage.getItem('sfwms_pod_photos') || '{}';
+          const podMap = JSON.parse(raw);
+          completedIds.forEach(k => {
+            podMap[k] = proofImageUri;
+          });
+          window.localStorage.setItem('sfwms_pod_photos', JSON.stringify(podMap));
+        } catch (e) {}
+      }
+
+      // Comprehensive dual-service sync with all identifier variants
+      const syncPayload = { ...driverPayload, orderCode: targetTask.orderCode };
+      await Promise.all([
+        driverApi.syncOutboundStatus(targetTask.id, 'DELIVERED', syncPayload),
+        targetTask.orderCode && targetTask.orderCode !== targetTask.id
+          ? driverApi.syncOutboundStatus(targetTask.orderCode, 'DELIVERED', syncPayload)
+          : Promise.resolve(true),
+        driverApi.syncOrderStatus(targetTask.id, 'COMPLETED', syncPayload),
+        targetTask.orderCode && targetTask.orderCode !== targetTask.id
+          ? driverApi.syncOrderStatus(targetTask.orderCode, 'COMPLETED', syncPayload)
+          : Promise.resolve(true),
+      ]).catch(() => {});
     }
+  };
+
+  const completeBatchDelivery = async (taskIds: string[], proofImageUri?: string) => {
+    if (!taskIds || taskIds.length === 0) return;
+    const timeNow = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' Hôm nay';
+    
+    // Find all target tasks
+    const targetTasks = tasks.filter(t => taskIds.includes(t.id) || (t.orderCode && taskIds.includes(t.orderCode)));
+    const allCompletedKeys: string[] = [];
+    targetTasks.forEach(t => {
+      allCompletedKeys.push(t.id);
+      if (t.orderCode) allCompletedKeys.push(t.orderCode);
+      const cleanTId = t.id.replace(/^ECOMM-/, '').replace(/^OB-/, '');
+      if (cleanTId) allCompletedKeys.push(cleanTId);
+      if (t.orderCode) {
+        const cleanTCode = t.orderCode.replace(/^ECOMM-/, '').replace(/^OB-/, '');
+        if (cleanTCode) allCompletedKeys.push(cleanTCode);
+      }
+    });
+    taskIds.forEach(id => {
+      allCompletedKeys.push(id);
+      const cleanId = id.replace(/^ECOMM-/, '').replace(/^OB-/, '');
+      if (cleanId) allCompletedKeys.push(cleanId);
+    });
+
+    // Track completed IDs locally
+    setCompletedTaskIds(prev => {
+      const updated = new Set([...prev, ...allCompletedKeys]);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+          window.localStorage.setItem('sfwms_driver_completed_ids', JSON.stringify(Array.from(updated)));
+        } catch (e) {}
+      }
+      return updated;
+    });
+
+    // Remove from inTransitTaskIds
+    setInTransitTaskIds(prev => {
+      const updated = new Set(prev);
+      allCompletedKeys.forEach(id => updated.delete(id));
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+          window.localStorage.setItem('sfwms_driver_intransit_ids', JSON.stringify(Array.from(updated)));
+        } catch (e) {}
+      }
+      return updated;
+    });
+
+    if (activeTask && allCompletedKeys.includes(activeTask.id)) {
+      setActiveTask(null);
+    }
+
+    const updatedTasks = tasks.map(t => {
+      if (allCompletedKeys.includes(t.id) || (t.orderCode && allCompletedKeys.includes(t.orderCode))) {
+        return { ...t, status: 'DELIVERED' as TaskStatus, deliveredAt: timeNow, proofImageUri };
+      }
+      return t;
+    });
+    setTasks(updatedTasks);
+
+    setDriverProfile(prev => ({
+      ...prev,
+      completedTasksToday: prev.completedTasksToday + targetTasks.length,
+      totalEarningsToday: prev.totalEarningsToday + (35000 * targetTasks.length),
+    }));
+
+    const remainingAfterThis = updatedTasks.filter(t => t.status !== 'DELIVERED');
+    if (remainingAfterThis.length === 0) {
+      setTripStatus('RETURNING_TO_HUB');
+    }
+
+    // Update localStorage pod photos for all completed tasks
+    if (typeof window !== 'undefined' && window.localStorage && proofImageUri) {
+      try {
+        const raw = window.localStorage.getItem('sfwms_pod_photos') || '{}';
+        const podMap = JSON.parse(raw);
+        allCompletedKeys.forEach(k => {
+          podMap[k] = proofImageUri;
+        });
+        window.localStorage.setItem('sfwms_pod_photos', JSON.stringify(podMap));
+      } catch (e) {}
+    }
+
+    // Sync with backend services for each task in parallel
+    await Promise.all(
+      targetTasks.map(async (task) => {
+        const isOutbound = Boolean(
+          task.isOutbound ||
+          task.orderCode?.startsWith('OB-') ||
+          task.orderCode?.startsWith('XK-') ||
+          task.orderCode?.startsWith('OUT-') ||
+          task.id?.startsWith('XK-') ||
+          task.id?.startsWith('OB-') ||
+          (task as any).isOutbound
+        );
+        const driverPayload = {
+          podPhotoUrl: proofImageUri,
+          isPaid: true,
+          codCollectedAmount: task.codAmount || 0,
+          driverId: driverProfile.id,
+          driverName: driverProfile.name,
+          driverPhone: driverProfile.phone,
+          driverPlate: driverProfile.licensePlate,
+        };
+
+        const syncPayload = { ...driverPayload, orderCode: task.orderCode };
+        await Promise.all([
+          driverApi.syncOutboundStatus(task.id, 'DELIVERED', syncPayload),
+          task.orderCode && task.orderCode !== task.id
+            ? driverApi.syncOutboundStatus(task.orderCode, 'DELIVERED', syncPayload)
+            : Promise.resolve(true),
+          driverApi.syncOrderStatus(task.id, 'COMPLETED', syncPayload),
+          task.orderCode && task.orderCode !== task.id
+            ? driverApi.syncOrderStatus(task.orderCode, 'COMPLETED', syncPayload)
+            : Promise.resolve(true),
+        ]).catch(() => {});
+      })
+    );
+
+    // Telemetry update
+    const firstTask = targetTasks[0];
+    driverApi.sendTelemetry({
+      driverId: driverProfile.id,
+      driverName: driverProfile.name,
+      phone: driverProfile.phone,
+      licensePlate: driverProfile.licensePlate,
+      lat: firstTask?.latitude || 10.8492,
+      lng: firstTask?.longitude || 106.6543,
+      speedKmh: 0,
+      tempC: driverProfile.currentTemp,
+      isOnline: true,
+      currentOrderId: null,
+      orderCode: null,
+      currentCustomerName: null,
+      currentCustomerAddress: null,
+      status: remainingAfterThis.length === 0 ? 'RETURNING' : 'DELIVERING',
+      warehouseCode: driverProfile.warehouseCode,
+    });
   };
 
   const reportDeliveryFailure = async (taskId: string, reason: string, photoUrl?: string) => {
@@ -1513,8 +1915,22 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setActiveTask(null);
     }
 
-    // Call Reverse Logistics endpoint via driverApi
-    await driverApi.reportFailure(taskId, reason, photoUrl);
+    const targetTask = tasks.find(t => t.id === taskId);
+    const isOutbound = targetTask?.orderCode?.startsWith('OB-') || (targetTask as any)?.isOutbound;
+    const failurePayload = {
+      failureReason: reason,
+      failurePhotoUrl: photoUrl,
+      driverId: driverProfile.id,
+      driverName: driverProfile.name,
+      driverPhone: driverProfile.phone,
+      driverPlate: driverProfile.licensePlate,
+    };
+
+    if (isOutbound && targetTask) {
+      await driverApi.syncOutboundStatus(targetTask.id, 'CANCELLED', failurePayload);
+    } else {
+      await driverApi.reportFailure(taskId, reason, photoUrl);
+    }
   };
 
   const assignedTasks = tasks.filter(t => t.status === 'ASSIGNED');
@@ -1532,7 +1948,10 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     <DriverTaskContext.Provider
       value={{
         driverProfile,
+        availableDrivers: SELECTABLE_DRIVERS,
+        switchDriverProfile,
         isAuthenticated,
+        isSessionChecking,
         login,
         logout,
         toggleOnline,
@@ -1542,6 +1961,7 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setActiveTask,
         startDelivery,
         completeDelivery,
+        completeBatchDelivery,
         reportDeliveryFailure,
         assignedTasks,
         inTransitTasks,

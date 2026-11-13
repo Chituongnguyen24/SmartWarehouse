@@ -39,6 +39,8 @@ export interface DeliveryTask {
   notes?: string;
   deliveredAt?: string;
   proofImageUri?: string;
+  isOutbound?: boolean;
+  isDisposal?: boolean;
 }
 
 export interface DriverProfile {

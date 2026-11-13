@@ -1,4 +1,4 @@
-import { DeliveryTask, DriverProfile } from '../types/driver';
+import { DeliveryTask, DriverProfile } from '@/types/driver';
 
 export const MOCK_DRIVER_PROFILE: DriverProfile = {
   id: 'NV-GV05',
