@@ -1,41 +1,32 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
-import MainLayout from './components/layout/MainLayout';
-import LoginPage from './pages/LoginPage';
-import Dashboard from './pages/Dashboard';
-import Products from './pages/Products';
-import Inventory from './pages/Inventory';
-import StaffManagement from './pages/StaffManagement';
-import OrderDispatch from './pages/OrderDispatch';
-import AIAlerts from './pages/AIAlerts';
-import InboundOrder from './pages/InboundOrder';
-import OutboundOrder from './pages/OutboundOrder';
-import WarehouseDispatch from './pages/WarehouseDispatch';
-import OrderManagement from './pages/OrderManagement';
-import SalesManagement from './pages/SalesManagement';
-import AdminControlCenter from './pages/AdminControlCenter';
-import DemandForecast from './pages/DemandForecast';
-import TransportOptimization from './pages/TransportOptimization';
-import Reports from './pages/Reports';
-import UserProfile from './pages/UserProfile';
-import Users from './pages/Users';
-import ShelfArrangement from './pages/ShelfArrangement';
-import Settings from './pages/Settings';
-import SupplierManagement from './pages/SupplierManagement';
-import AuditLog from './pages/AuditLog';
-import CustomerLayout from './components/layout/CustomerLayout';
-import CustomerStorefront from './pages/CustomerStorefront';
-import CustomerCart from './pages/CustomerCart';
-import CustomerOrders from './pages/CustomerOrders';
-import CustomerProductDetail from './pages/CustomerProductDetail';
-import CustomerProfile from './pages/CustomerProfile';
-import { WebCartProvider } from './contexts/WebCartContext';
-import { WarehouseProvider } from './contexts/WarehouseContext';
-import InboundOrders from './pages/InboundOrders';
-import OutboundOrders from './pages/OutboundOrders';
-import FEFOExport from './pages/FEFOExport';
-import { Warehouse3DDigitalTwin } from './components/Warehouse3DDigitalTwin';
+import { MainLayout, ProtectedRoute, CustomerLayout } from '@/shared';
+import { AuthProvider, useAuth, LoginPage } from '@/features/auth';
+import {
+  Users,
+  StaffManagement,
+  SupplierManagement,
+  UserProfile,
+  AuditLog,
+  AdminControlCenter,
+  Settings,
+} from '@/features/users';
+import { Products, Categories, VoucherManagement } from '@/features/products';
+import { Inventory, FEFOExport } from '@/features/inventory';
+import { InboundOrders, InboundOrder, DemandForecast } from '@/features/inbound';
+import { OutboundOrders, OutboundOrder } from '@/features/outbound';
+import { WarehouseDispatch, ShelfArrangement, Warehouse3DDigitalTwin } from '@/features/warehouse';
+import { TransportOptimization, OrderDispatch, CodReconciliation } from '@/features/transport';
+import { SalesManagement, FlashSaleManagement, OrderManagement } from '@/features/sales';
+import { Dashboard, Reports, AIAlerts } from '@/features/reports';
+import {
+  CustomerStorefront,
+  CustomerCart,
+  CustomerOrders,
+  CustomerProductDetail,
+  CustomerProfile,
+  WebCartProvider,
+} from '@/features/customer';
+import { WarehouseProvider } from '@/shared';
 import './styles/global.css';
 import './styles/layout.css';
 import './styles/components.css';
@@ -78,8 +69,13 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="products" element={
-              <ProtectedRoute allowedRoles={['ADMIN']}>
+              <ProtectedRoute allowedRoles={['ADMIN', 'SALES_STAFF']}>
                 <Products />
+              </ProtectedRoute>
+            } />
+            <Route path="categories" element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SALES_STAFF']}>
+                <Categories />
               </ProtectedRoute>
             } />
             <Route path="inventory" element={
@@ -143,6 +139,16 @@ function App() {
                 <SalesManagement />
               </ProtectedRoute>
             } />
+            <Route path="flash-sale" element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SALES_STAFF']}>
+                <FlashSaleManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="vouchers" element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SALES_STAFF']}>
+                <VoucherManagement />
+              </ProtectedRoute>
+            } />
             <Route path="admin" element={
               <ProtectedRoute allowedRoles={['ADMIN']}>
                 <AdminControlCenter />
@@ -167,6 +173,11 @@ function App() {
             <Route path="reports" element={
               <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER']}>
                 <Reports />
+              </ProtectedRoute>
+            } />
+            <Route path="cod-reconciliation" element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF']}>
+                <CodReconciliation />
               </ProtectedRoute>
             } />
             <Route path="profile" element={<UserProfile />} />
