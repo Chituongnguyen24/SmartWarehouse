@@ -817,9 +817,11 @@ export const SalesManagement = () => {
     deliveryNotes: string;
     vatRate: number;
     shippingFee: number;
+    customerOverride?: B2BCustomer;
   }) => {
-    if (!selectedCustomer) {
-      showToast('Vui lòng chọn đối tác B2B trước khi tạo đơn');
+    const targetCustomer = orderDetails.customerOverride || selectedCustomer;
+    if (!targetCustomer) {
+      showToast('Vui lòng chọn hoặc nhập đối tác B2B trước khi tạo đơn');
       return;
     }
     if (cartItems.length === 0) {
@@ -829,7 +831,7 @@ export const SalesManagement = () => {
 
     const newOrderCode = `SO-B2B-${Date.now().toString().slice(-6)}`;
     const rawSub = cartItems.reduce((acc, i) => acc + i.unitPrice * i.quantity, 0);
-    const disc = Math.round(rawSub * ((selectedCustomer.discountRate || 0) / 100));
+    const disc = Math.round(rawSub * ((targetCustomer.discountRate || 0) / 100));
     const vat = Math.round((rawSub - disc) * (orderDetails.vatRate / 100));
     const finalAmount = rawSub - disc + vat + orderDetails.shippingFee;
 
@@ -837,9 +839,9 @@ export const SalesManagement = () => {
       orderCode: newOrderCode,
       type: 'NORMAL',
       warehouseCode: orderDetails.warehouseCode,
-      requesterName: selectedCustomer.companyName || selectedCustomer.name,
-      customerPhone: selectedCustomer.phone,
-      destination: selectedCustomer.address || selectedCustomer.billingAddress || 'Hồ Chí Minh',
+      requesterName: targetCustomer.companyName || targetCustomer.name,
+      customerPhone: targetCustomer.phone,
+      destination: targetCustomer.address || targetCustomer.billingAddress || 'Hồ Chí Minh',
       notes: `[B2B - ${orderDetails.paymentTerms}] ${orderDetails.deliveryNotes} (Hẹn giao: ${orderDetails.deliveryDate})`,
       totalAmount: finalAmount,
       items: cartItems.map(item => ({
@@ -1801,6 +1803,11 @@ export const SalesManagement = () => {
           customers={customers}
           selectedCustomer={selectedCustomer}
           onSelectCustomer={setSelectedCustomer}
+          onAddNewCustomer={(newCust) => {
+            setCustomers(prev => [newCust, ...prev]);
+            setSelectedCustomer(newCust);
+          }}
+          token={token}
           cartItems={cartItems}
           onUpdateQty={handleUpdateCartQty}
           onSetQty={handleSetCartQty}
