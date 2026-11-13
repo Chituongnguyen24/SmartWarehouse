@@ -583,7 +583,9 @@ const Users: React.FC = () => {
 
                       {/* Email & Phone */}
                       <td style={{ padding: '10px 14px' }}>
-                        <div style={{ color: '#334155' }}>{u.email}</div>
+                        <div style={{ color: u.email ? '#334155' : '#94a3b8', fontStyle: u.email ? 'normal' : 'italic' }}>
+                          {u.email || (u.role === 'CUSTOMER' ? '(Chỉ dùng SĐT)' : 'Chưa có email')}
+                        </div>
                         <div style={{ fontSize: '0.725rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
                           <Phone size={11} /> {u.phone || 'Chưa cập nhật'}
                         </div>
@@ -975,19 +977,12 @@ const CreateUserModal: React.FC<{
   const [licensePlate, setLicensePlate] = useState('59C-999.88');
   const [vehicleType, setVehicleType] = useState('Xe tải lạnh 1.5 tấn (Carrier)');
 
-  // B2B fields
-  const [companyName, setCompanyName] = useState('');
-  const [taxCode, setTaxCode] = useState('');
-  const [creditLimit, setCreditLimit] = useState(100000000);
-  const [discountRate, setDiscountRate] = useState(10);
-  const [billingAddress, setBillingAddress] = useState('');
-
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim()) {
-      showToast('Vui lòng nhập họ tên và email', 'error');
+      showToast('Vui lòng nhập họ tên và email nhân sự', 'error');
       return;
     }
 
@@ -1009,14 +1004,6 @@ const CreateUserModal: React.FC<{
       if (role === 'DRIVER') {
         payload.licensePlate = licensePlate.trim();
         payload.vehicleType = vehicleType.trim();
-      }
-
-      if (role === 'CUSTOMER') {
-        payload.companyName = companyName.trim() || name.trim();
-        payload.taxCode = taxCode.trim();
-        payload.creditLimit = Number(creditLimit) || 50000000;
-        payload.discountRate = Number(discountRate) || 0;
-        payload.billingAddress = billingAddress.trim();
       }
 
       const res = await fetch(`${API_BASE}/users`, {
@@ -1076,17 +1063,23 @@ const CreateUserModal: React.FC<{
                     setDepartment('Bộ Phận Kinh Doanh & Chăm Sóc Khách Hàng B2B');
                   } else if (newRole === 'DRIVER') {
                     setDepartment('Đội Xe Vận Chuyển Giao Nhận Lạnh (Fleet)');
+                  } else if (newRole === 'WAREHOUSE_STAFF') {
+                    setDepartment('Bộ Phận Vận Hành & Soạn Hàng Kho');
+                  } else if (newRole === 'WAREHOUSE_MANAGER') {
+                    setDepartment('Ban Quản Lý Vận Hành Kho');
                   }
                 }}
                 style={modalInputStyle}
               >
-                <option value="ADMIN">Quản Trị Viên (Admin)</option>
-                <option value="WAREHOUSE_MANAGER">Quản Lý Kho (Manager)</option>
                 <option value="WAREHOUSE_STAFF">Nhân Viên Trực Kho (Staff)</option>
+                <option value="WAREHOUSE_MANAGER">Quản Lý Kho (Manager)</option>
                 <option value="SALES_STAFF">Nhân Viên Kinh Doanh (Sales)</option>
                 <option value="DRIVER">Tài Xế Vận Chuyển (Driver)</option>
-                <option value="CUSTOMER">Khách Hàng (Customer / B2B)</option>
+                <option value="ADMIN">Quản Trị Viên (Admin)</option>
               </select>
+              <span style={{ fontSize: '0.675rem', color: '#64748b', display: 'block', marginTop: 2 }}>
+                * Khách hàng tự đăng ký qua SĐT trên app hoặc qua hợp đồng B2B (không tạo thủ công).
+              </span>
             </div>
           </div>
 
@@ -1191,67 +1184,6 @@ const CreateUserModal: React.FC<{
             </div>
           )}
 
-          {/* Conditional: B2B Customer Fields */}
-          {role === 'CUSTOMER' && (
-            <div style={{ backgroundColor: '#f8fafc', padding: 10, borderRadius: 6, border: '1px solid #cbd5e1', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 10 }}>
-                <div>
-                  <label style={modalLabelStyle}>Tên công ty pháp nhân (nếu là B2B)</label>
-                  <input
-                    type="text"
-                    value={companyName}
-                    onChange={e => setCompanyName(e.target.value)}
-                    placeholder="VD: Công ty CP Bách Hóa Xanh..."
-                    style={modalInputStyle}
-                  />
-                </div>
-                <div>
-                  <label style={modalLabelStyle}>Mã số thuế (MST)</label>
-                  <input
-                    type="text"
-                    value={taxCode}
-                    onChange={e => setTaxCode(e.target.value)}
-                    placeholder="0301412589"
-                    style={modalInputStyle}
-                  />
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <label style={modalLabelStyle}>Chiết khấu đối tác (%)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={discountRate}
-                    onChange={e => setDiscountRate(Number(e.target.value) || 0)}
-                    style={modalInputStyle}
-                  />
-                </div>
-                <div>
-                  <label style={modalLabelStyle}>Hạn mức công nợ (VNĐ)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="10000000"
-                    value={creditLimit}
-                    onChange={e => setCreditLimit(Number(e.target.value) || 0)}
-                    style={modalInputStyle}
-                  />
-                </div>
-              </div>
-              <div>
-                <label style={modalLabelStyle}>Địa chỉ xuất hóa đơn / Giao nhận</label>
-                <input
-                  type="text"
-                  value={billingAddress}
-                  onChange={e => setBillingAddress(e.target.value)}
-                  placeholder="Số nhà, đường, quận/huyện, TP..."
-                  style={modalInputStyle}
-                />
-              </div>
-            </div>
-          )}
 
           <div>
             <label style={modalLabelStyle}>Mật khẩu khởi tạo</label>
@@ -1312,12 +1244,36 @@ const EditUserModal: React.FC<{
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const isCustomer = role === 'CUSTOMER';
+    const isB2B = isCustomer && (!!companyName.trim() || !!taxCode.trim() || !!user.companyName || !!user.taxCode);
+
+    if (isCustomer && !isB2B) {
+      if (!phone.trim()) {
+        showToast('Khách hàng mua sắm cá nhân bắt buộc phải có số điện thoại', 'error');
+        return;
+      }
+    } else if (isB2B) {
+      if (!email?.trim()) {
+        showToast('Khách hàng doanh nghiệp B2B bắt buộc phải có email ký kết', 'error');
+        return;
+      }
+      if (!phone.trim()) {
+        showToast('Khách hàng doanh nghiệp B2B bắt buộc phải có số điện thoại', 'error');
+        return;
+      }
+    } else {
+      if (!name.trim() || !email?.trim()) {
+        showToast('Vui lòng nhập họ tên và email nhân sự', 'error');
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
       const payload: any = {
         name: name.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
+        email: email?.trim() || null,
+        phone: phone.trim() || null,
         role,
         warehouseCode,
         assignedZone: assignedZone.trim(),
@@ -1332,11 +1288,11 @@ const EditUserModal: React.FC<{
       }
 
       if (role === 'CUSTOMER') {
-        payload.companyName = companyName.trim() || name.trim();
-        payload.taxCode = taxCode.trim();
+        payload.companyName = companyName.trim() || (isB2B ? name.trim() : null);
+        payload.taxCode = taxCode.trim() || null;
         payload.creditLimit = Number(creditLimit) || 50000000;
         payload.discountRate = Number(discountRate) || 0;
-        payload.billingAddress = billingAddress.trim();
+        payload.billingAddress = billingAddress.trim() || null;
       }
 
       const res = await fetch(`${API_BASE}/users/${user.id}`, {
@@ -1357,6 +1313,9 @@ const EditUserModal: React.FC<{
       setSubmitting(false);
     }
   };
+
+  const isCustomer = role === 'CUSTOMER';
+  const isB2B = isCustomer && (!!companyName.trim() || !!taxCode.trim() || !!user.companyName || !!user.taxCode);
 
   return (
     <div onClick={onClose} style={modalBackdropStyle}>
@@ -1399,21 +1358,31 @@ const EditUserModal: React.FC<{
 
           <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 10 }}>
             <div>
-              <label style={modalLabelStyle}>Email đăng nhập *</label>
+              <label style={modalLabelStyle}>
+                {isCustomer && !isB2B ? 'Email (Tùy chọn - không bắt buộc với khách lẻ)' : 'Email đăng nhập *'}
+              </label>
               <input
                 type="email"
-                required
-                value={email}
+                required={!isCustomer || isB2B}
+                value={email || ''}
                 onChange={e => setEmail(e.target.value)}
+                placeholder={isCustomer && !isB2B ? 'Không bắt buộc đối với khách mua lẻ' : 'user@sfwms.vn'}
                 style={modalInputStyle}
               />
+              {isCustomer && !isB2B && (
+                <span style={{ fontSize: '0.675rem', color: '#64748b', display: 'block', marginTop: 2 }}>
+                  * Khách cá nhân chỉ cần số điện thoại. Email là tùy chọn.
+                </span>
+              )}
             </div>
             <div>
               <label style={modalLabelStyle}>Số điện thoại *</label>
               <input
                 type="text"
+                required
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
+                placeholder="0903 xxx xxx"
                 style={modalInputStyle}
               />
             </div>

@@ -18,10 +18,10 @@ export class User {
   @Column()
   name: string;
 
-  @Column({ unique: true })
+  @Column({ unique: true, nullable: true })
   email: string;
 
-  @Column({ name: 'password_hash' })
+  @Column({ name: 'password_hash', nullable: true })
   passwordHash: string;
 
   @Column({

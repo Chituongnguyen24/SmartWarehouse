@@ -941,7 +941,17 @@ export class UserService implements OnModuleInit {
   }
 
   async create(userDto: Partial<User>): Promise<User> {
-    const passwordHash = await bcrypt.hash(userDto.passwordHash || 'password123', 10);
+    let passwordHash = userDto.passwordHash;
+    if (passwordHash && passwordHash.trim()) {
+      passwordHash = await bcrypt.hash(passwordHash.trim(), 10);
+    } else if (userDto.role !== UserRole.CUSTOMER) {
+      passwordHash = await bcrypt.hash('password123', 10);
+    } else {
+      passwordHash = null;
+    }
+
+    const email = userDto.email && userDto.email.trim() ? userDto.email.trim() : null;
+    const phone = userDto.phone && userDto.phone.trim() ? userDto.phone.trim() : null;
     
     // Auto-generate employee/partner code if not provided
     let code = userDto.code;
@@ -961,6 +971,8 @@ export class UserService implements OnModuleInit {
 
     const user = this.userRepository.create({
       ...userDto,
+      email,
+      phone,
       code,
       status: userDto.status || 'ACTIVE',
       shift: userDto.shift || 'HANH_CHINH',
@@ -976,7 +988,7 @@ export class UserService implements OnModuleInit {
       throw new Error('User not found');
     }
     const updatableFields = [
-      'name', 'email', 'phone', 'role', 'warehouseCode', 'code',
+      'name', 'phone', 'role', 'warehouseCode', 'code',
       'assignedZone', 'shift', 'status', 'department', 'gender', 'dob',
       'companyName', 'taxCode', 'b2bType', 'creditLimit', 'debtBalance',
       'discountRate', 'billingAddress', 'licensePlate', 'vehicleType',
@@ -986,6 +998,9 @@ export class UserService implements OnModuleInit {
       if (updateDto[field] !== undefined) {
         (user as any)[field] = updateDto[field];
       }
+    }
+    if (updateDto.email !== undefined) {
+      user.email = updateDto.email && updateDto.email.trim() ? updateDto.email.trim() : null;
     }
     if (updateDto.password && updateDto.password.trim()) {
       user.passwordHash = await bcrypt.hash(updateDto.password.trim(), 10);
