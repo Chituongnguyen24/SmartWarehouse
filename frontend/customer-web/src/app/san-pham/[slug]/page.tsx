@@ -3,7 +3,7 @@
 import { use, useState, useEffect, useRef } from 'react';
 import { notFound } from 'next/navigation';
 import { CATEGORIES } from '@/lib/mockData';
-import { getProductById, Product } from '@/lib/api';
+import { getProductById, Product, getCategories, CategoryData } from '@/lib/api';
 import { ChevronRight, Heart, Share2, Plus, Minus, CheckCircle2, ChevronDown, Store, Star, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 import { useCartStore, useAuthStore } from '@/lib/store';
@@ -154,7 +154,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     notFound();
   }
 
-  const category = CATEGORIES.find(c => c.slug === product.category) || { name: product.category, slug: product.category };
+  const category = { name: product.category, slug: product.category };
 
   return (
     <div className="bg-gray-50 min-h-screen pb-32">

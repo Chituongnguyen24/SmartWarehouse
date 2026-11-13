@@ -29,14 +29,13 @@ import {
   PROMO_BANNERS, 
   BRANDS, 
   QUICK_LINKS, 
-  VOUCHERS, 
   MOCK_RECIPES, 
   ARTICLES, 
   CATEGORIES, 
   BANNERS, 
   SUB_BANNERS 
 } from '@/lib/mockData';
-import { getProducts, getCategories, Product, CategoryData } from '@/lib/api';
+import { getProducts, getCategories, getVouchers, Product, CategoryData, VoucherItem } from '@/lib/api';
 
 // Tách riêng Countdown Timer thành component độc lập để không gây re-render toàn bộ trang mỗi giây
 function FlashSaleCountdown() {
@@ -72,6 +71,7 @@ export default function Home() {
   const [flashSaleProducts, setFlashSaleProducts] = useState<Product[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [categoriesList, setCategoriesList] = useState<CategoryData[]>([]);
+  const [vouchersList, setVouchersList] = useState<VoucherItem[]>([]);
 
   // Promo and Best Seller tabs & slider refs
   const [activePromoTab, setActivePromoTab] = useState(0);
@@ -111,6 +111,10 @@ export default function Home() {
       // Fetch flash sale and featured products from real DB
       const flashSaleData = await getProducts({ isFlashSale: true, limit: 12 });
       const newProductsData = await getProducts({ limit: 20 });
+
+      // Fetch dynamic active vouchers from product-service (:3010)
+      const vList = await getVouchers();
+      setVouchersList(vList);
       
       setFlashSaleProducts(flashSaleData.items.length > 0 ? flashSaleData.items : newProductsData.items.slice(0, 10));
       setFeaturedProducts(newProductsData.items);
@@ -290,21 +294,22 @@ export default function Home() {
         <section className="mb-12 bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-border">
           <h2 className="text-lg font-bold text-foreground mb-4">E-voucher khuyến mãi</h2>
           <div className="flex gap-4 overflow-x-auto pb-2 snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {VOUCHERS.map((voucher, idx) => (
-              <div key={idx} className="flex-[0_0_280px] md:flex-[0_0_320px] snap-start border border-border rounded-xl p-3 flex gap-3 shadow-sm hover:shadow-md transition-shadow bg-white cursor-pointer group">
-                <div className="w-16 h-16 md:w-20 md:h-20 bg-green-600 rounded-lg flex items-center justify-center shrink-0 border border-green-700 overflow-hidden relative">
-                  <div className="text-white font-bold text-2xl z-10">{voucher.type === 'CT' ? 'C' : 'U'}</div>
-                  {/* Decorative circle for logo */}
-                  <div className="absolute inset-2 border border-white/30 rounded-full"></div>
+            {vouchersList.map((voucher) => (
+              <div key={voucher.id || voucher.code} className="flex-[0_0_280px] md:flex-[0_0_320px] snap-start border border-border rounded-xl p-3 flex gap-3 shadow-sm hover:shadow-md transition-shadow bg-white cursor-pointer group">
+                <div className="w-16 h-16 md:w-20 md:h-20 bg-emerald-600 rounded-lg flex items-center justify-center shrink-0 border border-emerald-700 overflow-hidden relative text-white font-bold text-lg">
+                  {voucher.discountType === 'PERCENT' ? `${voucher.discountValue}%` : `${(voucher.discountValue / 1000).toLocaleString('vi-VN')}k`}
                 </div>
                 <div className="flex flex-col justify-between flex-1">
                   <div>
-                    <h3 className="font-bold text-[13px] md:text-sm text-foreground line-clamp-1 group-hover:text-primary transition-colors">{voucher.title}</h3>
-                    <p className="text-[11px] md:text-xs text-muted-foreground mt-1 line-clamp-2">{voucher.desc}</p>
+                    <div className="flex items-center justify-between gap-1">
+                      <h3 className="font-bold text-[13px] md:text-sm text-foreground line-clamp-1 group-hover:text-primary transition-colors">{voucher.title || voucher.code}</h3>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">{voucher.code}</span>
+                    </div>
+                    <p className="text-[11px] md:text-xs text-muted-foreground mt-1 line-clamp-2">{voucher.description || `Đơn từ ${voucher.minOrderValue?.toLocaleString('vi-VN')}đ`}</p>
                   </div>
                   <div className="flex justify-between items-end mt-2">
-                    <span className="text-[10px] md:text-[11px] text-gray-400">HSD: {voucher.date}</span>
-                    <span className="text-[10px] md:text-[11px] text-green-600 font-medium">Điều kiện áp dụng</span>
+                    <span className="text-[10px] md:text-[11px] text-gray-400">HSD: {voucher.endDate ? new Date(voucher.endDate).toLocaleDateString('vi-VN') : 'Vô thời hạn'}</span>
+                    <span className="text-[10px] md:text-[11px] text-emerald-600 font-medium">Sao chép mã</span>
                   </div>
                 </div>
               </div>
