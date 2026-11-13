@@ -71,7 +71,7 @@ export default function VoucherManagement() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   // Danh mục & Sản phẩm hỗ trợ chọn
-  const [availableCategories, setAvailableCategories] = useState<string[]>(DEFAULT_CATEGORIES);
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [availableProducts, setAvailableProducts] = useState<any[]>([]);
   const [productSearchInput, setProductSearchInput] = useState('');
   const [searchedProducts, setSearchedProducts] = useState<any[]>([]);
@@ -133,8 +133,7 @@ export default function VoucherManagement() {
       if (catRes.ok) {
         const cats = await catRes.json();
         if (Array.isArray(cats) && cats.length > 0) {
-          const merged = Array.from(new Set([...cats, ...DEFAULT_CATEGORIES]));
-          setAvailableCategories(merged);
+          setAvailableCategories(cats);
         }
       }
     } catch (e) {

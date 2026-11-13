@@ -32,29 +32,6 @@ interface ProductCatalogItem {
   availableStock?: number;
 }
 
-const DEFAULT_PRODUCTS: ProductCatalogItem[] = [
-  { sku: 'DAYDIEN-CADIVI-4.0', name: 'Dây điện Cadivi 4.0 (1 cuộn 100m)', unit: 'Cuộn', price: 1507000, category: 'Thiết bị điện' },
-  { sku: 'DAYDIEN-CADIVI-2.5', name: 'Dây điện đơn Cadivi 2.5mm (cuộn 100m)', unit: 'Cuộn', price: 890000, category: 'Thiết bị điện' },
-  { sku: 'DAYDIEN-CADIVI-1.5', name: 'Dây điện đôi Cadivi 1.5mm (cuộn 100m)', unit: 'Cuộn', price: 560000, category: 'Thiết bị điện' },
-  { sku: 'BULONG-M6X20', name: 'Bulông liên kết M6x20', unit: 'Cái', price: 165, category: 'Vật tư kim khí' },
-  { sku: 'BULONG-M8X30', name: 'Bulông ốc vít inox M8x30', unit: 'Cái', price: 320, category: 'Vật tư kim khí' },
-  { sku: 'DENBAO-CHINT', name: 'Đèn báo CHINT', unit: 'Cái', price: 20500, category: 'Thiết bị điện' },
-  { sku: 'DENBAO-PHA-22', name: 'Đèn báo pha phi 22 ND16-22A/2', unit: 'Cái', price: 20400, category: 'Thiết bị điện' },
-  { sku: 'DENBAO-NGUON-AD16', name: 'Đèn báo nguồn hiển thị điện áp AC 80-500V OX-AD16 22mm', unit: 'Cái', price: 50000, category: 'Thiết bị điện' },
-  { sku: 'CB-PANASONIC-30A', name: 'Aptomat CB khối Panasonic 2P 30A', unit: 'Cái', price: 145000, category: 'Thiết bị điện' },
-  { sku: 'BANG-KEO-DIEN-NANO', name: 'Băng keo điện Nano chống cháy', unit: 'Cuộn', price: 12000, category: 'Vật tư phụ' },
-  { sku: 'DRY-CLEA-GQAORH', name: 'Chai Đồ Clear siêu cấp 555', unit: 'Chai', price: 456000, category: 'Hóa mỹ phẩm' },
-  { sku: 'BEV-KNOR-500ML', name: 'Nước mắm Knorr chai 500ml', unit: 'Chai', price: 27500, category: 'Gia vị' },
-  { sku: 'CAN-TULIP-340G', name: 'Thịt heo Tulip 40% Less Sodium có khóa 340g', unit: 'Hộp', price: 115200, category: 'Đồ hộp' },
-  { sku: 'MILK-DALAT-1L', name: 'Sữa tươi Đà Lạt True Milk 1L', unit: 'Hộp', price: 38000, category: 'Sữa & Bơ' },
-  { sku: 'OIL-COOK-1L', name: 'Dầu ăn Simply nguyên chất 1L', unit: 'Chai', price: 62000, category: 'Gia vị' },
-  { sku: 'RICE-ST25-5KG', name: 'Gạo ST25 Ông Cua túi 5kg', unit: 'Túi', price: 195000, category: 'Lương thực' },
-  { sku: 'DRK-COCA-330ML', name: 'Nước ngọt Coca Cola lon 330ml', unit: 'Lon', price: 11000, category: 'Nước giải khát' },
-  { sku: 'NOO-HAOHAO-75G', name: 'Mì Hảo Hảo tôm chua cay 75g', unit: 'Gói', price: 4500, category: 'Thực phẩm khô' },
-  { sku: 'SNK-ORION-CHOC', name: 'Bánh Chocopie Orion hộp 12 cái', unit: 'Hộp', price: 54000, category: 'Bánh kẹo' },
-  { sku: 'TEA-LIPTON-100G', name: 'Trà Lipton Yellow Label nhãn vàng 100 túi', unit: 'Hộp', price: 89000, category: 'Đồ uống' }
-];
-
 // Helper to remove Vietnamese diacritics for smart search
 function removeVietnameseDiacritics(str: string): string {
   return (str || '')
@@ -90,7 +67,7 @@ export const CreateOutboundModal: React.FC<CreateOutboundModalProps> = ({
   const [issuerName, setIssuerName] = useState<string>(user?.name || 'Nguyễn Hoàng Nam');
 
   // Product Catalog & Live Stock Mapping by Warehouse
-  const [productCatalog, setProductCatalog] = useState<ProductCatalogItem[]>(DEFAULT_PRODUCTS);
+  const [productCatalog, setProductCatalog] = useState<ProductCatalogItem[]>([]);
   const [warehouseStockMap, setWarehouseStockMap] = useState<Record<string, number>>({});
   
   // Track open search popups by index and field ('name' | 'sku')
@@ -194,7 +171,7 @@ export const CreateOutboundModal: React.FC<CreateOutboundModalProps> = ({
 
   // Add Item Row
   const handleAddItem = () => {
-    const defaultItem = productCatalog[0] || DEFAULT_PRODUCTS[0];
+    const defaultItem = productCatalog[0] || { sku: '', name: '', unit: 'Cái', price: 0, category: 'Hàng hóa' };
     setItems(prev => [
       ...prev,
       {

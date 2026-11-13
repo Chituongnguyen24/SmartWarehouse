@@ -127,22 +127,7 @@ export const WebCartProvider: React.FC<{ children: React.ReactNode }> = ({ child
       .reduce((acc, item) => acc + item.product.price * item.quantity, 0);
   }, [cartItems]);
 
-  const DEFAULT_ADDRESSES: CustomerAddress[] = [
-    {
-      id: 'addr-1',
-      name: 'Khách hàng Test',
-      phone: '0909 888 999',
-      address: '227 Nguyễn Văn Cừ, Phường 4, Quận 5, TP. Hồ Chí Minh',
-      isDefault: true,
-    },
-    {
-      id: 'addr-2',
-      name: 'Khách hàng Test (Văn phòng)',
-      phone: '0909 888 999',
-      address: '135 Nam Kỳ Khởi Nghĩa, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh',
-      isDefault: false,
-    }
-  ];
+  const DEFAULT_ADDRESSES: CustomerAddress[] = [];
 
   const [addresses, setAddresses] = useState<CustomerAddress[]>(() => {
     const saved = localStorage.getItem('web-addresses');
