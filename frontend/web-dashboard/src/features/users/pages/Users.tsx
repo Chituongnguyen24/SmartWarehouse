@@ -1343,8 +1343,9 @@ const EditUserModal: React.FC<{
               <label style={modalLabelStyle}>Vai trò hệ thống *</label>
               <select
                 value={role}
+                disabled={isCustomer}
                 onChange={e => setRole(e.target.value as UserRole)}
-                style={modalInputStyle}
+                style={{ ...modalInputStyle, backgroundColor: isCustomer ? '#f8fafc' : '#ffffff', cursor: isCustomer ? 'not-allowed' : 'default' }}
               >
                 <option value="ADMIN">Quản Trị Viên (Admin)</option>
                 <option value="WAREHOUSE_MANAGER">Quản Lý Kho (Manager)</option>
@@ -1353,6 +1354,11 @@ const EditUserModal: React.FC<{
                 <option value="DRIVER">Tài Xế Vận Chuyển (Driver)</option>
                 <option value="CUSTOMER">Khách Hàng (Customer / B2B)</option>
               </select>
+              {isCustomer && (
+                <span style={{ fontSize: '0.675rem', color: '#64748b', display: 'block', marginTop: 2 }}>
+                  * Tài khoản Khách hàng được quản lý theo luồng khách hàng riêng.
+                </span>
+              )}
             </div>
           </div>
 
@@ -1388,66 +1394,98 @@ const EditUserModal: React.FC<{
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {/* Internal Staff Fields (Kho, Ca, Phòng ban, Khu vực) — HIDDEN for Customer */}
+          {!isCustomer ? (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={modalLabelStyle}>Kho trực thuộc</label>
+                  <select
+                    value={warehouseCode}
+                    onChange={e => setWarehouseCode(e.target.value)}
+                    style={modalInputStyle}
+                  >
+                    {WAREHOUSE_OPTIONS.filter(w => w.code !== 'ALL').map(w => (
+                      <option key={w.code} value={w.code}>{w.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={modalLabelStyle}>Trạng thái hoạt động</label>
+                  <select
+                    value={status}
+                    onChange={e => setStatus(e.target.value)}
+                    style={modalInputStyle}
+                  >
+                    <option value="ACTIVE">Hoạt Động (Active)</option>
+                    <option value="ON_LEAVE">Tạm Nghỉ Phép (On Leave)</option>
+                    <option value="INACTIVE">Ngừng Hoạt Động (Inactive / Khóa)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={modalLabelStyle}>Ca làm việc</label>
+                  <select
+                    value={shift}
+                    onChange={e => setShift(e.target.value)}
+                    style={modalInputStyle}
+                  >
+                    {SHIFT_OPTIONS.map(s => (
+                      <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={modalLabelStyle}>Phòng ban / Đơn vị</label>
+                  <input
+                    type="text"
+                    value={department}
+                    onChange={e => setDepartment(e.target.value)}
+                    style={modalInputStyle}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={modalLabelStyle}>Khu vực phân công / Phụ trách</label>
+                <input
+                  type="text"
+                  value={assignedZone}
+                  onChange={e => setAssignedZone(e.target.value)}
+                  style={modalInputStyle}
+                />
+              </div>
+            </>
+          ) : (
+            /* For CUSTOMER: Only account status is editable from administrative fields */
             <div>
-              <label style={modalLabelStyle}>Kho trực thuộc</label>
-              <select
-                value={warehouseCode}
-                onChange={e => setWarehouseCode(e.target.value)}
-                style={modalInputStyle}
-              >
-                {WAREHOUSE_OPTIONS.filter(w => w.code !== 'ALL').map(w => (
-                  <option key={w.code} value={w.code}>{w.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label style={modalLabelStyle}>Trạng thái hoạt động</label>
+              <label style={modalLabelStyle}>Trạng thái tài khoản khách hàng</label>
               <select
                 value={status}
                 onChange={e => setStatus(e.target.value)}
                 style={modalInputStyle}
               >
-                <option value="ACTIVE">Hoạt Động (Active)</option>
-                <option value="ON_LEAVE">Tạm Nghỉ Phép (On Leave)</option>
-                <option value="INACTIVE">Ngừng Hoạt Động (Inactive / Khóa)</option>
+                <option value="ACTIVE">Đang Hoạt Động (Active)</option>
+                <option value="INACTIVE">Khóa Tài Khoản (Inactive)</option>
               </select>
             </div>
-          </div>
+          )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {/* Conditional: Retail Customer Delivery Address */}
+          {isCustomer && !isB2B && (
             <div>
-              <label style={modalLabelStyle}>Ca làm việc</label>
-              <select
-                value={shift}
-                onChange={e => setShift(e.target.value)}
-                style={modalInputStyle}
-              >
-                {SHIFT_OPTIONS.map(s => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label style={modalLabelStyle}>Phòng ban / Đơn vị</label>
+              <label style={modalLabelStyle}>Địa chỉ nhận hàng mặc định</label>
               <input
                 type="text"
-                value={department}
-                onChange={e => setDepartment(e.target.value)}
+                value={billingAddress}
+                onChange={e => setBillingAddress(e.target.value)}
+                placeholder="Số nhà, tên đường, phường/xã, quận/huyện, TP..."
                 style={modalInputStyle}
               />
             </div>
-          </div>
-
-          <div>
-            <label style={modalLabelStyle}>Khu vực phân công / Phụ trách</label>
-            <input
-              type="text"
-              value={assignedZone}
-              onChange={e => setAssignedZone(e.target.value)}
-              style={modalInputStyle}
-            />
-          </div>
+          )}
 
           {/* Conditional: Driver Fields */}
           {role === 'DRIVER' && (
