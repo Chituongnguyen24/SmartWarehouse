@@ -14,7 +14,7 @@
     "cap:sync": "npm run build && npx cap sync android",
     "cap:open": "npx cap open android",
     "cap:run:android": "npm run build && npx cap run android",
-    "cap:run:phone": "npm run reverse:ports && npm run build && npx cap sync android && cd android && gradlew.bat assembleDebug && adb install -r app/build/outputs/apk/debug/app-debug.apk && adb shell monkey -p vn.citymart.staff -c android.intent.category.LAUNCHER 1",
+    "cap:run:phone": "npm run build && npx cap sync android && cd android && gradlew.bat assembleDebug && adb install -r app/build/outputs/apk/debug/app-debug.apk && adb reverse tcp:3006 tcp:3006 && adb reverse tcp:3007 tcp:3007 && adb reverse tcp:3010 tcp:3010 && adb reverse tcp:3011 tcp:3011 && adb reverse tcp:3012 tcp:3012 && adb reverse tcp:3004 tcp:3004 && adb shell am start -n vn.citymart.staff/.MainActivity",
     "cap:build:apk": "npm run build && npx cap sync android && cd android && gradlew.bat assembleDebug",
     "reverse:ports": "adb reverse tcp:3006 tcp:3006 && adb reverse tcp:3007 tcp:3007 && adb reverse tcp:3010 tcp:3010 && adb reverse tcp:3011 tcp:3011 && adb reverse tcp:3012 tcp:3012 && adb reverse tcp:3004 tcp:3004"
   },

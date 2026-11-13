@@ -1,16 +1,12 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { WebSocketProvider } from './context/WebSocketContext';
-import { BottomNavBar } from './components/BottomNavBar';
-import { GlobalNotificationBanner } from './components/GlobalNotificationBanner';
-import { DashboardHome } from './pages/DashboardHome';
-import { PickingWave } from './pages/PickingWave';
-import { OutboundShipping } from './pages/OutboundShipping';
-import { InboundReceiving } from './pages/InboundReceiving';
-import { PackingStation } from './pages/PackingStation';
-import { StockLookup } from './pages/StockLookup';
-import { Login } from './pages/Login';
+import { BottomNavBar, GlobalNotificationBanner } from '@/shared';
+import { AuthProvider, useAuth, Login } from '@/features/auth';
+import { WebSocketProvider, DashboardHome } from '@/features/dashboard';
+import { PickingWave } from '@/features/picking';
+import { InboundReceiving } from '@/features/inbound';
+import { PackingStation, OutboundShipping } from '@/features/packing-shipping';
+import { StockLookup } from '@/features/inventory';
 
 const AppContent: React.FC = () => {
   const { isAuthenticated, isInitializing } = useAuth();

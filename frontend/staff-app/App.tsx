@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, SafeAreaView, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { AuthProvider, useAuth } from './src/context/AuthContext';
-import { LoginScreen } from './src/screens/LoginScreen';
-import { ShiftHomeScreen } from './src/screens/ShiftHomeScreen';
-import { PickingScreen } from './src/screens/PickingScreen';
-import { InboundScreen } from './src/screens/InboundScreen';
-import { PackingScreen } from './src/screens/PackingScreen';
-import { StockLookupScreen } from './src/screens/StockLookupScreen';
-import { COLORS } from './src/theme/colors';
+import { AuthProvider, useAuth } from './src/features/auth';
+import { LoginScreen } from './src/features/auth/screens/LoginScreen';
+import { ShiftHomeScreen } from './src/features/dashboard/screens/ShiftHomeScreen';
+import { PickingScreen } from './src/features/picking/screens/PickingScreen';
+import { InboundScreen } from './src/features/inbound/screens/InboundScreen';
+import { PackingScreen } from './src/features/packing-shipping/screens/PackingScreen';
+import { StockLookupScreen } from './src/features/inventory/screens/StockLookupScreen';
+import { COLORS } from './src/shared';
 import {
   LayoutDashboard,
   Boxes,
