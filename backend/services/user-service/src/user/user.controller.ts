@@ -54,6 +54,28 @@ export class UserController {
   }
 
   // ─────────────────────────────────────────────────────────────
+  //  DRIVER FLEET ENDPOINTS
+  // ─────────────────────────────────────────────────────────────
+
+  @Get('drivers')
+  @ApiOperation({ summary: 'Lấy danh sách đội tài xế kèm thông tin biển số xe, loại xe và nhiệt độ' })
+  @ApiQuery({ name: 'warehouseCode', required: false })
+  @ApiQuery({ name: 'status', required: false })
+  async findAllDrivers(
+    @Query('warehouseCode') warehouseCode?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.userService.findAllDrivers({ warehouseCode, status });
+  }
+
+  @Get('drivers/me')
+  @ApiOperation({ summary: 'Lấy thông tin chi tiết hồ sơ tài xế hiện tại' })
+  async getDriverMe(@Req() req: any) {
+    const userId = req.user.id || req.user.sub;
+    return this.userService.findDriverProfile(userId);
+  }
+
+  // ─────────────────────────────────────────────────────────────
   //  STAFF MANAGEMENT ENDPOINTS (Full CRUD & Multi-Warehouse)
   // ─────────────────────────────────────────────────────────────
 

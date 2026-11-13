@@ -67,6 +67,14 @@ export class AuthService {
         status: user.status || 'ACTIVE',
         department: user.department,
         addresses: addresses || [],
+        licensePlate: user.licensePlate,
+        vehicleType: user.vehicleType,
+        currentTemp: user.currentTemp,
+        targetTempMin: user.targetTempMin,
+        targetTempMax: user.targetTempMax,
+        rating: user.rating,
+        tasksCompleted: user.tasksCompleted,
+        totalEarningsToday: user.totalEarningsToday,
       },
     };
   }

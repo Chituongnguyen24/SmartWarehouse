@@ -155,14 +155,20 @@ export class UserService implements OnModuleInit {
         name: 'Võ Minh Trí (Tài xế)',
         role: UserRole.DRIVER,
         warehouseCode: 'WH-006',
-        code: 'TX-GV05',
+        code: 'NV-GV05',
         phone: '0977112233',
         department: 'Vận chuyển (Fleet)',
-        assignedZone: '🛵 Xe Máy Thùng Lạnh (59-V1 888.99)',
+        assignedZone: 'Xe Máy Thùng Lạnh',
         shift: 'CA_SANG',
         status: 'ACTIVE',
-        tasksCompleted: 1100,
-        rating: 4.8,
+        tasksCompleted: 12,
+        rating: 4.95,
+        licensePlate: '59-V1 888.99',
+        vehicleType: 'Xe Máy Thùng Lạnh',
+        currentTemp: 3.2,
+        targetTempMin: 0.0,
+        targetTempMax: 4.0,
+        totalEarningsToday: 420000,
       },
       // WH-001 (Kho Quận 12)
       {
@@ -252,6 +258,14 @@ export class UserService implements OnModuleInit {
         assignedZone: 'Tuyến Tiêu Hủy Đa Phước & Chuyển Kho',
         shift: 'CA_SANG',
         status: 'ACTIVE',
+        licensePlate: '51D-892.45',
+        vehicleType: 'Xe Tải Lạnh 2.5 Tấn',
+        currentTemp: -2.0,
+        targetTempMin: -5.0,
+        targetTempMax: 4.0,
+        rating: 4.98,
+        tasksCompleted: 6,
+        totalEarningsToday: 750000,
       },
       // 2. Xe Bán Tải 1.5T (Phan Hữu Nam)
       {
@@ -265,6 +279,14 @@ export class UserService implements OnModuleInit {
         assignedZone: 'Gò Vấp - Tân Bình - Q12',
         shift: 'CA_SANG',
         status: 'ACTIVE',
+        licensePlate: '51D-456.78',
+        vehicleType: 'Xe Bán Tải 1.5 Tấn',
+        currentTemp: 2.5,
+        targetTempMin: 0.0,
+        targetTempMax: 4.0,
+        rating: 4.92,
+        tasksCompleted: 8,
+        totalEarningsToday: 520000,
       },
       // 3. Đội Xe Máy Gò Vấp (WH-006)
       {
@@ -275,9 +297,17 @@ export class UserService implements OnModuleInit {
         code: 'NV-GV06',
         phone: '0909888111',
         department: 'Vận chuyển (Fleet)',
-        assignedZone: '🛵 Xe Máy Giao Nhanh (59-G2 688.39)',
+        assignedZone: 'Xe Máy Giao Siêu Tốc',
         shift: 'CA_SANG',
         status: 'ACTIVE',
+        licensePlate: '59-G2 688.39',
+        vehicleType: 'Xe Máy Giao Siêu Tốc',
+        currentTemp: 2.8,
+        targetTempMin: 0.0,
+        targetTempMax: 4.0,
+        rating: 4.90,
+        tasksCompleted: 10,
+        totalEarningsToday: 350000,
       },
       {
         email: 'bao.tran@sfwms.vn',
@@ -287,9 +317,17 @@ export class UserService implements OnModuleInit {
         code: 'NV-GV07',
         phone: '0933445566',
         department: 'Vận chuyển (Fleet)',
-        assignedZone: '🛵 Xe Máy Thùng Mát (59-P1 456.78)',
+        assignedZone: 'Xe Máy Thùng Mát',
         shift: 'CA_SANG',
         status: 'ACTIVE',
+        licensePlate: '59-P1 456.78',
+        vehicleType: 'Xe Máy Thùng Mát',
+        currentTemp: 3.5,
+        targetTempMin: 0.0,
+        targetTempMax: 4.0,
+        rating: 4.85,
+        tasksCompleted: 8,
+        totalEarningsToday: 280000,
       },
       {
         email: 'tung.le@sfwms.vn',
@@ -299,9 +337,17 @@ export class UserService implements OnModuleInit {
         code: 'NV-GV09',
         phone: '0966332211',
         department: 'Vận chuyển (Fleet)',
-        assignedZone: '🛵 Xe Máy Thùng Lạnh (59-X1 999.11)',
+        assignedZone: 'Xe Máy Thùng Lạnh',
         shift: 'CA_SANG',
         status: 'ACTIVE',
+        licensePlate: '59-X1 999.11',
+        vehicleType: 'Xe Máy Thùng Lạnh',
+        currentTemp: 3.1,
+        targetTempMin: 0.0,
+        targetTempMax: 4.0,
+        rating: 4.90,
+        tasksCompleted: 9,
+        totalEarningsToday: 320000,
       },
       // 4. Xe Máy Liên Kho (Bình Thạnh & Tân Bình)
       {
@@ -312,9 +358,17 @@ export class UserService implements OnModuleInit {
         code: 'NV-BT01',
         phone: '0988112244',
         department: 'Vận chuyển Hub Bình Thạnh',
-        assignedZone: '🛵 Xe Máy Thùng Lạnh (59-S2 555.66)',
+        assignedZone: 'Xe Máy Thùng Lạnh',
         shift: 'CA_SANG',
         status: 'ACTIVE',
+        licensePlate: '59-S2 555.66',
+        vehicleType: 'Xe Máy Thùng Lạnh',
+        currentTemp: 2.9,
+        targetTempMin: 0.0,
+        targetTempMax: 4.0,
+        rating: 4.88,
+        tasksCompleted: 11,
+        totalEarningsToday: 380000,
       },
       {
         email: 'huy.truong@sfwms.vn',
@@ -324,9 +378,17 @@ export class UserService implements OnModuleInit {
         code: 'NV-TB01',
         phone: '0977223344',
         department: 'Vận chuyển Hub Tân Bình',
-        assignedZone: '🛵 Xe Máy Thùng Lạnh (59-H1 333.22)',
+        assignedZone: 'Xe Máy Thùng Lạnh',
         shift: 'CA_SANG',
         status: 'ACTIVE',
+        licensePlate: '59-H1 333.22',
+        vehicleType: 'Xe Máy Thùng Lạnh',
+        currentTemp: 2.7,
+        targetTempMin: 0.0,
+        targetTempMax: 4.0,
+        rating: 4.88,
+        tasksCompleted: 10,
+        totalEarningsToday: 350000,
       },
       {
         email: 'sales@sfwms.vn',
@@ -370,8 +432,14 @@ export class UserService implements OnModuleInit {
           assignedZone: item.assignedZone,
           shift: item.shift || 'HANH_CHINH',
           status: item.status || 'ACTIVE',
-          tasksCompleted: item.tasksCompleted || 0,
-          rating: item.rating || 5.0,
+          tasksCompleted: (item as any).tasksCompleted || 0,
+          rating: (item as any).rating || 5.0,
+          licensePlate: (item as any).licensePlate,
+          vehicleType: (item as any).vehicleType,
+          currentTemp: (item as any).currentTemp ?? 3.2,
+          targetTempMin: (item as any).targetTempMin ?? 0.0,
+          targetTempMax: (item as any).targetTempMax ?? 4.0,
+          totalEarningsToday: (item as any).totalEarningsToday ?? 0,
         });
         await this.userRepository.save(newUser);
         console.log(`Seeded user: ${item.email} (${item.name}) with default pass: password123`);
@@ -382,16 +450,44 @@ export class UserService implements OnModuleInit {
           user.warehouseCode = item.warehouseCode;
           needsUpdate = true;
         }
-        if (item.code && !user.code) {
+        if (item.code && user.code !== item.code) {
           user.code = item.code;
           needsUpdate = true;
         }
-        if (item.assignedZone && !user.assignedZone) {
+        if (item.assignedZone && user.assignedZone !== item.assignedZone) {
           user.assignedZone = item.assignedZone;
           needsUpdate = true;
         }
-        if (item.department && !user.department) {
+        if (item.department && user.department !== item.department) {
           user.department = item.department;
+          needsUpdate = true;
+        }
+        if ((item as any).licensePlate && user.licensePlate !== (item as any).licensePlate) {
+          user.licensePlate = (item as any).licensePlate;
+          needsUpdate = true;
+        }
+        if ((item as any).vehicleType && user.vehicleType !== (item as any).vehicleType) {
+          user.vehicleType = (item as any).vehicleType;
+          needsUpdate = true;
+        }
+        if ((item as any).currentTemp !== undefined && user.currentTemp !== (item as any).currentTemp) {
+          user.currentTemp = (item as any).currentTemp;
+          needsUpdate = true;
+        }
+        if ((item as any).targetTempMin !== undefined && user.targetTempMin !== (item as any).targetTempMin) {
+          user.targetTempMin = (item as any).targetTempMin;
+          needsUpdate = true;
+        }
+        if ((item as any).targetTempMax !== undefined && user.targetTempMax !== (item as any).targetTempMax) {
+          user.targetTempMax = (item as any).targetTempMax;
+          needsUpdate = true;
+        }
+        if ((item as any).totalEarningsToday !== undefined && user.totalEarningsToday !== (item as any).totalEarningsToday) {
+          user.totalEarningsToday = (item as any).totalEarningsToday;
+          needsUpdate = true;
+        }
+        if ((item as any).rating !== undefined && user.rating !== (item as any).rating) {
+          user.rating = (item as any).rating;
           needsUpdate = true;
         }
         if (needsUpdate) {
@@ -416,6 +512,14 @@ export class UserService implements OnModuleInit {
         address: '618/51/18 Quang Trung, Phường Thông Tây Hội, Thành phố Hồ Chí Minh',
         lat: 10.8407,
         lng: 106.6578,
+        licensePlate: '51-A1 999.99',
+        vehicleType: 'Xe Giao Hàng & Giám Sát Quản Trị',
+        currentTemp: 3.2,
+        targetTempMin: 0.0,
+        targetTempMax: 4.0,
+        rating: 5.0,
+        tasksCompleted: 15,
+        totalEarningsToday: 550000,
       },
       {
         email: 'customer@sfwms.vn',
@@ -469,8 +573,14 @@ export class UserService implements OnModuleInit {
           // Luôn đảm bảo số điện thoại chính xác
           if (!user.phone && acc.phone) {
             user.phone = acc.phone;
-            await this.userRepository.save(user);
           }
+          if ((acc as any).licensePlate) user.licensePlate = (acc as any).licensePlate;
+          if ((acc as any).vehicleType) user.vehicleType = (acc as any).vehicleType;
+          if ((acc as any).currentTemp !== undefined) user.currentTemp = (acc as any).currentTemp;
+          if ((acc as any).targetTempMin !== undefined) user.targetTempMin = (acc as any).targetTempMin;
+          if ((acc as any).targetTempMax !== undefined) user.targetTempMax = (acc as any).targetTempMax;
+          if ((acc as any).totalEarningsToday !== undefined) user.totalEarningsToday = (acc as any).totalEarningsToday;
+          await this.userRepository.save(user);
         }
 
         // Đảm bảo luôn có địa chỉ mặc định
@@ -575,6 +685,24 @@ export class UserService implements OnModuleInit {
       ],
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async findAllDrivers(filters?: { warehouseCode?: string; status?: string }): Promise<User[]> {
+    const qb = this.userRepository.createQueryBuilder('user')
+      .where('user.role = :role', { role: UserRole.DRIVER });
+
+    if (filters?.warehouseCode && filters.warehouseCode !== 'ALL') {
+      qb.andWhere('user.warehouseCode = :wh', { wh: filters.warehouseCode });
+    }
+    if (filters?.status && filters.status !== 'ALL') {
+      qb.andWhere('user.status = :status', { status: filters.status });
+    }
+    qb.orderBy('user.name', 'ASC');
+    return qb.getMany();
+  }
+
+  async findDriverProfile(identifier: string): Promise<User | null> {
+    return this.findOneByIdentifier(identifier);
   }
 
   async findAllStaff(query?: { warehouseCode?: string; role?: string; search?: string; status?: string }): Promise<User[]> {

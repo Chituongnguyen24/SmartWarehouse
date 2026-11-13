@@ -78,6 +78,24 @@ export class User {
   @Column({ type: 'int', default: 0 })
   points: number;
 
+  @Column({ name: 'license_plate', nullable: true })
+  licensePlate: string;
+
+  @Column({ name: 'vehicle_type', nullable: true })
+  vehicleType: string;
+
+  @Column({ name: 'current_temp', type: 'float', nullable: true, default: 3.2 })
+  currentTemp: number;
+
+  @Column({ name: 'target_temp_min', type: 'float', nullable: true, default: 0.0 })
+  targetTempMin: number;
+
+  @Column({ name: 'target_temp_max', type: 'float', nullable: true, default: 4.0 })
+  targetTempMax: number;
+
+  @Column({ name: 'total_earnings_today', type: 'int', default: 0 })
+  totalEarningsToday: number;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

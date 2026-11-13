@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 export enum StorageType {
   COLD = 'COLD',
@@ -18,82 +19,99 @@ export class Product {
   unit: string;
 }
 
-const mockProducts: Product[] = [
-  {
-    id: '11111111-1111-1111-1111-111111111111',
-    sku: 'EM-89553',
-    name: 'Sữa Tươi Tiệt Trùng Nutimilk Tươi Sạch Không Đường 1L',
-    category: 'Sữa Nước',
-    storageType: StorageType.COLD,
-    minTemp: 0,
-    maxTemp: 4,
-    maxHumidity: 80,
-    unit: 'Hộp',
-  },
-  {
-    id: '11111111-1111-1111-1111-111111111111',
-    sku: 'MILK-DALAT-1L',
-    name: 'Dalat Milk Fresh Milk 1L',
-    category: 'Dairy',
-    storageType: StorageType.COLD,
-    minTemp: 0,
-    maxTemp: 4,
-    maxHumidity: 80,
-    unit: 'box',
-  },
-  {
-    id: '22222222-2222-2222-2222-222222222222',
-    sku: 'BEEF-STEAK-US',
-    name: 'US Beef Ribeye Steak 500g',
-    category: 'Meat & Seafood',
-    storageType: StorageType.FROZEN,
-    minTemp: -25,
-    maxTemp: -18,
-    maxHumidity: 65,
-    unit: 'pack',
-  },
-  {
-    id: '33333333-3333-3333-3333-333333333333',
-    sku: 'NOODLE-HAOHAO',
-    name: 'Hao Hao Sour & Spicy Shrimp Noodles',
-    category: 'Dry Goods',
-    storageType: StorageType.DRY,
-    minTemp: 15,
-    maxTemp: 35,
-    maxHumidity: 70,
-    unit: 'box',
-  },
-  {
-    id: '44444444-4444-4444-4444-444444444444',
-    sku: 'EM-11473',
-    name: 'Cà Chua Cherry DALATGAP 300G',
-    category: 'THỰC PHẨM BẢO QUẢN MÁT',
-    storageType: StorageType.COLD,
-    minTemp: 0,
-    maxTemp: 4,
-    maxHumidity: 85,
-    unit: 'Hộp',
-  },
-  {
-    id: '44444444-4444-4444-4444-444444444444',
-    sku: 'TOMATO-DALAT',
-    name: 'Dalat Organic Tomatoes 1kg',
-    category: 'Produce',
-    storageType: StorageType.COLD,
-    minTemp: 4,
-    maxTemp: 10,
-    maxHumidity: 90,
-    unit: 'pack',
-  },
-];
-
 @Injectable()
 export class ProductService {
+  private readonly logger = new Logger(ProductService.name);
+  private productServiceUrl: string;
+  private cache = new Map<string, { product: Product; expires: number }>();
+
+  constructor(private readonly config: ConfigService) {
+    this.productServiceUrl = this.config.get<string>(
+      'PRODUCT_SERVICE_URL',
+      'http://localhost:3010',
+    );
+  }
+
   async findOneBySku(sku: string): Promise<Product | null> {
-    return mockProducts.find(p => p.sku === sku) || null;
+    return this.findProductByIdOrSku(sku);
   }
 
   async findOne(id: string): Promise<Product | null> {
-    return mockProducts.find(p => p.id === id) || null;
+    return this.findProductByIdOrSku(id);
+  }
+
+  async findProductByIdOrSku(idOrSku: string): Promise<Product | null> {
+    if (!idOrSku) return null;
+
+    const clean = idOrSku.trim();
+    const now = Date.now();
+    const cached = this.cache.get(clean);
+    if (cached && cached.expires > now) {
+      return cached.product;
+    }
+
+    try {
+      const res = await fetch(
+        `${this.productServiceUrl}/products/${encodeURIComponent(clean)}`,
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data && (data.id || data.sku)) {
+          const product: Product = {
+            id: data.id,
+            sku: data.sku,
+            name: data.name,
+            category: data.category,
+            storageType: data.storageType || StorageType.DRY,
+            minTemp: data.minTemp,
+            maxTemp: data.maxTemp,
+            maxHumidity: data.maxHumidity,
+            unit: data.unit || 'Cái',
+          };
+          this.cache.set(data.id, { product, expires: now + 60000 });
+          this.cache.set(data.sku, { product, expires: now + 60000 });
+          return product;
+        }
+      }
+
+      // If not directly by ID, search by SKU
+      const searchRes = await fetch(
+        `${this.productServiceUrl}/products?search=${encodeURIComponent(clean)}&limit=1`,
+      );
+      if (searchRes.ok) {
+        const searchData = await searchRes.json();
+        const items = Array.isArray(searchData)
+          ? searchData
+          : searchData.items || [];
+        const found = items.find(
+          (p: any) =>
+            p.sku === clean ||
+            p.id === clean ||
+            (p.sku && p.sku.toLowerCase() === clean.toLowerCase()),
+        );
+        if (found) {
+          const product: Product = {
+            id: found.id,
+            sku: found.sku,
+            name: found.name,
+            category: found.category,
+            storageType: found.storageType || StorageType.DRY,
+            minTemp: found.minTemp,
+            maxTemp: found.maxTemp,
+            maxHumidity: found.maxHumidity,
+            unit: found.unit || 'Cái',
+          };
+          this.cache.set(found.id, { product, expires: now + 60000 });
+          this.cache.set(found.sku, { product, expires: now + 60000 });
+          return product;
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(
+        `Failed to query Product Service (${this.productServiceUrl}) for ${clean}: ${err?.message}`,
+      );
+    }
+
+    return null;
   }
 }
