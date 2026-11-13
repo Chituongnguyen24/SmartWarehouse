@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { User, MapPin, ShoppingBag, ShieldCheck, LogOut } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 const SIDEBAR_LINKS = [
   { href: "/tai-khoan", label: "Hồ sơ của tôi", icon: User },
@@ -16,14 +16,25 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuthStore();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // If not authenticated, kick them back to login page
-    // Note: in a real app, this might be handled via middleware
-    if (!isAuthenticated) {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && !isAuthenticated) {
       router.push("/dang-nhap");
     }
-  }, [isAuthenticated, router]);
+  }, [mounted, isAuthenticated, router]);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) return null; // Avoid flashing content before redirect
 

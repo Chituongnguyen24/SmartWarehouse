@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ChevronRight, Trash2, Plus, Minus, Ticket, ShoppingBag, ShoppingCart } from 'lucide-react';
-import { useCartStore } from '@/lib/store';
+import { useCartStore, useAuthStore } from '@/lib/store';
+import { encodeProductSlug } from '@/lib/api';
 
 export default function CartPage() {
   const { items, updateQuantity, removeFromCart } = useCartStore();
+  const { isAuthenticated } = useAuthStore();
   const [mounted, setMounted] = useState(false);
   
   useEffect(() => {
@@ -70,11 +72,15 @@ export default function CartPage() {
                       
                       {/* Product Info */}
                       <div className="flex gap-4 w-full md:w-1/2">
-                        <Link href={`/san-pham/${item.productId}`} className="shrink-0 relative">
-                          <img src={item.image} alt={item.name} className="w-20 h-20 md:w-24 md:h-24 object-contain rounded border border-gray-100 bg-white" />
+                        <Link href={`/san-pham/${encodeProductSlug(item.productId)}`} className="shrink-0 relative">
+                          <img 
+                            src={item.image} 
+                            alt={item.name} 
+                            className="w-20 h-20 md:w-24 md:h-24 object-contain rounded border border-gray-100 bg-white" 
+                          />
                         </Link>
                         <div className="flex flex-col flex-1">
-                          <Link href={`/san-pham/${item.productId}`} className="font-medium text-foreground hover:text-primary transition-colors line-clamp-2 mb-1">
+                          <Link href={`/san-pham/${encodeProductSlug(item.productId)}`} className="font-medium text-foreground hover:text-primary transition-colors line-clamp-2 mb-1">
                             {item.name}
                           </Link>
                           {item.variant && (
@@ -162,7 +168,10 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                <Link href="/thanh-toan" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3.5 px-4 rounded-lg flex justify-center items-center gap-2 transition-all shadow-md">
+                <Link 
+                  href={isAuthenticated ? "/thanh-toan" : "/dang-nhap?redirect=/thanh-toan"} 
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3.5 px-4 rounded-lg flex justify-center items-center gap-2 transition-all shadow-md"
+                >
                   Tiến hành thanh toán <ChevronRight size={18} />
                 </Link>
                 

@@ -6,6 +6,7 @@ export interface CartItem {
   productId: string;
   sku?: string;
   name: string;
+  category?: string;
   price: number;
   oldPrice?: number;
   quantity: number;
@@ -18,6 +19,7 @@ interface CartState {
   addToCart: (item: Omit<CartItem, 'id'>) => void;
   removeFromCart: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
+  updateProductPrice: (productIdOrSku: string, newPrice: number, newOldPrice?: number) => void;
   clearCart: () => void;
   
   // Computed (these can be calculated on the fly in components, but we define types here)
@@ -55,6 +57,19 @@ export const useCartStore = create<CartState>()(
         items: state.items.map(item => 
           item.id === id ? { ...item, quantity: Math.max(1, quantity) } : item
         )
+      })),
+
+      updateProductPrice: (productIdOrSku, newPrice, newOldPrice) => set((state) => ({
+        items: state.items.map(item => {
+          if (item.productId === productIdOrSku || item.sku === productIdOrSku || item.id === productIdOrSku) {
+            return {
+              ...item,
+              price: newPrice,
+              oldPrice: newOldPrice !== undefined ? newOldPrice : item.oldPrice,
+            };
+          }
+          return item;
+        })
       })),
       
       clearCart: () => set({ items: [] }),

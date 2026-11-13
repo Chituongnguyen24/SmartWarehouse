@@ -1,0 +1,129 @@
+"use client";
+
+import { useState } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { getCategoryIconUrl } from '@/lib/api';
+
+interface FilterSidebarProps {
+  categories?: { name: string; slug: string; count?: number; emoji?: string; imageUrl?: string }[];
+  currentCategory?: string;
+  brands: string[];
+  selectedBrands: string[];
+  onBrandChange: (brand: string) => void;
+  maxPrice: number;
+  onPriceChange: (price: number) => void;
+}
+
+export default function FilterSidebar({ 
+  categories, 
+  currentCategory,
+  brands,
+  selectedBrands,
+  onBrandChange,
+  maxPrice,
+  onPriceChange
+}: FilterSidebarProps) {
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(currentCategory ? [currentCategory] : []);
+  const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({ 'rau-cu-trai-cay': true });
+
+  // Mock subcategories for demonstration
+  const SUBCATEGORIES: Record<string, string[]> = {
+    'rau-cu-trai-cay': ['Củ', 'Rau nêm, rau thơm', 'Rau xào, nấu canh', 'Xà lách', 'Cam, bưởi, quýt', 'Dưa', 'Nho, kiwi'],
+    'thit-trung-hai-san': ['Thịt heo', 'Thịt bò', 'Gia cầm', 'Hải sản đông lạnh', 'Trứng các loại'],
+  };
+
+  const handleCategoryChange = (slug: string) => {
+    setSelectedCategories(prev => 
+      prev.includes(slug) ? prev.filter(c => c !== slug) : [...prev, slug]
+    );
+  };
+
+  const toggleCatExpand = (slug: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    setExpandedCats(prev => ({ ...prev, [slug]: !prev[slug] }));
+  };
+
+  const formatPrice = (p: number) => {
+    return p.toLocaleString('vi-VN') + 'đ';
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-border p-5 space-y-6 sticky top-24">
+      {/* KHOẢNG GIÁ */}
+      <div>
+        <h3 className="font-bold text-foreground mb-4 uppercase text-sm tracking-wider">Khoảng giá</h3>
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 bg-gray-50 border border-border rounded-md px-3 py-1.5 text-sm">
+              0đ
+            </div>
+            <span className="text-gray-400">-</span>
+            <div className="flex-1 bg-gray-50 border border-border rounded-md px-3 py-1.5 text-sm text-right">
+              {formatPrice(maxPrice)}
+            </div>
+          </div>
+          <input 
+            type="range" 
+            min="0" 
+            max="1000000" 
+            step="10000"
+            value={maxPrice}
+            onChange={(e) => onPriceChange(Number(e.target.value))}
+            className="w-full accent-primary h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+          />
+        </div>
+      </div>
+
+      {/* THƯƠNG HIỆU */}
+      <div className="border-t border-border pt-4">
+        <h3 className="font-bold text-foreground mb-4 uppercase text-sm tracking-wider">Thương hiệu</h3>
+        <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+          {brands.map((brand, idx) => (
+            <label key={idx} className="flex items-center gap-3 cursor-pointer group">
+              <input 
+                type="checkbox" 
+                checked={selectedBrands.includes(brand)}
+                onChange={() => onBrandChange(brand)}
+                className="w-4 h-4 text-primary rounded focus:ring-primary border-gray-300"
+              />
+              <span className="text-sm text-gray-600 group-hover:text-primary transition-colors">{brand}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* DANH MỤC */}
+      <div className="border-t border-border pt-4">
+        <h3 className="font-bold text-foreground mb-4 uppercase text-sm tracking-wider">Danh mục ({categories?.length || 0})</h3>
+        <ul className="space-y-2 max-h-72 overflow-y-auto pr-2 custom-scrollbar">
+          {categories?.map((cat, idx) => (
+            <li key={`${cat.slug}-${idx}`} className="flex flex-col">
+              <a 
+                href={`/danh-muc/${cat.slug}`}
+                className="flex items-center justify-between py-1 px-1.5 rounded-lg hover:bg-green-50 group transition-colors"
+              >
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <img 
+                    src={cat.imageUrl || getCategoryIconUrl(cat.name)} 
+                    alt="" 
+                    className="w-5 h-5 object-contain shrink-0" 
+                    loading="lazy"
+                  />
+                  <span className={`text-sm truncate transition-colors ${currentCategory === cat.slug || currentCategory === cat.name ? 'text-primary font-bold' : 'text-gray-600 group-hover:text-primary'}`}>
+                    {cat.name}
+                  </span>
+                </div>
+                {Boolean(cat.count && cat.count > 0) && (
+                  <span className="text-xs text-gray-400 group-hover:text-primary font-medium">
+                    {cat.count}
+                  </span>
+                )}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+    </div>
+  );
+}

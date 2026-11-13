@@ -1,4 +1,4 @@
-import SearchClient from '@/components/ui/SearchClient';
+import { SearchClient } from '@/features/catalog';
 import { getProducts } from '@/lib/api';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';

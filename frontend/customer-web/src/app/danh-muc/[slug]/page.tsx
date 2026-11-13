@@ -1,20 +1,25 @@
 import { getProducts, getCategories, slugify } from '@/lib/api';
-import CategoryClient from '@/components/ui/CategoryClient';
+import { CategoryClient } from '@/features/catalog';
 import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
 export default async function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = await params;
   const rawSlug = resolvedParams.slug;
   const decodedSlug = decodeURIComponent(rawSlug);
 
+  if (rawSlug === 'tat-ca-danh-muc' || decodedSlug === 'tat-ca-danh-muc') {
+    redirect('/tat-ca-danh-muc');
+  }
+
   const allCategories = await getCategories();
 
   let categoryName = 'Tất cả danh mục';
   let dbCategory: string | undefined = undefined;
 
-  if (rawSlug === 'tat-ca-danh-muc' || decodedSlug === 'tat-ca-danh-muc') {
-    categoryName = 'Tất cả danh mục';
+  if (rawSlug === 'shop-noi-bat' || decodedSlug === 'shop-noi-bat') {
+    categoryName = 'Shop nổi bật - Gian hàng chính hãng';
     dbCategory = undefined;
   } else {
     // Tìm trong danh mục theo slug hoặc tên

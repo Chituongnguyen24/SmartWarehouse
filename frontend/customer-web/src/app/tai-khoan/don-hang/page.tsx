@@ -11,7 +11,7 @@ import {
   ShieldCheck, ArrowRight, CornerDownRight, RotateCcw
 } from "lucide-react";
 import { useAuthStore, useCartStore } from "@/lib/store";
-import { CustomerLiveTrackingMap } from "@/components/ui/CustomerLiveTrackingMap";
+import { CustomerLiveTrackingMap } from "@/features/checkout";
 import { io } from "socket.io-client";
 
 interface OrderItem {
@@ -106,8 +106,23 @@ export default function OrderHistoryPage() {
       if (res.ok) {
         const data: CustomerOrder[] = await res.json();
         
-        // Filter orders for the logged-in customer if available, or sort newest first
-        const sorted = data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        // Lọc đơn hàng thuộc về tài khoản hiện tại (theo customerId hoặc số điện thoại)
+        let userOrders = data;
+        if (user && (user.id || user.phone)) {
+          const matched = data.filter(
+            (o) =>
+              (user.id && o.customerId === user.id) ||
+              (user.phone && o.customerPhone === user.phone)
+          );
+          if (matched.length > 0) {
+            userOrders = matched;
+          }
+        }
+
+        // Ưu tiên sắp xếp những đơn hàng mới nhất lên trên đầu (mới nhất theo thời gian createdAt)
+        const sorted = userOrders.sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
         setOrders(sorted);
       }
     } catch (e) {
@@ -236,7 +251,7 @@ export default function OrderHistoryPage() {
 
     order.items.forEach(item => {
       const prodInfo = productsMap[item.productId] || (item.sku ? productsMap[item.sku] : null);
-      const img = prodInfo?.imageUrl || item.imageUrl || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60";
+      const img = prodInfo?.imageUrl || item.imageUrl || "";
       const price = typeof item.price === "string" ? parseFloat(item.price) : item.price;
 
       addToCart({
@@ -437,20 +452,21 @@ export default function OrderHistoryPage() {
                 <div className="p-5 divide-y divide-slate-100">
                   {order.items?.map((item, idx) => {
                     const prodInfo = productsMap[item.productId] || (item.sku ? productsMap[item.sku] : null);
-                    const imgUrl = prodInfo?.imageUrl || item.imageUrl || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60";
+                    const imgUrl = prodInfo?.imageUrl || item.imageUrl || "";
 
                     return (
                       <div key={idx} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
                         <div className="flex items-center gap-4 min-w-0">
                           <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-xl overflow-hidden shrink-0 flex items-center justify-center p-1">
-                            <img 
-                              src={imgUrl} 
-                              alt={item.productName} 
-                              className="w-full h-full object-contain p-1 rounded-lg"
-                              onError={(e: any) => {
-                                e.currentTarget.src = "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60";
-                              }}
-                            />
+                            {imgUrl ? (
+                              <img 
+                                src={imgUrl} 
+                                alt={item.productName} 
+                                className="w-full h-full object-contain p-1 rounded-lg"
+                              />
+                            ) : (
+                              <Package className="w-6 h-6 text-slate-300" />
+                            )}
                           </div>
                           <div className="min-w-0">
                             <h4 className="font-bold text-slate-900 text-sm truncate">{item.productName}</h4>
@@ -755,13 +771,17 @@ export default function OrderHistoryPage() {
                 <div className="border border-slate-200 rounded-2xl overflow-hidden divide-y divide-slate-100">
                   {selectedOrder.items?.map((it, idx) => {
                     const prodInfo = productsMap[it.productId] || (it.sku ? productsMap[it.sku] : null);
-                    const imgUrl = prodInfo?.imageUrl || it.imageUrl || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60";
+                    const imgUrl = prodInfo?.imageUrl || it.imageUrl || "";
 
                     return (
                       <div key={idx} className="p-3.5 flex items-center justify-between gap-4 bg-white">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-12 h-12 bg-slate-50 border border-slate-100 rounded-lg overflow-hidden shrink-0 flex items-center justify-center p-1">
-                            <img src={imgUrl} alt={it.productName} className="w-full h-full object-contain p-1" onError={(e: any) => { e.currentTarget.src = "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60"; }} />
+                            {imgUrl ? (
+                              <img src={imgUrl} alt={it.productName} className="w-full h-full object-contain p-1" />
+                            ) : (
+                              <Package className="w-5 h-5 text-slate-300" />
+                            )}
                           </div>
                           <div className="min-w-0">
                             <div className="font-bold text-xs text-slate-900 truncate">{it.productName}</div>
@@ -782,11 +802,24 @@ export default function OrderHistoryPage() {
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2 text-xs text-slate-600">
                 <div className="flex justify-between">
                   <span>Tạm tính tiền hàng:</span>
-                  <span className="font-bold text-slate-800">{formatPrice(selectedOrder.totalAmount)}</span>
+                  <span className="font-bold text-slate-800">
+                    {formatPrice(
+                      Math.max(
+                        0,
+                        Number(selectedOrder.totalAmount || 0) -
+                          Number(selectedOrder.shippingFee || 0) +
+                          Number(selectedOrder.discount || 0)
+                      )
+                    )}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Phí vận chuyển giao hàng:</span>
-                  <span className="font-bold text-slate-800">{formatPrice(selectedOrder.shippingFee || 15000)}</span>
+                  <span className="font-bold text-slate-800">
+                    {Number(selectedOrder.shippingFee || 0) === 0
+                      ? "Miễn phí"
+                      : formatPrice(selectedOrder.shippingFee)}
+                  </span>
                 </div>
                 {selectedOrder.discount && Number(selectedOrder.discount) > 0 && (
                   <div className="flex justify-between text-emerald-700">

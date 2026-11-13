@@ -1,12 +1,29 @@
 "use client";
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
-import { Zap, ChevronRight, Apple, Beef, Milk, Carrot, Coffee, ShoppingBag, Clock, Phone } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { 
+  Zap, 
+  ChevronRight, 
+  ChevronLeft,
+  Apple, 
+  Beef, 
+  Milk, 
+  Carrot, 
+  Coffee, 
+  ShoppingBag, 
+  Clock, 
+  Phone,
+  Flame,
+  Trophy,
+  Sparkles,
+  Percent,
+  ArrowRight
+} from 'lucide-react';
 import { motion, Variants } from 'framer-motion';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
-import ProductCard from '@/components/ui/ProductCard';
+import { ProductCard, getCategoryVisual } from '@/features/catalog';
 
 import { 
   PROMO_BANNERS, 
@@ -20,32 +37,70 @@ import {
   SUB_BANNERS 
 } from '@/lib/mockData';
 import { getProducts, getCategories, Product, CategoryData } from '@/lib/api';
-import { getCategoryVisual } from '@/components/ui/CategoryIcon';
 
-export default function Home() {
-  const [emblaRef] = useEmblaCarousel({ loop: true }, [Autoplay({ delay: 4000 })]);
-  
-  // Countdown Timer Logic
+// Tách riêng Countdown Timer thành component độc lập để không gây re-render toàn bộ trang mỗi giây
+function FlashSaleCountdown() {
   const [timeLeft, setTimeLeft] = useState({ hours: 2, minutes: 15, seconds: 45 });
-  
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev.seconds > 0) return { ...prev, seconds: prev.seconds - 1 };
         if (prev.minutes > 0) return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
         if (prev.hours > 0) return { hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        return { hours: 2, minutes: 15, seconds: 45 }; // reset for demo
+        return { hours: 2, minutes: 15, seconds: 45 };
       });
     }, 1000);
     return () => clearInterval(timer);
   }, []);
-
   const formatTime = (v: number) => v.toString().padStart(2, '0');
 
+  return (
+    <div className="flex items-center gap-1.5 text-white font-mono font-bold">
+      <div className="bg-foreground rounded md px-2 py-1 shadow-inner">{formatTime(timeLeft.hours)}</div>
+      <span className="text-foreground font-bold">:</span>
+      <div className="bg-foreground rounded md px-2 py-1 shadow-inner">{formatTime(timeLeft.minutes)}</div>
+      <span className="text-foreground font-bold">:</span>
+      <div className="bg-secondary rounded md px-2 py-1 shadow-inner animate-pulse">{formatTime(timeLeft.seconds)}</div>
+    </div>
+  );
+}
+
+export default function Home() {
+  const [emblaRef] = useEmblaCarousel({ loop: true }, [Autoplay({ delay: 4000 })]);
+  
   // Fetch real data
   const [flashSaleProducts, setFlashSaleProducts] = useState<Product[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [categoriesList, setCategoriesList] = useState<CategoryData[]>([]);
+
+  // Promo and Best Seller tabs & slider refs
+  const [activePromoTab, setActivePromoTab] = useState(0);
+  const [activeBestSellerTab, setActiveBestSellerTab] = useState(0);
+
+  const promoScrollRef = useRef<HTMLDivElement>(null);
+  const bestSellerScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollHorizontally = (ref: React.RefObject<HTMLDivElement | null>, direction: 'left' | 'right') => {
+    if (ref.current) {
+      const scrollAmount = direction === 'left' ? -420 : 420;
+      ref.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
+  const PROMO_TABS = [
+    { title: "Đại tiệc giảm giá", sub: "Mua nhiều ưu đãi lớn" },
+    { title: "Mua kèm giảm thêm", sub: "Tiết kiệm đến 40%" },
+    { title: "Lễ hội ẩm thực", sub: "Thỏa sức mua sắm" },
+    { title: "Thương hiệu tuyển chọn", sub: "Hàng chuẩn chính hãng" },
+    { title: "Nông sản tươi xanh", sub: "Thu hoạch trong ngày" }
+  ];
+
+  const BEST_SELLER_TABS = [
+    { title: "Tất cả", sub: "Hot nhất tuần" },
+    { title: "Thực phẩm tươi", sub: "Bán chạy nhất" },
+    { title: "Đồ uống & Sữa", sub: "Được yêu thích" },
+    { title: "Chăm sóc gia đình", sub: "Nhu yếu phẩm" }
+  ];
 
   useEffect(() => {
     async function loadData() {
@@ -61,6 +116,37 @@ export default function Home() {
       setFeaturedProducts(newProductsData.items);
     }
     loadData();
+
+    // Lắng nghe cập nhật giá thời gian thực từ Saler/Admin qua WebSocket (<1s)
+    const handleProductUpdated = (e: any) => {
+      const updated = e.detail;
+      if (!updated) return;
+      const updateList = (prev: Product[]) =>
+        prev.map(p => {
+          if (p.id === updated.id || p.sku === updated.sku) {
+            const price = Number(updated.price);
+            const discount = updated.discountPercent !== undefined ? updated.discountPercent : p.discount;
+            const oldPrice = updated.originalPrice 
+              ? Number(updated.originalPrice) 
+              : (discount ? Math.round(price / (1 - discount / 100)) : p.oldPrice);
+            return {
+              ...p,
+              ...updated,
+              price,
+              oldPrice,
+              discount,
+              isFlashSale: updated.isFlashSale !== undefined ? updated.isFlashSale : (p as any).isFlashSale,
+            };
+          }
+          return p;
+        });
+
+      setFlashSaleProducts(updateList);
+      setFeaturedProducts(updateList);
+    };
+
+    window.addEventListener('sfwms:product_updated', handleProductUpdated);
+    return () => window.removeEventListener('sfwms:product_updated', handleProductUpdated);
   }, []);
 
   // Animation variants
@@ -130,7 +216,7 @@ export default function Home() {
               <p className="text-xs text-muted-foreground mt-1">Đầy đủ các loại thực phẩm tươi sạch đạt chuẩn</p>
             </div>
             <Link 
-              href="/danh-muc/tat-ca-danh-muc" 
+              href="/tat-ca-danh-muc" 
               className="text-sm font-semibold text-primary hover:underline flex items-center gap-1"
             >
               Xem tất cả ({categoriesList.length}) &gt;
@@ -145,7 +231,7 @@ export default function Home() {
           >
             {categoriesList.slice(0, 12).map((cat) => {
               const visual = getCategoryVisual(cat.name);
-              const IconComponent = visual.Icon;
+              const iconSrc = cat.imageUrl || visual.iconUrl;
               return (
                 <motion.div 
                   variants={itemVariants}
@@ -156,8 +242,13 @@ export default function Home() {
                     href={`/danh-muc/${cat.slug}`} 
                     className="flex flex-col items-center justify-between p-4 w-full h-full rounded-2xl bg-white border border-gray-100 hover:border-primary/40 shadow-xs hover:shadow-md transition-all group-hover:-translate-y-1"
                   >
-                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center bg-gradient-to-br ${visual.bgGradient} border ${visual.borderColor} shadow-inner mb-3 group-hover:scale-110 transition-transform`}>
-                      <IconComponent size={28} className={visual.color} />
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-emerald-50/60 border border-emerald-100/70 p-2 mb-3 group-hover:scale-110 transition-transform">
+                      <img 
+                        src={iconSrc} 
+                        alt={cat.name} 
+                        className="w-12 h-12 object-contain"
+                        loading="lazy"
+                      />
                     </div>
                     
                     <span className="text-[13px] text-center font-bold text-gray-800 group-hover:text-primary transition-colors line-clamp-2 leading-snug">
@@ -176,16 +267,21 @@ export default function Home() {
         </section>
 
         {/* Quick Links (5 Banners) */}
-        <section className="mb-6">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <section className="mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
             {QUICK_LINKS.map((link, idx) => (
-              <div key={idx} className="rounded-xl overflow-hidden shadow-sm h-[130px] md:h-[150px] relative group cursor-pointer border border-border">
-                <img src={link.imageUrl} alt={link.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex flex-col justify-end p-3">
-                  <span className="text-white font-extrabold text-sm md:text-base leading-tight drop-shadow-md">{link.title}</span>
-                  <span className="text-white/80 text-[10px] md:text-xs mt-1 flex items-center gap-1">◀ Mua ngay</span>
-                </div>
-              </div>
+              <Link 
+                key={idx} 
+                href={link.href || '#'}
+                className="rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all duration-300 group cursor-pointer border border-gray-150 hover:border-primary/40 block hover:-translate-y-1 bg-white"
+              >
+                <img 
+                  src={link.imageUrl} 
+                  alt={link.title} 
+                  className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-[1.03]" 
+                  loading="lazy"
+                />
+              </Link>
             ))}
           </div>
         </section>
@@ -217,48 +313,96 @@ export default function Home() {
         </section>
 
         {/* Khuyen Mai Hot Section */}
-        <section className="mb-12 rounded-[28px] border-[5px] border-green-600 bg-white overflow-hidden shadow-lg">
-          {/* Header */}
-          <div className="text-center relative overflow-hidden h-[80px] md:h-[110px] flex items-center justify-center bg-green-700">
-            {/* AI Generated Background */}
-            <img src="/khuyen_mai_hot_bg.png" alt="Khuyến mãi hot background" className="absolute inset-0 w-full h-full object-cover opacity-90 mix-blend-luminosity hover:mix-blend-normal transition-all duration-500" />
-            
-            <h2 className="text-2xl md:text-3xl lg:text-4xl font-black text-white uppercase italic tracking-wider drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)] relative z-10 font-sans">
-              KHUYẾN MÃI HOT
-            </h2>
+        <section className="mb-12 bg-white rounded-2xl border border-emerald-100 shadow-[0_4px_24px_-4px_rgba(16,185,129,0.12)] overflow-hidden">
+          {/* Header Banner Cao Cấp */}
+          <div className="relative bg-gradient-to-r from-emerald-800 via-teal-700 to-emerald-900 text-white px-6 py-6 md:py-7 overflow-hidden">
+            {/* Họa tiết trang trí chìm tinh tế */}
+            <div className="absolute inset-0 opacity-10 pointer-events-none">
+              <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <path d="M0,0 L100,0 L100,100 Z" fill="white" />
+              </svg>
+            </div>
+            <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
+
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/15 backdrop-blur-md text-emerald-100 mb-2.5 border border-white/20">
+                  <Flame size={14} className="text-amber-300" />
+                  <span>ƯU ĐÃI NỔI BẬT TRONG TUẦN</span>
+                </div>
+                <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+                  Khuyến Mãi Hot
+                  <span className="text-xs bg-amber-400 text-amber-950 font-black px-2.5 py-0.5 rounded-full uppercase tracking-normal">
+                    Lên đến 50%
+                  </span>
+                </h2>
+                <p className="text-emerald-100/80 text-xs md:text-sm mt-1 max-w-xl leading-relaxed">
+                  Tuyển chọn hàng trăm sản phẩm thực phẩm tươi sạch, bách hóa gia đình với mức giá ưu đãi hấp dẫn nhất hôm nay.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0">
+                <Link 
+                  href="/khuyen-mai" 
+                  className="bg-white hover:bg-emerald-50 text-emerald-800 font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-md flex items-center gap-2 text-xs md:text-sm group"
+                >
+                  <span>Xem tất cả ưu đãi</span>
+                  <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+              </div>
+            </div>
           </div>
           
-          {/* Tabs */}
-          <div className="flex border-b border-gray-200 overflow-x-auto [&::-webkit-scrollbar]:hidden bg-white">
-            <div className="flex-1 min-w-[130px] flex flex-col justify-center items-center text-center py-3 px-2 bg-green-50 text-green-700 border-b-[3px] border-green-600 cursor-pointer">
-              <span className="text-xs md:text-sm font-bold uppercase">Đại tiệc giảm giá</span>
-              <span className="text-[10px] md:text-xs font-semibold uppercase">Mua nhiều ưu đãi lớn</span>
+          {/* Segmented Pill Tabs */}
+          <div className="bg-slate-50/80 border-b border-gray-200/80 px-4 md:px-6 py-3 flex items-center justify-between gap-3 overflow-x-auto custom-scrollbar">
+            <div className="flex items-center gap-2 shrink-0">
+              {PROMO_TABS.map((tab, idx) => {
+                const isActive = activePromoTab === idx;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => setActivePromoTab(idx)}
+                    className={`px-4 py-2 rounded-xl text-left transition-all duration-200 flex flex-col cursor-pointer shrink-0 border ${
+                      isActive 
+                        ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm' 
+                        : 'bg-white text-gray-700 border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/50'
+                    }`}
+                  >
+                    <span className="text-xs md:text-[13px] font-bold leading-tight">{tab.title}</span>
+                    <span className={`text-[10px] md:text-[11px] mt-0.5 leading-none ${isActive ? 'text-emerald-100' : 'text-gray-400'}`}>
+                      {tab.sub}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            <div className="flex-1 min-w-[130px] flex flex-col justify-center items-center text-center py-3 px-2 text-gray-600 hover:bg-gray-50 cursor-pointer border-b-[3px] border-transparent hover:border-gray-300">
-              <span className="text-xs md:text-sm font-bold uppercase">Mua kèm giảm thêm</span>
+
+            {/* Slider navigation buttons */}
+            <div className="hidden md:flex items-center gap-1.5 shrink-0 pl-2">
+              <button 
+                onClick={() => scrollHorizontally(promoScrollRef, 'left')}
+                className="w-8 h-8 rounded-lg bg-white border border-gray-200 hover:border-emerald-500 hover:text-emerald-700 flex items-center justify-center text-gray-600 transition-colors shadow-2xs"
+                aria-label="Xem sản phẩm trước"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button 
+                onClick={() => scrollHorizontally(promoScrollRef, 'right')}
+                className="w-8 h-8 rounded-lg bg-white border border-gray-200 hover:border-emerald-500 hover:text-emerald-700 flex items-center justify-center text-gray-600 transition-colors shadow-2xs"
+                aria-label="Xem sản phẩm tiếp theo"
+              >
+                <ChevronRight size={18} />
+              </button>
             </div>
-            <div className="flex-1 min-w-[130px] flex flex-col justify-center items-center text-center py-3 px-2 text-gray-600 hover:bg-gray-50 cursor-pointer border-b-[3px] border-transparent hover:border-gray-300">
-              <span className="text-xs md:text-sm font-bold uppercase">Lễ hội việt</span>
-              <span className="text-[10px] md:text-xs font-semibold uppercase">Thỏa sức mua sắm</span>
-            </div>
-            <div className="flex-1 min-w-[130px] flex flex-col justify-center items-center text-center py-3 px-2 text-gray-600 hover:bg-gray-50 cursor-pointer border-b-[3px] border-transparent hover:border-gray-300">
-              <span className="text-xs md:text-sm font-bold uppercase">Dấu ấn tuổi 30</span>
-            </div>
-            <div className="flex-1 min-w-[130px] flex flex-col justify-center items-center text-center py-3 px-2 text-gray-600 hover:bg-gray-50 cursor-pointer border-b-[3px] border-transparent hover:border-gray-300">
-              <span className="text-xs md:text-sm font-bold uppercase">Vietnam</span>
-              <span className="text-[10px] md:text-xs font-semibold uppercase">Grandsale 2026</span>
-            </div>
-          </div>
-          
-          {/* Link Xem tất cả */}
-          <div className="flex justify-end pt-3 pr-4 bg-white">
-             <a href="#" className="text-sm text-green-600 hover:underline font-medium">Xem tất cả &gt;</a>
           </div>
 
           {/* Product Row */}
-          <div className="flex gap-4 overflow-x-auto px-4 pb-6 pt-2 snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] bg-white">
-            {featuredProducts.slice(0, 8).map((product) => (
-              <div key={product.id} className="flex-[0_0_200px] md:flex-[0_0_220px] snap-start">
+          <div 
+            ref={promoScrollRef}
+            className="flex gap-4 overflow-x-auto p-4 md:p-6 snap-x scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] bg-white"
+          >
+            {featuredProducts.slice(0, 10).map((product) => (
+              <div key={product.id} className="flex-[0_0_210px] md:flex-[0_0_230px] snap-start">
                 <ProductCard {...product} />
               </div>
             ))}
@@ -273,14 +417,8 @@ export default function Home() {
                 <Zap size={32} fill="currentColor" className="animate-pulse" />
                 Flash Sale
               </h2>
-              {/* Countdown Timer */}
-              <div className="flex items-center gap-1.5 text-white font-mono font-bold">
-                <div className="bg-foreground rounded md px-2 py-1 shadow-inner">{formatTime(timeLeft.hours)}</div>
-                <span className="text-foreground font-bold">:</span>
-                <div className="bg-foreground rounded md px-2 py-1 shadow-inner">{formatTime(timeLeft.minutes)}</div>
-                <span className="text-foreground font-bold">:</span>
-                <div className="bg-secondary rounded md px-2 py-1 shadow-inner animate-pulse">{formatTime(timeLeft.seconds)}</div>
-              </div>
+              {/* Countdown Timer độc lập - không gây re-render cả trang */}
+              <FlashSaleCountdown />
             </div>
             
             <Link href="/flash-sale" className="text-primary font-semibold text-sm hover:underline flex items-center bg-green-50 px-3 py-1.5 rounded-full transition-colors hover:bg-blue-100">
@@ -303,58 +441,116 @@ export default function Home() {
           </motion.div>
         </section>
 
-        {/* Promotional Banners */}
+        {/* Promotional Banners (3 Large Banners) */}
         <section className="mb-12">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
             {PROMO_BANNERS.map((promo, idx) => (
-              <div key={idx} className="relative rounded-2xl overflow-hidden group cursor-pointer h-[200px] shadow-sm">
-                <img src={promo.img} alt={promo.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-6">
-                  <h3 className="text-white font-bold text-xl drop-shadow-md">{promo.title}</h3>
-                </div>
-              </div>
+              <Link 
+                key={idx} 
+                href={(promo as any).href || '#'}
+                className="relative rounded-2xl overflow-hidden group cursor-pointer border border-gray-150 hover:border-primary/40 shadow-xs hover:shadow-md transition-all duration-300 hover:-translate-y-1 bg-white block aspect-square"
+              >
+                <img 
+                  src={promo.img} 
+                  alt={promo.title} 
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" 
+                  loading="lazy"
+                />
+              </Link>
             ))}
           </div>
         </section>
 
         {/* Featured Products / Best Sellers */}
-        <section className="mb-12 rounded-[28px] border-[5px] border-orange-500 bg-white overflow-hidden shadow-lg">
-          {/* Header */}
-          <div className="text-center relative overflow-hidden h-[80px] md:h-[110px] flex items-center justify-center bg-orange-700">
-            {/* AI Generated Background */}
-            <img src="/top_ban_chay_bg.png" alt="Top bán chạy background" className="absolute inset-0 w-full h-full object-cover opacity-90 mix-blend-luminosity hover:mix-blend-normal transition-all duration-500" />
-            
-            <h2 className="text-2xl md:text-3xl lg:text-4xl font-black text-white uppercase italic tracking-wider drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)] relative z-10 font-sans">
-              TOP BÁN CHẠY
-            </h2>
+        <section className="mb-12 bg-white rounded-2xl border border-orange-100 shadow-[0_4px_24px_-4px_rgba(249,115,22,0.12)] overflow-hidden">
+          {/* Header Banner Cao Cấp */}
+          <div className="relative bg-gradient-to-r from-amber-700 via-orange-600 to-amber-800 text-white px-6 py-6 md:py-7 overflow-hidden">
+            <div className="absolute inset-0 opacity-10 pointer-events-none">
+              <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <circle cx="90" cy="10" r="40" fill="white" />
+              </svg>
+            </div>
+            <div className="absolute -right-8 -bottom-8 w-44 h-44 bg-white/5 rounded-full blur-xl pointer-events-none"></div>
+
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/15 backdrop-blur-md text-amber-100 mb-2.5 border border-white/20">
+                  <Trophy size={14} className="text-amber-200" />
+                  <span>XU HƯỚNG MUA SẮM</span>
+                </div>
+                <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+                  Top Bán Chạy Trong Tuần
+                  <span className="text-xs bg-white text-orange-700 font-black px-2.5 py-0.5 rounded-full uppercase tracking-normal">
+                    Hot Trend
+                  </span>
+                </h2>
+                <p className="text-orange-100/80 text-xs md:text-sm mt-1 max-w-xl leading-relaxed">
+                  Những sản phẩm được hàng nghìn khách hàng tin chọn và đặt mua nhiều nhất trong 7 ngày qua.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0">
+                <Link 
+                  href="/ban-chay" 
+                  className="bg-white hover:bg-orange-50 text-orange-700 font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-md flex items-center gap-2 text-xs md:text-sm group"
+                >
+                  <span>Xem bảng xếp hạng</span>
+                  <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+              </div>
+            </div>
           </div>
 
-          {/* Tabs */}
-          <div className="flex border-b border-gray-200 overflow-x-auto [&::-webkit-scrollbar]:hidden bg-white">
-            <div className="flex-1 min-w-[130px] flex flex-col justify-center items-center text-center py-3 px-2 bg-orange-50 text-orange-600 border-b-[3px] border-orange-500 cursor-pointer">
-              <span className="text-xs md:text-sm font-bold uppercase">Tất cả</span>
-              <span className="text-[10px] md:text-xs font-semibold uppercase">Hot nhất tuần</span>
+          {/* Segmented Pill Tabs */}
+          <div className="bg-slate-50/80 border-b border-gray-200/80 px-4 md:px-6 py-3 flex items-center justify-between gap-3 overflow-x-auto custom-scrollbar">
+            <div className="flex items-center gap-2 shrink-0">
+              {BEST_SELLER_TABS.map((tab, idx) => {
+                const isActive = activeBestSellerTab === idx;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => setActiveBestSellerTab(idx)}
+                    className={`px-4 py-2 rounded-xl text-left transition-all duration-200 flex flex-col cursor-pointer shrink-0 border ${
+                      isActive 
+                        ? 'bg-orange-600 text-white border-orange-600 shadow-sm' 
+                        : 'bg-white text-gray-700 border-gray-200 hover:border-orange-300 hover:bg-orange-50/50'
+                    }`}
+                  >
+                    <span className="text-xs md:text-[13px] font-bold leading-tight">{tab.title}</span>
+                    <span className={`text-[10px] md:text-[11px] mt-0.5 leading-none ${isActive ? 'text-orange-100' : 'text-gray-400'}`}>
+                      {tab.sub}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            <div className="flex-1 min-w-[130px] flex flex-col justify-center items-center text-center py-3 px-2 text-gray-600 hover:bg-gray-50 cursor-pointer border-b-[3px] border-transparent hover:border-gray-300">
-              <span className="text-xs md:text-sm font-bold uppercase">Thực phẩm</span>
-            </div>
-            <div className="flex-1 min-w-[130px] flex flex-col justify-center items-center text-center py-3 px-2 text-gray-600 hover:bg-gray-50 cursor-pointer border-b-[3px] border-transparent hover:border-gray-300">
-              <span className="text-xs md:text-sm font-bold uppercase">Đồ uống</span>
-            </div>
-            <div className="flex-1 min-w-[130px] flex flex-col justify-center items-center text-center py-3 px-2 text-gray-600 hover:bg-gray-50 cursor-pointer border-b-[3px] border-transparent hover:border-gray-300">
-              <span className="text-xs md:text-sm font-bold uppercase">Chăm sóc nhà cửa</span>
-            </div>
-          </div>
 
-          {/* Link Xem tất cả */}
-          <div className="flex justify-end pt-3 pr-4 bg-white">
-             <Link href="/ban-chay" className="text-sm text-orange-600 hover:underline font-medium">Xem tất cả &gt;</Link>
+            {/* Slider navigation buttons */}
+            <div className="hidden md:flex items-center gap-1.5 shrink-0 pl-2">
+              <button 
+                onClick={() => scrollHorizontally(bestSellerScrollRef, 'left')}
+                className="w-8 h-8 rounded-lg bg-white border border-gray-200 hover:border-orange-500 hover:text-orange-600 flex items-center justify-center text-gray-600 transition-colors shadow-2xs"
+                aria-label="Xem sản phẩm trước"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button 
+                onClick={() => scrollHorizontally(bestSellerScrollRef, 'right')}
+                className="w-8 h-8 rounded-lg bg-white border border-gray-200 hover:border-orange-500 hover:text-orange-600 flex items-center justify-center text-gray-600 transition-colors shadow-2xs"
+                aria-label="Xem sản phẩm tiếp theo"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
           </div>
 
           {/* Product Row */}
-          <div className="flex gap-4 overflow-x-auto px-4 pb-6 pt-2 snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] bg-white">
+          <div 
+            ref={bestSellerScrollRef}
+            className="flex gap-4 overflow-x-auto p-4 md:p-6 snap-x scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] bg-white"
+          >
             {featuredProducts.slice().reverse().map((product) => (
-              <div key={product.id} className="flex-[0_0_200px] md:flex-[0_0_220px] snap-start">
+              <div key={product.id} className="flex-[0_0_210px] md:flex-[0_0_230px] snap-start">
                 <ProductCard {...product} />
               </div>
             ))}
@@ -396,12 +592,33 @@ export default function Home() {
         </section>
 
         {/* Featured Brands */}
-        <section className="mb-12 bg-white rounded-2xl p-6 shadow-sm border border-border">
-          <h2 className="text-xl font-bold text-center mb-8 uppercase tracking-wider text-gray-500">Thương hiệu đồng hành</h2>
-          <div className="flex flex-wrap justify-center gap-4">
+        <section className="mb-12 bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-border">
+          <div className="text-center max-w-xl mx-auto mb-8">
+            <span className="text-xs uppercase font-bold tracking-widest text-primary">Đối Tác Uy Tín</span>
+            <h2 className="text-xl md:text-2xl font-bold text-foreground mt-1">
+              Thương Hiệu Đồng Hành Chính Hãng
+            </h2>
+            <p className="text-xs md:text-sm text-muted-foreground mt-1.5">
+              Cam kết 100% sản phẩm chính hãng, đạt tiêu chuẩn an toàn vệ sinh thực phẩm từ các tập đoàn hàng đầu
+            </p>
+          </div>
+
+          <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-9 gap-3 md:gap-4 items-center">
             {BRANDS.map((brand, idx) => (
-              <div key={idx} className={`w-32 h-16 rounded-xl flex items-center justify-center font-bold text-sm uppercase shadow-sm opacity-80 hover:opacity-100 cursor-pointer transition-opacity ${brand.color}`}>
-                {brand.name}
+              <div 
+                key={idx} 
+                className="bg-white border border-gray-150 hover:border-primary/50 rounded-xl p-3 h-20 md:h-24 flex flex-col items-center justify-center shadow-2xs hover:shadow-md transition-all duration-300 hover:-translate-y-1 group cursor-pointer"
+                title={brand.name}
+              >
+                <img 
+                  src={brand.logo} 
+                  alt={brand.name} 
+                  className="max-h-10 md:max-h-12 max-w-[85%] object-contain filter group-hover:scale-105 transition-transform" 
+                  loading="lazy"
+                />
+                <span className="text-[10px] md:text-[11px] text-gray-500 font-medium mt-1.5 line-clamp-1 group-hover:text-primary transition-colors text-center">
+                  {brand.name}
+                </span>
               </div>
             ))}
           </div>
@@ -458,19 +675,23 @@ export default function Home() {
             <p className="text-blue-50 mb-6 text-sm md:text-base leading-relaxed">
               Mua sắm tiện lợi mọi lúc mọi nơi! Nhận ngay <strong>E-Voucher 50K</strong> cho khách hàng mới cài đặt app và đặc quyền tích điểm thưởng thành viên VIP.
             </p>
-            <div className="flex gap-4">
-              <a href="#" className="bg-black hover:bg-gray-800 border border-gray-700 text-white px-4 py-2 rounded-xl flex items-center gap-3 transition-colors shadow-lg">
-                <div className="text-2xl">🍎</div>
+            <div className="flex flex-wrap gap-4">
+              <a href="#" className="bg-black hover:bg-gray-900 border border-gray-800 text-white px-4 py-2 rounded-xl flex items-center gap-3 transition-colors shadow-md group">
+                <div className="w-6 h-6 flex items-center justify-center shrink-0">
+                  <img src="/app-store/apple-store.jpg" alt="Apple App Store" className="w-full h-full object-contain filter invert contrast-200 brightness-200" />
+                </div>
                 <div className="text-left">
-                  <div className="text-[10px] leading-tight text-gray-300">Download on the</div>
-                  <div className="font-semibold text-sm leading-tight">App Store</div>
+                  <div className="text-[9px] uppercase tracking-wider leading-tight text-gray-400 font-medium">Download on the</div>
+                  <div className="font-semibold text-sm leading-tight text-white">App Store</div>
                 </div>
               </a>
-              <a href="#" className="bg-black hover:bg-gray-800 border border-gray-700 text-white px-4 py-2 rounded-xl flex items-center gap-3 transition-colors shadow-lg">
-                <div className="text-2xl">▶️</div>
+              <a href="#" className="bg-black hover:bg-gray-900 border border-gray-800 text-white px-4 py-2 rounded-xl flex items-center gap-3 transition-colors shadow-md group">
+                <div className="w-6 h-6 flex items-center justify-center shrink-0">
+                  <img src="/app-store/google-play.jpg" alt="Google Play" className="w-full h-full object-contain rounded-xs" />
+                </div>
                 <div className="text-left">
-                  <div className="text-[10px] leading-tight text-gray-300">GET IT ON</div>
-                  <div className="font-semibold text-sm leading-tight">Google Play</div>
+                  <div className="text-[9px] uppercase tracking-wider leading-tight text-gray-400 font-medium">GET IT ON</div>
+                  <div className="font-semibold text-sm leading-tight text-white">Google Play</div>
                 </div>
               </a>
             </div>
@@ -489,19 +710,6 @@ export default function Home() {
             </div>
           </div>
         </section>
-      </div>
-
-      {/* Floating Action Buttons */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
-        <a href="tel:1900555568" className="w-10 h-10 bg-orange-600 rounded-full flex items-center justify-center text-white shadow-sm hover:opacity-90 transition-opacity group relative">
-          <Phone size={18} />
-          <span className="absolute right-full mr-3 bg-white text-gray-800 text-xs px-2 py-1 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-sm pointer-events-none font-medium border border-gray-200">Hotline: 1900 5555 68</span>
-        </a>
-        <a href="#" className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white shadow-sm hover:opacity-90 transition-opacity group relative">
-          {/* Zalo Icon fake */}
-          <span className="font-bold text-lg italic">Z</span>
-          <span className="absolute right-full mr-3 bg-white text-gray-800 text-xs px-2 py-1 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-sm pointer-events-none font-medium border border-gray-200">Chat Zalo</span>
-        </a>
       </div>
     </div>
   );

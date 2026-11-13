@@ -6,7 +6,9 @@ import { CATEGORIES } from '@/lib/mockData';
 import { getProductById, Product } from '@/lib/api';
 import { ChevronRight, Heart, Share2, Plus, Minus, CheckCircle2, ChevronDown, Store, Star, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
-import { useCartStore } from '@/lib/store';
+import { useCartStore, useAuthStore } from '@/lib/store';
+import { AuthPromptModal } from '@/features/auth';
+import { useRouter } from 'next/navigation';
 
 export default function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params);
@@ -25,9 +27,38 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       setLoading(false);
     }
     loadProduct();
+
+    // Lắng nghe cập nhật giá tức thời (<1s)
+    const handleProductUpdated = (e: any) => {
+      const updated = e.detail;
+      if (!updated) return;
+      setProduct(prev => {
+        if (!prev) return prev;
+        if (prev.id === updated.id || (prev as any).sku === updated.sku) {
+          const price = Number(updated.price);
+          const discount = updated.discountPercent !== undefined ? updated.discountPercent : prev.discount;
+          const oldPrice = updated.originalPrice 
+            ? Number(updated.originalPrice) 
+            : (discount ? Math.round(price / (1 - discount / 100)) : prev.oldPrice);
+          return {
+            ...prev,
+            ...updated,
+            price,
+            oldPrice,
+            discount,
+          };
+        }
+        return prev;
+      });
+    };
+
+    window.addEventListener('sfwms:product_updated', handleProductUpdated);
+    return () => window.removeEventListener('sfwms:product_updated', handleProductUpdated);
   }, [slug]);
 
-  // State for interactivity
+  const router = useRouter();
+  const { isAuthenticated } = useAuthStore();
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [activeImage, setActiveImage] = useState('');
   const [activeVariant, setActiveVariant] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -40,9 +71,19 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const formatPrice = (p: number) => p.toLocaleString('vi-VN') + 'đ';
 
   const addToCart = useCartStore(state => state.addToCart);
+  const isOutOfStock = !product || (product.totalStock ?? 0) <= 0;
   
   const handleAddToCart = () => {
     if (!product) return;
+    if (isOutOfStock) {
+      alert('Sản phẩm hiện đang tạm hết hàng, quý khách vui lòng chọn sản phẩm khác!');
+      return;
+    }
+
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
     
     addToCart({
       productId: product.id,
@@ -56,6 +97,32 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     });
     // Visual feedback
     alert('Đã thêm sản phẩm vào giỏ hàng!');
+  };
+
+  const handleBuyNow = () => {
+    if (!product) return;
+    if (isOutOfStock) {
+      alert('Sản phẩm hiện đang tạm hết hàng, quý khách vui lòng chọn sản phẩm khác!');
+      return;
+    }
+
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    addToCart({
+      productId: product.id,
+      sku: (product as any).sku || product.id,
+      name: product.name,
+      price: product.price,
+      oldPrice: product.oldPrice,
+      quantity,
+      image: activeImage,
+      variant: currentVariant?.name || null
+    });
+
+    router.push('/gio-hang');
   };
 
   // Scroll listener for sticky bar
@@ -115,7 +182,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             <div className="bg-white rounded-xl shadow-sm border border-border p-4">
               {/* Main Image */}
               <div className="relative aspect-square rounded-lg overflow-hidden border border-gray-100 mb-4 bg-white flex items-center justify-center p-4">
-                <img src={activeImage} alt={product.name} className="w-full h-full object-contain" />
+                <img 
+                  src={activeImage || product.imageUrl} 
+                  alt={product.name} 
+                  className="w-full h-full object-contain" 
+                />
               </div>
 
               {/* Action Row */}
@@ -192,41 +263,65 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
               {/* Quantity */}
               <div className="mb-8 flex flex-wrap items-center gap-6">
                 <h3 className="font-medium text-foreground w-16">Số lượng:</h3>
-                <div className="flex items-center border border-gray-300 rounded-md overflow-hidden bg-white">
+                <div className={`flex items-center border rounded-md overflow-hidden ${isOutOfStock ? 'bg-gray-100 border-gray-200 opacity-60' : 'bg-white border-gray-300'}`}>
                   <button 
+                    disabled={isOutOfStock}
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-10 h-10 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors"
+                    className={`w-10 h-10 flex items-center justify-center transition-colors ${isOutOfStock ? 'cursor-not-allowed text-gray-400' : 'text-gray-600 hover:bg-gray-100'}`}
                   >
                     <Minus size={16} />
                   </button>
                   <input 
                     type="number" 
-                    value={quantity}
+                    disabled={isOutOfStock}
+                    value={isOutOfStock ? 0 : quantity}
                     onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-14 h-10 text-center border-x border-gray-300 font-medium focus:outline-none"
+                    className="w-14 h-10 text-center border-x border-gray-300 font-medium focus:outline-none disabled:bg-gray-100"
                   />
                   <button 
+                    disabled={isOutOfStock}
                     onClick={() => setQuantity(quantity + 1)}
-                    className="w-10 h-10 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors"
+                    className={`w-10 h-10 flex items-center justify-center transition-colors ${isOutOfStock ? 'cursor-not-allowed text-gray-400' : 'text-gray-600 hover:bg-gray-100'}`}
                   >
                     <Plus size={16} />
                   </button>
                 </div>
-                <div className="text-sm text-gray-500">
-                  {product.totalStock} sản phẩm có sẵn
+                <div className="text-sm">
+                  {isOutOfStock ? (
+                    <span className="text-red-500 font-semibold bg-red-50 px-2.5 py-1 rounded border border-red-200">
+                      Tạm hết hàng
+                    </span>
+                  ) : (
+                    <span className="text-emerald-700 font-medium bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
+                      Còn {product.totalStock} {product.unit || 'sản phẩm'} trong kho
+                    </span>
+                  )}
                 </div>
               </div>
 
               <div ref={mainBuySectionRef} className="flex flex-col sm:flex-row gap-4 mb-8">
                 <button 
+                  disabled={isOutOfStock}
                   onClick={handleAddToCart}
-                  className="flex-1 border-2 border-primary text-primary hover:bg-primary/5 bg-white font-bold py-3.5 px-6 rounded-lg transition-all flex items-center justify-center gap-2"
+                  className={`flex-1 font-bold py-3.5 px-6 rounded-lg transition-all flex items-center justify-center gap-2 ${
+                    isOutOfStock
+                      ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed shadow-none'
+                      : 'border-2 border-primary text-primary hover:bg-primary/5 bg-white'
+                  }`}
                 >
                   <ShoppingCart size={20} />
-                  Thêm vào giỏ hàng
+                  {isOutOfStock ? 'Tạm hết hàng' : 'Thêm vào giỏ hàng'}
                 </button>
-                <button className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3.5 px-6 rounded-lg transition-all shadow-md hover:shadow-lg">
-                  Mua ngay
+                <button 
+                  disabled={isOutOfStock}
+                  onClick={handleBuyNow}
+                  className={`flex-1 font-bold py-3.5 px-6 rounded-lg transition-all ${
+                    isOutOfStock
+                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+                      : 'bg-orange-500 hover:bg-orange-600 text-white shadow-md hover:shadow-lg'
+                  }`}
+                >
+                  {isOutOfStock ? 'Hết hàng' : 'Mua ngay'}
                 </button>
               </div>
 
@@ -350,17 +445,37 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             </div>
             
             <button 
+              disabled={isOutOfStock}
               onClick={handleAddToCart}
-              className="flex-1 md:flex-none border-2 border-primary text-primary hover:bg-primary/5 bg-white font-bold py-2 px-4 rounded-lg transition-all text-sm whitespace-nowrap flex justify-center items-center gap-2"
+              className={`flex-1 md:flex-none font-bold py-2 px-4 rounded-lg transition-all text-sm whitespace-nowrap flex justify-center items-center gap-2 ${
+                isOutOfStock 
+                  ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed shadow-none' 
+                  : 'border-2 border-primary text-primary hover:bg-primary/5 bg-white'
+              }`}
             >
-              <ShoppingCart size={16} /> Thêm vào giỏ
+              <ShoppingCart size={16} /> {isOutOfStock ? 'Hết hàng' : 'Thêm vào giỏ'}
             </button>
-            <button className="flex-1 md:flex-none bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-6 rounded-lg transition-all text-sm whitespace-nowrap shadow-md">
-              Mua ngay
+            <button 
+              disabled={isOutOfStock}
+              onClick={handleBuyNow}
+              className={`flex-1 md:flex-none font-bold py-2 px-6 rounded-lg transition-all text-sm whitespace-nowrap ${
+                isOutOfStock 
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none' 
+                  : 'bg-orange-500 hover:bg-orange-600 text-white shadow-md'
+              }`}
+            >
+              {isOutOfStock ? 'Hết hàng' : 'Mua ngay'}
             </button>
           </div>
         </div>
       </div>
+
+      <AuthPromptModal 
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        productName={product.name}
+        redirectUrl={typeof window !== 'undefined' ? window.location.pathname : `/san-pham/${slug}`}
+      />
     </div>
   );
 }

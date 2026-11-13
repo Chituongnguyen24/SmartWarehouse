@@ -1,7 +1,7 @@
 import { getCategories } from '@/lib/api';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
-import { getCategoryVisual } from '@/components/ui/CategoryIcon';
+import { getCategoryVisual } from '@/features/catalog';
 
 export default async function AllCategoriesPage() {
   const categories = await getCategories();
@@ -29,15 +29,20 @@ export default async function AllCategoriesPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6">
             {categories.map((cat) => {
               const visual = getCategoryVisual(cat.name);
-              const IconComponent = visual.Icon;
+              const iconSrc = cat.imageUrl || visual.iconUrl;
               return (
                 <Link 
                   key={cat.slug} 
                   href={`/danh-muc/${cat.slug}`}
                   className="flex flex-col items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-primary/50 shadow-xs hover:shadow-md transition-all group bg-gradient-to-b from-white to-gray-50/50 hover:to-green-50/20 group-hover:-translate-y-1"
                 >
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center bg-gradient-to-br ${visual.bgGradient} border ${visual.borderColor} shadow-inner mb-3 group-hover:scale-110 transition-transform`}>
-                    <IconComponent size={28} className={visual.color} />
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-emerald-50/60 border border-emerald-100/70 p-2 mb-3 group-hover:scale-110 transition-transform">
+                    <img 
+                      src={iconSrc} 
+                      alt={cat.name} 
+                      className="w-12 h-12 object-contain"
+                      loading="lazy"
+                    />
                   </div>
                   <span className="text-sm font-bold text-gray-800 text-center line-clamp-2 group-hover:text-primary transition-colors leading-snug">
                     {cat.name}

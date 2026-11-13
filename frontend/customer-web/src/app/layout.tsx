@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
-import { AuthInitializer } from "@/components/auth/AuthInitializer";
+import { Header, Footer, cn } from "@/shared";
+import { CustomerFloatingActions } from "@/features/support";
+import { RealtimeProductSync } from "@/features/catalog";
+import { AuthInitializer } from "@/features/auth";
 import { Geist } from "next/font/google";
-import { cn } from "@/lib/utils";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -25,6 +25,8 @@ export default function RootLayout({
           <Header />
           <main className="overflow-x-hidden">{children}</main>
           <Footer />
+          <CustomerFloatingActions />
+          <RealtimeProductSync />
         </AuthInitializer>
       </body>
     </html>

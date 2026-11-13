@@ -47,27 +47,41 @@ export const MOCK_PRODUCTS = [
 ];
 
 export const PROMO_BANNERS = [
-  { img: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?auto=format&fit=crop&w=600&q=80", title: "Siêu hội Sale" },
-  { img: "https://images.unsplash.com/photo-1574484284002-952d92456975?auto=format&fit=crop&w=600&q=80", title: "Lễ hội trái cây" },
-  { img: "https://images.unsplash.com/photo-1601598851547-4302969d0614?auto=format&fit=crop&w=600&q=80", title: "Đại tiệc hàng tươi sống" }
+  { 
+    img: "/banner_tt/sieu-hoi-sale.webp", 
+    title: "Siêu hội Sale", 
+    href: "/khuyen-mai" 
+  },
+  { 
+    img: "/banner_tt/le-hoi-trai-cay.webp", 
+    title: "Lễ hội trái cây", 
+    href: "/danh-muc/rau-cu-trai-cay" 
+  },
+  { 
+    img: "/banner_tt/dai-tiec-hang-tuoi-song.webp", 
+    title: "Đại tiệc hàng tươi sống", 
+    href: "/danh-muc/thit-trung-hai-san" 
+  }
 ];
 
 export const BRANDS = [
-  { name: 'Vinamilk', color: 'bg-blue-100 text-blue-600' },
-  { name: 'Unilever', color: 'bg-blue-900 text-white' },
-  { name: 'Coca Cola', color: 'bg-red-600 text-white' },
-  { name: 'Nestle', color: 'bg-amber-800 text-white' },
-  { name: 'Suntory Pepsico', color: 'bg-blue-500 text-white' },
-  { name: 'Acecook', color: 'bg-red-500 text-white' },
-  { name: 'Masan', color: 'bg-orange-500 text-white' }
+  { name: 'Vinamilk', logo: '/brands/vinamilk.png' },
+  { name: 'Unilever', logo: '/brands/unilever.jpg' },
+  { name: 'Coca Cola', logo: '/brands/coca-cola.png' },
+  { name: 'Nestlé', logo: '/brands/nestle.png' },
+  { name: 'Suntory PepsiCo', logo: '/brands/suntory-pepsico.png' },
+  { name: 'Acecook', logo: '/brands/acecook.png' },
+  { name: 'Masan', logo: '/brands/masan.png' },
+  { name: 'CP Foods', logo: '/brands/cp-foods.png' },
+  { name: 'TH True Milk', logo: '/brands/th-true-milk.png' },
 ];
 
 export const QUICK_LINKS = [
-  { imageUrl: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=400&q=80', title: 'Giỏ quà Trái Cây' },
-  { imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80', title: 'Thực phẩm Tươi ngon' },
-  { imageUrl: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&w=400&q=80', title: 'E-voucher Siêu Hot' },
-  { imageUrl: 'https://images.unsplash.com/photo-1607082349566-187342175e2f?auto=format&fit=crop&w=400&q=80', title: 'Ưu đãi Thành viên' },
-  { imageUrl: 'https://images.unsplash.com/photo-1607083206968-13611e3d76ba?auto=format&fit=crop&w=400&q=80', title: 'Thương hiệu Uy tín' }
+  { imageUrl: '/banner_tt/gio-qua.webp', title: 'Giỏ quà Trái Cây', href: '/danh-muc/rau-cu-trai-cay' },
+  { imageUrl: '/banner_tt/thu-pham-tuoi-ngon.webp', title: 'Thực phẩm Tươi ngon', href: '/danh-muc/thit-trung-hai-san' },
+  { imageUrl: '/banner_tt/e-voucher.webp', title: 'E-voucher Siêu Hot', href: '/khuyen-mai' },
+  { imageUrl: '/banner_tt/uu-dai-thanh-vien.webp', title: 'Ưu đãi Thành viên', href: '/khuyen-mai' },
+  { imageUrl: '/banner_tt/thuong-hieu-uy-tin.webp', title: 'Thương hiệu Uy tín', href: '#brands-section' }
 ];
 
 export const VOUCHERS = [
@@ -79,12 +93,11 @@ export const VOUCHERS = [
 ];
 
 export const MOCK_RECIPES = [
-  { id: '1', title: 'Salad đảo ức gà và đậu đỏ', imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80' },
-  { id: '2', title: 'Bánh tráng gạo lứt cuốn ức gà', imageUrl: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80' },
-  { id: '3', title: 'Súp ức gà rau củ', imageUrl: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=600&q=80' },
-  { id: '4', title: 'Bắp cải bọc đậu hũ ức gà', imageUrl: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=600&q=80' },
-  { id: '5', title: 'Gỏi tôm xoài chua ngọt', imageUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=600&q=80' },
-  { id: '6', title: 'Cháo yến mạch bông cải xanh', imageUrl: 'https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38?auto=format&fit=crop&w=600&q=80' },
+  { id: '1', title: 'Salad đảo ức gà và đậu đỏ', imageUrl: '/click-and-cook/salad-ga.webp' },
+  { id: '2', title: 'Bánh tráng gạo lứt cuốn ức gà', imageUrl: '/click-and-cook/banhtranggaoluc.webp' },
+  { id: '3', title: 'Súp ức gà rau củ', imageUrl: '/click-and-cook/supucgaraucu.webp' },
+  { id: '4', title: 'Bắp cải bọc đậu hũ ức gà', imageUrl: '/click-and-cook/bapcaibocucga.webp' },
+  { id: '5', title: 'Gỏi tôm xoài chua ngọt', imageUrl: '/click-and-cook/goitomxoai.webp' },
 ];
 
 export const ARTICLES = [
@@ -95,13 +108,18 @@ export const ARTICLES = [
 ];
 
 export const CATEGORIES = [
-  { id: '1', name: 'Gạo', slug: 'gao', imageUrl: '/categories/gia_vi_new.png' },
-  { id: '2', name: 'Nước mắm', slug: 'nuoc-mam', imageUrl: '/categories/thuc_an_che_bien_new.png' },
-  { id: '3', name: 'Rau củ', slug: 'rau-cu', imageUrl: '/categories/rau_cu_new.png' },
-  { id: '4', name: 'Thịt heo', slug: 'thit-heo', imageUrl: '/categories/thit_hai_san_new.png' },
-  { id: '5', name: 'Trái cây', slug: 'trai-cay', imageUrl: '/categories/rau_cu_new.png' },
-  { id: '6', name: 'Bánh kẹo & Đồ khô', slug: 'banh-keo', imageUrl: '/categories/banh_keo_new.png' },
-  { id: '7', name: 'Sữa & Đồ uống', slug: 'sua-do-uong', imageUrl: '/categories/sua_new.png' },
+  { id: '1', name: 'Rau củ, trái cây', slug: 'rau-cu-trai-cay', imageUrl: '/icons/rau-cu-qua.png' },
+  { id: '2', name: 'Thịt, trứng, hải sản', slug: 'thit-trung-hai-san', imageUrl: '/icons/thit-tung-hai-san.png' },
+  { id: '3', name: 'Thức ăn chế biến, bún tươi', slug: 'thuc-an-che-bien-bun-tuoi', imageUrl: '/icons/thuc-pham-an-lien.png' },
+  { id: '4', name: 'Thực phẩm đông, mát', slug: 'thuc-pham-dong-mat', imageUrl: '/icons/thuc-pham-dong-lanh.png' },
+  { id: '5', name: 'Sữa, sản phẩm từ sữa', slug: 'sua-san-pham-tu-sua', imageUrl: '/icons/sua.png' },
+  { id: '6', name: 'Thức uống', slug: 'thuc-uong', imageUrl: '/icons/nuoc-ngot.png' },
+  { id: '7', name: 'Bánh, kẹo, snack', slug: 'banh-keo-snack', imageUrl: '/icons/banh-keo.png' },
+  { id: '8', name: 'Gia vị, gạo, thực phẩm khô', slug: 'gia-vi-gao-thuc-pham-kho', imageUrl: '/icons/gao-dokho.png' },
+  { id: '9', name: 'Sản phẩm cho bé', slug: 'san-pham-cho-be', imageUrl: '/icons/san-pham-cho-be.png' },
+  { id: '10', name: 'Chăm sóc cá nhân', slug: 'cham-soc-ca-nhan', imageUrl: '/icons/cham-soc-ca-nhan.png' },
+  { id: '11', name: 'Nhà cửa và đời sống', slug: 'nha-cua-va-doi-song', imageUrl: '/icons/nha-cua-doi-song.png' },
+  { id: '12', name: 'Shop nổi bật', slug: 'shop-noi-bat', imageUrl: '/icons/shop-noi-bat.svg' },
 ];
 
 export const BANNERS = [

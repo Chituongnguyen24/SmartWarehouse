@@ -3,32 +3,33 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
-import dynamic from "next/dynamic";
-import AddressSelector from "@/components/ui/AddressSelector";
-
-const MapPicker = dynamic(() => import("@/components/ui/MapPicker"), {
-  ssr: false,
-});
+import { AddressSelector, MapPicker } from "@/features/checkout";
 
 export default function ProfilePage() {
   const { user, login, token, logout } = useAuthStore();
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!token) {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && !token) {
       router.push('/dang-nhap');
     }
-  }, [token, router]);
+  }, [mounted, token, router]);
   
+  const initialAddr = user?.addresses?.find((a: any) => a.isDefault) || user?.addresses?.[0];
   const [formData, setFormData] = useState({
     name: user?.name || "",
     phone: user?.phone || "",
     gender: user?.gender || "male",
     dob: user?.dob ? user.dob.split('T')[0] : "1990-01-01",
-    address: user?.addresses?.[0]?.streetAddress || "",
-    position: user?.addresses?.[0]?.latitude ? { 
-      lat: Number(user.addresses[0].latitude), 
-      lng: Number(user.addresses[0].longitude) 
+    address: initialAddr?.streetAddress || "",
+    position: initialAddr?.latitude ? { 
+      lat: Number(initialAddr.latitude), 
+      lng: Number(initialAddr.longitude) 
     } : null
   });
 
@@ -37,30 +38,39 @@ export default function ProfilePage() {
   // Fetch full profile when page loads
   useEffect(() => {
     const fetchProfile = async () => {
-      if (!token) return;
+      let activeToken = token;
+      if (!activeToken && typeof window !== 'undefined') {
+        try {
+          const authStorage = JSON.parse(localStorage.getItem('auth-storage') || '{}');
+          activeToken = authStorage?.state?.token;
+        } catch (e) {}
+      }
+      if (!activeToken) return;
       try {
         const res = await fetch("http://localhost:3012/auth/me", {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${activeToken}` },
+          signal: AbortSignal.timeout(3000)
         });
         if (res.ok) {
           const fetchedUser = await res.json();
           // Cập nhật lại store
-          login(fetchedUser, token);
+          login(fetchedUser, activeToken);
           
+          const defaultAddr = fetchedUser.addresses?.find((a: any) => a.isDefault) || fetchedUser.addresses?.[0];
           setFormData({
             name: fetchedUser.name || "",
             phone: fetchedUser.phone || "",
             gender: fetchedUser.gender || "male",
             dob: fetchedUser.dob ? fetchedUser.dob.split('T')[0] : "1990-01-01",
-            address: fetchedUser.addresses?.[0]?.streetAddress || "",
-            position: fetchedUser.addresses?.[0]?.latitude ? { 
-              lat: Number(fetchedUser.addresses[0].latitude), 
-              lng: Number(fetchedUser.addresses[0].longitude) 
+            address: defaultAddr?.streetAddress || "",
+            position: defaultAddr?.latitude ? { 
+              lat: Number(defaultAddr.latitude), 
+              lng: Number(defaultAddr.longitude) 
             } : null
           });
         }
       } catch (err) {
-        console.error("Lỗi khi tải profile:", err);
+        console.warn("Lỗi khi tải profile:", err);
       } finally {
         setIsLoadingProfile(false);
       }
@@ -77,11 +87,19 @@ export default function ProfilePage() {
     setSaveSuccess(false);
 
     try {
+      let activeToken = token;
+      if (!activeToken && typeof window !== 'undefined') {
+        try {
+          const authStorage = JSON.parse(localStorage.getItem('auth-storage') || '{}');
+          activeToken = authStorage?.state?.token;
+        } catch (e) {}
+      }
+
       const res = await fetch("http://localhost:3012/users/profile", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          "Authorization": `Bearer ${activeToken}`
         },
         body: JSON.stringify({
           name: formData.name,
@@ -102,12 +120,23 @@ export default function ProfilePage() {
 
       if (!res.ok) throw new Error("Cập nhật thất bại");
 
-      if (user) {
-        login({
-          ...user,
-          name: formData.name,
-        }, token || "");
-      }
+      const updatedUser = await res.json();
+
+      login({
+        ...user,
+        ...updatedUser,
+        name: updatedUser.name || formData.name,
+        gender: updatedUser.gender || formData.gender,
+        dob: updatedUser.dob || formData.dob,
+        addresses: updatedUser.addresses || [
+          {
+            streetAddress: formData.address,
+            latitude: formData.position?.lat,
+            longitude: formData.position?.lng,
+            isDefault: true,
+          }
+        ]
+      }, token || "");
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
