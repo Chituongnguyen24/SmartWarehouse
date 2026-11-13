@@ -665,26 +665,41 @@ export class UserService implements OnModuleInit {
     });
   }
 
-  async findAll(): Promise<User[]> {
-    return this.userRepository.find({
-      select: [
-        'id',
-        'name',
-        'email',
-        'role',
-        'phone',
-        'warehouseCode',
-        'code',
-        'assignedZone',
-        'shift',
-        'status',
-        'department',
-        'tasksCompleted',
-        'rating',
-        'createdAt',
-      ],
-      order: { createdAt: 'DESC' },
-    });
+  async findAll(query?: {
+    role?: string;
+    warehouseCode?: string;
+    status?: string;
+    search?: string;
+  }): Promise<User[]> {
+    const qb = this.userRepository.createQueryBuilder('user')
+      .leftJoinAndSelect('user.addresses', 'address');
+
+    if (query?.role && query.role !== 'ALL') {
+      qb.andWhere('user.role = :role', { role: query.role });
+    }
+
+    if (query?.warehouseCode && query.warehouseCode !== 'ALL') {
+      qb.andWhere('user.warehouseCode = :wh', { wh: query.warehouseCode });
+    }
+
+    if (query?.status && query.status !== 'ALL') {
+      if (query.status === 'LOCKED') {
+        qb.andWhere('(user.status = :lockedStatus OR user.lockedAt IS NOT NULL)', { lockedStatus: 'INACTIVE' });
+      } else {
+        qb.andWhere('user.status = :status AND user.lockedAt IS NULL', { status: query.status });
+      }
+    }
+
+    if (query?.search && query.search.trim()) {
+      const q = `%${query.search.trim().toLowerCase()}%`;
+      qb.andWhere(
+        '(LOWER(user.name) LIKE :q OR LOWER(user.email) LIKE :q OR LOWER(user.phone) LIKE :q OR LOWER(user.code) LIKE :q OR LOWER(user.companyName) LIKE :q)',
+        { q },
+      );
+    }
+
+    qb.orderBy('user.code', 'ASC');
+    return qb.getMany();
   }
 
   async findAllDrivers(filters?: { warehouseCode?: string; status?: string }): Promise<User[]> {
@@ -927,23 +942,53 @@ export class UserService implements OnModuleInit {
 
   async create(userDto: Partial<User>): Promise<User> {
     const passwordHash = await bcrypt.hash(userDto.passwordHash || 'password123', 10);
+    
+    // Auto-generate employee/partner code if not provided
+    let code = userDto.code;
+    if (!code || !code.trim()) {
+      const rolePrefix: Record<string, string> = {
+        ADMIN: 'ADM',
+        WAREHOUSE_MANAGER: 'MGR',
+        WAREHOUSE_STAFF: 'NV',
+        SALES_STAFF: 'SLS',
+        DRIVER: 'DRV',
+        CUSTOMER: userDto.companyName ? 'B2B' : 'CUST',
+      };
+      const prefix = rolePrefix[userDto.role || 'WAREHOUSE_STAFF'] || 'USR';
+      const count = await this.userRepository.count({ where: { role: userDto.role } });
+      code = `${prefix}-${String(count + 1).padStart(2, '0')}`;
+    }
+
     const user = this.userRepository.create({
       ...userDto,
+      code,
+      status: userDto.status || 'ACTIVE',
+      shift: userDto.shift || 'HANH_CHINH',
+      warehouseCode: userDto.warehouseCode || 'WH-006',
       passwordHash,
     });
     return this.userRepository.save(user);
   }
 
-  async update(id: string, updateDto: { name?: string; email?: string; phone?: string; password?: string }): Promise<User> {
+  async update(id: string, updateDto: any): Promise<User> {
     const user = await this.findOneById(id);
     if (!user) {
       throw new Error('User not found');
     }
-    if (updateDto.name !== undefined) user.name = updateDto.name;
-    if (updateDto.email !== undefined) user.email = updateDto.email;
-    if (updateDto.phone !== undefined) user.phone = updateDto.phone;
-    if (updateDto.password !== undefined && updateDto.password !== '') {
-      user.passwordHash = await bcrypt.hash(updateDto.password, 10);
+    const updatableFields = [
+      'name', 'email', 'phone', 'role', 'warehouseCode', 'code',
+      'assignedZone', 'shift', 'status', 'department', 'gender', 'dob',
+      'companyName', 'taxCode', 'b2bType', 'creditLimit', 'debtBalance',
+      'discountRate', 'billingAddress', 'licensePlate', 'vehicleType',
+      'targetTempMin', 'targetTempMax'
+    ];
+    for (const field of updatableFields) {
+      if (updateDto[field] !== undefined) {
+        (user as any)[field] = updateDto[field];
+      }
+    }
+    if (updateDto.password && updateDto.password.trim()) {
+      user.passwordHash = await bcrypt.hash(updateDto.password.trim(), 10);
     }
     return this.userRepository.save(user);
   }
@@ -1033,16 +1078,18 @@ export class UserService implements OnModuleInit {
     return { isLocked: !isLocked };
   }
 
-  async resetPassword(id: string): Promise<{ newPassword: string }> {
+  async resetPassword(id: string, customPassword?: string): Promise<{ newPassword: string }> {
     const user = await this.findOneById(id);
     if (!user) {
       throw new Error('User not found');
     }
-    // Generate random 8-char password
-    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-    let newPassword = '';
-    for (let i = 0; i < 8; i++) {
-      newPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+    let newPassword = customPassword && customPassword.trim() ? customPassword.trim() : '';
+    if (!newPassword) {
+      // Generate random 8-char password
+      const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+      for (let i = 0; i < 8; i++) {
+        newPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
     }
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     await this.userRepository.save(user);

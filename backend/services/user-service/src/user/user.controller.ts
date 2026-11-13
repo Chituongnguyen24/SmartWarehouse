@@ -136,20 +136,42 @@ export class UserController {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  GENERIC USER ENDPOINTS
+  //  GENERIC USER ENDPOINTS (All Roles & Full Administration)
   // ─────────────────────────────────────────────────────────────
 
   @Get()
-  @ApiOperation({ summary: 'List all users' })
-  findAll() {
-    return this.userService.findAll();
+  @ApiOperation({ summary: 'List all users with filters' })
+  @ApiQuery({ name: 'role', required: false, description: 'Filter by role (ADMIN, WAREHOUSE_MANAGER, etc.)' })
+  @ApiQuery({ name: 'warehouseCode', required: false, description: 'Filter by warehouse code (WH-006, etc.)' })
+  @ApiQuery({ name: 'status', required: false, description: 'Filter by status (ACTIVE, INACTIVE, ON_LEAVE, LOCKED)' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by name, email, phone, code, companyName' })
+  findAll(
+    @Query('role') role?: string,
+    @Query('warehouseCode') warehouseCode?: string,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.userService.findAll({ role, warehouseCode, status, search });
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get single user detail by ID' })
+  findOne(@Param('id') id: string) {
+    return this.userService.findOneById(id);
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a new user' })
+  @ApiOperation({ summary: 'Create a new user for any role' })
   create(@Body() body: any) {
     return this.userService.create(body);
+  }
+
+  @Put(':id')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Update user profile comprehensively (Admin only)' })
+  async updateUser(@Param('id') id: string, @Body() body: any) {
+    return this.userService.update(id, body);
   }
 
   @Delete(':id')
@@ -173,11 +195,11 @@ export class UserController {
 
   @Patch(':id/reset-password')
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Reset user password to a random password (Admin only)' })
-  async resetPassword(@Param('id') id: string) {
-    const result = await this.userService.resetPassword(id);
+  @ApiOperation({ summary: 'Reset user password to a random password or custom password (Admin only)' })
+  async resetPassword(@Param('id') id: string, @Body() body?: { password?: string }) {
+    const result = await this.userService.resetPassword(id, body?.password);
     return {
-      message: 'Mật khẩu đã được reset thành công',
+      message: 'Mật khẩu đã được cập nhật thành công',
       newPassword: result.newPassword,
     };
   }
