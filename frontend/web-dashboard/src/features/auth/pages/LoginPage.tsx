@@ -1,19 +1,7 @@
 import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuth, ROLE_LABELS, ROLE_COLORS } from '../contexts/AuthContext';
-import type { UserRole } from '../contexts/AuthContext';
-import { Leaf, Eye, EyeOff, LogIn, AlertCircle, Phone, KeyRound, X, Check, RefreshCw, Lock } from 'lucide-react';
-
-const DEMO_ACCOUNTS: { email: string; password: string; name: string; role: UserRole; tag?: string }[] = [
-  { email: '0377019958', password: 'password123', name: 'Lê Công Chung', role: 'ADMIN', tag: 'Master Admin / Toàn quyền (0377019958)' },
-  { email: 'admin@sfwms.vn', password: 'password123', name: 'Nguyễn Chi Tường', role: 'ADMIN', tag: 'Admin Tổng (16 kho)' },
-  { email: 'govap@sfwms.vn', password: 'password123', name: 'Nguyễn Hoàng Nam', role: 'WAREHOUSE_MANAGER', tag: 'Quản Lý Kho Gò Vấp (WH-006)' },
-  { email: 'manager@sfwms.vn', password: 'password123', name: 'Trần Văn Bình', role: 'WAREHOUSE_MANAGER', tag: 'Quản Lý Kho Bình Thạnh (WH-005)' },
-  { email: 'staff@sfwms.vn', password: 'password123', name: 'Lê Thị Hoa', role: 'WAREHOUSE_STAFF', tag: 'Nhân Viên Kho Gò Vấp (PDA)' },
-  { email: 'driver@sfwms.vn', password: 'password123', name: 'Võ Thanh Tùng', role: 'DRIVER', tag: 'Tài Xế Giao Hàng' },
-  { email: 'sales@sfwms.vn', password: 'password123', name: 'Phạm Minh Đức', role: 'SALES_STAFF', tag: 'Kinh Doanh & Đơn Hàng' },
-  { email: 'customer@sfwms.vn', password: 'password123', name: 'Khách hàng Thử Nghiệm', role: 'CUSTOMER', tag: 'Sàn Mua Sắm TMĐT' },
-];
+import { useAuth } from '../contexts/AuthContext';
+import { Eye, EyeOff, LogIn, AlertCircle, Phone, KeyRound, X, Check, RefreshCw, Lock } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
   const { login, isAuthenticated, user } = useAuth();
@@ -170,11 +158,6 @@ const LoginPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickLogin = (account: typeof DEMO_ACCOUNTS[0]) => {
-    setEmail(account.email);
-    setPassword(account.password);
   };
 
   return (
@@ -356,53 +339,6 @@ const LoginPage: React.FC = () => {
               {loading ? 'Đang xác thực...' : 'Đăng nhập'}
             </button>
           </form>
-
-          {/* Demo Accounts */}
-          <div style={{ marginTop: '2rem', borderTop: '1px solid rgba(148,163,184,0.1)', paddingTop: '1.5rem' }}>
-            <p style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 500, marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Tài khoản thử nghiệm
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {DEMO_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.email}
-                  type="button"
-                  onClick={() => handleQuickLogin(acc)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '0.75rem',
-                    padding: '0.6rem 0.75rem', borderRadius: 8,
-                    background: email === acc.email ? 'rgba(148,163,184,0.1)' : 'transparent',
-                    border: '1px solid',
-                    borderColor: email === acc.email ? ROLE_COLORS[acc.role] : 'rgba(148,163,184,0.1)',
-                    cursor: 'pointer', transition: 'all 0.2s', width: '100%', textAlign: 'left',
-                  }}
-                >
-                  <div style={{
-                    width: 8, height: 8, borderRadius: '50%',
-                    background: ROLE_COLORS[acc.role], flexShrink: 0,
-                  }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ color: '#e2e8f0', fontSize: '0.8rem', fontWeight: 600 }}>{acc.name}</span>
-                      {acc.tag && (
-                        <span style={{ fontSize: '0.65rem', padding: '1px 6px', borderRadius: 4, background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', fontWeight: 700 }}>
-                          {acc.tag}
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ color: '#64748b', fontSize: '0.7rem' }}>{acc.email}</div>
-                  </div>
-                  <span style={{
-                    fontSize: '0.65rem', padding: '0.15rem 0.4rem', borderRadius: 4,
-                    background: `${ROLE_COLORS[acc.role]}20`, color: ROLE_COLORS[acc.role],
-                    fontWeight: 500, whiteSpace: 'nowrap',
-                  }}>
-                    {ROLE_LABELS[acc.role]}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
 
