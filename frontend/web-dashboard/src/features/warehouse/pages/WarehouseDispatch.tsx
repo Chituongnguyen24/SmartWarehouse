@@ -26,11 +26,12 @@ import {
   Play
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
+import { getApiHost } from '@/shared';
 
 // API Endpoints
-const OUTBOUND_API = 'http://localhost:3007';
-const TRANSPORT_API = 'http://localhost:3013';
-const INVENTORY_API = 'http://localhost:3011';
+const OUTBOUND_API = getApiHost(3007);
+const TRANSPORT_API = getApiHost(3013);
+const INVENTORY_API = getApiHost(3011);
 
 export interface DispatchOrderItem {
   sku: string;

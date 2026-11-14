@@ -1,8 +1,10 @@
 /**
  * Dynamic API Host detection for SmartWarehouse Web Dashboard.
  * - On Localhost / 127.0.0.1: Returns http://localhost:<port>
- * - On Remote (EC2 Public IP or DuckDNS domain): Returns http://<hostname>:<port>
- * - If running under HTTPS (SSL): Returns https://<hostname>:<port>
+ * - On Remote (EC2 Public IP, DuckDNS domain, or any production domain):
+ *   Returns window.location.origin (e.g. http://smartwarehouse-kltn.duckdns.org)
+ *   so that requests use standard port 80/443 proxied via Nginx reverse proxy.
+ *   This eliminates CORS errors, loopback restrictions, and avoids opening microservice ports.
  */
 export const getApiHost = (port: number): string => {
   if (typeof window === 'undefined') return `http://localhost:${port}`;
@@ -10,7 +12,8 @@ export const getApiHost = (port: number): string => {
   if (!hostname || hostname === 'localhost' || hostname === '127.0.0.1') {
     return `http://localhost:${port}`;
   }
-  return `${window.location.protocol}//${hostname}:${port}`;
+  // In production (EC2 / DuckDNS), route directly through Nginx reverse proxy on the same origin:
+  return window.location.origin;
 };
 
 export const API_HOSTS = {
@@ -24,4 +27,3 @@ export const API_HOSTS = {
   get USER() { return getApiHost(3012); },
   get TRANSPORT() { return getApiHost(3013); },
 };
-
