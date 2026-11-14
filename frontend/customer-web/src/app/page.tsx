@@ -226,19 +226,14 @@ export default function Home() {
               Xem tất cả ({categoriesList.length}) &gt;
             </Link>
           </div>
-          <motion.div 
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, margin: "-100px" }}
+          <div 
             className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4"
           >
             {categoriesList.slice(0, 12).map((cat) => {
               const visual = getCategoryVisual(cat.name);
               const iconSrc = cat.imageUrl || visual.iconUrl;
               return (
-                <motion.div 
-                  variants={itemVariants}
+                <div 
                   key={cat.slug} 
                   className="flex flex-col items-center cursor-pointer group"
                 >
@@ -264,10 +259,10 @@ export default function Home() {
                       </span>
                     )}
                   </Link>
-                </motion.div>
+                </div>
               );
             })}
-          </motion.div>
+          </div>
         </section>
 
         {/* Quick Links (5 Banners) */}
@@ -431,19 +426,15 @@ export default function Home() {
             </Link>
           </div>
           
-          <motion.div 
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, margin: "-50px" }}
+          <div 
             className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4"
           >
             {flashSaleProducts.slice(0, 10).map((product) => (
-              <motion.div variants={itemVariants} key={product.id}>
+              <div key={product.id}>
                 <ProductCard {...product} />
-              </motion.div>
+              </div>
             ))}
-          </motion.div>
+          </div>
         </section>
 
         {/* Promotional Banners (3 Large Banners) */}
