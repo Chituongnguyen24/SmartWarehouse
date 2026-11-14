@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Boxes, MapPin, RefreshCw, X, Layers, Settings, Building2, Edit2, Send, ExternalLink, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/features/auth';
-import { useWarehouse, type Warehouse } from '@/shared';
+import { useWarehouse, type Warehouse, getApiHost } from '@/shared';
 import { Warehouse3DDigitalTwin } from '@/features/warehouse';
 
-const INVENTORY_API = 'http://localhost:3011'; // inventory-service
+const INVENTORY_API = getApiHost(3011); // inventory-service
 
 interface WhStats {
   alerts: number;
@@ -141,8 +141,8 @@ const Inventory = () => {
     try {
       const [resLots, resProducts, resOutbounds] = await Promise.all([
         fetch(`${INVENTORY_API}/inventory/lots?limit=5000&warehouseCode=${wh.code}`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`http://localhost:3010/products?limit=3000`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`http://localhost:3007/outbound-orders?limit=1000`, { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => null)
+        fetch(`${getApiHost(3010)}/products?limit=3000`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${getApiHost(3007)}/outbound-orders?limit=1000`, { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => null)
       ]);
 
       // Parse existing outbound orders map

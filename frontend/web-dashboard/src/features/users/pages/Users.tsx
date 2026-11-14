@@ -33,8 +33,9 @@ import {
 } from 'lucide-react';
 import { useAuth, ROLE_LABELS, ROLE_COLORS } from '@/features/auth';
 import type { UserRole } from '@/features/auth';
+import { getApiHost } from '@/shared';
 
-const API_BASE = 'http://localhost:3012';
+const API_BASE = getApiHost(3012);
 
 export interface ComprehensiveUser {
   id: string;

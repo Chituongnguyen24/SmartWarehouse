@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { useAuth } from '@/features/auth';
-import { globalDataCache } from '@/shared';
+import { globalDataCache, getApiHost } from '@/shared';
 
 export const STANDARD_12_CATEGORIES = [
   'Rau củ, trái cây',
@@ -40,9 +40,9 @@ export const STANDARD_12_CATEGORIES = [
   'Shop nổi bật'
 ];
 
-const API_BASE = 'http://localhost:3010';
-const WAREHOUSE_API = 'http://localhost:3005';
-const INVENTORY_API = 'http://localhost:3011';
+const API_BASE = getApiHost(3010);
+const WAREHOUSE_API = getApiHost(3005);
+const INVENTORY_API = getApiHost(3011);
 
 interface Warehouse {
   code: string;

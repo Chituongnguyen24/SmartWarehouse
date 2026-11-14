@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/features/auth';
+import { getApiHost } from '../utils/apiConfig';
 
 export interface Warehouse {
   id: string;
@@ -51,7 +52,7 @@ interface WarehouseContextType {
   closeManageModal: () => void;
 }
 
-const WAREHOUSE_API = 'http://localhost:3005';
+const WAREHOUSE_API = getApiHost(3005);
 
 const WarehouseContext = createContext<WarehouseContextType | undefined>(undefined);
 

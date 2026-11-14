@@ -13,6 +13,7 @@ export { AddressPicker } from './components/AddressPicker';
 
 // Shared Utilities & Caching
 export { globalDataCache } from './utils/dataCache';
+export * from './utils/apiConfig';
 
 // Shared Contexts
 export * from './contexts/WarehouseContext';

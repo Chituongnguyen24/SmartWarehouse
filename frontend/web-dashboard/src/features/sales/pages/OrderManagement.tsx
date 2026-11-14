@@ -9,10 +9,11 @@ import {
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { useAuth } from '@/features/auth';
+import { getApiHost } from '@/shared';
 import { PrintOrderSlipModal, detectSlipClassification } from '@/features/outbound';
 import { OutboundReceiptModal } from '@/features/outbound';
 
-const ORDER_API = 'http://localhost:3004/orders';
+const ORDER_API = `${getApiHost(3004)}/orders`;
 
 interface OrderItem {
   id: string;

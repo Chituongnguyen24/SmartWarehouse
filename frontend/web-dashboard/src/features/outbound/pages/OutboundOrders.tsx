@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { useAuth } from '@/features/auth';
-import { useWarehouse } from '@/shared';
+import { useWarehouse, getApiHost } from '@/shared';
 import { BarcodeQRScannerModal } from '@/shared';
 import { 
   PackageMinus, Search, ArrowRight, CheckCircle2, FileText, 
@@ -14,9 +14,9 @@ import { OutboundReceiptModal } from '../components/OutboundReceiptModal';
 import { CreateOutboundModal } from '../components/CreateOutboundModal';
 import { PrintOrderSlipModal, detectSlipClassification } from '../components/PrintOrderSlipModal';
 
-const API_BASE = 'http://localhost:3007'; // outbound-service
-const INVENTORY_API = 'http://localhost:3011'; // inventory-service for FEFO
-const SOCKET_URL = 'http://localhost:3004'; // order-service realtime gateway
+const API_BASE = getApiHost(3007); // outbound-service
+const INVENTORY_API = getApiHost(3011); // inventory-service for FEFO
+const SOCKET_URL = getApiHost(3004); // order-service realtime gateway
 
 interface OutboundOrderItem {
   id: string;

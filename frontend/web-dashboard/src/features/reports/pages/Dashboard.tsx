@@ -49,7 +49,7 @@ import {
 import { io, Socket } from 'socket.io-client';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth';
-import { useWarehouse } from '@/shared';
+import { useWarehouse, getApiHost } from '@/shared';
 
 // Standard Safe Thresholds for Gò Vấp Cold Chain
 const COOL_SAFE_MIN = 0.0;
@@ -222,7 +222,7 @@ export const Dashboard: React.FC = () => {
       const whCode = effectiveWhCode;
 
       // 1. Fetch Products
-      const pRes = await fetch('http://localhost:3010/products', {
+      const pRes = await fetch(`${getApiHost(3010)}/products`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (pRes.ok) {
@@ -232,7 +232,7 @@ export const Dashboard: React.FC = () => {
       }
 
       // 2. Fetch Inventory Lots
-      const lRes = await fetch(`http://localhost:3011/inventory/lots?warehouseCode=${whCode}&limit=1000`, {
+      const lRes = await fetch(`${getApiHost(3011)}/inventory/lots?warehouseCode=${whCode}&limit=1000`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       let lots = [];
@@ -270,14 +270,14 @@ export const Dashboard: React.FC = () => {
       setUrgentFefo(fefoList.sort((a, b) => b.fefoScore - a.fefoScore).slice(0, 5));
 
       // 4. Fetch Outbound Orders (Live Wave Picking)
-      const obRes = await fetch(`http://localhost:3007/outbound-orders?warehouseCode=${whCode}&limit=30`);
+      const obRes = await fetch(`${getApiHost(3007)}/outbound-orders?warehouseCode=${whCode}&limit=30`);
       if (obRes.ok) {
         const obData = await obRes.json();
         setOutboundOrders(Array.isArray(obData) ? obData : []);
       }
 
       // 5. Fetch Inbound Orders
-      const inRes = await fetch(`http://localhost:3006/inbound-orders?warehouseCode=${whCode}&limit=30`);
+      const inRes = await fetch(`${getApiHost(3006)}/inbound-orders?warehouseCode=${whCode}&limit=30`);
       if (inRes.ok) {
         const inData = await inRes.json();
         const pendingInbound = Array.isArray(inData)
@@ -298,7 +298,7 @@ export const Dashboard: React.FC = () => {
 
   // Real-time WebSocket connection to Gateway on Port 3004
   useEffect(() => {
-    const socket: Socket = io('http://localhost:3004', {
+    const socket: Socket = io(getApiHost(3004), {
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 10,
     });
@@ -328,7 +328,7 @@ export const Dashboard: React.FC = () => {
     try {
       if (activeLocatingShelf === shelfCode) {
         setActiveLocatingShelf(null);
-        await fetch('http://localhost:3007/outbound-orders/iot/complete-shelf', {
+        await fetch(`${getApiHost(3007)}/outbound-orders/iot/complete-shelf`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -338,7 +338,7 @@ export const Dashboard: React.FC = () => {
         });
       } else {
         setActiveLocatingShelf(shelfCode);
-        await fetch('http://localhost:3007/outbound-orders/iot/locate-shelf', {
+        await fetch(`${getApiHost(3007)}/outbound-orders/iot/locate-shelf`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

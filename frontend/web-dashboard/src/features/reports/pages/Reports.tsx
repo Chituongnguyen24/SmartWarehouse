@@ -51,13 +51,13 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PrintAccountingVoucherModal, type VoucherType } from '@/features/transport';
 import { useAuth } from '@/features/auth';
-import { useWarehouse } from '@/shared';
+import { useWarehouse, getApiHost } from '@/shared';
 
-const ORDER_API = 'http://localhost:3004/orders';
-const OUTBOUND_API = 'http://localhost:3007/outbound-orders';
-const INVENTORY_API = 'http://localhost:3011';
-const INBOUND_API = 'http://localhost:3006/inbound-orders';
-const SOCKET_URL = 'http://localhost:3004';
+const ORDER_API = `${getApiHost(3004)}/orders`;
+const OUTBOUND_API = `${getApiHost(3007)}/outbound-orders`;
+const INVENTORY_API = getApiHost(3011);
+const INBOUND_API = `${getApiHost(3006)}/inbound-orders`;
+const SOCKET_URL = getApiHost(3004);
 
 type MainReportTab = 'TAB_REVENUE' | 'TAB_INVENTORY' | 'TAB_COD' | 'TAB_EXPIRY';
 

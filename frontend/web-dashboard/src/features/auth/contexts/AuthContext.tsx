@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { getApiHost } from '@/shared';
 
 export type UserRole = 'ADMIN' | 'WAREHOUSE_MANAGER' | 'WAREHOUSE_STAFF' | 'SALES_STAFF' | 'DRIVER' | 'CUSTOMER';
 
@@ -66,7 +67,7 @@ export const ROLE_COLORS: Record<UserRole, string> = {
   CUSTOMER: '#f43f5e',
 };
 
-const API_BASE = 'http://localhost:3012';
+const API_BASE = getApiHost(3012);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Synchronously initialize auth from localStorage to eliminate 401 race conditions on page load

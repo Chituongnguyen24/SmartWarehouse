@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { getApiHost } from '@/shared';
 import { Eye, EyeOff, LogIn, AlertCircle, Phone, KeyRound, X, Check, RefreshCw, Lock } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
@@ -78,7 +79,7 @@ const LoginPage: React.FC = () => {
     setForgotError('');
     setForgotSuccess('');
     try {
-      const res = await fetch('http://localhost:3012/auth/otp/send', {
+      const res = await fetch(`${getApiHost(3012)}/auth/otp/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: cleanPhone, actionType: 'RESET_PASSWORD' }),
@@ -116,7 +117,7 @@ const LoginPage: React.FC = () => {
     setForgotLoading(true);
     setForgotError('');
     try {
-      const res = await fetch('http://localhost:3012/auth/forgot-password/confirm', {
+      const res = await fetch(`${getApiHost(3012)}/auth/forgot-password/confirm`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: cleanPhone, otpCode: cleanOtp, newPassword: cleanPass }),

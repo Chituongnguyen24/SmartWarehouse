@@ -8,9 +8,6 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  turbopack: {
-    root: path.resolve(__dirname, "../../"),
-  },
   images: {
     remotePatterns: [
       {

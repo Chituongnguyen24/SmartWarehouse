@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Truck, Route, ArrowUpRight, Clock, MapPin, CheckCircle2, RefreshCw, Play, User, Calendar, Phone, Navigation, ShieldCheck, Thermometer, AlertTriangle, Cpu, Circle, CheckSquare, Square, X, Camera, Package, DollarSign } from 'lucide-react';
 import { useAuth } from '@/features/auth';
+import { getApiHost } from '@/shared';
 
 export interface DriverInfo {
   id: string;
@@ -26,8 +27,8 @@ export interface VrpResponse {
   totalDistance: number;
 }
 
-const OUTBOUND_API = 'http://localhost:3007';
-const TRANSPORT_API = 'http://localhost:3013';
+const OUTBOUND_API = getApiHost(3007);
+const TRANSPORT_API = getApiHost(3013);
 
 const EXTENDED_MOCK_DRIVERS: DriverInfo[] = [
   { id: 'drv-01', name: 'Nguyễn Văn Hùng', licensePlate: '59-X1 884.92', vehicleType: 'NORMAL', capacityKg: 30, status: 'AVAILABLE', phone: '0909 888 111' },

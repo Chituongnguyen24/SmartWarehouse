@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/features/auth';
-import { useWarehouse } from '@/shared';
+import { useWarehouse, getApiHost } from '@/shared';
 import { BarcodeQRScannerModal } from '@/shared';
 import { 
   Download, PackageCheck, AlertCircle, ArrowRight, CheckCircle2, 
@@ -12,8 +12,8 @@ import { WarehouseMap3D } from '@/features/warehouse';
 import { InboundReceiptModal } from '../components/InboundReceiptModal';
 import { CreateInboundModal } from '../components/CreateInboundModal';
 
-const API_BASE = 'http://localhost:3006'; // inbound-service
-const INVENTORY_API = 'http://localhost:3011'; // inventory-service
+const API_BASE = getApiHost(3006); // inbound-service
+const INVENTORY_API = getApiHost(3011); // inventory-service
 
 interface InboundOrderItem {
   id: string;
