@@ -24,6 +24,7 @@ import {
   Save,
 } from 'lucide-react';
 import { useAuth, ROLE_LABELS, type UserRole } from '@/features/auth';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
 export interface ServiceHealth {
   name: string;
@@ -71,7 +72,7 @@ const SERVICE_REGISTRY: Omit<ServiceHealth, 'status' | 'latencyMs' | 'memoryMb' 
   { name: 'notification-service', port: 3004, tech: 'NestJS', description: 'Thông báo & cảnh báo tức thời' },
 ];
 
-const USER_API = 'http://localhost:3012';
+const USER_API = getApiHost(3012);
 
 export const AdminControlCenter = () => {
   const { user, token } = useAuth();

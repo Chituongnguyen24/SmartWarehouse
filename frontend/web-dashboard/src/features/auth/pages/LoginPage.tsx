@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getApiHost } from '@/shared';
+import { getApiHost } from '@/shared/utils/apiConfig';
 import { Eye, EyeOff, LogIn, AlertCircle, Phone, KeyRound, X, Check, RefreshCw, Lock } from 'lucide-react';
 
 const LoginPage: React.FC = () => {

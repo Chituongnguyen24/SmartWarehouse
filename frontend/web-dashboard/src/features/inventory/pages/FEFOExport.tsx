@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { ArrowUpRight, Zap, ListOrdered, Layers, TrendingDown, RefreshCcw } from 'lucide-react';
 import { useAuth } from '@/features/auth';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
-const API_BASE = 'http://localhost:3011'; // inventory-service
-const PRODUCT_API = 'http://localhost:3010'; // product-service
+const API_BASE = getApiHost(3011); // inventory-service
+const PRODUCT_API = getApiHost(3010); // product-service
 
 interface Lot {
   id: string;

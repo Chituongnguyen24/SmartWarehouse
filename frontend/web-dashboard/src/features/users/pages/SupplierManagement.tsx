@@ -27,8 +27,9 @@ import {
   Package,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
-const API_BASE = 'http://localhost:3011';
+const API_BASE = getApiHost(3011);
 
 export interface Supplier {
   id: string;

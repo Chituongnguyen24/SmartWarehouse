@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { useAuth } from '@/features/auth';
-import { getApiHost } from '@/shared';
+import { getApiHost } from '@/shared/utils/apiConfig';
 import { PrintOrderSlipModal, detectSlipClassification } from '@/features/outbound';
 import { OutboundReceiptModal } from '@/features/outbound';
 

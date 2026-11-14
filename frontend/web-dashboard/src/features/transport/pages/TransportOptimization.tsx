@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Truck, Route, ArrowUpRight, Clock, MapPin, CheckCircle2, RefreshCw, Play, User, Calendar, Phone, Navigation, ShieldCheck, Thermometer, AlertTriangle, Cpu, Circle, CheckSquare, Square, X, Camera, Package, DollarSign } from 'lucide-react';
 import { useAuth } from '@/features/auth';
-import { getApiHost } from '@/shared';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
 export interface DriverInfo {
   id: string;

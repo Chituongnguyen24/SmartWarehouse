@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getApiHost } from '@/shared';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
 export type UserRole = 'ADMIN' | 'WAREHOUSE_MANAGER' | 'WAREHOUSE_STAFF' | 'SALES_STAFF' | 'DRIVER' | 'CUSTOMER';
 

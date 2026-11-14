@@ -12,9 +12,10 @@ import {
 } from 'recharts';
 import { useAuth } from '@/features/auth';
 import { useWarehouse } from '@/shared';
+import { getApiHost } from '@/shared/utils/apiConfig';
 import { CreateInboundModal, type InboundItemInput } from './CreateInboundModal';
 
-const API_BASE = 'http://localhost:3006'; // inbound-service
+const API_BASE = getApiHost(3006); // inbound-service
 
 export interface DailyDataPoint {
   date: string;       // YYYY-MM-DD

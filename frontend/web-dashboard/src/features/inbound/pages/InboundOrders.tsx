@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/features/auth';
-import { useWarehouse, getApiHost } from '@/shared';
+import { useWarehouse } from '@/shared';
+import { getApiHost } from '@/shared/utils/apiConfig';
 import { BarcodeQRScannerModal } from '@/shared';
 import { 
   Download, PackageCheck, AlertCircle, ArrowRight, CheckCircle2, 

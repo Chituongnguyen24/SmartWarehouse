@@ -33,14 +33,15 @@ import {
 import { io } from 'socket.io-client';
 import { useAuth } from '@/features/auth';
 import { useWarehouse } from '@/shared';
+import { getApiHost } from '@/shared/utils/apiConfig';
 import { GOVAP_DRIVERS } from '@/features/sales/pages/OrderManagement';
 import { ControlTowerMap } from '../components/ControlTowerMap';
 import { PrintOrderSlipModal, detectSlipClassification } from '@/features/outbound';
 import { OutboundReceiptModal } from '@/features/outbound';
 
-const ORDER_API = 'http://localhost:3004/orders';
-const OUTBOUND_API = 'http://localhost:3007';
-const WAREHOUSE_API = 'http://localhost:3005';
+const ORDER_API = `${getApiHost(3004)}/orders`;
+const OUTBOUND_API = getApiHost(3007);
+const WAREHOUSE_API = getApiHost(3005);
 
 interface OrderItem {
   sku: string;

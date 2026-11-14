@@ -27,19 +27,10 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
 import { useWarehouse } from '@/shared';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
-const getHost = () => {
-  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
-    const h = window.location.hostname;
-    if (h && h !== 'localhost' && h !== '127.0.0.1') {
-      return h;
-    }
-  }
-  return 'localhost';
-};
-
-const PRODUCT_API = `http://${getHost()}:3010`;
-const INVENTORY_API = `http://${getHost()}:3011`;
+const PRODUCT_API = getApiHost(3010);
+const INVENTORY_API = getApiHost(3011);
 
 export interface Product {
   id: string;

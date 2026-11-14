@@ -51,7 +51,8 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PrintAccountingVoucherModal, type VoucherType } from '@/features/transport';
 import { useAuth } from '@/features/auth';
-import { useWarehouse, getApiHost } from '@/shared';
+import { useWarehouse } from '@/shared';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
 const ORDER_API = `${getApiHost(3004)}/orders`;
 const OUTBOUND_API = `${getApiHost(3007)}/outbound-orders`;

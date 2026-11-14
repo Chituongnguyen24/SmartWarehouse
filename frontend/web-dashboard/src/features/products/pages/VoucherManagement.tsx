@@ -23,8 +23,9 @@ import {
   Info
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
-const API_BASE = 'http://localhost:3010';
+const API_BASE = getApiHost(3010);
 
 export interface Voucher {
   id: string;

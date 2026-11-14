@@ -26,6 +26,7 @@ import {
   Terminal,
 } from 'lucide-react';
 import { useAuth, ROLE_LABELS, ROLE_COLORS } from '@/features/auth';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
 interface ActivityLog {
   id: string;
@@ -35,7 +36,7 @@ interface ActivityLog {
   status: 'success' | 'warning' | 'info';
 }
 
-const USER_API = 'http://localhost:3012';
+const USER_API = getApiHost(3012);
 
 const UserProfile = () => {
   const { user, token, updateProfile, refreshProfile } = useAuth();

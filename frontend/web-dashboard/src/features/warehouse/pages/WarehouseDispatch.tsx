@@ -26,7 +26,7 @@ import {
   Play
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
-import { getApiHost } from '@/shared';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
 // API Endpoints
 const OUTBOUND_API = getApiHost(3007);

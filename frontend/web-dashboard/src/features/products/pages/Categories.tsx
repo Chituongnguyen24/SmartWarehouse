@@ -16,8 +16,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
 import { globalDataCache } from '@/shared';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
-const API_BASE = 'http://localhost:3010';
+const API_BASE = getApiHost(3010);
 const CACHE_KEY_CATEGORIES = 'cache:web-dashboard:categories:list';
 
 export interface CategoryItem {

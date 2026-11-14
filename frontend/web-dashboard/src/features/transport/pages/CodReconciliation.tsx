@@ -32,9 +32,10 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/features/auth';
 import { useWarehouse } from '@/shared';
+import { getApiHost } from '@/shared/utils/apiConfig';
 import { PrintAccountingVoucherModal } from '../components/PrintAccountingVoucherModal';
 
-const ORDER_API = 'http://localhost:3004/orders';
+const ORDER_API = `${getApiHost(3004)}/orders`;
 
 // Reusable Professional Pagination Bar
 interface PaginationBarProps {

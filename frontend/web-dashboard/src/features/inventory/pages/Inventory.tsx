@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Boxes, MapPin, RefreshCw, X, Layers, Settings, Building2, Edit2, Send, ExternalLink, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/features/auth';
-import { useWarehouse, type Warehouse, getApiHost } from '@/shared';
+import { useWarehouse, type Warehouse } from '@/shared';
+import { getApiHost } from '@/shared/utils/apiConfig';
 import { Warehouse3DDigitalTwin } from '@/features/warehouse';
 
 const INVENTORY_API = getApiHost(3011); // inventory-service

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Layers, Thermometer, Wind, Zap, AlertTriangle, Search, X, Package, Box, Wrench, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/features/auth';
+import { getApiHost } from '@/shared/utils/apiConfig';
 import '@/styles/warehouse-layout.css';
 
 // ─── Types ───────────────────────────────────────────────
@@ -25,7 +26,7 @@ type ZoneKey = 'COLD' | 'FROZEN' | 'DRY';
 type ViewMode = 'CAPACITY' | 'TEMPERATURE';
 
 // ─── Constants ───────────────────────────────────────────
-const API_BASE = 'http://localhost:3005'; // warehouse-service
+const API_BASE = getApiHost(3005); // warehouse-service
 
 const ZONE_CONFIG: Record<ZoneKey, { name: string; temp: string; color: string; iconColor: string }> = {
   COLD:   { name: 'Kho Mát',         temp: '2°C – 8°C',       color: '#0ea5e9', iconColor: 'text-info'    },

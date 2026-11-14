@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import { useAuth, ROLE_LABELS, ROLE_COLORS } from '@/features/auth';
 import type { UserRole } from '@/features/auth';
-import { getApiHost } from '@/shared';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
 const API_BASE = getApiHost(3012);
 

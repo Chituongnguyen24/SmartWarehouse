@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { useAuth } from '@/features/auth';
-import { useWarehouse, getApiHost } from '@/shared';
+import { useWarehouse } from '@/shared';
+import { getApiHost } from '@/shared/utils/apiConfig';
 import { BarcodeQRScannerModal } from '@/shared';
 import { 
   PackageMinus, Search, ArrowRight, CheckCircle2, FileText, 

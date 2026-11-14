@@ -27,8 +27,9 @@ import {
   Clock,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
-const API_BASE = 'http://localhost:3012';
+const API_BASE = getApiHost(3012);
 
 export interface AuditLogEntry {
   id: string;

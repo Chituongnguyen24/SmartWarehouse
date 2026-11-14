@@ -49,7 +49,8 @@ import {
 import { io, Socket } from 'socket.io-client';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth';
-import { useWarehouse, getApiHost } from '@/shared';
+import { useWarehouse } from '@/shared';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
 // Standard Safe Thresholds for Gò Vấp Cold Chain
 const COOL_SAFE_MIN = 0.0;

@@ -7,8 +7,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
 import { useWarehouse } from '@/shared';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
-const USER_API = 'http://localhost:3012';
+const USER_API = getApiHost(3012);
 
 export interface WarehouseStaffMember {
   id: string;

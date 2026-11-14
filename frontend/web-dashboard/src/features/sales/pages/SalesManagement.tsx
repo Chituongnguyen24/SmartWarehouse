@@ -44,9 +44,10 @@ import {
   B2BOrderDetailModal,
 } from '../index';
 import type { B2BCustomer, OrderCartItem } from '../index';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
-const OUTBOUND_API = 'http://localhost:3007/outbound-orders';
-const PRODUCT_API = 'http://localhost:3010/products';
+const OUTBOUND_API = `${getApiHost(3007)}/outbound-orders`;
+const PRODUCT_API = `${getApiHost(3010)}/products`;
 
 export interface ProductInventoryItem {
   id: string;

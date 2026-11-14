@@ -23,7 +23,8 @@ import {
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { useAuth } from '@/features/auth';
-import { globalDataCache, getApiHost } from '@/shared';
+import { globalDataCache } from '@/shared';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
 export const STANDARD_12_CATEGORIES = [
   'Rau củ, trái cây',
