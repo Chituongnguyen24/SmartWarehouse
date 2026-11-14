@@ -66,7 +66,8 @@ if [ ! -f .env ]; then
 fi
 
 # Chạy Docker Compose tinh gọn trên EC2
-docker compose -f docker-compose.ec2.yml up -d
+sudo chmod 666 /var/run/docker.sock 2>/dev/null || true
+sudo docker compose -f docker-compose.ec2.yml up -d
 
 echo ">> Đang đợi PostgreSQL khởi tạo và nạp dữ liệu từ init-db.sql (15 giây)..."
 sleep 15
