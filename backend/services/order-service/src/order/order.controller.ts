@@ -30,9 +30,25 @@ export class OrderController {
     return this.orderService.create(createOrderDto);
   }
 
+  @Get('my-orders')
+  @ApiOperation({ summary: 'Lấy danh sách đơn hàng an toàn cho khách hàng (Anti-IDOR / Bảo mật dữ liệu cá nhân)' })
+  getMyOrders(
+    @Query('customerId') customerId?: string,
+    @Query('customerPhone') customerPhone?: string,
+  ) {
+    return this.orderService.findCustomerOrders(customerId, customerPhone);
+  }
+
   @Get()
   @ApiOperation({ summary: 'Get all orders' })
-  findAll(@Query('warehouseCode') warehouseCode?: string) {
+  findAll(
+    @Query('warehouseCode') warehouseCode?: string,
+    @Query('customerId') customerId?: string,
+    @Query('customerPhone') customerPhone?: string,
+  ) {
+    if (customerId || customerPhone) {
+      return this.orderService.findCustomerOrders(customerId, customerPhone);
+    }
     return this.orderService.findAll(warehouseCode);
   }
 
@@ -118,6 +134,15 @@ export class OrderController {
     return this.orderService.updateStatus(id, status);
   }
 
+  @Post(':id/cancel')
+  @ApiOperation({ summary: 'Hủy đơn hàng đàng hoàng & đồng bộ tồn kho giữa khách hàng và bộ phận kho' })
+  cancelOrder(
+    @Param('id') id: string,
+    @Body() body: { reason?: string; cancelledBy?: string },
+  ) {
+    return this.orderService.cancelOrder(id, body);
+  }
+
   @Put('sync-status/:id')
   @ApiOperation({ summary: 'Đồng bộ trạng thái đơn hàng thời gian thực từ Driver App / Web' })
   syncStatus(
@@ -125,6 +150,9 @@ export class OrderController {
     @Body() body: any,
   ) {
     const status = body?.status as OrderStatus;
+    if (status === OrderStatus.CANCELLED) {
+      return this.orderService.cancelOrder(id, body);
+    }
     return this.orderService.updateStatus(id, status, body);
   }
 

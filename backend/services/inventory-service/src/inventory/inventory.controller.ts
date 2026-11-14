@@ -142,6 +142,13 @@ export class InventoryController {
     return this.inventoryService.getExpiryAlertReport(filterDays);
   }
 
+  @Get('flashsale-suggestions')
+  @ApiOperation({ summary: 'Get smart Flash Sale clearance suggestions based on lots, expiry and stock' })
+  @ApiQuery({ name: 'warehouseCode', required: false, example: 'WH-006' })
+  getFlashSaleSuggestions(@Query('warehouseCode') warehouseCode?: string) {
+    return this.inventoryService.getFlashSaleSuggestions(warehouseCode);
+  }
+
   @Put('lots/:id/risk')
   @Roles(UserRole.WAREHOUSE_MANAGER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Update a lot\'s risk score and status (called by AI service)' })

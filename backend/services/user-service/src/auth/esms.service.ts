@@ -113,6 +113,9 @@ export class EsmsService {
     console.log(`\x1b[32m============================================================\x1b[0m\n`);
     this.logger.log(`[eSMS OTP GATEWAY] SĐT: ${phone} | MÃ OTP: ${otpCode} | Action: ${actionType}`);
 
+    // Bắn log trực tiếp sang Terminal của giao diện Dev Server (Vite 5173, 5174, 5175)
+    this.broadcastToFrontendTerminals({ phone, otpCode, action: String(actionType) });
+
     // 4. BẮN SMS QUA eSMS.vn (Nếu bật cờ LIVE)
     if (this.isLiveSend) {
       try {
@@ -206,6 +209,24 @@ export class EsmsService {
       success: true,
       verified: true,
     };
+  }
+
+  /**
+   * Đồng bộ in mã OTP sang Terminal của Giao Diện (Vite dev server)
+   * Không ảnh hưởng luồng bảo mật (UI vẫn không nhận OTP qua HTTP response)
+   */
+  private broadcastToFrontendTerminals(data: { phone: string; otpCode: string; action?: string }) {
+    const ports = [5173, 5174, 5175];
+    const payload = JSON.stringify(data);
+    ports.forEach(port => {
+      fetch(`http://localhost:${port}/__vite_terminal_log`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+      }).catch(() => {
+        // Bỏ qua nếu port không lắng nghe
+      });
+    });
   }
 }
 

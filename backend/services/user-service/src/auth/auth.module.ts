@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { UserModule } from '../user/user.module';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -13,6 +14,7 @@ import { EsmsService } from './esms.service';
 @Module({
   imports: [
     UserModule,
+    AuditLogModule,
     PassportModule,
     TypeOrmModule.forFeature([OtpVerification]),
     JwtModule.registerAsync({

@@ -7,6 +7,7 @@ export * from './components/CreateB2BCustomerModal';
 export * from './components/FefoClearancePanel';
 export * from './components/CreateB2BOrderPanel';
 export * from './components/B2BOrderDetailModal';
+export * from './components/B2BQuotationModal';
 
 export type { B2BCustomer } from './components/B2BCustomersPanel';
 export type { OrderCartItem, ProductInventoryItem } from './components/CreateB2BOrderPanel';

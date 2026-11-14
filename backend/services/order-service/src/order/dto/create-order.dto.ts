@@ -80,6 +80,31 @@ export class CreateOrderDto {
   @IsNumber()
   shippingLng?: number;
 
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  assignedWarehouseId?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  assignedWarehouseCode?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  assignedWarehouseName?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  idempotencyKey?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  transactionId?: string;
+
   @ApiProperty({ type: [CreateOrderItemDto] })
   @IsArray()
   @ValidateNested({ each: true })

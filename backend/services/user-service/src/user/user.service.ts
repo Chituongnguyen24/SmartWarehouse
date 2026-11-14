@@ -1,8 +1,10 @@
-import { Injectable, OnModuleInit, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, OnModuleInit, NotFoundException, ConflictException, BadRequestException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, ILike } from 'typeorm';
 import { User, UserRole } from './user.entity';
 import { Address } from './address.entity';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditSeverity } from '../audit-log/audit-log.entity';
 import * as bcrypt from 'bcrypt';
 
 export interface CreateStaffDto {
@@ -42,6 +44,8 @@ export class UserService implements OnModuleInit {
     private userRepository: Repository<User>,
     @InjectRepository(Address)
     private addressRepository: Repository<Address>,
+    @Optional()
+    private auditLogService?: AuditLogService,
   ) {}
 
   async onModuleInit() {
@@ -936,6 +940,14 @@ export class UserService implements OnModuleInit {
     return this.userRepository.save(user);
   }
 
+  async findByPhone(phone: string): Promise<User | null> {
+    if (!phone) return null;
+    const clean = phone.trim();
+    return this.userRepository.findOne({
+      where: [{ phone: clean }, { phone: ILike(`%${clean.slice(-9)}%`) }],
+    });
+  }
+
   async saveUser(user: User): Promise<User> {
     return this.userRepository.save(user);
   }
@@ -1090,6 +1102,22 @@ export class UserService implements OnModuleInit {
     user.status = isLocked ? 'ACTIVE' : 'INACTIVE';
     user.lockedAt = isLocked ? null : new Date();
     await this.userRepository.save(user);
+
+    this.auditLogService?.create({
+      actorName: 'Quản trị viên (Admin)',
+      actorRole: 'ADMIN',
+      action: isLocked ? 'Mở khóa tài khoản nhân sự' : 'Khóa tài khoản nhân sự',
+      actionCode: isLocked ? 'USER_ACCOUNT_UNLOCKED' : 'USER_ACCOUNT_LOCKED',
+      target: 'users',
+      targetId: user.email || user.code || user.id,
+      clientApp: 'WEB_DASHBOARD',
+      serviceName: 'user-service',
+      severity: isLocked ? AuditSeverity.INFO : AuditSeverity.WARN,
+      details: `Tài khoản [${user.code || 'USER'}] ${user.name} (${user.email || user.phone}) đã được ${isLocked ? 'mở khóa hoạt động' : 'khóa ngưng hoạt động'}.`,
+      payloadBefore: { status: isLocked ? 'INACTIVE' : 'ACTIVE' },
+      payloadAfter: { status: isLocked ? 'ACTIVE' : 'INACTIVE' },
+    }).catch(() => {});
+
     return { isLocked: !isLocked };
   }
 
@@ -1108,6 +1136,20 @@ export class UserService implements OnModuleInit {
     }
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     await this.userRepository.save(user);
+
+    this.auditLogService?.create({
+      actorName: 'Quản trị viên (Admin)',
+      actorRole: 'ADMIN',
+      action: 'Đặt lại mật khẩu người dùng',
+      actionCode: 'USER_PASSWORD_RESET',
+      target: 'users',
+      targetId: user.email || user.code || user.id,
+      clientApp: 'WEB_DASHBOARD',
+      serviceName: 'user-service',
+      severity: AuditSeverity.WARN,
+      details: `Mật khẩu của tài khoản [${user.code || 'USER'}] ${user.name} (${user.email || user.phone}) đã được quản trị viên đặt lại thành công.`,
+    }).catch(() => {});
+
     return { newPassword };
   }
 

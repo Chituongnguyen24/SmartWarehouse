@@ -22,6 +22,7 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
 
   const isAdmin = user?.role === 'ADMIN';
   const isManager = user?.role === 'WAREHOUSE_MANAGER';
+  const isSaler = user?.role === 'SALES_STAFF';
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [whSearch, setWhSearch] = useState('');
@@ -247,13 +248,32 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
               backgroundColor: '#f0fdfa',
               border: '1px solid #ccfbf1',
               padding: '6px 12px',
-              borderRadius: '10px',
+              borderRadius: '8px',
               color: '#0f766e',
               fontSize: '0.82rem',
-              fontWeight: 700,
+              fontWeight: 600,
             }}>
               <Building2 size={15} />
               <span>Kho Trực Thuộc: <strong>{selectedWarehouse?.name || user?.warehouseCode}</strong></span>
+            </div>
+          )}
+
+          {/* Business Scope Badge for Sales Staff */}
+          {isSaler && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              backgroundColor: '#f0f9ff',
+              border: '1px solid #bae6fd',
+              padding: '6px 12px',
+              borderRadius: '8px',
+              color: '#0369a1',
+              fontSize: '0.82rem',
+              fontWeight: 600,
+            }}>
+              <Building2 size={15} />
+              <span>Phạm Vi Kinh Doanh: <strong>Toàn Mạng Lưới Kho (Tất Cả Đơn Hàng)</strong></span>
             </div>
           )}
         </div>

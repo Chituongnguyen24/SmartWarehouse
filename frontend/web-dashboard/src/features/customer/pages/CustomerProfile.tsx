@@ -20,7 +20,6 @@ const CustomerProfile: React.FC = () => {
   const [editName, setEditName] = useState(user?.name || '');
   const [editEmail, setEditEmail] = useState(user?.email || '');
   const [editPhone, setEditPhone] = useState(user?.phone || '');
-  const [editPassword, setEditPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   React.useEffect(() => {
@@ -62,11 +61,9 @@ const CustomerProfile: React.FC = () => {
         name: editName,
         email: editEmail,
         phone: editPhone,
-        password: editPassword || undefined,
       });
       alert('Cập nhật thông tin cá nhân thành công!');
       setIsEditing(false);
-      setEditPassword('');
     } catch (err: any) {
       alert(err.message || 'Có lỗi xảy ra khi cập nhật thông tin!');
     } finally {
@@ -186,14 +183,10 @@ const CustomerProfile: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>Mật khẩu mới (bỏ trống nếu không đổi)</label>
-                    <input
-                      type="password"
-                      placeholder="Mật khẩu mới"
-                      value={editPassword}
-                      onChange={e => setEditPassword(e.target.value)}
-                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
-                    />
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>Phương thức bảo mật</label>
+                    <div style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #bbf7d0', backgroundColor: '#f0fdf4', color: '#166534', fontSize: '0.825rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <CheckCircle size={15} /> Xác thực qua mã OTP di động (Không sử dụng mật khẩu tĩnh)
+                    </div>
                   </div>
                 </div>
 

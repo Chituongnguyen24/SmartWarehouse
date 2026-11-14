@@ -16,6 +16,7 @@ import { S3StorageService } from '../storage/s3-storage.service';
 export class OrderService {
   private readonly logger = new Logger(OrderService.name);
   private readonly inventoryApi = 'http://localhost:3011/internal/inventory/reserve';
+  private readonly productApi = process.env.PRODUCT_SERVICE_URL || 'http://localhost:3010';
 
   constructor(
     @InjectRepository(Order)
@@ -32,6 +33,17 @@ export class OrderService {
 
   async create(createOrderDto: CreateOrderDto): Promise<Order> {
     const { items, ...orderData } = createOrderDto;
+
+    // 0. IDEMPOTENCY KEY CHECK (CHỐNG TẠO ĐƠN TRÙNG LẶP DO DOUBLE-CLICK HOẶC RETRY MẠNG)
+    if (createOrderDto.idempotencyKey) {
+      const existing = await this.orderRepository.findOne({
+        where: { idempotencyKey: createOrderDto.idempotencyKey },
+      });
+      if (existing) {
+        this.logger.log(`[Idempotent Order] Trả về đơn hàng có sẵn ${existing.id} cho key: ${createOrderDto.idempotencyKey}`);
+        return existing;
+      }
+    }
 
     // 1. SMART ORDER ROUTING (Haversine Geospatial Analysis)
     let assignedWarehouseId = (orderData as any).assignedWarehouseId;
@@ -97,42 +109,101 @@ export class OrderService {
       this.logger.warn(`Could not connect to inventory-service: ${err.message}`);
     }
 
-    // 3. Tính toán chi phí đơn hàng và tạo danh sách OrderItem
+    // 3. XÁC THỰC GIÁ TỪ MÁY CHỦ & TÍNH TOÁN DANH SÁCH ORDER ITEM (CHỐNG SỬA GIÁ TỪ CLIENT / PRICE TAMPERING)
     const orderItems: OrderItem[] = [];
-    let calculatedTotal = 0;
+    let calculatedSubtotal = 0;
 
     for (const itemDto of items) {
-      calculatedTotal += Number(itemDto.price) * itemDto.quantity;
+      const skuOrId = itemDto.sku || itemDto.productId;
+      let authoritativePrice = Number(itemDto.price);
+
+      // Tra cứu giá niêm yết/flash sale chính thức từ product-service
+      try {
+        const prodRes = await fetch(`${this.productApi}/products/${encodeURIComponent(skuOrId)}`);
+        if (prodRes.ok) {
+          const prodData = await prodRes.json();
+          if (prodData && prodData.price !== undefined) {
+            const canonicalPrice = Number(prodData.price);
+            if (canonicalPrice > 0) {
+              authoritativePrice = canonicalPrice;
+            }
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Could not verify product price from product-service for ${skuOrId}: ${err.message}`);
+      }
+
+      const itemQty = Math.max(1, Math.floor(Number(itemDto.quantity || 1)));
+      calculatedSubtotal += authoritativePrice * itemQty;
 
       const orderItem = new OrderItem();
       orderItem.productId = itemDto.productId;
       orderItem.sku = itemDto.sku;
       orderItem.productName = itemDto.productName;
-      orderItem.quantity = itemDto.quantity;
-      orderItem.price = itemDto.price;
+      orderItem.quantity = itemQty;
+      orderItem.price = authoritativePrice;
       orderItems.push(orderItem);
     }
 
-    // 3. Create Entity and persist to PostgreSQL
-    const isOnlinePaid = ['vnpay', 'momo', 'card', 'bank_transfer', 'zalopay'].includes(
-      (orderData.paymentMethod || '').toLowerCase()
-    );
+    // 4. XÁC THỰC MÃ GIẢM GIÁ TỪ PRODUCT-SERVICE (CHỐNG BƠM CHIẾT KHẤU ẢO / VOUCHER TAMPERING)
+    let verifiedDiscount = 0;
+    const rawVoucherCode = (orderData.voucherCode || '').trim().toUpperCase();
 
+    if (rawVoucherCode) {
+      try {
+        const voucherRes = await fetch(`${this.productApi}/vouchers/validate/${encodeURIComponent(rawVoucherCode)}`);
+        if (voucherRes.ok) {
+          const voucher = await voucherRes.json();
+          if (voucher && voucher.isActive) {
+            const now = new Date();
+            const start = voucher.startDate ? new Date(voucher.startDate) : null;
+            const end = voucher.endDate ? new Date(voucher.endDate) : null;
+            const isValidTime = (!start || now >= start) && (!end || now <= end);
+            const minSpend = Number(voucher.minOrderAmount || 0);
+
+            if (isValidTime && calculatedSubtotal >= minSpend) {
+              if (voucher.discountType === 'PERCENTAGE') {
+                const pct = Number(voucher.discountValue || 0);
+                let disc = Math.round((calculatedSubtotal * pct) / 100);
+                if (voucher.maxDiscountAmount && Number(voucher.maxDiscountAmount) > 0) {
+                  disc = Math.min(disc, Number(voucher.maxDiscountAmount));
+                }
+                verifiedDiscount = disc;
+              } else {
+                verifiedDiscount = Number(voucher.discountValue || 0);
+              }
+            }
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Could not validate voucher ${rawVoucherCode}: ${err.message}`);
+      }
+    }
+
+    // 5. TÍNH TOÁN TỔNG TIỀN & XÁC THỰC TRẠNG THÁI THANH TOÁN AN TOÀN
     const fee = Number(orderData.shippingFee || 0);
-    const disc = Number(orderData.discount || 0);
-    const finalTotalAmount = calculatedTotal > 0 
-      ? (calculatedTotal + fee - disc) 
-      : Number((orderData as any).totalAmount || 0);
+    const finalTotalAmount = Math.max(0, calculatedSubtotal + fee - verifiedDiscount);
+
+    const paymentMethodLower = (orderData.paymentMethod || 'cod').toLowerCase();
+    const isOnlineMethod = ['vnpay', 'momo', 'card', 'bank_transfer', 'zalopay'].includes(paymentMethodLower);
+
+    // Giao dịch Online chỉ xem là đã trả tiền khi có mã giao dịch hợp lệ
+    const hasTransaction = Boolean(createOrderDto.transactionId || (orderData as any).transactionId);
+    const isPaid = isOnlineMethod && hasTransaction;
 
     const order = this.orderRepository.create({
       ...orderData,
-      totalAmount: Math.max(0, finalTotalAmount),
+      idempotencyKey: createOrderDto.idempotencyKey || null,
+      transactionId: createOrderDto.transactionId || null,
+      paidAt: isPaid ? new Date() : null,
+      totalAmount: finalTotalAmount,
       shippingFee: fee,
-      discount: disc,
+      discount: verifiedDiscount,
+      voucherCode: verifiedDiscount > 0 ? rawVoucherCode : null,
       status: OrderStatus.PENDING,
-      isPaid: isOnlinePaid,
-      codCollectedAmount: isOnlinePaid ? 0 : 0,
-      codSettledStatus: isOnlinePaid ? 'SETTLED' : 'UNSETTLED',
+      isPaid,
+      codCollectedAmount: 0,
+      codSettledStatus: isPaid ? 'SETTLED' : 'UNSETTLED',
       assignedWarehouseId: assignedWarehouseId || 'WH-006',
       assignedWarehouseCode: assignedWarehouseCode || 'WH-006',
       assignedWarehouseName: assignedWarehouseName || 'Kho Hàng Gò Vấp (Trung Tâm)',
@@ -256,6 +327,28 @@ export class OrderService {
     return orders;
   }
 
+  async findCustomerOrders(customerId?: string, customerPhone?: string): Promise<Order[]> {
+    if (!customerId && !customerPhone) {
+      return [];
+    }
+
+    const qb = this.orderRepository.createQueryBuilder('order')
+      .leftJoinAndSelect('order.items', 'items');
+
+    const cleanPhone = (customerPhone || '').trim();
+    const cleanId = (customerId || '').trim();
+
+    if (cleanId && cleanPhone) {
+      qb.where('(order.customerId = :cleanId OR order.customerPhone = :cleanPhone)', { cleanId, cleanPhone });
+    } else if (cleanId) {
+      qb.where('order.customerId = :cleanId', { cleanId });
+    } else {
+      qb.where('order.customerPhone = :cleanPhone', { cleanPhone });
+    }
+
+    return qb.orderBy('order.createdAt', 'DESC').getMany();
+  }
+
   async findOne(id: string): Promise<Order> {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     let order: Order | null = null;
@@ -284,6 +377,124 @@ export class OrderService {
       Object.assign(order, raw[0]);
     }
     return order;
+  }
+
+  /**
+   * HỦY ĐƠN HÀNG DOANH NGHIỆP (ĐỒNG BỘ KHÁCH HÀNG & BỘ PHẬN KHO)
+   * Quy tắc nghiệp vụ: Chỉ khi đơn hàng đang trong trạng thái DELIVERING mới không cho hủy nữa.
+   * Các trạng thái trước đó (PENDING, PROCESSING, PICKING, PACKING, PACKED, CONFIRMED, READY_FOR_DELIVERY)
+   * đều được phép hủy và tự động hoàn trả tồn kho về kho xuất tương ứng.
+   */
+  async cancelOrder(id: string, body?: { reason?: string; cancelledBy?: string }): Promise<Order> {
+    const order = await this.findOne(id);
+    if (!order) {
+      throw new NotFoundException(`Không tìm thấy đơn hàng với mã: ${id}`);
+    }
+
+    // 1. Kiểm tra quy tắc nghiệp vụ: Không cho phép hủy khi đang giao hàng hoặc đã giao xong
+    if (order.status === OrderStatus.DELIVERING) {
+      throw new BadRequestException(
+        'Đơn hàng đang trong trạng thái đang giao hàng, không thể hủy đơn lúc này. Quý khách vui lòng nhận hàng hoặc liên hệ trực tiếp tài xế khi giao đến!',
+      );
+    }
+    if (order.status === OrderStatus.COMPLETED) {
+      throw new BadRequestException('Đơn hàng đã được giao thành công, không thể hủy đơn.');
+    }
+    if (order.status === OrderStatus.CANCELLED) {
+      throw new BadRequestException('Đơn hàng này đã được hủy trước đó.');
+    }
+
+    const previousStatus = order.status;
+    const cancelReason = body?.reason || 'Khách hàng yêu cầu hủy đơn';
+    const cancelledBy = body?.cancelledBy || 'CUSTOMER';
+
+    order.status = OrderStatus.CANCELLED;
+    order.cancelReason = cancelReason;
+    order.cancelledBy = cancelledBy;
+    order.cancelledAt = new Date();
+
+    // 2. Cập nhật cơ sở dữ liệu
+    await this.orderRepository.query(
+      `
+      UPDATE orders 
+      SET status = $1, cancel_reason = $2, cancelled_by = $3, cancelled_at = $4
+      WHERE id = $5
+      `,
+      [order.status, order.cancelReason, order.cancelledBy, order.cancelledAt, order.id],
+    ).catch(() => {});
+
+    const saved = await this.orderRepository.save(order);
+
+    // 3. Hoàn tồn kho (Release reserved inventory) về kho xuất
+    if (saved.items && saved.items.length > 0) {
+      const releaseItems = saved.items.map((item) => ({
+        sku: item.sku || item.productId,
+        quantity: Number(item.quantity || 1),
+      }));
+
+      try {
+        const releaseApi = 'http://localhost:3011/internal/inventory/release';
+        const res = await fetch(releaseApi, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: releaseItems,
+            warehouseId: saved.assignedWarehouseCode || saved.assignedWarehouseId || 'WH-006',
+            orderId: saved.id,
+            reason: cancelReason,
+          }),
+        });
+
+        if (res.ok) {
+          this.logger.log(`[Cancel Order] Đã hoàn trả tồn kho thành công cho ${releaseItems.length} sản phẩm của đơn #${saved.id}`);
+        } else {
+          const errText = await res.text().catch(() => '');
+          this.logger.warn(`[Cancel Order] Lỗi từ inventory-service khi hoàn tồn kho: ${errText}`);
+        }
+      } catch (err: any) {
+        this.logger.warn(`[Cancel Order] Không thể kết nối tới inventory-service để hoàn kho: ${err.message}`);
+      }
+    }
+
+    // 3.5. Đồng bộ hủy đơn xuất kho tương ứng sang outbound-service (port 3007)
+    try {
+      const outboundCode = `ECOMM-${saved.id.slice(0, 8).toUpperCase()}`;
+      await fetch(`http://localhost:3007/outbound-orders/${outboundCode}/cancel`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+      }).catch(async () => {
+        await fetch(`http://localhost:3007/outbound-orders/${saved.id}/cancel`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+        }).catch(() => {});
+      });
+      this.logger.log(`[Cancel Order] Đã đồng bộ hủy đơn xuất kho ${outboundCode} sang outbound-service (:3007)`);
+    } catch (err: any) {
+      this.logger.warn(`[Cancel Order] Không thể đồng bộ hủy sang outbound-service: ${err.message}`);
+    }
+
+    // 4. Phát sóng WebSocket đồng bộ thời gian thực cho Kho & Khách hàng
+    try {
+      this.orderGateway.emitOrderStatusUpdated(saved);
+      this.orderGateway.broadcastEvent('order_cancelled', {
+        orderId: saved.id,
+        orderCode: `ECOMM-${saved.id.slice(0, 8).toUpperCase()}`,
+        status: OrderStatus.CANCELLED,
+        previousStatus,
+        cancelReason,
+        cancelledBy,
+        cancelledAt: saved.cancelledAt,
+        warehouseCode: saved.assignedWarehouseCode || 'WH-006',
+      });
+      this.orderGateway.broadcastEvent('all_alerts', {
+        channel: 'order_cancelled',
+        message: `Đơn hàng ECOMM-${saved.id.slice(0, 8).toUpperCase()} đã bị hủy (${cancelReason}). Đã dừng xử lý và hoàn trả tồn kho!`,
+        data: saved,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (e) {}
+
+    return saved;
   }
 
   async updateStatus(id: string, status: OrderStatus, body?: any): Promise<Order> {
@@ -325,6 +536,13 @@ export class OrderService {
     }
 
     if (order) {
+      if (status === OrderStatus.CANCELLED) {
+        return this.cancelOrder(order.id, {
+          reason: body?.reason || body?.failureReason || 'Hủy đơn hàng',
+          cancelledBy: body?.cancelledBy || 'STAFF',
+        });
+      }
+
       if (status) order.status = status;
       if (body?.driverId) order.assignedDriverId = body.driverId;
       if (body?.driverName) order.assignedDriverName = body.driverName;

@@ -146,42 +146,29 @@ export class InventoryService implements OnModuleInit {
     }
 
     const seedWarehouseLots = [
-
       // WH-001 (HCM North - District 12)
-      { warehouseCode: 'WH-001', sku: 'EM-89553', quantity: 100, lotCode: 'LOT-EM-89553-WH1', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 5, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-001', sku: 'NOODLE-HAOHAO', quantity: 500, lotCode: 'LOT-NOODLE-WH1', zone: 'DRY', location: 'dry-shelf-A1', daysOffset: 60, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-001', sku: 'BEEF-STEAK-US', quantity: 50, lotCode: 'LOT-BEEF-WH1', zone: 'FROZEN', location: 'frozen-shelf-A1', daysOffset: 30, riskScore: 0, status: LotStatus.NORMAL },
-      { warehouseCode: 'WH-001', sku: 'EM-11473', quantity: 60, lotCode: 'LOT-EM-11473-WH1', zone: 'COLD', location: 'cold-shelf-A3', daysOffset: 4, riskScore: 0, status: LotStatus.NORMAL },
 
       // WH-002 (HCM East - Thu Duc)
-      { warehouseCode: 'WH-002', sku: 'EM-89553', quantity: 150, lotCode: 'LOT-EM-89553-WH2', zone: 'COLD', location: 'cold-shelf-A2', daysOffset: 10, riskScore: 75, status: LotStatus.AT_RISK },
       { warehouseCode: 'WH-002', sku: 'NOODLE-HAOHAO', quantity: 300, lotCode: 'LOT-NOODLE-WH2', zone: 'DRY', location: 'dry-shelf-A2', daysOffset: 90, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-002', sku: 'BEEF-STEAK-US', quantity: 70, lotCode: 'LOT-BEEF-WH2', zone: 'FROZEN', location: 'frozen-shelf-A2', daysOffset: 45, riskScore: 0, status: LotStatus.NORMAL },
-      { warehouseCode: 'WH-002', sku: 'EM-11473', quantity: 80, lotCode: 'LOT-EM-11473-WH2', zone: 'COLD', location: 'cold-shelf-A4', daysOffset: 6, riskScore: 0, status: LotStatus.NORMAL },
 
       // WH-003 (HCM West - Binh Chanh)
-      { warehouseCode: 'WH-003', sku: 'EM-89553', quantity: 80, lotCode: 'LOT-EM-89553-WH3', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 15, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-003', sku: 'NOODLE-HAOHAO', quantity: 400, lotCode: 'LOT-NOODLE-WH3', zone: 'DRY', location: 'dry-shelf-A1', daysOffset: 45, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-003', sku: 'BEEF-STEAK-US', quantity: 30, lotCode: 'LOT-BEEF-WH3', zone: 'FROZEN', location: 'frozen-shelf-A1', daysOffset: 20, riskScore: 0, status: LotStatus.NORMAL },
-      { warehouseCode: 'WH-003', sku: 'EM-11473', quantity: 40, lotCode: 'LOT-EM-11473-WH3', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 3, riskScore: 10, status: LotStatus.NORMAL },
 
       // WH-004 (HCM South - District 7)
-      { warehouseCode: 'WH-004', sku: 'EM-89553', quantity: 200, lotCode: 'LOT-EM-89553-WH4', zone: 'COLD', location: 'cold-shelf-A3', daysOffset: 8, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-004', sku: 'NOODLE-HAOHAO', quantity: 600, lotCode: 'LOT-NOODLE-WH4', zone: 'DRY', location: 'dry-shelf-A3', daysOffset: 120, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-004', sku: 'BEEF-STEAK-US', quantity: 100, lotCode: 'LOT-BEEF-WH4', zone: 'FROZEN', location: 'frozen-shelf-A3', daysOffset: 60, riskScore: 0, status: LotStatus.NORMAL },
-      { warehouseCode: 'WH-004', sku: 'EM-11473', quantity: 120, lotCode: 'LOT-EM-11473-WH4', zone: 'COLD', location: 'cold-shelf-A3', daysOffset: 7, riskScore: 0, status: LotStatus.NORMAL },
 
       // WH-005 (HCM Center-East - Binh Thạnh)
-      { warehouseCode: 'WH-005', sku: 'EM-89553', quantity: 120, lotCode: 'LOT-EM-89553-WH5', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 6, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-005', sku: 'NOODLE-HAOHAO', quantity: 450, lotCode: 'LOT-NOODLE-WH5', zone: 'DRY', location: 'dry-shelf-A1', daysOffset: 50, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-005', sku: 'BEEF-STEAK-US', quantity: 40, lotCode: 'LOT-BEEF-WH5', zone: 'FROZEN', location: 'frozen-shelf-A1', daysOffset: 25, riskScore: 0, status: LotStatus.NORMAL },
-      { warehouseCode: 'WH-005', sku: 'EM-11473', quantity: 70, lotCode: 'LOT-EM-11473-WH5', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 5, riskScore: 0, status: LotStatus.NORMAL },
 
       // WH-006 (HCM Northwest - Go Vap)
-      { warehouseCode: 'WH-006', sku: 'EM-89553', quantity: 90, lotCode: 'LOT-EM-89553-WH6', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 4, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-006', sku: 'NOODLE-HAOHAO', quantity: 250, lotCode: 'LOT-NOODLE-WH6', zone: 'DRY', location: 'dry-shelf-A1', daysOffset: 35, riskScore: 0, status: LotStatus.NORMAL },
       { warehouseCode: 'WH-006', sku: 'BEEF-STEAK-US', quantity: 60, lotCode: 'LOT-BEEF-WH6', zone: 'FROZEN', location: 'frozen-shelf-A1', daysOffset: 15, riskScore: 0, status: LotStatus.NORMAL },
-      { warehouseCode: 'WH-006', sku: 'EM-11473', quantity: 50, lotCode: 'LOT-EM-11473-WH6', zone: 'COLD', location: 'cold-shelf-A1', daysOffset: 3, riskScore: 0, status: LotStatus.NORMAL },
     ];
 
     for (const lotData of seedWarehouseLots) {
@@ -595,6 +582,7 @@ export class InventoryService implements OnModuleInit {
     }
 
     this.invalidateLotsCache();
+    await this.syncProductServiceStock(initialProductId);
 
     return {
       success: true,
@@ -619,9 +607,11 @@ export class InventoryService implements OnModuleInit {
 
     const lotCode = lot.lotCode;
     const location = lot.location;
+    const prodId = lot.productId;
     await this.lotRepository.delete(lot.id);
     console.log(`[INVENTORY SERVICE] 🗑️ Manually deleted lot ${lotCode} from location ${location}`);
     this.invalidateLotsCache();
+    await this.syncProductServiceStock(prodId);
     return { success: true, message: `Đã xóa lô hàng ${lotCode} và giải phóng vị trí ${location}` };
   }
 
@@ -656,6 +646,7 @@ export class InventoryService implements OnModuleInit {
       throw new NotFoundException(`Không tìm thấy lô hàng với mã/ID ${dto.lotId}`);
     }
 
+    const previousQty = lot.remainingQty;
     const difference = dto.actualQuantity - lot.remainingQty;
 
     // Save Stock Movement if quantity changed
@@ -670,10 +661,34 @@ export class InventoryService implements OnModuleInit {
       await this.movementRepository.save(movement);
     }
 
+    // Push audit log to user-service
+    fetch('http://localhost:3012/audit-logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        actorName: dto.performedBy || 'Nhân viên trực ca',
+        actorRole: 'WAREHOUSE_STAFF',
+        clientApp: 'STAFF_APP',
+        serviceName: 'inventory-service',
+        action: difference === 0
+          ? `Kiểm kê khớp 100% lô [${lot.lotCode}]`
+          : `Kiểm kê phát hiện lệch tồn lô [${lot.lotCode}] (${difference > 0 ? `+${difference} thừa` : `${difference} thiếu`})`,
+        actionCode: difference === 0 ? 'INVENTORY_AUDIT_MATCH' : 'INVENTORY_AUDIT_DIFF',
+        target: 'lots',
+        targetId: lot.lotCode,
+        severity: difference === 0 ? 'INFO' : 'WARN',
+        details: `Lý do: ${dto.reason || 'Kiểm kê thực tế tại giá kệ'}. Số lượng tồn sổ sách: ${previousQty}, thực đếm: ${dto.actualQuantity}.`,
+        payloadBefore: { remainingQty: previousQty },
+        payloadAfter: { actualQuantity: dto.actualQuantity, difference, reason: dto.reason },
+      }),
+    }).catch(() => {});
+
     // Nếu số lượng về 0: Xóa lô hàng khỏi bảng để giải phóng vị trí kệ kho hoàn toàn
     if (dto.actualQuantity <= 0) {
+      const prodId = lot.productId;
       await this.lotRepository.delete(lot.id);
       this.invalidateLotsCache();
+      await this.syncProductServiceStock(prodId);
       return {
         ...lot,
         remainingQty: 0,
@@ -689,6 +704,7 @@ export class InventoryService implements OnModuleInit {
     const updatedLot = await this.lotRepository.save(lot);
 
     this.invalidateLotsCache();
+    await this.syncProductServiceStock(lot.productId);
     return updatedLot;
   }
 
@@ -760,6 +776,97 @@ export class InventoryService implements OnModuleInit {
           } else {
             await queryRunner.manager.save(Lot, lot);
           }
+        }
+      }
+
+      await queryRunner.commitTransaction();
+      this.invalidateLotsCache();
+      return true;
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async releaseInventory(
+    items: { sku: string; quantity: number }[],
+    warehouseId?: string,
+    orderId?: string,
+    reason?: string,
+  ): Promise<boolean> {
+    const queryRunner = this.lotRepository.manager.connection.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      for (const item of items) {
+        let product: any = null;
+        try {
+          product = await this.productService.findOneBySku(item.sku);
+        } catch (e) {}
+
+        if (!product) {
+          try {
+            product = await this.productService.findOne(item.sku);
+          } catch (e) {}
+        }
+
+        const targetIds = [item.sku];
+        if (product?.id) targetIds.push(product.id);
+        if (product?.sku) targetIds.push(product.sku);
+
+        // Find existing lot for this product in warehouse to restore stock
+        const qb = queryRunner.manager
+          .createQueryBuilder(Lot, 'lot')
+          .setLock('pessimistic_write')
+          .where('(lot.product_id IN (:...targetIds) OR lot.lot_code ILIKE :lotPrefix)', {
+            targetIds,
+            lotPrefix: `%${item.sku}%`,
+          });
+
+        if (warehouseId && warehouseId !== 'ALL') {
+          qb.andWhere('(lot.warehouse_id = :warehouseId OR lot.warehouse_code = :warehouseId)', { warehouseId });
+        }
+
+        const existingLot = await qb.orderBy('lot.created_at', 'DESC').getOne();
+
+        if (existingLot) {
+          existingLot.remainingQty = Number(existingLot.remainingQty) + Number(item.quantity);
+          await queryRunner.manager.save(Lot, existingLot);
+
+          const movement = queryRunner.manager.create(StockMovement, {
+            lotId: existingLot.id,
+            movementType: MovementType.IN,
+            quantity: Number(item.quantity),
+            reason: `[HOÀN TỒN KHO - HỦY ĐƠN #${orderId ? orderId.slice(0, 8).toUpperCase() : 'N/A'}] SKU: ${item.sku} (Lý do: ${reason || 'Khách hàng hủy đơn'})`,
+            performedBy: 'HỆ THỐNG HOÀN KHO TỰ ĐỘNG',
+          });
+          await queryRunner.manager.save(StockMovement, movement);
+        } else {
+          const newLot = queryRunner.manager.create(Lot, {
+            productId: product?.id || item.sku,
+            lotCode: `LOT-RESTORE-${item.sku}-${warehouseId || 'WH-006'}-${Date.now().toString().slice(-4)}`,
+            initialQty: Number(item.quantity),
+            remainingQty: Number(item.quantity),
+            warehouseId: warehouseId || 'WH-006',
+            warehouseCode: warehouseId || 'WH-006',
+            location: 'Khu vực hoàn hàng A-01',
+            receivedDate: new Date(),
+            expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            spoilageRiskScore: 10,
+          });
+          const savedNewLot = await queryRunner.manager.save(Lot, newLot);
+
+          const movement = queryRunner.manager.create(StockMovement, {
+            lotId: savedNewLot.id,
+            movementType: MovementType.IN,
+            quantity: Number(item.quantity),
+            reason: `[HOÀN TỒN KHO - HỦY ĐƠN #${orderId ? orderId.slice(0, 8).toUpperCase() : 'N/A'}] SKU: ${item.sku} (Tái lập lô lưu trữ)`,
+            performedBy: 'HỆ THỐNG HOÀN KHO TỰ ĐỘNG',
+          });
+          await queryRunner.manager.save(StockMovement, movement);
         }
       }
 
@@ -1094,15 +1201,213 @@ export class InventoryService implements OnModuleInit {
           { productId: skuOrProductId },
         ]
       });
-      const totalRemaining = lots.reduce((sum, l) => sum + (Number(l.remainingQty) > 0 ? Number(l.remainingQty) : 0), 0);
+      const now = new Date();
+      // Only count unexpired lots that are not expired/disposed
+      const unexpiredLots = lots.filter(l => 
+        Number(l.remainingQty) > 0 && 
+        new Date(l.expiryDate) > now && 
+        l.status !== LotStatus.EXPIRED
+      );
+      const totalRemaining = unexpiredLots.reduce((sum, l) => sum + Number(l.remainingQty), 0);
+      const hasLots = lots.length > 0;
+      const isExpired = hasLots && totalRemaining === 0 && lots.some(l => new Date(l.expiryDate) <= now || l.status === LotStatus.EXPIRED);
+
       await fetch('http://localhost:3010/products/sync-stock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sku: skuOrProductId, stock: totalRemaining })
+        body: JSON.stringify({ sku: skuOrProductId, stock: totalRemaining, isExpired })
       });
-      console.log(`[INVENTORY SERVICE] 🔄 Synced stock for ${skuOrProductId} to product-service: ${totalRemaining}`);
+      console.log(`[INVENTORY SERVICE] 🔄 Synced unexpired stock for ${skuOrProductId} to product-service: ${totalRemaining} (isExpired: ${isExpired})`);
     } catch (e: any) {
       console.warn(`[INVENTORY SERVICE] Failed to sync stock to product-service: ${e.message}`);
     }
   }
+
+  /**
+   * Smart Flash Sale & Clearance Suggestions Engine
+   * Evaluates near-expiry lots (FEFO), overstocked inventories, and generates optimal discount rates.
+   */
+  async getFlashSaleSuggestions(warehouseCode?: string): Promise<{
+    timestamp: string;
+    warehouseCode: string;
+    totalSuggestions: number;
+    criticalCount: number;
+    highRiskCount: number;
+    overstockCount: number;
+    totalPotentialLossAtRisk: number;
+    suggestions: FlashSaleSuggestion[];
+  }> {
+    const qb = this.lotRepository.createQueryBuilder('lot')
+      .where('lot.remaining_qty > 0');
+
+    if (warehouseCode && warehouseCode !== 'ALL') {
+      qb.andWhere('(lot.warehouse_code = :warehouseCode OR lot.warehouse_id = :warehouseCode)', { warehouseCode });
+    }
+
+    const lots = await qb.orderBy('lot.expiry_date', 'ASC').getMany();
+
+    // Group lots by productId
+    const grouped = new Map<string, Lot[]>();
+    for (const lot of lots) {
+      const pid = lot.productId || (lot as any).sku;
+      if (!pid) continue;
+      if (!grouped.has(pid)) {
+        grouped.set(pid, []);
+      }
+      grouped.get(pid)!.push(lot);
+    }
+
+    const suggestions: FlashSaleSuggestion[] = [];
+    const now = Date.now();
+    let criticalCount = 0;
+    let highRiskCount = 0;
+    let overstockCount = 0;
+    let totalPotentialLossAtRisk = 0;
+
+    for (const [productId, productLots] of grouped.entries()) {
+      let product = await this.productService.findOne(productId, true);
+      if (!product && productLots[0]?.lotCode) {
+        product = {
+          id: productId,
+          sku: productId,
+          name: `Sản phẩm ${productId}`,
+          category: 'Thực phẩm',
+          storageType: (productLots[0].zone as any) || 'DRY',
+          unit: 'Hộp',
+          price: 45000,
+          originalPrice: 45000,
+        };
+      }
+      // QUY TẮC NGHIỆP VỤ: Nếu sản phẩm không tồn tại hoặc ĐÃ ĐANG CHẠY Flash Sale -> Loại khỏi danh sách gợi ý
+      if (!product || product.isFlashSale) continue;
+
+      const totalStock = productLots.reduce((sum, l) => sum + (Number(l.remainingQty) || 0), 0);
+      if (totalStock <= 0) continue;
+
+      // Sort lots by expiry ascending
+      productLots.sort((a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime());
+      const earliestLot = productLots[0];
+      const earliestExpiry = new Date(earliestLot.expiryDate);
+      const daysRemaining = Math.ceil((earliestExpiry.getTime() - now) / (1000 * 60 * 60 * 24));
+
+      // Near expiry stock: lots expiring within 15 days
+      const nearExpiryLots = productLots.filter(l => {
+        const d = Math.ceil((new Date(l.expiryDate).getTime() - now) / (1000 * 60 * 60 * 24));
+        return d <= 15;
+      });
+      const nearExpiryStock = nearExpiryLots.reduce((sum, l) => sum + (Number(l.remainingQty) || 0), 0);
+
+      const origPrice = Number(product.originalPrice) || Number(product.price) || 30000;
+      const currentPrice = Number(product.price) || origPrice;
+
+      let urgencyTier: 'CRITICAL' | 'HIGH_RISK' | 'OVERSTOCK' | 'MONITOR' = 'MONITOR';
+      let suggestedDiscountPercent = 10;
+      let reason = '';
+
+      if (daysRemaining <= 5) {
+        urgencyTier = 'CRITICAL';
+        suggestedDiscountPercent = daysRemaining <= 2 ? 50 : 40;
+        reason = `Lô ${earliestLot.lotCode} chỉ còn ${daysRemaining <= 0 ? 'hôm nay' : `${daysRemaining} ngày`} hết hạn (tồn ${earliestLot.remainingQty} ${product.unit}). Khẩn cấp giảm ${suggestedDiscountPercent}% để thu hồi vốn, tránh hư hỏng.`;
+        criticalCount++;
+        totalPotentialLossAtRisk += origPrice * (nearExpiryStock || earliestLot.remainingQty);
+      } else if (daysRemaining <= 12) {
+        urgencyTier = 'HIGH_RISK';
+        suggestedDiscountPercent = 25;
+        reason = `Lô ${earliestLot.lotCode} còn ${daysRemaining} ngày hết hạn (tồn ${earliestLot.remainingQty} ${product.unit}). Khuyến nghị mở Flash Sale giảm ${suggestedDiscountPercent}% kích cầu FEFO.`;
+        highRiskCount++;
+        totalPotentialLossAtRisk += origPrice * (nearExpiryStock || earliestLot.remainingQty);
+      } else if (totalStock >= 150) {
+        urgencyTier = 'OVERSTOCK';
+        suggestedDiscountPercent = 15;
+        reason = `Tồn kho tích lũy cao (${totalStock} ${product.unit}). Đề xuất giờ vàng giảm ${suggestedDiscountPercent}% để giải phóng sức chứa kho.`;
+        overstockCount++;
+      } else if (daysRemaining <= 25) {
+        urgencyTier = 'MONITOR';
+        suggestedDiscountPercent = 10;
+        reason = `Lô ${earliestLot.lotCode} còn ${daysRemaining} ngày hết hạn. Có thể cân nhắc bổ sung Flash Sale định kỳ.`;
+      } else {
+        // Skip items that are completely safe and balanced
+        continue;
+      }
+
+      const suggestedPrice = Math.round(origPrice * (1 - suggestedDiscountPercent / 100));
+      const suggestedQuota = Math.min(nearExpiryStock > 0 ? nearExpiryStock : Math.round(totalStock * 0.4), totalStock);
+      const estimatedSaved = suggestedPrice * suggestedQuota;
+
+      suggestions.push({
+        productId: product.id,
+        sku: product.sku,
+        productName: product.name,
+        category: product.category,
+        imageUrl: product.imageUrl,
+        unit: product.unit || 'Cái',
+        originalPrice: origPrice,
+        currentPrice: currentPrice,
+        isAlreadyFlashSale: Boolean(product.isFlashSale),
+        currentDiscountPercent: Number(product.discountPercent || 0),
+        warehouseCode: earliestLot.warehouseCode || warehouseCode || 'WH-006',
+
+        totalStock,
+        nearExpiryStock: nearExpiryStock > 0 ? nearExpiryStock : earliestLot.remainingQty,
+        lotCode: earliestLot.lotCode,
+        earliestExpiryDate: earliestExpiry.toISOString(),
+        daysRemaining,
+        spoilageRiskScore: earliestLot.riskScore || (daysRemaining <= 5 ? 85 : daysRemaining <= 12 ? 65 : 20),
+
+        urgencyTier,
+        suggestedDiscountPercent,
+        suggestedFlashSalePrice: suggestedPrice,
+        suggestedQuota,
+        estimatedRevenueSaved: estimatedSaved,
+        recommendationReason: reason,
+      });
+    }
+
+    // Sort: CRITICAL -> HIGH_RISK -> OVERSTOCK -> MONITOR, then daysRemaining ASC
+    const tierPriority = { CRITICAL: 1, HIGH_RISK: 2, OVERSTOCK: 3, MONITOR: 4 };
+    suggestions.sort((a, b) => {
+      const pDiff = tierPriority[a.urgencyTier] - tierPriority[b.urgencyTier];
+      if (pDiff !== 0) return pDiff;
+      return a.daysRemaining - b.daysRemaining;
+    });
+
+    return {
+      timestamp: new Date().toISOString(),
+      warehouseCode: warehouseCode || 'ALL',
+      totalSuggestions: suggestions.length,
+      criticalCount,
+      highRiskCount,
+      overstockCount,
+      totalPotentialLossAtRisk,
+      suggestions,
+    };
+  }
+}
+
+export interface FlashSaleSuggestion {
+  productId: string;
+  sku: string;
+  productName: string;
+  category: string;
+  imageUrl?: string;
+  unit: string;
+  originalPrice: number;
+  currentPrice: number;
+  isAlreadyFlashSale: boolean;
+  currentDiscountPercent: number;
+  warehouseCode: string;
+
+  totalStock: number;
+  nearExpiryStock: number;
+  lotCode: string;
+  earliestExpiryDate: string;
+  daysRemaining: number;
+  spoilageRiskScore: number;
+
+  urgencyTier: 'CRITICAL' | 'HIGH_RISK' | 'OVERSTOCK' | 'MONITOR';
+  suggestedDiscountPercent: number;
+  suggestedFlashSalePrice: number;
+  suggestedQuota: number;
+  estimatedRevenueSaved: number;
+  recommendationReason: string;
 }

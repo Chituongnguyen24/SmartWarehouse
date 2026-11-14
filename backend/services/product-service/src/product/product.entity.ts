@@ -73,6 +73,9 @@ export class Product {
   @Column({ default: 0 })
   stock: number;
 
+  @Column({ name: 'is_expired', default: false })
+  isExpired: boolean;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

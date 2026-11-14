@@ -150,22 +150,36 @@ const Sidebar = () => {
           alignItems: 'center',
           gap: '0.5rem',
         }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: '50%',
-            background: 'var(--color-primary-600)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontSize: '0.75rem', fontWeight: 600, flexShrink: 0,
-          }}>
-            {user?.name?.split(' ').pop()?.charAt(0) || 'U'}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: '#fff', fontSize: '0.75rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {user?.name || 'User'}
+          <NavLink
+            to="/profile"
+            title="Xem hồ sơ, bảo mật & đổi mật khẩu"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              flex: 1,
+              minWidth: 0,
+              textDecoration: 'none',
+              color: 'inherit',
+            }}
+          >
+            <div style={{
+              width: 32, height: 32, borderRadius: '50%',
+              background: 'var(--color-primary-600)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#fff', fontSize: '0.75rem', fontWeight: 600, flexShrink: 0,
+            }}>
+              {user?.name?.split(' ').pop()?.charAt(0) || 'U'}
             </div>
-            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.65rem' }}>
-              {ROLE_LABELS[currentRole]}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ color: '#fff', fontSize: '0.75rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user?.name || 'User'}
+              </div>
+              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.65rem' }}>
+                {ROLE_LABELS[currentRole]}
+              </div>
             </div>
-          </div>
+          </NavLink>
           <button
             onClick={handleLogout}
             title="Đăng xuất"

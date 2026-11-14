@@ -310,6 +310,32 @@ const OrderManagement: React.FC = () => {
       });
     });
 
+    socket.on('order_cancelled', (data: any) => {
+      const targetId = (data?.orderId || data?.id || '').toLowerCase().replace(/^ecomm-/, '').replace(/^out-/, '').replace(/^ob-/, '');
+      setOrders(prevOrders => {
+        const existingIdx = prevOrders.findIndex(o => 
+          o.id.toLowerCase() === targetId || 
+          o.id.toLowerCase().startsWith(targetId.slice(0, 8)) ||
+          (targetId.length >= 8 && o.id.toLowerCase().slice(0, 8) === targetId.slice(0, 8))
+        );
+        if (existingIdx >= 0) {
+          const next = [...prevOrders];
+          next[existingIdx] = { 
+            ...next[existingIdx], 
+            status: 'CANCELLED',
+            cancelReason: data.cancelReason || next[existingIdx].cancelReason,
+          };
+          return next;
+        }
+        return prevOrders;
+      });
+      fetchOrders(false);
+    });
+
+    socket.on('outbound_order_updated', () => {
+      fetchOrders(false);
+    });
+
     // 2. Fast background polling fallback (every 2.5s) to guarantee instant status sync without F5
     const interval = setInterval(() => {
       fetchOrders(false);
@@ -407,10 +433,32 @@ const OrderManagement: React.FC = () => {
   }, [token, user, showToast]);
 
   const handleCancelOrder = useCallback(async (orderId: string) => {
-    if (window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này không?')) {
-      handleUpdateStatus(orderId, 'CANCELLED');
+    const target = orders.find(o => o.id === orderId);
+    if (target?.status === 'DELIVERING') {
+      showToast('Đơn hàng đang trong trạng thái đang giao hàng, không thể hủy đơn lúc này.', 'warning');
+      return;
     }
-  }, [handleUpdateStatus]);
+    const reason = window.prompt('Nhập lý do hủy đơn hàng:', 'Khách hàng liên hệ yêu cầu hủy');
+    if (reason === null) return;
+
+    try {
+      const res = await fetch(`${ORDER_API}/${orderId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason || 'Nhân viên hủy đơn', cancelledBy: 'STAFF' }),
+      });
+      if (res.ok) {
+        showToast('Đã hủy đơn hàng thành công và giải phóng hoàn tồn kho.', 'success');
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'CANCELLED' } : o));
+        setSelectedOrder(prev => prev && prev.id === orderId ? { ...prev, status: 'CANCELLED' } : prev);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.message || 'Không thể hủy đơn hàng.', 'error');
+      }
+    } catch (e) {
+      showToast('Lỗi kết nối khi gửi yêu cầu hủy đơn.', 'error');
+    }
+  }, [orders, showToast]);
 
   const handleAssignDriverSubmit = useCallback(async (orderId: string, driver: any) => {
     try {
@@ -1128,6 +1176,12 @@ const OrderManagement: React.FC = () => {
                         style={{ padding: '9px 16px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', boxShadow: '0 2px 6px rgba(37,99,235,0.25)' }}
                       >
                         <CheckCircle2 size={16} /> Xác nhận Đã Giao Hàng
+                      </button>
+                      <button 
+                        onClick={() => handleCancelOrder(selectedOrder.id)}
+                        style={{ padding: '9px 14px', background: '#fff', color: '#be123c', border: '1px solid #fecdd3', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}
+                      >
+                        Hủy đơn
                       </button>
                     </div>
                   )}

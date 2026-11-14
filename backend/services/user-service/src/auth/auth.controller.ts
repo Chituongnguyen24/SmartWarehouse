@@ -1,4 +1,4 @@
-import { Controller, Post, Put, Body, Get, UseGuards, Request, HttpCode, HttpStatus, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Put, Body, Get, UseGuards, Request, HttpCode, HttpStatus, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UserService } from '../user/user.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -137,24 +137,63 @@ export class AuthController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
+  @Post('change-password/send-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Gửi mã OTP xác nhận trước khi đổi mật khẩu (Mã OTP chỉ in ra Terminal)' })
+  async sendChangePasswordOtp(@Request() req) {
+    const userId = req.user.id || req.user.sub;
+    return this.authService.sendChangePasswordOtp(userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Chủ động đổi mật khẩu trong trang Cá nhân' })
+  @ApiOperation({ summary: 'Chủ động đổi mật khẩu trong trang Cá nhân (yêu cầu mã OTP)' })
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
         oldPassword: { type: 'string', example: 'oldpassword123' },
         newPassword: { type: 'string', example: 'newpassword123' },
+        otpCode: { type: 'string', example: '123456' },
       },
-      required: ['oldPassword', 'newPassword'],
+      required: ['oldPassword', 'newPassword', 'otpCode'],
     },
   })
   async changePassword(@Request() req, @Body() body: any) {
     const userId = req.user.id || req.user.sub;
     const oldPassword = (body.oldPassword || '').toString();
     const newPassword = (body.newPassword || '').toString();
-    return this.authService.changePassword(userId, oldPassword, newPassword);
+    const otpCode = (body.otpCode || body.otp || '').toString().trim();
+    return this.authService.changePassword(userId, oldPassword, newPassword, otpCode);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('phone/send-otp')
+  @ApiOperation({ summary: 'Gửi mã OTP xác nhận đổi số điện thoại (Mã OTP chỉ in ra Terminal)' })
+  async sendPhoneOtp(@Request() req, @Body() body: { phone: string }) {
+    const userId = req.user.id || req.user.sub;
+    const phone = (body.phone || '').toString().trim();
+    if (!phone) {
+      throw new BadRequestException('Vui lòng nhập số điện thoại mới cần cập nhật!');
+    }
+    return this.authService.sendPhoneUpdateOtp(userId, phone);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('phone/verify-otp')
+  @ApiOperation({ summary: 'Xác thực mã OTP và cập nhật số điện thoại mới' })
+  async verifyPhoneOtp(@Request() req, @Body() body: { phone: string; otpCode: string }) {
+    const userId = req.user.id || req.user.sub;
+    const phone = (body.phone || '').toString().trim();
+    const otpCode = (body.otpCode || '').toString().trim();
+    if (!phone || !otpCode) {
+      throw new BadRequestException('Vui lòng nhập đầy đủ số điện thoại và mã OTP xác thực 6 chữ số!');
+    }
+    return this.authService.verifyPhoneUpdateOtp(userId, phone, otpCode);
   }
 
   @ApiBearerAuth()
@@ -178,21 +217,36 @@ export class AuthController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Put('profile')
-  @ApiOperation({ summary: 'Update current user profile' })
+  @ApiOperation({ summary: 'Update current user profile (Chỉ được đổi tên, địa chỉ, thông tin cá nhân cơ bản)' })
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
         name: { type: 'string', example: 'Nguyễn Văn A' },
-        email: { type: 'string', example: 'customer@sfwms.vn' },
-        phone: { type: 'string', example: '0909888999' },
-        password: { type: 'string', example: 'newpassword123' },
+        address: { type: 'string', example: '123 Nguyễn Văn Cừ, Q.5' },
+        gender: { type: 'string', example: 'MALE' },
+        dob: { type: 'string', example: '1995-05-20' },
       },
     },
   })
   async updateProfile(@Request() req, @Body() body: any) {
     const userId = req.user.id || req.user.sub;
-    const updatedUser = await this.userService.update(userId, body);
+    // BẢO MẬT: Chỉ cho phép cập nhật các trường được phép thay đổi cá nhân
+    const allowedUpdates: any = {};
+    if (body.name && typeof body.name === 'string' && body.name.trim().length > 0) {
+      allowedUpdates.name = body.name.trim();
+    }
+    if (body.address !== undefined) {
+      allowedUpdates.address = typeof body.address === 'string' ? body.address.trim() : body.address;
+    }
+    if (body.gender !== undefined) {
+      allowedUpdates.gender = body.gender;
+    }
+    if (body.dob !== undefined) {
+      allowedUpdates.dob = body.dob;
+    }
+
+    const updatedUser = await this.userService.update(userId, allowedUpdates);
     const { passwordHash, ...result } = updatedUser;
     return result;
   }

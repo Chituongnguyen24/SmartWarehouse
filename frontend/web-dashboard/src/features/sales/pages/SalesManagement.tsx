@@ -68,6 +68,9 @@ export interface SalesOrder {
   customerPhone: string;
   customerType: string;
   address: string;
+  destination?: string;
+  warehouseCode?: string;
+  notes?: string;
   totalAmount: number;
   discountAmount: number;
   finalAmount: number;
@@ -75,6 +78,7 @@ export interface SalesOrder {
   createdAt: string;
   itemsCount: number;
   salesPerson: string;
+  items?: any[];
 }
 
 export interface ChatMessage {
@@ -200,7 +204,7 @@ export const SalesManagement = () => {
   // Fetch products from API
   const fetchProducts = async () => {
     try {
-      const res = await fetch(PRODUCT_API);
+      const res = await fetch(`${PRODUCT_API}?limit=200`);
       if (res.ok) {
         const data = await res.json();
         const productsList = Array.isArray(data) ? data : (data.items || data.data || []);
@@ -296,13 +300,17 @@ export const SalesManagement = () => {
             customerPhone: o.customerPhone || '0909 888 999',
             customerType: o.orderCode?.includes('ORD-WEB') ? 'Khách lẻ Web' : 'Khách B2B',
             address: o.destination || '227 Nguyễn Văn Cừ, Q.5, TP.HCM',
+            destination: o.destination || '227 Nguyễn Văn Cừ, Q.5, TP.HCM',
+            warehouseCode: o.warehouseCode || 'WH-006 (Tổng Kho Gò Vấp)',
+            notes: o.notes || o.deliveryNotes || '',
             totalAmount: o.totalAmount || (o.items || []).reduce((acc: number, item: any) => acc + (item.price || 35000) * (item.requestedQuantity || 1), 0),
             discountAmount: 0,
             finalAmount: o.totalAmount || (o.items || []).reduce((acc: number, item: any) => acc + (item.price || 35000) * (item.requestedQuantity || 1), 0),
             status: o.status || 'PENDING',
             createdAt: new Date(o.createdAt).toISOString().replace('T', ' ').substring(0, 16),
             itemsCount: (o.items || []).length || 1,
-            salesPerson: 'Hệ thống tự động'
+            salesPerson: 'Hệ thống tự động',
+            items: o.items || [],
           }));
 
           setSalesOrders(mapped);
@@ -865,6 +873,38 @@ export const SalesManagement = () => {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || 'Lỗi khi gửi yêu cầu xuất kho');
     }
+
+    // Ghi nhận nhật ký kiểm toán hệ thống (Audit Log)
+    try {
+      fetch('http://localhost:3012/audit-logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          action: 'Tạo đơn hàng xuất kho B2B',
+          actionCode: 'B2B_SALES_ORDER_CREATED',
+          actorName: user?.name || 'Sales Staff',
+          actorEmail: user?.email || 'sales@smartwarehouse.vn',
+          actorRole: user?.role || 'SALES_STAFF',
+          serviceName: 'order-service',
+          clientApp: 'WEB_DASHBOARD',
+          severity: 'INFO',
+          target: 'outbound_orders',
+          targetId: newOrderCode,
+          details: `Lập đơn hàng B2B #${newOrderCode} cho đối tác ${targetCustomer.name} (${targetCustomer.companyName || ''}), xuất từ kho ${orderDetails.warehouseCode}, tổng thanh toán ${finalAmount.toLocaleString('vi-VN')}đ`,
+          payloadAfter: {
+            orderCode: newOrderCode,
+            customerName: targetCustomer.name,
+            warehouseCode: orderDetails.warehouseCode,
+            paymentTerms: orderDetails.paymentTerms,
+            finalAmount,
+            itemsCount: cartItems.length,
+          },
+        }),
+      }).catch(() => {});
+    } catch (e) {}
 
     showToast(`Tạo thành công Đơn Sales B2B #${newOrderCode}. Đã đẩy sang Kho ${orderDetails.warehouseCode}!`);
     setCartItems([]);

@@ -27,6 +27,8 @@ import {
   FileText,
   Phone,
   ExternalLink,
+  Lock,
+  Eye,
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { useAuth } from '@/features/auth';
@@ -116,22 +118,27 @@ export default function OrderDispatch() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const isManager = user?.role === 'WAREHOUSE_MANAGER' || user?.role === 'WAREHOUSE_STAFF';
+  const isSaler = user?.role === 'SALES_STAFF';
+  const canOperateWarehouse = user?.role === 'ADMIN' || user?.role === 'WAREHOUSE_MANAGER' || user?.role === 'WAREHOUSE_STAFF';
   const myWarehouseCode = user?.warehouseCode || (user?.email?.includes('govap') ? 'WH-006' : 'WH-006');
 
   const [selectedWhFilter, setSelectedWhFilter] = useState<string>(() => {
     if (isManager) return myWarehouseCode;
+    if (isSaler) return 'ALL';
     return selectedWarehouseCode || 'ALL';
   });
 
   useEffect(() => {
     if (isManager) {
       setSelectedWhFilter(myWarehouseCode);
+    } else if (isSaler) {
+      setSelectedWhFilter('ALL');
     } else if (selectedWarehouseCode) {
       setSelectedWhFilter(selectedWarehouseCode);
     }
-  }, [isManager, myWarehouseCode, selectedWarehouseCode]);
+  }, [isManager, isSaler, myWarehouseCode, selectedWarehouseCode]);
 
-  const activeWh = isManager ? myWarehouseCode : selectedWhFilter;
+  const activeWh = isManager ? myWarehouseCode : (isSaler ? 'ALL' : selectedWhFilter);
 
   // Pipeline Step filter
   const [activePipelineStep, setActivePipelineStep] = useState<
@@ -607,6 +614,59 @@ export default function OrderDispatch() {
     });
 
     socket.on('new_order', () => fetchAllData(false));
+
+    socket.on('order_cancelled', (payload: any) => {
+      const targetId = (payload?.orderId || payload?.id || '').toLowerCase();
+      const targetCode = (payload?.orderCode || '').toLowerCase();
+      const clean = targetId.replace(/^ecomm-/, '').replace(/^out-/, '').replace(/^ob-/, '');
+
+      setOrders(prev =>
+        prev.map(o => {
+          const oId = (o.id || '').toLowerCase();
+          const oCode = (o.orderCode || '').toLowerCase();
+          const oClean = oId.replace(/^ecomm-/, '').replace(/^out-/, '').replace(/^ob-/, '');
+
+          const isMatch =
+            (targetId && oId === targetId) ||
+            (targetCode && (oCode === targetCode || oId === targetCode)) ||
+            (clean && oClean === clean) ||
+            (clean && clean.length >= 8 && (oId.startsWith(clean) || oClean.startsWith(clean)));
+
+          if (isMatch) {
+            return {
+              ...o,
+              status: 'CANCELLED',
+              cancelReason: payload.cancelReason || o.cancelReason,
+            };
+          }
+          return o;
+        })
+      );
+
+      setSelectedOrder(current => {
+        if (!current) return null;
+        const oId = (current.id || '').toLowerCase();
+        const oCode = (current.orderCode || '').toLowerCase();
+        const oClean = oId.replace(/^ecomm-/, '').replace(/^out-/, '').replace(/^ob-/, '');
+
+        const isMatch =
+          (targetId && oId === targetId) ||
+          (targetCode && (oCode === targetCode || oId === targetCode)) ||
+          (clean && oClean === clean) ||
+          (clean && clean.length >= 8 && (oId.startsWith(clean) || oClean.startsWith(clean)));
+
+        if (isMatch) {
+          return {
+            ...current,
+            status: 'CANCELLED',
+            cancelReason: payload.cancelReason || current.cancelReason,
+          };
+        }
+        return current;
+      });
+
+      fetchAllData(false);
+    });
 
     return () => {
       socket.disconnect();
@@ -1302,8 +1362,160 @@ export default function OrderDispatch() {
     return filteredOrders.slice(start, start + pageSize);
   }, [filteredOrders, currentPage, pageSize]);
 
+  // ── Column Resizing State & Logic ──
+  type ColKey = 'code' | 'customer' | 'driver' | 'cod' | 'status' | 'actions';
+
+  const DEFAULT_COL_WIDTHS: Record<ColKey, number> = useMemo(() => ({
+    code: 160,
+    customer: 280,
+    driver: 180,
+    cod: 130,
+    status: 170,
+    actions: canOperateWarehouse ? 360 : 280,
+  }), [canOperateWarehouse]);
+
+  const MIN_COL_WIDTHS: Record<ColKey, number> = {
+    code: 120,
+    customer: 160,
+    driver: 130,
+    cod: 90,
+    status: 130,
+    actions: 220,
+  };
+
+  const [colWidths, setColWidths] = useState<Record<ColKey, number>>(() => {
+    const saved = localStorage.getItem('sfwms_order_dispatch_col_widths');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed.code === 'number') {
+          return {
+            code: parsed.code || 160,
+            customer: parsed.customer || 280,
+            driver: parsed.driver || 180,
+            cod: parsed.cod || 130,
+            status: parsed.status || 170,
+            actions: parsed.actions || (canOperateWarehouse ? 360 : 280),
+          };
+        }
+      } catch (e) {}
+    }
+    return {
+      code: 160,
+      customer: 280,
+      driver: 180,
+      cod: 130,
+      status: 170,
+      actions: canOperateWarehouse ? 360 : 280,
+    };
+  });
+
+  const resizingColRef = React.useRef<{
+    col: ColKey;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
+
+  const [activeResizingCol, setActiveResizingCol] = useState<ColKey | null>(null);
+
+  const handleMouseDownResize = (col: ColKey, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizingColRef.current = {
+      col,
+      startX: e.clientX,
+      startWidth: colWidths[col],
+    };
+    setActiveResizingCol(col);
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (!resizingColRef.current) return;
+      const deltaX = moveEvent.clientX - resizingColRef.current.startX;
+      const minW = MIN_COL_WIDTHS[resizingColRef.current.col];
+      const newWidth = Math.max(minW, resizingColRef.current.startWidth + deltaX);
+      setColWidths(prev => ({
+        ...prev,
+        [resizingColRef.current!.col]: newWidth,
+      }));
+    };
+
+    const onMouseUp = () => {
+      if (resizingColRef.current) {
+        setColWidths(latest => {
+          try {
+            localStorage.setItem('sfwms_order_dispatch_col_widths', JSON.stringify(latest));
+          } catch (e) {}
+          return latest;
+        });
+        resizingColRef.current = null;
+      }
+      setActiveResizingCol(null);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleDoubleClickResize = (col: ColKey, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const defaultWidth = DEFAULT_COL_WIDTHS[col];
+    setColWidths(prev => {
+      const next = { ...prev, [col]: defaultWidth };
+      try {
+        localStorage.setItem('sfwms_order_dispatch_col_widths', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  };
+
+  const handleResetAllColWidths = () => {
+    setColWidths(DEFAULT_COL_WIDTHS);
+    try {
+      localStorage.setItem('sfwms_order_dispatch_col_widths', JSON.stringify(DEFAULT_COL_WIDTHS));
+    } catch (e) {}
+  };
+
+  const renderColResizer = (col: ColKey) => (
+    <div
+      onMouseDown={(e) => handleMouseDownResize(col, e)}
+      onDoubleClick={(e) => handleDoubleClickResize(col, e)}
+      title="Kéo sang trái/phải để điều chỉnh độ rộng cột (Nhấn đúp để khôi phục mặc định)"
+      style={{
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        bottom: 0,
+        width: '10px',
+        cursor: 'col-resize',
+        userSelect: 'none',
+        zIndex: 10,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div
+        style={{
+          width: activeResizingCol === col ? '2.5px' : '1.5px',
+          height: activeResizingCol === col ? '100%' : '50%',
+          backgroundColor: activeResizingCol === col ? '#0284c7' : '#cbd5e1',
+          borderRadius: '1px',
+          transition: 'all 0.15s ease',
+        }}
+      />
+    </div>
+  );
+
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f1f5f9', color: '#0f172a', padding: '24px' }}>
+    <div style={{ minHeight: '100%', color: '#0f172a', padding: '0 0 24px 0' }}>
       
       {/* Toast Notification */}
       {toast && (
@@ -1381,15 +1593,12 @@ export default function OrderDispatch() {
             <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', margin: '3px 0 0 0' }}>
               Trung Tâm Điều Phối Đơn Hàng & Giám Sát Đội Xe
             </h1>
-            <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
-              Tự động hóa xuất kho theo hạn dùng • Tối ưu phân tuyến giao hàng • Giám sát phương tiện thời gian thực
-            </p>
           </div>
         </div>
 
         {/* Quick Action Control Bar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          {!isManager && (
+          {!isManager && !isSaler && (
             <select
               value={selectedWhFilter}
               onChange={e => setSelectedWhFilter(e.target.value)}
@@ -1413,76 +1622,98 @@ export default function OrderDispatch() {
             </select>
           )}
 
-          {/* 1-Chạm Soạn Hàng Loạt FEFO */}
-          <button
-            onClick={handleAutoFEFOPicking}
-            disabled={autoPickingLoading}
-            style={{
-              backgroundColor: '#2563eb',
-              color: '#ffffff',
-              padding: '9px 16px',
-              borderRadius: '8px',
-              fontSize: '12px',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              border: 'none',
-              boxShadow: '0 2px 6px rgba(37,99,235,0.2)',
-              opacity: autoPickingLoading ? 0.6 : 1,
-            }}
-          >
-            <Boxes size={16} />
-            <span>{autoPickingLoading ? 'Đang xuất kho...' : 'Soạn Hàng Nhanh (Ưu Tiên Hạn Gần)'}</span>
-          </button>
+          {canOperateWarehouse ? (
+            <>
+              {/* 1-Chạm Soạn Hàng Loạt FEFO */}
+              <button
+                onClick={handleAutoFEFOPicking}
+                disabled={autoPickingLoading}
+                style={{
+                  backgroundColor: '#2563eb',
+                  color: '#ffffff',
+                  padding: '9px 16px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  border: 'none',
+                  boxShadow: '0 2px 6px rgba(37,99,235,0.2)',
+                  opacity: autoPickingLoading ? 0.6 : 1,
+                }}
+              >
+                <Boxes size={16} />
+                <span>{autoPickingLoading ? 'Đang xuất kho...' : 'Soạn Hàng Nhanh (FEFO)'}</span>
+              </button>
 
-          {/* Bàn Giao Hàng Loạt Cho Shipper */}
-          {whScopedOrders.filter(o => o.status === 'PACKED').length > 0 && (
-            <button
-              onClick={handleBatchHandoverToShipper}
+              {/* Bàn Giao Hàng Loạt Cho Shipper */}
+              {whScopedOrders.filter(o => o.status === 'PACKED').length > 0 && (
+                <button
+                  onClick={handleBatchHandoverToShipper}
+                  style={{
+                    backgroundColor: '#0f766e',
+                    color: '#ffffff',
+                    padding: '9px 16px',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    border: 'none',
+                    boxShadow: '0 2px 6px rgba(15,118,110,0.2)',
+                    cursor: 'pointer',
+                  }}
+                  title="Xác nhận bàn giao tất cả đơn đã đóng gói cho shipper để sẵn sàng phân tuyến"
+                >
+                  <PackageCheck size={16} />
+                  <span>Bàn Giao Shipper ({whScopedOrders.filter(o => o.status === 'PACKED').length})</span>
+                </button>
+              )}
+
+              {/* 1-Chạm Gom Tuyến */}
+              <button
+                onClick={handleAIAutoDispatch}
+                disabled={autoDispatchLoading}
+                style={{
+                  backgroundColor: '#059669',
+                  color: '#ffffff',
+                  padding: '9px 16px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  border: 'none',
+                  boxShadow: '0 2px 6px rgba(5,150,105,0.2)',
+                  opacity: autoDispatchLoading ? 0.6 : 1,
+                }}
+              >
+                <Route size={16} />
+                <span>{autoDispatchLoading ? 'Đang tối ưu lộ trình...' : 'Tự Động Phân Tuyến'}</span>
+              </button>
+            </>
+          ) : (
+            <div
               style={{
-                backgroundColor: '#0f766e',
-                color: '#ffffff',
-                padding: '9px 16px',
-                borderRadius: '8px',
-                fontSize: '12px',
-                fontWeight: 600,
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                border: 'none',
-                boxShadow: '0 2px 6px rgba(15,118,110,0.2)',
-                cursor: 'pointer',
+                padding: '9px 16px',
+                borderRadius: '8px',
+                backgroundColor: '#f0f9ff',
+                border: '1px solid #bae6fd',
+                color: '#0369a1',
+                fontSize: '12px',
+                fontWeight: 600,
               }}
-              title="Quản lý xác nhận bàn giao tất cả đơn đã đóng gói cho shipper để sẵn sàng phân tuyến"
             >
-              <PackageCheck size={16} />
-              <span>Bàn Giao Shipper ({whScopedOrders.filter(o => o.status === 'PACKED').length})</span>
-            </button>
+              <Eye size={16} color="#0284c7" />
+              <span>Chế độ Giám Sát Tiến Độ Đơn Hàng (Chỉ Xem)</span>
+            </div>
           )}
-
-          {/* 1-Chạm Gom Tuyến VRP */}
-          <button
-            onClick={handleAIAutoDispatch}
-            disabled={autoDispatchLoading}
-            style={{
-              backgroundColor: '#059669',
-              color: '#ffffff',
-              padding: '9px 16px',
-              borderRadius: '8px',
-              fontSize: '12px',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              border: 'none',
-              boxShadow: '0 2px 6px rgba(5,150,105,0.2)',
-              opacity: autoDispatchLoading ? 0.6 : 1,
-            }}
-          >
-            <Route size={16} />
-            <span>{autoDispatchLoading ? 'Đang tối ưu lộ trình...' : 'Tự Động Phân Tuyến Giao Hàng (VRP)'}</span>
-          </button>
 
           {/* Map Toggle Button */}
           <button
@@ -1739,6 +1970,30 @@ export default function OrderDispatch() {
             </button>
           </div>
 
+          {viewMode === 'LIST' && (
+            <button
+              onClick={handleResetAllColWidths}
+              title="Khôi phục độ rộng mặc định của tất cả các cột (Hoặc nhấn đúp vào vạch ngăn cột)"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '11px',
+                fontWeight: 600,
+                backgroundColor: '#ffffff',
+                color: '#475569',
+                border: '1px solid #cbd5e1',
+                cursor: 'pointer',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+              }}
+            >
+              <RotateCcw size={12} />
+              <span>Khôi phục cột</span>
+            </button>
+          )}
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
             <button
               onClick={() => setClassificationFilter('ALL')}
@@ -1844,21 +2099,68 @@ export default function OrderDispatch() {
             /* ── DẠNG DANH SÁCH HÀNG NGANG GỌN GÀNG ── */
             <div style={{
               backgroundColor: '#ffffff',
-              borderRadius: '16px',
+              borderRadius: '10px',
               border: '1px solid #e2e8f0',
-              overflow: 'hidden',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+              overflowX: 'auto',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
               marginBottom: '20px',
+              width: '100%',
             }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+              <table style={{
+                width: `${Math.max(
+                  canOperateWarehouse ? 1280 : 1120,
+                  colWidths.code + colWidths.customer + colWidths.driver + colWidths.cod + colWidths.status + colWidths.actions
+                )}px`,
+                minWidth: '100%',
+                borderCollapse: 'collapse',
+                textAlign: 'left',
+                fontSize: '12px',
+                tableLayout: 'fixed',
+              }}>
+                <colgroup>
+                  <col style={{ width: `${colWidths.code}px` }} />
+                  <col style={{ width: `${colWidths.customer}px` }} />
+                  <col style={{ width: `${colWidths.driver}px` }} />
+                  <col style={{ width: `${colWidths.cod}px` }} />
+                  <col style={{ width: `${colWidths.status}px` }} />
+                  <col style={{ width: `${colWidths.actions}px` }} />
+                </colgroup>
                 <thead>
-                  <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase' }}>
-                    <th style={{ padding: '12px 16px' }}>Mã Đơn</th>
-                    <th style={{ padding: '12px 16px' }}>Khách Hàng & Địa Chỉ</th>
-                    <th style={{ padding: '12px 16px' }}>Tài Xế & Chuyến</th>
-                    <th style={{ padding: '12px 16px' }}>Thu Hộ COD</th>
-                    <th style={{ padding: '12px 16px' }}>Trạng Thái</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'right' }}>Thao Tác Nhanh</th>
+                  <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    <th style={{ padding: '12px 16px', position: 'relative', width: `${colWidths.code}px`, userSelect: 'none' }}>
+                      <span>Mã Đơn & Kho</span>
+                      {renderColResizer('code')}
+                    </th>
+                    <th style={{ padding: '12px 16px', position: 'relative', width: `${colWidths.customer}px`, userSelect: 'none' }}>
+                      <span>Khách Hàng & Địa Chỉ</span>
+                      {renderColResizer('customer')}
+                    </th>
+                    <th style={{ padding: '12px 16px', position: 'relative', width: `${colWidths.driver}px`, userSelect: 'none' }}>
+                      <span>Tài Xế & Chuyến</span>
+                      {renderColResizer('driver')}
+                    </th>
+                    <th style={{ padding: '12px 16px', position: 'relative', width: `${colWidths.cod}px`, textAlign: 'right', userSelect: 'none' }}>
+                      <span>Thu Hộ COD</span>
+                      {renderColResizer('cod')}
+                    </th>
+                    <th style={{ padding: '12px 16px', position: 'relative', width: `${colWidths.status}px`, userSelect: 'none' }}>
+                      <span>Trạng Thái</span>
+                      {renderColResizer('status')}
+                    </th>
+                    <th style={{
+                      padding: '12px 20px',
+                      textAlign: 'right',
+                      position: 'sticky',
+                      right: 0,
+                      width: `${colWidths.actions}px`,
+                      backgroundColor: '#f8fafc',
+                      zIndex: 2,
+                      boxShadow: '-4px 0 8px rgba(0,0,0,0.03)',
+                      userSelect: 'none',
+                    }}>
+                      <span>Thao Tác Nhanh</span>
+                      {renderColResizer('actions')}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1874,30 +2176,102 @@ export default function OrderDispatch() {
                           backgroundColor: '#ffffff',
                           transition: 'background-color 0.15s ease',
                         }}
-                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f8fafc')}
-                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#ffffff')}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.backgroundColor = '#f8fafc';
+                          const stickyTd = e.currentTarget.querySelector('.sticky-action-col') as HTMLElement;
+                          if (stickyTd) stickyTd.style.backgroundColor = '#f8fafc';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.backgroundColor = '#ffffff';
+                          const stickyTd = e.currentTarget.querySelector('.sticky-action-col') as HTMLElement;
+                          if (stickyTd) stickyTd.style.backgroundColor = '#ffffff';
+                        }}
                       >
-                        {/* Order Code */}
-                        <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: 800, color: '#1d4ed8', whiteSpace: 'nowrap' }}>
-                          #{order.orderCode}
+                        {/* Order Code & Warehouse */}
+                        <td style={{ padding: '12px 16px', verticalAlign: 'middle', whiteSpace: 'nowrap', width: `${colWidths.code}px`, overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                            <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#1d4ed8', fontSize: '12.5px' }}>
+                              #{order.orderCode}
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{
+                                fontSize: '10px',
+                                backgroundColor: '#f1f5f9',
+                                color: '#475569',
+                                padding: '1px 6px',
+                                borderRadius: '4px',
+                                border: '1px solid #e2e8f0',
+                                fontWeight: 600,
+                              }}>
+                                {order.warehouseCode || 'WH-006'}
+                              </span>
+                              {order.orderClassification === 'B2B' ? (
+                                <span style={{
+                                  fontSize: '10px',
+                                  backgroundColor: '#eff6ff',
+                                  color: '#1d4ed8',
+                                  padding: '1px 5px',
+                                  borderRadius: '4px',
+                                  border: '1px solid #bfdbfe',
+                                  fontWeight: 600,
+                                }}>
+                                  B2B
+                                </span>
+                              ) : (
+                                <span style={{
+                                  fontSize: '10px',
+                                  backgroundColor: '#f8fafc',
+                                  color: '#64748b',
+                                  padding: '1px 5px',
+                                  borderRadius: '4px',
+                                  border: '1px solid #e2e8f0',
+                                  fontWeight: 500,
+                                }}>
+                                  Bán lẻ
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </td>
 
                         {/* Customer & Address */}
-                        <td style={{ padding: '12px 16px', maxWidth: '300px' }}>
-                          <div style={{ fontWeight: 800, color: '#0f172a' }}>{order.customerName}</div>
-                          <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            <MapPin size={11} color="#ef4444" style={{ flexShrink: 0 }} />
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{order.customerAddress}</span>
+                        <td style={{ padding: '12px 16px', verticalAlign: 'middle', width: `${colWidths.customer}px`, overflow: 'hidden' }}>
+                          <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '13px', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {order.customerName}
+                          </div>
+                          <div
+                            title={order.customerAddress}
+                            style={{
+                              fontSize: '11px',
+                              color: '#64748b',
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: '4px',
+                              marginTop: '3px',
+                              lineHeight: 1.3,
+                            }}
+                          >
+                            <MapPin size={11} color="#ef4444" style={{ flexShrink: 0, marginTop: '2px' }} />
+                            <span style={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              wordBreak: 'break-word',
+                            }}>
+                              {order.customerAddress}
+                            </span>
                           </div>
                         </td>
 
                         {/* Driver & Trip */}
-                        <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                        <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', verticalAlign: 'middle', width: `${colWidths.driver}px`, overflow: 'hidden' }}>
                           {order.assignedDriverName ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <Truck size={13} color="#059669" />
-                              <span style={{ fontWeight: 700, color: '#0f172a' }}>{order.assignedDriverName}</span>
-                              <span style={{ fontSize: '10px', color: '#047857', backgroundColor: '#dcfce7', padding: '1px 6px', borderRadius: '999px', fontWeight: 800, fontFamily: 'monospace' }}>
+                              <span style={{ fontWeight: 600, color: '#0f172a' }}>{order.assignedDriverName}</span>
+                              <span style={{ fontSize: '10px', color: '#047857', backgroundColor: '#dcfce7', padding: '1px 6px', borderRadius: '999px', fontWeight: 600, fontFamily: 'monospace' }}>
                                 Chuyến #{order.tripNumber || 1}
                               </span>
                             </div>
@@ -1907,13 +2281,17 @@ export default function OrderDispatch() {
                         </td>
 
                         {/* Total COD */}
-                        <td style={{ padding: '12px 16px', fontWeight: 900, color: '#0f172a', whiteSpace: 'nowrap' }}>
-                          {order.totalAmount.toLocaleString('vi-VN')}đ
-                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600 }}>{order.paymentMethod === 'cod' ? 'COD' : 'VNPay'}</div>
+                        <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'middle', width: `${colWidths.cod}px`, overflow: 'hidden' }}>
+                          <div style={{ fontWeight: 700, color: '#0f172a', fontVariantNumeric: 'tabular-nums', fontSize: '13px' }}>
+                            {order.totalAmount.toLocaleString('vi-VN')}đ
+                          </div>
+                          <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 500 }}>
+                            {order.paymentMethod === 'cod' ? 'COD' : 'VNPay'}
+                          </div>
                         </td>
 
                         {/* Status */}
-                        <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                        <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', verticalAlign: 'middle', width: `${colWidths.status}px`, overflow: 'hidden' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <span style={{
                               display: 'inline-flex',
@@ -1922,7 +2300,7 @@ export default function OrderDispatch() {
                               padding: '3px 8px',
                               borderRadius: '999px',
                               fontSize: '11px',
-                              fontWeight: 800,
+                              fontWeight: 600,
                               color: cfg.color,
                               backgroundColor: cfg.bg,
                               border: `1px solid ${cfg.border}`,
@@ -1948,7 +2326,7 @@ export default function OrderDispatch() {
                                   alignItems: 'center',
                                   gap: '3px',
                                   fontSize: '10px',
-                                  fontWeight: 700,
+                                  fontWeight: 600,
                                 }}
                               >
                                 <Camera size={11} color="#166534" />
@@ -1959,116 +2337,157 @@ export default function OrderDispatch() {
                         </td>
 
                         {/* Actions */}
-                        <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
+                        <td
+                          className="sticky-action-col"
+                          style={{
+                            padding: '12px 20px',
+                            textAlign: 'right',
+                            whiteSpace: 'nowrap',
+                            verticalAlign: 'middle',
+                            position: 'sticky',
+                            right: 0,
+                            width: `${colWidths.actions}px`,
+                            backgroundColor: '#ffffff',
+                            zIndex: 1,
+                            boxShadow: '-4px 0 8px rgba(0,0,0,0.03)',
+                            transition: 'background-color 0.15s ease',
+                          }}
+                          onClick={e => e.stopPropagation()}
+                        >
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                            {order.status === 'PENDING' && (
-                              <button
-                                onClick={() => handleReceiveAndStartPicking(order)}
-                                style={{
-                                  backgroundColor: '#2563eb',
-                                  color: '#ffffff',
-                                  padding: '5px 10px',
-                                  borderRadius: '6px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                Tiếp Nhận
-                              </button>
-                            )}
+                            {canOperateWarehouse && (
+                              <>
+                                {order.status === 'PENDING' && (
+                                  <button
+                                    onClick={() => handleReceiveAndStartPicking(order)}
+                                    style={{
+                                      backgroundColor: '#2563eb',
+                                      color: '#ffffff',
+                                      padding: '5px 10px',
+                                      borderRadius: '6px',
+                                      fontSize: '11px',
+                                      fontWeight: 600,
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    Tiếp Nhận
+                                  </button>
+                                )}
 
-                            {(order.status === 'PROCESSING' || order.status === 'PICKING') && (
-                              <button
-                                onClick={() => handleCompletePicking(order)}
-                                style={{
-                                  backgroundColor: '#059669',
-                                  color: '#ffffff',
-                                  padding: '5px 10px',
-                                  borderRadius: '6px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                Đã Soạn Xong
-                              </button>
-                            )}
+                                {(order.status === 'PROCESSING' || order.status === 'PICKING') && (
+                                  <button
+                                    onClick={() => handleCompletePicking(order)}
+                                    style={{
+                                      backgroundColor: '#059669',
+                                      color: '#ffffff',
+                                      padding: '5px 10px',
+                                      borderRadius: '6px',
+                                      fontSize: '11px',
+                                      fontWeight: 600,
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    Đã Soạn Xong
+                                  </button>
+                                )}
 
-                            {order.status === 'PACKED' && (
-                              <button
-                                onClick={() => handleHandoverToShipper(order)}
-                                disabled={handoverLoadingId === order.id}
-                                style={{
-                                  backgroundColor: '#0f766e',
-                                  color: '#ffffff',
-                                  padding: '5px 10px',
-                                  borderRadius: '6px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  opacity: handoverLoadingId === order.id ? 0.7 : 1,
-                                }}
-                                title="Quản lý ấn xác nhận bàn giao cho shipper để sẵn sàng phân tuyến"
-                              >
-                                <PackageCheck size={12} color="#ffffff" />
-                                <span>{handoverLoadingId === order.id ? 'Đang bàn giao...' : 'Bàn Giao Shipper'}</span>
-                              </button>
-                            )}
+                                {order.status === 'PACKED' && (
+                                  <button
+                                    onClick={() => handleHandoverToShipper(order)}
+                                    disabled={handoverLoadingId === order.id}
+                                    style={{
+                                      backgroundColor: '#0f766e',
+                                      color: '#ffffff',
+                                      padding: '5px 10px',
+                                      borderRadius: '6px',
+                                      fontSize: '11px',
+                                      fontWeight: 600,
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      opacity: handoverLoadingId === order.id ? 0.7 : 1,
+                                    }}
+                                    title="Quản lý ấn xác nhận bàn giao cho shipper để sẵn sàng phân tuyến"
+                                  >
+                                    <PackageCheck size={12} color="#ffffff" />
+                                    <span>{handoverLoadingId === order.id ? 'Đang bàn giao...' : 'Bàn Giao Shipper'}</span>
+                                  </button>
+                                )}
 
-                            {(order.status === 'READY_FOR_DELIVERY' || order.status === 'CONFIRMED') && (
-                              <button
-                                onClick={() => {
-                                  setManualDriverModalOrder(order);
-                                  setSelectedDriverForAssign(getInitialDriverForOrder(order));
-                                }}
-                                style={{
-                                  backgroundColor: '#d97706',
-                                  color: '#ffffff',
-                                  padding: '5px 10px',
-                                  borderRadius: '6px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                }}
-                                title="Gán tài xế thủ công hoặc dùng nút Tự Động Phân Tuyến"
-                              >
-                                <Truck size={12} color="#ffffff" />
-                                <span>Gán Xe</span>
-                              </button>
-                            )}
+                                {(order.status === 'READY_FOR_DELIVERY' || order.status === 'CONFIRMED') && (
+                                  <button
+                                    onClick={() => {
+                                      setManualDriverModalOrder(order);
+                                      setSelectedDriverForAssign(getInitialDriverForOrder(order));
+                                    }}
+                                    style={{
+                                      backgroundColor: '#d97706',
+                                      color: '#ffffff',
+                                      padding: '5px 10px',
+                                      borderRadius: '6px',
+                                      fontSize: '11px',
+                                      fontWeight: 600,
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                    }}
+                                    title="Gán tài xế thủ công hoặc dùng nút Tự Động Phân Tuyến"
+                                  >
+                                    <Truck size={12} color="#ffffff" />
+                                    <span>Gán Xe</span>
+                                  </button>
+                                )}
 
-                            {(order.status === 'SHIPPED' || order.status === 'DELIVERING' || order.status === 'IN_TRANSIT') && (
-                              <button
-                                onClick={() => handleConfirmDelivered(order)}
-                                style={{
-                                  backgroundColor: '#0f766e',
-                                  color: '#ffffff',
-                                  padding: '5px 10px',
-                                  borderRadius: '6px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                }}
-                                title="Xác nhận đơn đã hoàn thành giao hàng"
-                              >
-                                <CheckCircle2 size={12} color="#ffffff" />
-                                <span>Xác Nhận Đã Giao</span>
-                              </button>
+                                {(order.status === 'SHIPPED' || order.status === 'DELIVERING' || order.status === 'IN_TRANSIT') && (
+                                  <button
+                                    onClick={() => handleConfirmDelivered(order)}
+                                    style={{
+                                      backgroundColor: '#0f766e',
+                                      color: '#ffffff',
+                                      padding: '5px 10px',
+                                      borderRadius: '6px',
+                                      fontSize: '11px',
+                                      fontWeight: 600,
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                    }}
+                                    title="Xác nhận đơn đã hoàn thành giao hàng"
+                                  >
+                                    <CheckCircle2 size={12} color="#ffffff" />
+                                    <span>Xác Nhận Đã Giao</span>
+                                  </button>
+                                )}
+
+                                {(order.status === 'FAILED_DELIVERY' || order.status === 'RETURN_TO_WAREHOUSE') && (
+                                  <button
+                                    onClick={() => setReverseLogisticsModalOrder(order)}
+                                    style={{
+                                      backgroundColor: '#dc2626',
+                                      color: '#ffffff',
+                                      padding: '5px 10px',
+                                      borderRadius: '8px',
+                                      fontSize: '11px',
+                                      fontWeight: 800,
+                                      border: 'none',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                    }}
+                                  >
+                                    <RotateCcw size={11} color="#ffffff" />
+                                    <span>Xử Lý</span>
+                                  </button>
+                                )}
+                              </>
                             )}
 
                             {(order.status === 'COMPLETED' || order.status === 'DELIVERED') && (
@@ -2092,27 +2511,6 @@ export default function OrderDispatch() {
                               </button>
                             )}
 
-                            {(order.status === 'FAILED_DELIVERY' || order.status === 'RETURN_TO_WAREHOUSE') && (
-                              <button
-                                onClick={() => setReverseLogisticsModalOrder(order)}
-                                style={{
-                                  backgroundColor: '#dc2626',
-                                  color: '#ffffff',
-                                  padding: '5px 10px',
-                                  borderRadius: '8px',
-                                  fontSize: '11px',
-                                  fontWeight: 800,
-                                  border: 'none',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                }}
-                              >
-                                <RotateCcw size={11} color="#ffffff" />
-                                <span>Xử Lý</span>
-                              </button>
-                            )}
-
                             <button
                               onClick={() => setPrintModalOrder(order)}
                               title="In phiếu giao hàng / vận chuyển"
@@ -2120,9 +2518,9 @@ export default function OrderDispatch() {
                                 backgroundColor: '#f8fafc',
                                 color: '#0f172a',
                                 padding: '5px 8px',
-                                borderRadius: '8px',
+                                borderRadius: '6px',
                                 fontSize: '11px',
-                                fontWeight: 700,
+                                fontWeight: 600,
                                 border: '1px solid #cbd5e1',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -2141,9 +2539,9 @@ export default function OrderDispatch() {
                                 backgroundColor: '#f0fdfa',
                                 color: '#0f766e',
                                 padding: '5px 8px',
-                                borderRadius: '8px',
+                                borderRadius: '6px',
                                 fontSize: '11px',
-                                fontWeight: 700,
+                                fontWeight: 600,
                                 border: '1px solid #99f6e4',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -2161,9 +2559,9 @@ export default function OrderDispatch() {
                                 backgroundColor: '#f1f5f9',
                                 color: '#334155',
                                 padding: '5px 8px',
-                                borderRadius: '8px',
+                                borderRadius: '6px',
                                 fontSize: '11px',
-                                fontWeight: 700,
+                                fontWeight: 600,
                                 border: '1px solid #cbd5e1',
                                 cursor: 'pointer',
                               }}
@@ -2323,114 +2721,140 @@ export default function OrderDispatch() {
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {order.status === 'PENDING' && (
-                          <button
-                            onClick={() => handleReceiveAndStartPicking(order)}
-                            style={{
-                              backgroundColor: '#2563eb',
-                              color: '#ffffff',
-                              padding: '6px 12px',
-                              borderRadius: '6px',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              border: 'none',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            Tiếp Nhận & Soạn Hàng
-                          </button>
-                        )}
+                        {canOperateWarehouse && (
+                          <>
+                            {order.status === 'PENDING' && (
+                              <button
+                                onClick={() => handleReceiveAndStartPicking(order)}
+                                style={{
+                                  backgroundColor: '#2563eb',
+                                  color: '#ffffff',
+                                  padding: '6px 12px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Tiếp Nhận & Soạn Hàng
+                              </button>
+                            )}
 
-                        {(order.status === 'PROCESSING' || order.status === 'PICKING') && (
-                          <button
-                            onClick={() => handleCompletePicking(order)}
-                            style={{
-                              backgroundColor: '#059669',
-                              color: '#ffffff',
-                              padding: '6px 12px',
-                              borderRadius: '6px',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              border: 'none',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            Đã Soạn Xong
-                          </button>
-                        )}
+                            {(order.status === 'PROCESSING' || order.status === 'PICKING') && (
+                              <button
+                                onClick={() => handleCompletePicking(order)}
+                                style={{
+                                  backgroundColor: '#059669',
+                                  color: '#ffffff',
+                                  padding: '6px 12px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Đã Soạn Xong
+                              </button>
+                            )}
 
-                        {order.status === 'PACKED' && (
-                          <button
-                            onClick={() => handleHandoverToShipper(order)}
-                            disabled={handoverLoadingId === order.id}
-                            style={{
-                              backgroundColor: '#0f766e',
-                              color: '#ffffff',
-                              padding: '6px 12px',
-                              borderRadius: '6px',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              border: 'none',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              opacity: handoverLoadingId === order.id ? 0.7 : 1,
-                            }}
-                            title="Quản lý xác nhận bàn giao cho shipper để sẵn sàng phân tuyến"
-                          >
-                            <PackageCheck size={12} color="#ffffff" />
-                            <span>{handoverLoadingId === order.id ? 'Đang bàn giao...' : 'Bàn Giao Shipper'}</span>
-                          </button>
-                        )}
+                            {order.status === 'PACKED' && (
+                              <button
+                                onClick={() => handleHandoverToShipper(order)}
+                                disabled={handoverLoadingId === order.id}
+                                style={{
+                                  backgroundColor: '#0f766e',
+                                  color: '#ffffff',
+                                  padding: '6px 12px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  opacity: handoverLoadingId === order.id ? 0.7 : 1,
+                                }}
+                                title="Quản lý xác nhận bàn giao cho shipper để sẵn sàng phân tuyến"
+                              >
+                                <PackageCheck size={12} color="#ffffff" />
+                                <span>{handoverLoadingId === order.id ? 'Đang bàn giao...' : 'Bàn Giao Shipper'}</span>
+                              </button>
+                            )}
 
-                        {(order.status === 'READY_FOR_DELIVERY' || order.status === 'CONFIRMED') && (
-                          <button
-                            onClick={() => {
-                              setManualDriverModalOrder(order);
-                              setSelectedDriverForAssign(getInitialDriverForOrder(order));
-                            }}
-                            style={{
-                              backgroundColor: '#d97706',
-                              color: '#ffffff',
-                              padding: '6px 12px',
-                              borderRadius: '6px',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              border: 'none',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                            }}
-                            title="Gán tài xế thủ công hoặc dùng nút Tự Động Phân Tuyến"
-                          >
-                            <Truck size={12} color="#ffffff" />
-                            <span>Gán Xe</span>
-                          </button>
-                        )}
+                            {(order.status === 'READY_FOR_DELIVERY' || order.status === 'CONFIRMED') && (
+                              <button
+                                onClick={() => {
+                                  setManualDriverModalOrder(order);
+                                  setSelectedDriverForAssign(getInitialDriverForOrder(order));
+                                }}
+                                style={{
+                                  backgroundColor: '#d97706',
+                                  color: '#ffffff',
+                                  padding: '6px 12px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                }}
+                                title="Gán tài xế thủ công hoặc dùng nút Tự Động Phân Tuyến"
+                              >
+                                <Truck size={12} color="#ffffff" />
+                                <span>Gán Xe</span>
+                              </button>
+                            )}
 
-                        {(order.status === 'SHIPPED' || order.status === 'DELIVERING' || order.status === 'IN_TRANSIT') && (
-                          <button
-                            onClick={() => handleConfirmDelivered(order)}
-                            style={{
-                              backgroundColor: '#0f766e',
-                              color: '#ffffff',
-                              padding: '6px 12px',
-                              borderRadius: '6px',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              border: 'none',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                            }}
-                            title="Xác nhận đơn đã hoàn thành giao hàng"
-                          >
-                            <CheckCircle2 size={12} color="#ffffff" />
-                            <span>Xác Nhận Đã Giao</span>
-                          </button>
+                            {(order.status === 'SHIPPED' || order.status === 'DELIVERING' || order.status === 'IN_TRANSIT') && (
+                              <button
+                                onClick={() => handleConfirmDelivered(order)}
+                                style={{
+                                  backgroundColor: '#0f766e',
+                                  color: '#ffffff',
+                                  padding: '6px 12px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                }}
+                                title="Xác nhận đơn đã hoàn thành giao hàng"
+                              >
+                                <CheckCircle2 size={12} color="#ffffff" />
+                                <span>Xác Nhận Đã Giao</span>
+                              </button>
+                            )}
+
+                            {(order.status === 'FAILED_DELIVERY' || order.status === 'RETURN_TO_WAREHOUSE') && (
+                              <button
+                                onClick={() => setReverseLogisticsModalOrder(order)}
+                                style={{
+                                  backgroundColor: '#dc2626',
+                                  color: '#ffffff',
+                                  padding: '6px 12px',
+                                  borderRadius: '8px',
+                                  fontSize: '11px',
+                                  fontWeight: 800,
+                                  border: 'none',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  boxShadow: '0 2px 6px rgba(220,38,38,0.25)',
+                                }}
+                              >
+                                <RotateCcw size={12} color="#ffffff" />
+                                <span>Xử Lý Hoàn</span>
+                              </button>
+                            )}
+                          </>
                         )}
 
                         {(order.status === 'COMPLETED' || order.status === 'DELIVERED' || !!order.podPhotoUrl) && (
@@ -3003,85 +3427,109 @@ export default function OrderDispatch() {
                 <span>Phiếu Xuất 02-VT</span>
               </button>
 
-              {(selectedOrder.status === 'SHIPPED' || selectedOrder.status === 'DELIVERING' || selectedOrder.status === 'IN_TRANSIT') && (
-                <button
-                  onClick={() => handleConfirmDelivered(selectedOrder)}
-                  style={{
-                    padding: '11px 14px',
-                    backgroundColor: '#0f766e',
-                    color: '#ffffff',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    border: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    cursor: 'pointer',
-                  }}
-                  title="Xác nhận đơn đã hoàn thành giao hàng"
-                >
-                  <CheckCircle2 size={15} color="#ffffff" />
-                  <span>Xác Nhận Đã Giao</span>
-                </button>
+              {canOperateWarehouse && (
+                <>
+                  {(selectedOrder.status === 'SHIPPED' || selectedOrder.status === 'DELIVERING' || selectedOrder.status === 'IN_TRANSIT') && (
+                    <button
+                      onClick={() => handleConfirmDelivered(selectedOrder)}
+                      style={{
+                        padding: '11px 14px',
+                        backgroundColor: '#0f766e',
+                        color: '#ffffff',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        border: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                      }}
+                      title="Xác nhận đơn đã hoàn thành giao hàng"
+                    >
+                      <CheckCircle2 size={15} color="#ffffff" />
+                      <span>Xác Nhận Đã Giao</span>
+                    </button>
+                  )}
+
+                  {selectedOrder.status === 'PACKED' && (
+                    <button
+                      onClick={async () => {
+                        await handleHandoverToShipper(selectedOrder);
+                        setSelectedOrder(prev => prev ? { ...prev, status: 'READY_FOR_DELIVERY' } : null);
+                      }}
+                      disabled={handoverLoadingId === selectedOrder.id}
+                      style={{
+                        flex: 1,
+                        padding: '10px 14px',
+                        backgroundColor: '#0f766e',
+                        color: '#ffffff',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        opacity: handoverLoadingId === selectedOrder.id ? 0.7 : 1,
+                      }}
+                      title="Quản lý ấn xác nhận bàn giao cho shipper"
+                    >
+                      <PackageCheck size={14} />
+                      <span>{handoverLoadingId === selectedOrder.id ? 'Đang bàn giao...' : 'Bàn Giao Shipper'}</span>
+                    </button>
+                  )}
+
+                  {(selectedOrder.status === 'READY_FOR_DELIVERY' || selectedOrder.status === 'CONFIRMED') && (
+                    <button
+                      onClick={() => {
+                        setManualDriverModalOrder(selectedOrder);
+                        setSelectedDriverForAssign(getInitialDriverForOrder(selectedOrder));
+                        setSelectedOrder(null);
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '10px 14px',
+                        backgroundColor: '#d97706',
+                        color: '#ffffff',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <Truck size={14} />
+                      <span>Gán Xe</span>
+                    </button>
+                  )}
+                </>
               )}
 
-              {selectedOrder.status === 'PACKED' && (
-                <button
-                  onClick={async () => {
-                    await handleHandoverToShipper(selectedOrder);
-                    setSelectedOrder(prev => prev ? { ...prev, status: 'READY_FOR_DELIVERY' } : null);
-                  }}
-                  disabled={handoverLoadingId === selectedOrder.id}
+              {isSaler && (
+                <div
                   style={{
-                    flex: 1,
+                    width: '100%',
                     padding: '10px 14px',
-                    backgroundColor: '#0f766e',
-                    color: '#ffffff',
                     borderRadius: '8px',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    border: 'none',
-                    cursor: 'pointer',
+                    backgroundColor: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    fontSize: '11px',
+                    color: '#64748b',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    opacity: handoverLoadingId === selectedOrder.id ? 0.7 : 1,
-                  }}
-                  title="Quản lý ấn xác nhận bàn giao cho shipper"
-                >
-                  <PackageCheck size={14} />
-                  <span>{handoverLoadingId === selectedOrder.id ? 'Đang bàn giao...' : 'Bàn Giao Shipper'}</span>
-                </button>
-              )}
-
-              {(selectedOrder.status === 'READY_FOR_DELIVERY' || selectedOrder.status === 'CONFIRMED') && (
-                <button
-                  onClick={() => {
-                    setManualDriverModalOrder(selectedOrder);
-                    setSelectedDriverForAssign(getInitialDriverForOrder(selectedOrder));
-                    setSelectedOrder(null);
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: '10px 14px',
-                    backgroundColor: '#d97706',
-                    color: '#ffffff',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
+                    gap: '8px',
                   }}
                 >
-                  <Truck size={14} />
-                  <span>Gán Xe</span>
-                </button>
+                  <Lock size={14} color="#0f766e" style={{ flexShrink: 0 }} />
+                  <span>Quyền hạn Kinh doanh: Bạn có thể xem toàn bộ tiến độ, hành trình và in chứng từ đơn hàng. Nghiệp vụ tiếp nhận, soạn hàng và điều phối xe do Bộ phận Kho đảm nhiệm.</span>
+                </div>
               )}
               <button
                 onClick={() => setSelectedOrder(null)}

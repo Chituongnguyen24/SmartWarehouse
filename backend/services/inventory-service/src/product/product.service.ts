@@ -16,6 +16,11 @@ export class Product {
   maxTemp?: number;
   maxHumidity?: number;
   unit: string;
+  price?: number;
+  originalPrice?: number;
+  imageUrl?: string;
+  isFlashSale?: boolean;
+  discountPercent?: number;
 }
 
 @Injectable()
@@ -24,17 +29,27 @@ export class ProductService {
   private cache = new Map<string, { product: Product; expires: number }>();
   private readonly productServiceUrl = process.env.PRODUCT_SERVICE_URL || 'http://localhost:3010';
 
-  async findOneBySku(sku: string): Promise<Product | null> {
-    return this.findOne(sku);
+  clearCache(idOrSku?: string) {
+    if (idOrSku) {
+      this.cache.delete(idOrSku.trim());
+    } else {
+      this.cache.clear();
+    }
   }
 
-  async findOne(idOrSku: string): Promise<Product | null> {
+  async findOneBySku(sku: string, forceFresh = false): Promise<Product | null> {
+    return this.findOne(sku, forceFresh);
+  }
+
+  async findOne(idOrSku: string, forceFresh = false): Promise<Product | null> {
     if (!idOrSku) return null;
     const clean = idOrSku.trim();
     const now = Date.now();
-    const cached = this.cache.get(clean);
-    if (cached && cached.expires > now) {
-      return cached.product;
+    if (!forceFresh) {
+      const cached = this.cache.get(clean);
+      if (cached && cached.expires > now) {
+        return cached.product;
+      }
     }
 
     try {
@@ -52,6 +67,11 @@ export class ProductService {
             maxTemp: data.maxTemp,
             maxHumidity: data.maxHumidity,
             unit: data.unit || 'Cái',
+            price: Number(data.price || 0),
+            originalPrice: Number(data.originalPrice || data.price || 0),
+            imageUrl: data.imageUrl,
+            isFlashSale: Boolean(data.isFlashSale),
+            discountPercent: Number(data.discountPercent || 0),
           };
           this.cache.set(data.id, { product, expires: now + 60000 });
           this.cache.set(data.sku, { product, expires: now + 60000 });
@@ -76,6 +96,11 @@ export class ProductService {
             maxTemp: found.maxTemp,
             maxHumidity: found.maxHumidity,
             unit: found.unit || 'Cái',
+            price: Number(found.price || 0),
+            originalPrice: Number(found.originalPrice || found.price || 0),
+            imageUrl: found.imageUrl,
+            isFlashSale: Boolean(found.isFlashSale),
+            discountPercent: Number(found.discountPercent || 0),
           };
           this.cache.set(found.id, { product, expires: now + 60000 });
           this.cache.set(found.sku, { product, expires: now + 60000 });

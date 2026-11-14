@@ -8,7 +8,7 @@ import {
   PackageMinus, Search, ArrowRight, CheckCircle2, FileText, 
   Layers, Box, Truck, Plus, X, ScanBarcode, Printer,
   ChevronLeft, ChevronRight, RefreshCw, Edit2, Save, RotateCcw,
-  Lock, Wifi, WifiOff, Building2, MapPin, Calendar, Tag, Check, User
+  Lock, Wifi, WifiOff, Building2, MapPin, Calendar, Tag, Check, User, Eye
 } from 'lucide-react';
 import { OutboundReceiptModal } from '../components/OutboundReceiptModal';
 import { CreateOutboundModal } from '../components/CreateOutboundModal';
@@ -141,6 +141,8 @@ const OutboundOrders: React.FC = () => {
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
 
   const isManager = user?.role === 'WAREHOUSE_MANAGER' || user?.role === 'WAREHOUSE_STAFF';
+  const isSaler = user?.role === 'SALES_STAFF';
+  const canOperateWarehouse = user?.role === 'ADMIN' || user?.role === 'WAREHOUSE_MANAGER' || user?.role === 'WAREHOUSE_STAFF';
   const myWarehouseCode = user?.warehouseCode || (user?.email?.includes('govap') ? 'WH-006' : 'WH-006');
 
   // Search & Filter
@@ -148,6 +150,7 @@ const OutboundOrders: React.FC = () => {
   const [statusTab, setStatusTab] = useState<string>('ALL');
   const [selectedWhFilter, setSelectedWhFilter] = useState<string>(() => {
     if (isManager) return myWarehouseCode;
+    if (isSaler) return 'ALL';
     return selectedWarehouseCode || 'ALL';
   });
   const [dateFilter, setDateFilter] = useState<string>('ALL');
@@ -156,12 +159,14 @@ const OutboundOrders: React.FC = () => {
   useEffect(() => {
     if (isManager) {
       setSelectedWhFilter(myWarehouseCode);
+    } else if (isSaler) {
+      setSelectedWhFilter('ALL');
     } else if (selectedWarehouseCode) {
       setSelectedWhFilter(selectedWarehouseCode);
     }
-  }, [isManager, myWarehouseCode, selectedWarehouseCode]);
+  }, [isManager, isSaler, myWarehouseCode, selectedWarehouseCode]);
 
-  const activeWh = isManager ? myWarehouseCode : selectedWhFilter;
+  const activeWh = isManager ? myWarehouseCode : (isSaler ? 'ALL' : selectedWhFilter);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -335,6 +340,26 @@ const OutboundOrders: React.FC = () => {
     socket.on('outbound_order_created', onRealtimeEvent);
     socket.on('outbound_confirmed', onRealtimeEvent);
     socket.on('new_order', onRealtimeEvent);
+    socket.on('order_cancelled', (payload) => {
+      console.log('[WEB OUTBOUND WS] Order cancelled event received:', payload);
+      const targetId = payload?.orderId || payload?.id;
+      const targetCode = payload?.orderCode;
+      if (targetId || targetCode) {
+        setOrders(prev => prev.map(o => {
+          const match = (targetId && (o.id === targetId || o.orderCode === targetId)) ||
+                        (targetCode && (o.orderCode === targetCode || o.orderCode?.includes(targetCode)));
+          if (match) {
+            return {
+              ...o,
+              status: 'CANCELLED',
+              cancelReason: payload.cancelReason || o.cancelReason,
+            };
+          }
+          return o;
+        }));
+      }
+      onRealtimeEvent(payload);
+    });
     socket.on('order_locked', (data) => {
       if (data?.orderId && data?.lock) {
         setActiveLocks(prev => ({ ...prev, [data.orderId]: data.lock }));
@@ -716,7 +741,7 @@ const OutboundOrders: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          {!isManager && (
+          {!isManager && !isSaler && (
             <select
               value={selectedWhFilter}
               onChange={e => setSelectedWhFilter(e.target.value)}
@@ -1028,47 +1053,51 @@ const OutboundOrders: React.FC = () => {
 
                     <td style={{ padding: '14px 18px', textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                        {o.status === 'PENDING' && (
-                          <button
-                            style={{
-                              padding: '5px 12px',
-                              fontSize: '0.8rem',
-                              fontWeight: 600,
-                              background: '#10b981',
-                              color: '#ffffff',
-                              border: 'none',
-                              borderRadius: '6px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '5px',
-                              cursor: 'pointer',
-                            }}
-                            onClick={() => handleApproveOrder(o.id)}
-                            title="Quản lý duyệt tiếp nhận đơn và giao việc lấy hàng cho kho"
-                          >
-                            <CheckCircle2 size={14} /> Tiếp Nhận & Giao Kho
-                          </button>
-                        )}
-                        {(o.status === 'READY_FOR_DELIVERY' || o.status === 'CONFIRMED' || o.status === 'SHIPPED') && (
-                          <button
-                            style={{
-                              padding: '5px 12px',
-                              fontSize: '0.78rem',
-                              fontWeight: 600,
-                              background: '#f0fdf4',
-                              color: '#15803d',
-                              border: '1px solid #bbf7d0',
-                              borderRadius: '6px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              cursor: 'pointer',
-                            }}
-                            onClick={() => advanceState(o.id, 'deliver')}
-                            title="Xác nhận giao hàng thành công"
-                          >
-                            <CheckCircle2 size={13} /> Giao hàng
-                          </button>
+                        {canOperateWarehouse && (
+                          <>
+                            {o.status === 'PENDING' && (
+                              <button
+                                style={{
+                                  padding: '5px 12px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 600,
+                                  background: '#10b981',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                  cursor: 'pointer',
+                                }}
+                                onClick={() => handleApproveOrder(o.id)}
+                                title="Quản lý duyệt tiếp nhận đơn và giao việc lấy hàng cho kho"
+                              >
+                                <CheckCircle2 size={14} /> Tiếp Nhận & Giao Kho
+                              </button>
+                            )}
+                            {(o.status === 'READY_FOR_DELIVERY' || o.status === 'CONFIRMED' || o.status === 'SHIPPED') && (
+                              <button
+                                style={{
+                                  padding: '5px 12px',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 600,
+                                  background: '#f0fdf4',
+                                  color: '#15803d',
+                                  border: '1px solid #bbf7d0',
+                                  borderRadius: '6px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  cursor: 'pointer',
+                                }}
+                                onClick={() => advanceState(o.id, 'deliver')}
+                                title="Xác nhận giao hàng thành công"
+                              >
+                                <CheckCircle2 size={13} /> Giao hàng
+                              </button>
+                            )}
+                          </>
                         )}
                         <button 
                           className="btn btn-outline" 
@@ -1180,48 +1209,50 @@ const OutboundOrders: React.FC = () => {
                     <Printer size={14} /> Mẫu số 02 - VT
                   </button>
 
-                  {!isEditingOrder ? (
-                    <button
-                      onClick={() => startEditOrder(selectedOrder)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: '5px',
-                        padding: '5px 12px', borderRadius: '8px',
-                        background: '#eff6ff', color: '#2563eb',
-                        border: '1px solid #bfdbfe', fontWeight: 700, fontSize: '0.8rem',
-                        cursor: 'pointer'
-                      }}
-                      title="Chỉnh sửa người nhận, địa chỉ giao, kho xuất và số lượng hàng"
-                    >
-                      <Edit2 size={13} /> Chỉnh Sửa Thông Tin
-                    </button>
-                  ) : (
-                    <div style={{ display: 'flex', gap: '6px' }}>
+                  {canOperateWarehouse && (
+                    !isEditingOrder ? (
                       <button
-                        disabled={isSavingEdit}
-                        onClick={() => handleSaveOrderEdit(selectedOrder.id)}
+                        onClick={() => startEditOrder(selectedOrder)}
                         style={{
                           display: 'flex', alignItems: 'center', gap: '5px',
-                          padding: '5px 14px', borderRadius: '6px',
-                          background: '#16a34a', color: '#fff',
-                          border: 'none', fontWeight: 600, fontSize: '0.8rem',
-                          cursor: isSavingEdit ? 'not-allowed' : 'pointer',
-                        }}
-                      >
-                        {isSavingEdit ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />} Lưu Thay Đổi
-                      </button>
-                      <button
-                        onClick={() => setIsEditingOrder(false)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '4px',
-                          padding: '5px 10px', borderRadius: '6px',
-                          background: '#f1f5f9', color: '#475569',
-                          border: '1px solid #cbd5e1', fontWeight: 600, fontSize: '0.8rem',
+                          padding: '5px 12px', borderRadius: '8px',
+                          background: '#eff6ff', color: '#2563eb',
+                          border: '1px solid #bfdbfe', fontWeight: 700, fontSize: '0.8rem',
                           cursor: 'pointer'
                         }}
+                        title="Chỉnh sửa người nhận, địa chỉ giao, kho xuất và số lượng hàng"
                       >
-                        <RotateCcw size={13} /> Huỷ
+                        <Edit2 size={13} /> Chỉnh Sửa Thông Tin
                       </button>
-                    </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          disabled={isSavingEdit}
+                          onClick={() => handleSaveOrderEdit(selectedOrder.id)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '5px',
+                            padding: '5px 14px', borderRadius: '6px',
+                            background: '#16a34a', color: '#fff',
+                            border: 'none', fontWeight: 600, fontSize: '0.8rem',
+                            cursor: isSavingEdit ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          {isSavingEdit ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />} Lưu Thay Đổi
+                        </button>
+                        <button
+                          onClick={() => setIsEditingOrder(false)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '4px',
+                            padding: '5px 10px', borderRadius: '6px',
+                            background: '#f1f5f9', color: '#475569',
+                            border: '1px solid #cbd5e1', fontWeight: 600, fontSize: '0.8rem',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <RotateCcw size={13} /> Huỷ
+                        </button>
+                      </div>
+                    )
                   )}
                 </div>
               </div>
@@ -1343,7 +1374,7 @@ const OutboundOrders: React.FC = () => {
                 <h4 style={{ fontWeight: 800, color: '#0f172a', margin: 0 }}>
                   Danh sách hàng cần lấy (Ưu tiên hạn gần) {isEditingOrder && <span style={{ fontSize: '12px', color: '#b45309', fontWeight: 600 }}>[Cho phép sửa số lượng từng món bên dưới]</span>}
                 </h4>
-                {selectedOrder.status === 'PENDING' && !isEditingOrder && (
+                {canOperateWarehouse && selectedOrder.status === 'PENDING' && !isEditingOrder && (
                   <button className="btn btn-primary" style={{ backgroundColor: 'var(--color-primary-600)', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => runFefoAndApply(selectedOrder.id)}>
                     <Layers size={16} /> Tự Động Chọn Lô Hạn Gần (FEFO)
                   </button>
@@ -1465,39 +1496,58 @@ const OutboundOrders: React.FC = () => {
 
             {/* Stepper Action Buttons */}
             <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem', borderTop: '2px solid #e2e8f0', paddingTop: '1.5rem' }}>
-              {activeLocks[selectedOrder.id] && activeLocks[selectedOrder.id].userId !== user?.id ? (
-                <div style={{ padding: '16px', borderRadius: '12px', background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', textAlign: 'center', fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                  <Lock size={20} color="#d97706" /> 
-                  <span>Đơn hàng đang được nhân viên <b>{activeLocks[selectedOrder.id].userName}</b> thao tác trực tiếp dưới kho. Vui lòng chờ nhân viên hoàn tất trên thiết bị di động.</span>
+              {isSaler && (
+                <div style={{
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  color: '#64748b',
+                  fontSize: '0.825rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}>
+                  <Lock size={16} color="#0f766e" style={{ flexShrink: 0 }} />
+                  <span>Quyền hạn Kinh doanh: Bạn có thể theo dõi tiến độ đơn hàng và in chứng từ xuất kho. Các nghiệp vụ chọn lô, gom hàng, đóng gói và xác nhận xuất kho do Bộ phận Kho đảm nhiệm.</span>
                 </div>
-              ) : (
-                <>
-                  {selectedOrder.status === 'PICKING' && (
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                      <button 
-                        style={{ flex: 1, padding: '12px 20px', borderRadius: '10px', background: '#0f766e', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                        onClick={() => setShowScanner(true)}
-                      >
-                        <ScanBarcode size={20} /> Quét mã Barcode lấy hàng
-                      </button>
-                      <button 
-                        style={{ flex: 1, padding: '12px 20px', borderRadius: '10px', background: '#f59e0b', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                        onClick={() => advanceState(selectedOrder.id, 'confirm-picking')}
-                      >
-                        Bỏ qua quét & Xác nhận lấy đủ <ArrowRight size={18} />
-                      </button>
-                    </div>
-                  )}
+              )}
 
-                  {selectedOrder.status === 'PACKED' && (
-                    <button 
-                      style={{ padding: '12px 24px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', width: '100%', justifyContent: 'center', boxShadow: '0 4px 10px rgba(5,150,105,0.25)' }} 
-                      onClick={() => advanceState(selectedOrder.id, 'confirm', { confirmedBy: user?.id || 'USR-01' })}
-                    >
-                      <CheckCircle2 size={22} /> Xác Nhận Xuất Kho (Bàn Giao Shipper)
-                    </button>
-                  )}
-                </>
+              {canOperateWarehouse && (
+                activeLocks[selectedOrder.id] && activeLocks[selectedOrder.id].userId !== user?.id ? (
+                  <div style={{ padding: '16px', borderRadius: '12px', background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', textAlign: 'center', fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                    <Lock size={20} color="#d97706" /> 
+                    <span>Đơn hàng đang được nhân viên <b>{activeLocks[selectedOrder.id].userName}</b> thao tác trực tiếp dưới kho. Vui lòng chờ nhân viên hoàn tất trên thiết bị di động.</span>
+                  </div>
+                ) : (
+                  <>
+                    {selectedOrder.status === 'PICKING' && (
+                      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        <button 
+                          style={{ flex: 1, padding: '12px 20px', borderRadius: '10px', background: '#0f766e', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                          onClick={() => setShowScanner(true)}
+                        >
+                          <ScanBarcode size={20} /> Quét mã Barcode lấy hàng
+                        </button>
+                        <button 
+                          style={{ flex: 1, padding: '12px 20px', borderRadius: '10px', background: '#f59e0b', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                          onClick={() => advanceState(selectedOrder.id, 'confirm-picking')}
+                        >
+                          Bỏ qua quét & Xác nhận lấy đủ <ArrowRight size={18} />
+                        </button>
+                      </div>
+                    )}
+
+                    {selectedOrder.status === 'PACKED' && (
+                      <button 
+                        style={{ padding: '12px 24px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', width: '100%', justifyContent: 'center', boxShadow: '0 4px 10px rgba(5,150,105,0.25)' }} 
+                        onClick={() => advanceState(selectedOrder.id, 'confirm', { confirmedBy: user?.id || 'USR-01' })}
+                      >
+                        <CheckCircle2 size={22} /> Xác Nhận Xuất Kho (Bàn Giao Shipper)
+                      </button>
+                    )}
+                  </>
+                )
               )}
 
               {(selectedOrder.status === 'CONFIRMED' || selectedOrder.status === 'SHIPPED' || selectedOrder.status === 'READY_FOR_DELIVERY') && (
@@ -1521,12 +1571,14 @@ const OutboundOrders: React.FC = () => {
                     >
                       <Printer size={16} color="#38bdf8" /> In Phiếu Giao / Vận Chuyển
                     </button>
-                    <button
-                      onClick={() => advanceState(selectedOrder.id, 'deliver')}
-                      style={{ flex: 1, padding: '10px 14px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.85rem' }}
-                    >
-                      <CheckCircle2 size={16} /> Xác nhận Giao Thành Công
-                    </button>
+                    {canOperateWarehouse && (
+                      <button
+                        onClick={() => advanceState(selectedOrder.id, 'deliver')}
+                        style={{ flex: 1, padding: '10px 14px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.85rem' }}
+                      >
+                        <CheckCircle2 size={16} /> Xác nhận Giao Thành Công
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

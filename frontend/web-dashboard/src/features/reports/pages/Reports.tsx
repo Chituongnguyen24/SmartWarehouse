@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   AreaChart,
   Area,
@@ -14,6 +14,7 @@ import {
   Pie,
   Cell,
 } from 'recharts';
+import { io } from 'socket.io-client';
 import {
   Download as IconDownload,
   Boxes as IconBoxes,
@@ -56,6 +57,7 @@ const ORDER_API = 'http://localhost:3004/orders';
 const OUTBOUND_API = 'http://localhost:3007/outbound-orders';
 const INVENTORY_API = 'http://localhost:3011';
 const INBOUND_API = 'http://localhost:3006/inbound-orders';
+const SOCKET_URL = 'http://localhost:3004';
 
 type MainReportTab = 'TAB_REVENUE' | 'TAB_INVENTORY' | 'TAB_COD' | 'TAB_EXPIRY';
 
@@ -301,8 +303,8 @@ export const Reports: React.FC = () => {
   };
 
   // Fetch real data from backend
-  const fetchAllRealData = async () => {
-    setLoading(true);
+  const fetchAllRealData = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       // 1. Fetch E-commerce Orders
       const orderUrl = activeWh && activeWh !== 'ALL'
@@ -346,13 +348,123 @@ export const Reports: React.FC = () => {
     } catch (e) {
       console.error('Error fetching report data:', e);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchAllRealData();
   }, [activeWh]);
+
+  // Real-time WebSocket connection to OrderGateway (:3004) for Instant Zero-F5 Report Sync
+  useEffect(() => {
+    fetchAllRealData(true);
+
+    const socket = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 30,
+      reconnectionDelay: 1000,
+    });
+
+    let debounceTimer: any = null;
+    const debouncedFetch = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        fetchAllRealData(false);
+      }, 500);
+    };
+
+    // Helper: in-place state update for rawOrders & rawOutbounds (0ms latency)
+    const updateOrderInPlace = (orderUpdate: any, overrideStatus?: string) => {
+      if (!orderUpdate) return;
+      const targetId = String(orderUpdate.id || orderUpdate.orderId || '').toLowerCase();
+      const targetCode = String(orderUpdate.orderCode || '').toLowerCase();
+      const clean = targetId.replace(/^ecomm-/, '').replace(/^out-/, '').replace(/^ob-/, '');
+      const newStatus = overrideStatus || orderUpdate.status;
+
+      setRawOrders(prevOrders => {
+        let matched = false;
+        const next = prevOrders.map(o => {
+          const oId = String(o.id || '').toLowerCase();
+          const oCode = String(o.orderCode || '').toLowerCase();
+          const oClean = oId.replace(/^ecomm-/, '').replace(/^out-/, '').replace(/^ob-/, '');
+
+          const isMatch =
+            (targetId && oId === targetId) ||
+            (targetCode && (oCode === targetCode || oId === targetCode)) ||
+            (clean && oClean === clean) ||
+            (clean && clean.length >= 8 && (oId.startsWith(clean) || oClean.startsWith(clean)));
+
+          if (isMatch) {
+            matched = true;
+            return {
+              ...o,
+              ...orderUpdate,
+              status: newStatus ? String(newStatus).toUpperCase() : o.status,
+              cancelReason: orderUpdate.cancelReason || o.cancelReason,
+              cancelled_at: orderUpdate.cancelledAt || orderUpdate.cancelled_at || o.cancelled_at,
+            };
+          }
+          return o;
+        });
+
+        // Nếu là đơn hàng mới chưa có trong danh sách
+        if (!matched && orderUpdate.id && overrideStatus !== 'CANCELLED') {
+          return [orderUpdate, ...prevOrders];
+        }
+        return next;
+      });
+
+      // Cập nhật cả rawOutbounds nếu khớp mã đơn
+      setRawOutbounds(prevObs =>
+        prevObs.map(ob => {
+          const obId = String(ob.id || '').toLowerCase();
+          const obCode = String(ob.orderCode || '').toLowerCase();
+          const isMatch =
+            (targetId && (obId === targetId || obCode.includes(targetId))) ||
+            (targetCode && (obCode === targetCode || obCode.includes(targetCode))) ||
+            (clean && clean.length >= 8 && obCode.toLowerCase().includes(clean));
+
+          if (isMatch) {
+            return {
+              ...ob,
+              status: newStatus ? String(newStatus).toUpperCase() : ob.status,
+            };
+          }
+          return ob;
+        })
+      );
+    };
+
+    socket.on('order_status_updated', (data: any) => {
+      console.log('[REPORTS WS] order_status_updated received:', data);
+      updateOrderInPlace(data);
+      debouncedFetch();
+    });
+
+    socket.on('order_cancelled', (data: any) => {
+      console.log('[REPORTS WS] order_cancelled received:', data);
+      updateOrderInPlace(data, 'CANCELLED');
+      debouncedFetch();
+    });
+
+    socket.on('new_order', (newOrder: any) => {
+      console.log('[REPORTS WS] new_order received:', newOrder);
+      updateOrderInPlace(newOrder);
+      debouncedFetch();
+    });
+
+    socket.on('outbound_order_updated', (data: any) => {
+      console.log('[REPORTS WS] outbound_order_updated received:', data);
+      updateOrderInPlace(data);
+      debouncedFetch();
+    });
+
+    socket.on('outbound_order_created', () => {
+      debouncedFetch();
+    });
+
+    return () => {
+      socket.disconnect();
+      clearTimeout(debounceTimer);
+    };
+  }, [fetchAllRealData]);
 
   // Helper to format consistent orderCode
   const formatOrderCode = (o: any): string => {
@@ -424,7 +536,7 @@ export const Reports: React.FC = () => {
       const status = (o.status || '').toUpperCase();
       const isCompleted = ['COMPLETED', 'DELIVERED', 'PAID', 'SHIPPED'].includes(status);
       const isFailed = ['CANCELLED', 'FAILED_DELIVERY', 'RETURNED'].includes(status);
-      const isShipping = ['IN_TRANSIT', 'SHIPPING', 'DISPATCHED', 'PICKING', 'PACKED'].includes(status);
+      const isShipping = ['IN_TRANSIT', 'SHIPPING', 'DISPATCHED', 'PICKING', 'PACKED', 'DELIVERING', 'CONFIRMED'].includes(status);
 
       if (isCompleted) {
         completedRev += amount;
@@ -697,9 +809,6 @@ export const Reports: React.FC = () => {
           >
             Báo Cáo Thống Kê Hoạt Động Kho & Bán Hàng
           </h1>
-          <p style={{ margin: '2px 0 0 0', fontSize: '12.5px', color: '#64748b' }}>
-            Tổng hợp dữ liệu doanh thu bán hàng, sổ kho hàng hóa thực tế và tình hình đối soát tiền mặt.
-          </p>
         </div>
 
         {/* Global Filter Bar */}
@@ -1052,8 +1161,9 @@ export const Reports: React.FC = () => {
                 <tbody>
                   {paginatedOrders.map((o, idx) => {
                     const status = (o.status || 'PENDING').toUpperCase();
-                    const isSuccess = ['COMPLETED', 'DELIVERED', 'PAID'].includes(status);
-                    const isShipping = ['IN_TRANSIT', 'SHIPPING', 'DISPATCHED', 'PICKING', 'PACKED'].includes(status);
+                    const isSuccess = ['COMPLETED', 'DELIVERED', 'PAID', 'SHIPPED'].includes(status);
+                    const isShipping = ['IN_TRANSIT', 'SHIPPING', 'DISPATCHED', 'PICKING', 'PACKED', 'DELIVERING', 'CONFIRMED'].includes(status);
+                    const isCancelled = ['CANCELLED', 'FAILED_DELIVERY', 'RETURNED'].includes(status);
                     const rowBg = idx % 2 === 0 ? '#ffffff' : '#fcfdfd';
 
                     return (
@@ -1085,12 +1195,13 @@ export const Reports: React.FC = () => {
                               fontWeight: 600,
                               padding: '2px 8px',
                               borderRadius: '4px',
-                              backgroundColor: isSuccess ? '#f0fdf4' : isShipping ? '#f0f9ff' : '#fffbeb',
-                              color: isSuccess ? '#166534' : isShipping ? '#0369a1' : '#92400e',
-                              border: `1px solid ${isSuccess ? '#bbf7d0' : isShipping ? '#bae6fd' : '#fde68a'}`,
+                              backgroundColor: isSuccess ? '#f0fdf4' : isCancelled ? '#fef2f2' : isShipping ? '#f0f9ff' : '#fffbeb',
+                              color: isSuccess ? '#166534' : isCancelled ? '#991b1b' : isShipping ? '#0369a1' : '#92400e',
+                              border: `1px solid ${isSuccess ? '#bbf7d0' : isCancelled ? '#fecaca' : isShipping ? '#bae6fd' : '#fde68a'}`,
                             }}
+                            title={isCancelled && o.cancelReason ? `Lý do: ${o.cancelReason}` : undefined}
                           >
-                            {isSuccess ? 'Đã Giao Thành Công' : isShipping ? 'Đang Giao Hàng' : 'Đang Xử Lý'}
+                            {isSuccess ? 'Đã Giao Thành Công' : isCancelled ? (status === 'RETURNED' ? 'Đã Trả Hàng' : 'Đã Hủy Đơn') : isShipping ? 'Đang Giao Hàng' : 'Đang Xử Lý'}
                           </span>
                         </td>
                       </tr>

@@ -255,6 +255,33 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     }
 
     // Auto deduct inventory stock in inventory-service for this warehouse
+    // If this is a disposal order (xuất tiêu hủy) or has lots specified, immediately deduct/export the lots from inventory-service!
+    if (isDisposal) {
+      try {
+        const token = await this.getAuthToken();
+        for (const item of dto.items) {
+          const targetLot = item.lotCode || item.lotId;
+          const qty = item.requestedQuantity || 1;
+          if (targetLot) {
+            await fetch('http://localhost:3011/inventory/lots/export', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                lotId: item.lotId,
+                lotCode: item.lotCode,
+                quantity: qty,
+                reason: `XUẤT_TIÊU_HỦY_LẬP_ĐƠN_${savedOrder.orderCode}`,
+                performedBy: dto.requesterName || 'Quản lý kho (Lập đơn tiêu hủy)',
+              }),
+            }).catch(e => console.warn(`[OUTBOUND] Disposal export lot error:`, e.message));
+          }
+        }
+        this.deductInventoryStock(savedOrder.warehouseCode, dto.items.map(i => ({ sku: i.sku, quantity: i.requestedQuantity })));
+      } catch (err: any) {
+        console.warn(`[OUTBOUND] Error executing disposal inventory export: ${err.message}`);
+      }
+    }
+
     const createdOrder = await this.findOne(savedOrder.id);
     
     // Save to Transactional Outbox for 100% Guaranteed Delivery

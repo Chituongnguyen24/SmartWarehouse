@@ -24,6 +24,7 @@ import {
   Edit3,
 } from 'lucide-react';
 import type { B2BCustomer } from './B2BCustomersPanel';
+import { B2BQuotationModal } from './B2BQuotationModal';
 
 export interface ProductInventoryItem {
   id: string;
@@ -116,6 +117,8 @@ export const CreateB2BOrderPanel: React.FC<CreateB2BOrderPanelProps> = ({
   // 1. CUSTOMER STATE (Dropdown or Manual Entry)
   // ─────────────────────────────────────────────────────────────
   const [isCustomCustomer, setIsCustomCustomer] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [isQuotationOpen, setIsQuotationOpen] = useState(false);
   const [customCustomerName, setCustomCustomerName] = useState('');
   const [customCompanyName, setCustomCompanyName] = useState('');
   const [customTaxCode, setCustomTaxCode] = useState('');
@@ -600,6 +603,17 @@ export const CreateB2BOrderPanel: React.FC<CreateB2BOrderPanelProps> = ({
           {!isCustomCustomer ? (
             /* MODE A: Select from existing registered customers */
             <div>
+              <div style={{ position: 'relative', marginBottom: 6 }}>
+                <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                <input
+                  type="text"
+                  value={customerSearch}
+                  onChange={e => setCustomerSearch(e.target.value)}
+                  placeholder="Lọc nhanh đối tác theo tên, SĐT, MST..."
+                  style={{ ...inputStyle, width: '100%', paddingLeft: 26, fontSize: '0.75rem', boxSizing: 'border-box' }}
+                />
+              </div>
+
               <select
                 value={selectedCustomer?.id || ''}
                 onChange={e => {
@@ -612,11 +626,23 @@ export const CreateB2BOrderPanel: React.FC<CreateB2BOrderPanelProps> = ({
                 }}
                 style={{ ...selectStyle, width: '100%', boxSizing: 'border-box' }}
               >
-                {customers.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.code} - {c.name} (-{c.discountRate}%)
-                  </option>
-                ))}
+                {customers
+                  .filter(c => {
+                    if (!customerSearch.trim()) return true;
+                    const q = customerSearch.trim().toLowerCase();
+                    return (
+                      c.name.toLowerCase().includes(q) ||
+                      (c.companyName || '').toLowerCase().includes(q) ||
+                      c.phone.includes(q) ||
+                      (c.taxCode || '').includes(q) ||
+                      c.code.toLowerCase().includes(q)
+                    );
+                  })
+                  .map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.code} - {c.name} (-{c.discountRate}%)
+                    </option>
+                  ))}
                 <option value="__ADD_NEW__">+ Nhập thông tin đối tác mới tự do...</option>
               </select>
 
@@ -1081,7 +1107,17 @@ export const CreateB2BOrderPanel: React.FC<CreateB2BOrderPanelProps> = ({
         <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
           <button
             type="button"
-            onClick={onPreviewQuote}
+            onClick={() => {
+              if (!effectiveCustomer) {
+                showToast('Vui lòng chọn hoặc nhập thông tin đối tác trước khi in báo giá');
+                return;
+              }
+              if (cartItems.length === 0) {
+                showToast('Vui lòng chọn sản phẩm vào đơn hàng để lập báo giá');
+                return;
+              }
+              setIsQuotationOpen(true);
+            }}
             disabled={cartItems.length === 0}
             style={{
               padding: '9px 14px',
@@ -1131,6 +1167,25 @@ export const CreateB2BOrderPanel: React.FC<CreateB2BOrderPanelProps> = ({
           </button>
         </div>
       </div>
+
+      {/* MODAL BÁO GIÁ DOANH NGHIỆP B2B */}
+      <B2BQuotationModal
+        isOpen={isQuotationOpen}
+        onClose={() => setIsQuotationOpen(false)}
+        customer={effectiveCustomer}
+        cartItems={cartItems}
+        warehouseCode={effectiveWarehouse}
+        paymentTerms={effectivePaymentTerms}
+        deliveryDate={deliveryDate}
+        deliveryNotes={deliveryNotes}
+        rawSubtotal={rawSubtotal}
+        discountRate={discountRate}
+        discountAmount={discountAmount}
+        vatRate={vatRate}
+        vatAmount={vatAmount}
+        shippingFee={shippingFee}
+        finalTotal={finalTotal}
+      />
     </div>
   );
 };

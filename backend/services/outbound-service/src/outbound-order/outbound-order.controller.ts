@@ -163,9 +163,14 @@ export class OutboundOrderController {
   }
 
   @Put(':id/cancel')
-  @Post(':id/cancel')
-  @ApiOperation({ summary: 'Hủy đơn xuất kho & Hoàn kho' })
+  @ApiOperation({ summary: 'Hủy đơn xuất kho & Hoàn kho (PUT)' })
   cancel(@Param('id') id: string) {
+    return this.service.cancel(id);
+  }
+
+  @Post(':id/cancel')
+  @ApiOperation({ summary: 'Hủy đơn xuất kho & Hoàn kho (POST)' })
+  cancelPost(@Param('id') id: string) {
     return this.service.cancel(id);
   }
 }

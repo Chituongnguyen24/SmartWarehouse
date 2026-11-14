@@ -817,6 +817,24 @@ const Inventory = () => {
           [lot.id]: { orderCode: order.orderCode, status: order.status || 'PENDING', isDisposal: isDanger, id: order.id }
         }));
 
+        // Deduct lot quantity in local state immediately so all inventory views reflect the disposal order
+        setWhLots(prev => prev.map(l => {
+          if (l.id === lot.id || l.lotCode === lot.lotCode) {
+            const newQty = Math.max(0, (l.remainingQty || 0) - exportQty);
+            return { ...l, remainingQty: newQty };
+          }
+          return l;
+        }));
+
+        // Sync product-service stock immediately
+        fetch('http://localhost:3010/products/sync-stock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sku: lot.displaySku || lot.productId || lot.sku })
+        }).catch(() => {});
+
+        window.dispatchEvent(new CustomEvent('sfwms:product_refresh'));
+
         setConfirmExportModal(null);
         setOutboundSuccessModal({
           isOpen: true,

@@ -75,16 +75,23 @@ export class ProductController {
   }
 
   @Put(':id')
-  @Roles(UserRole.ADMIN, UserRole.SALES_STAFF)
+  @Roles(UserRole.ADMIN, UserRole.SALES_STAFF, UserRole.WAREHOUSE_MANAGER)
   @ApiOperation({ summary: 'Update product properties' })
   update(@Param('id') id: string, @Body() body: any) {
     return this.productService.update(id, body);
   }
 
+  @Post('batch-flash-sale')
+  @Roles(UserRole.ADMIN, UserRole.SALES_STAFF, UserRole.WAREHOUSE_MANAGER)
+  @ApiOperation({ summary: 'Batch activate or update flash sale for multiple products' })
+  batchFlashSale(@Body() body: { items: Array<{ productId: string; price: number; originalPrice: number; discountPercent: number; isFlashSale: boolean }> }) {
+    return this.productService.batchUpdateFlashSale(body.items || []);
+  }
+
   @Post('sync-stock')
   @ApiOperation({ summary: 'Sync product stock from inventory lots' })
-  syncStock(@Body() body: { sku?: string; productId?: string; stock?: number }) {
-    return this.productService.syncStock(body.sku || body.productId || '', body.stock);
+  syncStock(@Body() body: { sku?: string; productId?: string; stock?: number; isExpired?: boolean }) {
+    return this.productService.syncStock(body.sku || body.productId || '', body.stock, body.isExpired);
   }
 
   @Post('sync-all-stock')

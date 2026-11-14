@@ -98,7 +98,26 @@ export class Order {
   @Column({ nullable: true })
   podSignature: string; // Chữ ký điện tử hoặc mã OTP nhận hàng
 
+  // CANCELLATION FIELDS
+  @Column({ name: 'cancel_reason', nullable: true })
+  cancelReason: string;
+
+  @Column({ name: 'cancelled_at', type: 'timestamp', nullable: true })
+  cancelledAt: Date;
+
+  @Column({ name: 'cancelled_by', nullable: true, default: 'CUSTOMER' })
+  cancelledBy: string;
+
   // COD & FINANCIAL RECONCILIATION FIELDS
+  @Column({ name: 'idempotency_key', nullable: true })
+  idempotencyKey: string;
+
+  @Column({ name: 'transaction_id', nullable: true })
+  transactionId: string;
+
+  @Column({ name: 'paid_at', type: 'timestamp', nullable: true })
+  paidAt: Date;
+
   @Column({ type: 'boolean', default: false })
   isPaid: boolean;
 

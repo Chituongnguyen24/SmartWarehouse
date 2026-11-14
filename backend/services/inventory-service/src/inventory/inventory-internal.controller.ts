@@ -17,6 +17,16 @@ export class InventoryInternalController {
     return { message: 'Inventory reserved successfully' };
   }
 
+  @Post('release')
+  @ApiOperation({ summary: 'Release and restore inventory for a cancelled order (Internal API)' })
+  async release(@Body() body: { items: { sku: string; quantity: number }[], warehouseId?: string, orderId?: string, reason?: string }) {
+    if (!body.items || body.items.length === 0) {
+      throw new BadRequestException('Items array is required');
+    }
+    await this.inventoryService.releaseInventory(body.items, body.warehouseId, body.orderId, body.reason);
+    return { message: 'Inventory released and restored successfully' };
+  }
+
   @Get('warehouse-stock')
   @ApiOperation({ summary: 'Get available stock grouped by warehouse (Internal API)' })
   getWarehouseStock(@Query('skus') skus: string) {

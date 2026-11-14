@@ -26,21 +26,36 @@ export class AuditLog {
   @Column()
   action: string;
 
+  @Column({ name: 'action_code', nullable: true })
+  actionCode: string;
+
   @Column({ nullable: true })
   target: string;
 
-  @Column({ type: 'text', nullable: true })
-  details: string;
+  @Column({ name: 'target_id', nullable: true })
+  targetId: string;
 
-  @Column({ name: 'ip_address', nullable: true })
-  ipAddress: string;
+  @Column({ name: 'client_app', default: 'WEB_DASHBOARD' })
+  clientApp: string;
 
   @Column({ name: 'service_name', nullable: true })
   serviceName: string;
+
+  @Column({ name: 'ip_address', nullable: true })
+  ipAddress: string;
 
   @Column({
     type: 'varchar',
     default: AuditSeverity.INFO,
   })
   severity: AuditSeverity;
+
+  @Column({ type: 'text', nullable: true })
+  details: string;
+
+  @Column({ name: 'payload_before', type: 'jsonb', nullable: true })
+  payloadBefore: any;
+
+  @Column({ name: 'payload_after', type: 'jsonb', nullable: true })
+  payloadAfter: any;
 }

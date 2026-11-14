@@ -4,6 +4,8 @@ export enum OtpActionType {
   REGISTER = 'REGISTER',
   RESET_PASSWORD = 'RESET_PASSWORD',
   LOGIN_OTP = 'LOGIN_OTP',
+  UPDATE_PHONE = 'UPDATE_PHONE',
+  CHANGE_PASSWORD = 'CHANGE_PASSWORD',
 }
 
 @Entity('otp_verifications')

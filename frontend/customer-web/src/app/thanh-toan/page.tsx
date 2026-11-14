@@ -35,6 +35,13 @@ export default function CheckoutPage() {
   const [voucherMessage, setVoucherMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [availableVouchers, setAvailableVouchers] = useState<VoucherItem[]>([]);
   const [isValidatingVoucher, setIsValidatingVoucher] = useState(false);
+  const idempotencyKeyRef = useRef<string>('');
+
+  useEffect(() => {
+    if (!idempotencyKeyRef.current) {
+      idempotencyKeyRef.current = 'IDEM-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9);
+    }
+  }, []);
 
   useEffect(() => {
     getVouchers().then(list => {
@@ -344,10 +351,13 @@ export default function CheckoutPage() {
     await submitOrderToServer('cod');
   };
 
-  const submitOrderToServer = async (activePaymentMethod: string, extraNote?: string) => {
+  const submitOrderToServer = async (activePaymentMethod: string, extraNote?: string, transactionId?: string) => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     try {
       const orderPayload = {
+        idempotencyKey: idempotencyKeyRef.current,
+        transactionId: transactionId || null,
         customerId: user?.id || null,
         customerName: deliveryMethod === 'home' ? customerName : 'Khách nhận tại siêu thị',
         customerPhone,
@@ -984,7 +994,7 @@ export default function CheckoutPage() {
           address: customerAddress || ''
         }}
         onPaymentSuccess={(details) => {
-          submitOrderToServer(paymentMethod, `Đã TT Online qua ${details.method} (Mã GD: ${details.transactionId})`);
+          submitOrderToServer(paymentMethod, `Đã TT Online qua ${details.method} (Mã GD: ${details.transactionId})`, details.transactionId);
         }}
       />
     </div>

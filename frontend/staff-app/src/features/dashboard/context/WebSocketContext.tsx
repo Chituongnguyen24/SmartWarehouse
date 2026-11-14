@@ -97,6 +97,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     s.on('order_created', data => handleEvent('outbound_order_created', data));
     s.on('outbound_order_updated', data => handleEvent('outbound_order_updated', data));
     s.on('order_status_updated', data => handleEvent('order_status_updated', data));
+    s.on('order_cancelled', data => handleEvent('order_cancelled', data));
     s.on('outbound_confirmed', data => handleEvent('order_status_updated', data));
     s.on('inbound_order_created', data => handleEvent('inbound_order_created', data));
     s.on('lot_imported', data => handleEvent('lot_imported', data));

@@ -26,6 +26,7 @@ interface OrderItem {
 
 interface CustomerOrder {
   id: string;
+  orderCode?: string;
   customerId?: string;
   status: string; // PENDING, PICKING, PACKING, DELIVERING, COMPLETED, CANCELLED, etc.
   totalAmount: string | number;
@@ -43,6 +44,10 @@ interface CustomerOrder {
   assignedDriverName?: string;
   assignedDriverPhone?: string;
   assignedDriverPlate?: string;
+  cancelReason?: string;
+  cancelledBy?: string;
+  cancelledAt?: string;
+  cancelled_at?: string;
   createdAt: string;
   updatedAt: string;
   items: OrderItem[];
@@ -55,6 +60,14 @@ const STATUS_TABS = [
   { id: "delivering", label: "Đang giao hàng", icon: Truck },
   { id: "completed", label: "Đã giao", icon: CheckCircle2 },
   { id: "cancelled", label: "Đã hủy", icon: XCircle },
+];
+
+const CANCEL_REASONS = [
+  { id: "CHANGE_INFO", label: "Tôi muốn đổi địa chỉ nhận hàng hoặc số điện thoại" },
+  { id: "CHANGE_PRODUCT", label: "Tôi muốn thêm bớt hoặc đổi sản phẩm khác" },
+  { id: "WRONG_PAYMENT", label: "Tôi muốn đổi phương thức thanh toán" },
+  { id: "CHANGE_MIND", label: "Tôi tìm được giá tốt hơn hoặc đổi ý không mua nữa" },
+  { id: "OTHER", label: "Lý do khác (vui lòng ghi rõ bên dưới)" },
 ];
 
 export default function OrderHistoryPage() {
@@ -72,6 +85,13 @@ export default function OrderHistoryPage() {
   // Selected Order for Detail / Timeline Modal
   const [selectedOrder, setSelectedOrder] = useState<CustomerOrder | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Cancellation Modal State
+  const [cancellingOrder, setCancellingOrder] = useState<CustomerOrder | null>(null);
+  const [cancelReasonKey, setCancelReasonKey] = useState<string>("CHANGE_INFO");
+  const [cancelCustomReason, setCancelCustomReason] = useState<string>("");
+  const [cancelSubmitting, setCancelSubmitting] = useState<boolean>(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -102,22 +122,15 @@ export default function OrderHistoryPage() {
     else setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:3004/orders");
+      const queryParams = new URLSearchParams();
+      if (user?.id) queryParams.set("customerId", user.id);
+      if (user?.phone) queryParams.set("customerPhone", user.phone);
+
+      // Gọi endpoint my-orders an toàn (Anti-IDOR / Chỉ trả về đơn của chính khách hàng này)
+      const res = await fetch(`http://localhost:3004/orders/my-orders?${queryParams.toString()}`);
       if (res.ok) {
         const data: CustomerOrder[] = await res.json();
-        
-        // Lọc đơn hàng thuộc về tài khoản hiện tại (theo customerId hoặc số điện thoại)
-        let userOrders = data;
-        if (user && (user.id || user.phone)) {
-          const matched = data.filter(
-            (o) =>
-              (user.id && o.customerId === user.id) ||
-              (user.phone && o.customerPhone === user.phone)
-          );
-          if (matched.length > 0) {
-            userOrders = matched;
-          }
-        }
+        const userOrders = Array.isArray(data) ? data : [];
 
         // Ưu tiên sắp xếp những đơn hàng mới nhất lên trên đầu (mới nhất theo thời gian createdAt)
         const sorted = userOrders.sort(
@@ -140,12 +153,46 @@ export default function OrderHistoryPage() {
     // ⚡ Enterprise WebSocket Connection (Socket.io) - Event-Driven Push (0% Polling Overhead)
     const socket = io("http://localhost:3004");
 
-    socket.on("order_status_updated", (updatedOrder: any) => {
+    const handleOrderUpdate = (data: any) => {
+      const targetId = data?.id || data?.orderId;
+      const targetCode = data?.orderCode;
+      if (!targetId && !targetCode) return;
+
       setOrders((prev) =>
-        prev.map((o) => (o.id === updatedOrder.id ? { ...o, ...updatedOrder } : o))
+        prev.map((o) => {
+          const match = (targetId && o.id === targetId) || (targetCode && o.orderCode === targetCode);
+          if (match) {
+            return {
+              ...o,
+              ...(data.order || data),
+              status: (data.status || data.order?.status || o.status || "").toUpperCase(),
+              cancelReason: data.cancelReason || o.cancelReason,
+              cancelled_at: data.cancelledAt || o.cancelled_at,
+            };
+          }
+          return o;
+        })
       );
-      setSelectedOrder((prev) => (prev && prev.id === updatedOrder.id ? { ...prev, ...updatedOrder } : prev));
-    });
+
+      setSelectedOrder((prev) => {
+        if (!prev) return prev;
+        const match = (targetId && prev.id === targetId) || (targetCode && prev.orderCode === targetCode);
+        if (match) {
+          return {
+            ...prev,
+            ...(data.order || data),
+            status: (data.status || data.order?.status || prev.status || "").toUpperCase(),
+            cancelReason: data.cancelReason || prev.cancelReason,
+            cancelled_at: data.cancelledAt || prev.cancelled_at,
+          };
+        }
+        return prev;
+      });
+    };
+
+    socket.on("order_status_updated", handleOrderUpdate);
+    socket.on("order_cancelled", handleOrderUpdate);
+    socket.on("outbound_order_updated", handleOrderUpdate);
 
     socket.on("new_order", (newOrder: any) => {
       setOrders((prev) => {
@@ -265,32 +312,84 @@ export default function OrderHistoryPage() {
       addedCount += (item.quantity || 1);
     });
 
-    showToast(`🛒 Đã thêm ${addedCount} sản phẩm vào giỏ hàng! Đang chuyển đến giỏ hàng...`);
+    showToast(`Đã thêm ${addedCount} sản phẩm vào giỏ hàng. Đang chuyển đến giỏ hàng...`);
     setTimeout(() => {
       router.push("/gio-hang");
     }, 1200);
   };
 
-  // Action: Cancel Order (Only if PENDING)
-  const handleCancelOrder = async (orderId: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn hủy đơn hàng này?")) return;
-    try {
-      const res = await fetch(`http://localhost:3004/orders/sync-status/${orderId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "CANCELLED" })
-      });
-      if (res.ok) {
-        showToast("❌ Đã hủy đơn hàng thành công!");
-        fetchOrders(true);
-        if (selectedOrder?.id === orderId) {
-          setSelectedOrder(prev => prev ? { ...prev, status: "CANCELLED" } : null);
-        }
-      } else {
-        alert("Không thể hủy đơn hàng vào lúc này. Vui lòng liên hệ hotline 1900 5555 68!");
+  // Business Rule: Chỉ khi nào đơn hàng đang trong trạng thái DELIVERING (đang giao hàng) hoặc đã kết thúc mới không cho hủy nữa
+  const canCancelOrder = (status?: string): boolean => {
+    if (!status) return false;
+    const s = status.toUpperCase();
+    return !["DELIVERING", "COMPLETED", "DELIVERED", "CANCELLED", "FAILED_DELIVERY", "RETURN_TO_WAREHOUSE"].includes(s);
+  };
+
+  // Action: Open Cancel Order Modal
+  const handleOpenCancelModal = (order: CustomerOrder) => {
+    setCancellingOrder(order);
+    setCancelReasonKey("CHANGE_INFO");
+    setCancelCustomReason("");
+    setCancelError(null);
+  };
+
+  // Action: Submit Cancel Order Request
+  const handleConfirmCancel = async () => {
+    if (!cancellingOrder) return;
+    setCancelSubmitting(true);
+    setCancelError(null);
+
+    let reasonText = "";
+    if (cancelReasonKey === "OTHER") {
+      reasonText = cancelCustomReason.trim() || "Khách hàng hủy đơn (lý do khác)";
+    } else {
+      const found = CANCEL_REASONS.find(r => r.id === cancelReasonKey);
+      reasonText = found ? found.label : cancelReasonKey;
+      if (cancelCustomReason.trim()) {
+        reasonText += ` - Ghi chú: ${cancelCustomReason.trim()}`;
       }
-    } catch (e) {
+    }
+
+    try {
+      const res = await fetch(`http://localhost:3004/orders/${cancellingOrder.id}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason: reasonText,
+          cancelledBy: "CUSTOMER",
+        }),
+      });
+
+      if (res.ok) {
+        showToast("Đã hủy đơn hàng thành công và cập nhật tới bộ phận kho.");
+        const nowIso = new Date().toISOString();
+        
+        // Cập nhật state cục bộ ngay lập tức (Zero-latency Optimistic UI)
+        setOrders(prev =>
+          prev.map(o =>
+            o.id === cancellingOrder.id
+              ? { ...o, status: "CANCELLED", cancelReason: reasonText, cancelledAt: nowIso, cancelledBy: "CUSTOMER" }
+              : o
+          )
+        );
+
+        if (selectedOrder?.id === cancellingOrder.id) {
+          setSelectedOrder(prev =>
+            prev ? { ...prev, status: "CANCELLED", cancelReason: reasonText, cancelledAt: nowIso, cancelledBy: "CUSTOMER" } : null
+          );
+        }
+
+        setCancellingOrder(null);
+        setCancelCustomReason("");
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        setCancelError(errJson.message || "Không thể hủy đơn hàng vào lúc này. Vui lòng thử lại hoặc liên hệ hotline 1900 5555 68.");
+      }
+    } catch (e: any) {
       console.error("Failed to cancel order:", e);
+      setCancelError(e?.message ? `Lỗi kết nối: ${e.message}` : "Lỗi kết nối khi gửi yêu cầu hủy đơn.");
+    } finally {
+      setCancelSubmitting(false);
     }
   };
 
@@ -414,7 +513,9 @@ export default function OrderHistoryPage() {
             const badge = getStatusBadge(order.status);
             const BadgeIcon = badge.icon;
             const itemsCount = order.items?.reduce((sum, i) => sum + (i.quantity || 1), 0) || 0;
-            const canCancel = getStatusGroup(order.status) === "pending";
+            const canCancel = canCancelOrder(order.status);
+            const isDelivering = order.status?.toUpperCase() === "DELIVERING";
+            const isCancelled = order.status?.toUpperCase() === "CANCELLED";
 
             return (
               <div 
@@ -507,11 +608,23 @@ export default function OrderHistoryPage() {
                     <div className="flex items-center gap-2">
                       {canCancel && (
                         <button
-                          onClick={() => handleCancelOrder(order.id)}
+                          onClick={() => handleOpenCancelModal(order)}
                           className="px-3.5 py-2 border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold rounded-xl transition-all cursor-pointer"
                         >
                           Hủy đơn
                         </button>
+                      )}
+
+                      {isDelivering && (
+                        <span className="text-[11px] text-amber-700 font-medium px-2.5 py-1 bg-amber-50 border border-amber-200 rounded-lg">
+                          Đang giao hàng (Không thể hủy)
+                        </span>
+                      )}
+
+                      {isCancelled && order.cancelReason && (
+                        <span className="text-[11px] text-rose-700 font-medium px-2.5 py-1 bg-rose-50 border border-rose-200 rounded-lg max-w-[220px] truncate" title={order.cancelReason}>
+                          Lý do: {order.cancelReason}
+                        </span>
                       )}
 
                       <button
@@ -836,24 +949,158 @@ export default function OrderHistoryPage() {
               </div>
 
               {/* Modal Footer Actions */}
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  onClick={() => setSelectedOrder(null)}
-                  className="px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-colors cursor-pointer"
-                >
-                  Đóng
-                </button>
-                <button
-                  onClick={() => {
-                    handleReorder(selectedOrder);
-                    setSelectedOrder(null);
-                  }}
-                  className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-extrabold transition-all shadow-md shadow-emerald-700/20 flex items-center gap-1.5 cursor-pointer"
-                >
-                  <RotateCcw size={14} /> Mua lại đơn này
-                </button>
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <div>
+                  {canCancelOrder(selectedOrder.status) && (
+                    <button
+                      onClick={() => handleOpenCancelModal(selectedOrder)}
+                      className="px-4 py-2.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      Hủy đơn hàng này
+                    </button>
+                  )}
+                  {selectedOrder.status?.toUpperCase() === 'DELIVERING' && (
+                    <span className="text-[11.5px] text-amber-700 font-medium px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
+                      Đơn hàng đang trên đường giao (Không thể hủy)
+                    </span>
+                  )}
+                  {selectedOrder.status?.toUpperCase() === 'CANCELLED' && (
+                    <span className="text-[11.5px] text-rose-700 font-medium px-3 py-1.5 bg-rose-50 border border-rose-200 rounded-lg">
+                      Đơn hàng đã hủy {selectedOrder.cancelReason ? `(${selectedOrder.cancelReason})` : ''}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setSelectedOrder(null)}
+                    className="px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
+                    Đóng
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleReorder(selectedOrder);
+                      setSelectedOrder(null);
+                    }}
+                    className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-extrabold transition-all shadow-md shadow-emerald-700/20 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <RotateCcw size={14} /> Mua lại đơn này
+                  </button>
+                </div>
               </div>
 
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CANCELLATION CONFIRMATION MODAL */}
+      {cancellingOrder && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
+                  <XCircle size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Xác nhận hủy đơn hàng</h3>
+                  <p className="text-[11.5px] text-slate-500 font-mono">
+                    Mã đơn: ECOMM-{cancellingOrder.id.slice(0, 8).toUpperCase()}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCancellingOrder(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              {/* Alert if order is in processing/picking/packing */}
+              {['PROCESSING', 'PICKING', 'PACKING', 'PACKED', 'CONFIRMED', 'READY_FOR_DELIVERY'].includes(cancellingOrder.status?.toUpperCase()) && (
+                <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 leading-relaxed flex items-start gap-2.5">
+                  <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Lưu ý:</strong> Đơn hàng đang trong quy trình xử lý tại kho ({cancellingOrder.assignedWarehouseName || 'Kho trung tâm'}). Khi quý khách hủy đơn, hệ thống sẽ tự động gửi lệnh dừng xử lý và hoàn trả các sản phẩm về lại kệ kho.
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-2">
+                  Vui lòng chọn lý do hủy đơn:
+                </label>
+                <div className="space-y-2">
+                  {CANCEL_REASONS.map(r => (
+                    <label
+                      key={r.id}
+                      className={`flex items-center gap-3 p-3 rounded-xl border text-xs cursor-pointer transition-all ${
+                        cancelReasonKey === r.id
+                          ? 'border-emerald-600 bg-emerald-50/50 text-slate-900 font-medium'
+                          : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="cancelReason"
+                        value={r.id}
+                        checked={cancelReasonKey === r.id}
+                        onChange={() => setCancelReasonKey(r.id)}
+                        className="text-emerald-700 focus:ring-emerald-600"
+                      />
+                      <span>{r.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {cancelReasonKey === 'OTHER' && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Chi tiết lý do (tùy chọn):
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={cancelCustomReason}
+                    onChange={e => setCancelCustomReason(e.target.value)}
+                    placeholder="Nhập lý do chi tiết để siêu thị hỗ trợ bạn tốt hơn..."
+                    className="w-full text-xs p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600"
+                  />
+                </div>
+              )}
+
+              {cancelError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium">
+                  {cancelError}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setCancellingOrder(null)}
+                disabled={cancelSubmitting}
+                className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Không, giữ lại đơn
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCancel}
+                disabled={cancelSubmitting}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                {cancelSubmitting ? 'Đang xử lý hủy...' : 'Xác nhận hủy đơn'}
+              </button>
             </div>
           </div>
         </div>

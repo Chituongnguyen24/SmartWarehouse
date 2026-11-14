@@ -9,6 +9,13 @@ export interface AuthUser {
   role: UserRole;
   phone?: string;
   warehouseCode?: string;
+  code?: string;
+  department?: string;
+  shift?: string;
+  address?: string;
+  gender?: string;
+  dob?: string;
+  bio?: string;
 }
 
 interface AuthContextType {
@@ -17,7 +24,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
-  updateProfile: (data: { name?: string; email?: string; phone?: string; password?: string }) => Promise<void>;
+  updateProfile: (data: { name?: string; email?: string; phone?: string; address?: string; bio?: string }) => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -107,6 +115,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       role: data.user.role as UserRole,
       phone: data.user.phone,
       warehouseCode: data.user.warehouseCode,
+      code: data.user.code,
+      department: data.user.department,
+      shift: data.user.shift,
+      address: data.user.address,
+      gender: data.user.gender,
+      dob: data.user.dob,
+      bio: data.user.bio,
     };
 
     setToken(data.access_token);
@@ -116,7 +131,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     applyTheme(authUser.role);
   }, []);
 
-  const updateProfile = useCallback(async (data: { name?: string; email?: string; phone?: string; password?: string }) => {
+  const refreshProfile = useCallback(async () => {
+    const savedToken = localStorage.getItem('auth-token') || token;
+    if (!savedToken) return;
+    try {
+      const res = await fetch(`${API_BASE}/auth/profile`, {
+        headers: { Authorization: `Bearer ${savedToken}` },
+      });
+      if (res.ok) {
+        const updatedUser = await res.json();
+        const authUser: AuthUser = {
+          id: updatedUser.id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          role: updatedUser.role as UserRole,
+          phone: updatedUser.phone,
+          warehouseCode: updatedUser.warehouseCode,
+          code: updatedUser.code,
+          department: updatedUser.department,
+          shift: updatedUser.shift,
+          address: updatedUser.address,
+          gender: updatedUser.gender,
+          dob: updatedUser.dob,
+          bio: updatedUser.bio,
+        };
+        setUser(authUser);
+        localStorage.setItem('auth-user', JSON.stringify(authUser));
+      }
+    } catch (e) {}
+  }, [token]);
+
+  const updateProfile = useCallback(async (data: { name?: string; email?: string; phone?: string; address?: string; bio?: string }) => {
     const savedToken = localStorage.getItem('auth-token') || token;
     if (!savedToken) {
       throw new Error('Not authenticated');
@@ -142,6 +187,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: updatedUser.email,
       role: updatedUser.role as UserRole,
       phone: updatedUser.phone,
+      warehouseCode: updatedUser.warehouseCode,
+      code: updatedUser.code,
+      department: updatedUser.department,
+      shift: updatedUser.shift,
+      address: updatedUser.address,
+      gender: updatedUser.gender,
+      dob: updatedUser.dob,
+      bio: updatedUser.bio,
     };
 
     setUser(authUser);
@@ -158,7 +211,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, isAuthenticated: !!user, login, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, token, isAuthenticated: !!user, login, logout, updateProfile, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

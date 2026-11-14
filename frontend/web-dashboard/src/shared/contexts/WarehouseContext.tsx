@@ -58,6 +58,8 @@ const WarehouseContext = createContext<WarehouseContextType | undefined>(undefin
 export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
+  const isSaler = user?.role === 'SALES_STAFF';
+  const isWarehouseBound = !isAdmin && !isSaler; // Chỉ bộ phận Kho/Tài xế bị khóa vào 1 kho vật lý
   const myWarehouseCode = user?.warehouseCode || (
     user?.email?.includes('001') || user?.email?.includes('q12') ? 'WH-001' :
     user?.email?.includes('002') ? 'WH-002' :
@@ -69,9 +71,10 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   
-  // Default warehouse: if not admin and has warehouse -> strictly that warehouse
+  // Default warehouse: Nhân viên kinh doanh tự động phủ toàn bộ mạng lưới kho ('ALL')
   const [selectedWarehouseCode, setSelectedWarehouseCodeState] = useState<string>(() => {
-    if (!isAdmin && myWarehouseCode) return myWarehouseCode;
+    if (isWarehouseBound && myWarehouseCode) return myWarehouseCode;
+    if (isSaler) return 'ALL';
     const saved = localStorage.getItem('sfwms_selected_warehouse');
     return saved || 'WH-006';
   });
@@ -100,26 +103,28 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     fetchWarehouses();
   }, [fetchWarehouses]);
 
-  // Sync if non-admin logs in: strictly lock to assigned warehouse
+  // Sync khi đăng nhập: Khóa nhân viên kho vào kho trực thuộc, mở tự động toàn mạng lưới cho Saler
   useEffect(() => {
-    if (!isAdmin && myWarehouseCode) {
+    if (isWarehouseBound && myWarehouseCode) {
       setSelectedWarehouseCodeState(myWarehouseCode);
       localStorage.setItem('sfwms_selected_warehouse', myWarehouseCode);
+    } else if (isSaler) {
+      setSelectedWarehouseCodeState('ALL');
     }
-  }, [isAdmin, myWarehouseCode]);
+  }, [isWarehouseBound, isSaler, myWarehouseCode]);
 
   const setSelectedWarehouseCode = useCallback((code: string) => {
-    // Non-admin accounts are locked to their own warehouse and cannot switch to others
-    if (!isAdmin && myWarehouseCode) {
+    // Chỉ nhân viên kho mới bị hạn chế chuyển kho
+    if (isWarehouseBound && myWarehouseCode) {
       console.warn(`User ${user?.email} is restricted to warehouse ${myWarehouseCode} and cannot switch to ${code}`);
       return;
     }
     setSelectedWarehouseCodeState(code);
     localStorage.setItem('sfwms_selected_warehouse', code);
-  }, [isAdmin, myWarehouseCode, user?.email]);
+  }, [isWarehouseBound, myWarehouseCode, user?.email]);
 
   const accessibleWarehouses = useMemo(() => {
-    if (isAdmin) return warehouses;
+    if (isAdmin || isSaler) return warehouses;
     if (myWarehouseCode) {
       const filtered = warehouses.filter(w => w.code === myWarehouseCode);
       if (filtered.length > 0) return filtered;
@@ -134,9 +139,9 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }];
     }
     return warehouses;
-  }, [isAdmin, myWarehouseCode, warehouses]);
+  }, [isAdmin, isSaler, myWarehouseCode, warehouses]);
 
-  const effectiveCode = (!isAdmin && myWarehouseCode) ? myWarehouseCode : selectedWarehouseCode;
+  const effectiveCode = (isWarehouseBound && myWarehouseCode) ? myWarehouseCode : selectedWarehouseCode;
   const selectedWarehouse = warehouses.find(w => w.code === effectiveCode) || accessibleWarehouses[0] || null;
 
   const createWarehouse = async (data: Partial<Warehouse>): Promise<Warehouse | null> => {

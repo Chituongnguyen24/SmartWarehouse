@@ -27,6 +27,49 @@ export class ProductService implements OnModuleInit {
 
   async onModuleInit() {
     console.log('[ProductService] Initialized with real database data & Redis Caching.');
+    await this.seedMissingInventorySkus();
+  }
+
+  private async seedMissingInventorySkus() {
+    try {
+      const defaultSeedItems = [
+        {
+          sku: 'NOODLE-HAOHAO',
+          name: 'Mì tôm Hảo Hảo tôm chua cay (Thùng 30 gói)',
+          category: 'Thực phẩm khô',
+          price: 115000,
+          originalPrice: 130000,
+          storageType: StorageType.DRY,
+          unit: 'Thùng',
+          stock: 2500,
+          imageUrl: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=400&q=80',
+        },
+        {
+          sku: 'BEEF-STEAK-US',
+          name: 'Thịt bò Mỹ cắt lát cao cấp 500g',
+          category: 'Thực phẩm đông lạnh',
+          price: 245000,
+          originalPrice: 280000,
+          storageType: StorageType.FROZEN,
+          unit: 'Khay',
+          stock: 350,
+          minTemp: -18,
+          maxTemp: -10,
+          imageUrl: 'https://images.unsplash.com/photo-1603048588665-791ca8aea617?auto=format&fit=crop&w=400&q=80',
+        },
+      ];
+
+      for (const item of defaultSeedItems) {
+        const found = await this.productRepository.findOneBy({ sku: item.sku });
+        if (!found) {
+          const created = this.productRepository.create(item);
+          await this.productRepository.save(created);
+          console.log(`[ProductService] Auto-seeded warehouse inventory SKU: ${item.sku} - ${item.name}`);
+        }
+      }
+    } catch (err: any) {
+      console.warn('[ProductService] Seed missing inventory SKUs warning:', err.message);
+    }
   }
 
   private async invalidateProductCache() {
@@ -293,9 +336,35 @@ export class ProductService implements OnModuleInit {
   }
 
   async update(id: string, prod: Partial<Product>): Promise<Product> {
-    const existing = await this.productRepository.findOneBy({ id });
+    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id);
+    let existing = isUuid
+      ? await this.productRepository.findOneBy({ id })
+      : await this.productRepository.findOneBy({ sku: id });
+
+    if (!existing && isUuid) {
+      existing = await this.productRepository.findOneBy({ sku: id });
+    }
+
     if (!existing) {
-      throw new NotFoundException('Không tìm thấy sản phẩm cần cập nhật');
+      // Tự động tạo sản phẩm nếu chưa có trong catalog (VD: SKU từ lô kho nhập sẵn)
+      const sanitized = this.sanitizeProductData(prod);
+      const newProd = this.productRepository.create({
+        sku: sanitized.sku || id,
+        name: sanitized.name || `Sản phẩm ${id}`,
+        category: sanitized.category || 'Thực phẩm',
+        price: sanitized.price ?? 45000,
+        originalPrice: sanitized.originalPrice ?? sanitized.price ?? 45000,
+        isFlashSale: sanitized.isFlashSale ?? false,
+        discountPercent: sanitized.discountPercent ?? 0,
+        storageType: sanitized.storageType || StorageType.DRY,
+        unit: sanitized.unit || 'Cái',
+        stock: sanitized.stock ?? 0,
+        imageUrl: sanitized.imageUrl || '',
+      });
+      const saved = await this.productRepository.save(newProd);
+      await this.invalidateProductCache();
+      this.broadcastProductEvent('product_created', saved);
+      return saved;
     }
 
     const sanitized = this.sanitizeProductData(prod);
@@ -308,36 +377,101 @@ export class ProductService implements OnModuleInit {
     // Luôn giữ nguyên SKU gốc, không cho phép update trường sku
     delete sanitized.sku;
 
-    await this.productRepository.update(id, sanitized);
+    await this.productRepository.update(existing.id, sanitized);
     await this.invalidateProductCache();
-    const updated = await this.findOne(id);
-    this.broadcastProductEvent('product_updated', updated);
-    return updated;
+    const updated = await this.findOne(existing.id);
+    this.broadcastProductEvent('product_updated', updated!);
+    return updated!;
   }
 
   async remove(id: string): Promise<void> {
-    const existing = await this.findOne(id);
-    await this.productRepository.delete(id);
+    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id);
+    const existing = isUuid
+      ? await this.productRepository.findOneBy({ id })
+      : await this.productRepository.findOneBy({ sku: id });
+
+    if (!existing) {
+      throw new NotFoundException('Không tìm thấy sản phẩm cần xóa');
+    }
+
+    await this.productRepository.delete(existing.id);
     await this.invalidateProductCache();
-    this.broadcastProductEvent('product_deleted', { id, sku: existing?.sku });
+    this.broadcastProductEvent('product_deleted', { id: existing.id, sku: existing.sku });
   }
 
-  async syncStock(skuOrId: string, directStock?: number): Promise<Product | null> {
+  async batchUpdateFlashSale(items: Array<{
+    productId: string;
+    price: number;
+    originalPrice: number;
+    discountPercent: number;
+    isFlashSale: boolean;
+  }>): Promise<{ successCount: number; updatedProducts: Product[] }> {
+    const updatedProducts: Product[] = [];
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    for (const item of items) {
+      try {
+        const isUuid = uuidRegex.test(item.productId);
+        let prod = await this.productRepository.findOne({
+          where: isUuid ? [{ id: item.productId }, { sku: item.productId }] : [{ sku: item.productId }]
+        });
+        if (!prod) {
+          prod = this.productRepository.create({
+            sku: item.productId,
+            name: `Sản phẩm ${item.productId}`,
+            category: 'Thực phẩm',
+            price: item.price,
+            originalPrice: item.originalPrice || item.price,
+            discountPercent: item.discountPercent,
+            isFlashSale: item.isFlashSale,
+            storageType: StorageType.DRY,
+            unit: 'Cái',
+            stock: 0,
+          });
+          prod = await this.productRepository.save(prod);
+        } else {
+          prod.isFlashSale = item.isFlashSale;
+          prod.price = item.price;
+          prod.originalPrice = item.originalPrice;
+          prod.discountPercent = item.discountPercent;
+          await this.productRepository.save(prod);
+        }
+        updatedProducts.push(prod);
+        this.broadcastProductEvent('product_updated', prod);
+      } catch (e: any) {
+        console.warn(`[ProductService] Failed to batch update flash sale for ${item.productId}: ${e.message}`);
+      }
+    }
+    await this.invalidateProductCache();
+    return { successCount: updatedProducts.length, updatedProducts };
+  }
+
+  async syncStock(skuOrId: string, directStock?: number, isExpiredFlag?: boolean): Promise<Product | null> {
     if (!skuOrId) return null;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isUuid = uuidRegex.test(skuOrId);
     const target = await this.productRepository.findOne({
-      where: [{ sku: skuOrId }, { id: skuOrId }]
+      where: isUuid ? [{ id: skuOrId }, { sku: skuOrId }] : [{ sku: skuOrId }]
     });
     if (!target) return null;
 
+    const now = new Date();
     let newStock = directStock;
+    let computedExpired = isExpiredFlag;
+
     if (newStock === undefined) {
       try {
         const res = await fetch('http://localhost:3011/inventory/lots?limit=10000');
         if (res.ok) {
           const lots = await res.json();
-          newStock = lots
-            .filter((l: any) => (l.productId === target.sku || l.productId === target.id) && Number(l.remainingQty) > 0)
-            .reduce((sum: number, l: any) => sum + Number(l.remainingQty), 0);
+          const targetLots = lots.filter((l: any) => (l.productId === target.sku || l.productId === target.id) && Number(l.remainingQty) > 0);
+          const unexpiredLots = targetLots.filter((l: any) => new Date(l.expiryDate) > now && l.status !== 'EXPIRED');
+          const expiredLots = targetLots.filter((l: any) => new Date(l.expiryDate) <= now || l.status === 'EXPIRED');
+
+          newStock = unexpiredLots.reduce((sum: number, l: any) => sum + Number(l.remainingQty), 0);
+          if (computedExpired === undefined) {
+            computedExpired = targetLots.length > 0 && unexpiredLots.length === 0 && expiredLots.length > 0;
+          }
         }
       } catch (e: any) {
         console.warn(`[ProductService] Failed to query lots for stock sync: ${e.message}`);
@@ -346,10 +480,15 @@ export class ProductService implements OnModuleInit {
 
     if (newStock !== undefined) {
       target.stock = Math.max(0, Number(newStock) || 0);
+      if (computedExpired !== undefined) {
+        target.isExpired = computedExpired;
+      } else if (target.stock <= 0 && target.isExpired === undefined) {
+        target.isExpired = false;
+      }
       await this.productRepository.save(target);
       await this.invalidateProductCache();
       this.broadcastProductEvent('product_updated', target);
-      console.log(`[ProductService] 🔄 Synced stock for ${target.sku} (${target.name}): ${target.stock}`);
+      console.log(`[ProductService] 🔄 Synced stock for ${target.sku} (${target.name}): ${target.stock} (isExpired: ${target.isExpired})`);
     }
 
     return target;
@@ -360,10 +499,23 @@ export class ProductService implements OnModuleInit {
       const res = await fetch('http://localhost:3011/inventory/lots?limit=10000');
       if (!res.ok) return { updated: 0, zero: 0 };
       const lots = await res.json();
+      const now = new Date();
+
       const stockMap = new Map<string, number>();
+      const expiredMap = new Map<string, boolean>();
+      const lotCountMap = new Map<string, number>();
+
       for (const l of lots) {
-        if (l.productId && Number(l.remainingQty) > 0) {
-          stockMap.set(l.productId, (stockMap.get(l.productId) || 0) + Number(l.remainingQty));
+        const pid = l.productId;
+        if (!pid || Number(l.remainingQty) <= 0) continue;
+
+        lotCountMap.set(pid, (lotCountMap.get(pid) || 0) + 1);
+        const isExp = new Date(l.expiryDate) <= now || l.status === 'EXPIRED';
+
+        if (!isExp) {
+          stockMap.set(pid, (stockMap.get(pid) || 0) + Number(l.remainingQty));
+        } else {
+          expiredMap.set(pid, true);
         }
       }
 
@@ -371,14 +523,19 @@ export class ProductService implements OnModuleInit {
       let updatedCount = 0;
       let zeroCount = 0;
       for (const p of allProds) {
-        const qty = stockMap.get(p.id) || stockMap.get(p.sku) || 0;
-        if (p.stock !== qty) {
-          p.stock = qty;
+        const unexpiredQty = stockMap.get(p.id) || stockMap.get(p.sku) || 0;
+        const hasExpiredLots = expiredMap.get(p.id) || expiredMap.get(p.sku) || false;
+        const totalLotsForProd = (lotCountMap.get(p.id) || 0) + (lotCountMap.get(p.sku) || 0);
+        const isProdExpired = totalLotsForProd > 0 && unexpiredQty === 0 && hasExpiredLots;
+
+        if (p.stock !== unexpiredQty || p.isExpired !== isProdExpired) {
+          p.stock = unexpiredQty;
+          p.isExpired = isProdExpired;
           await this.productRepository.save(p);
           this.broadcastProductEvent('product_updated', p);
           updatedCount++;
         }
-        if (qty === 0) zeroCount++;
+        if (unexpiredQty === 0) zeroCount++;
       }
       await this.invalidateProductCache();
       console.log(`[ProductService] 🔄 Synced all stock: ${updatedCount} products updated (${zeroCount} out of stock).`);
