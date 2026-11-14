@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/lib/store";
+import { getApiHost } from "@/shared/lib/apiConfig";
 
 export function AuthInitializer({ children }: { children: React.ReactNode }) {
   const { token, login, logout } = useAuthStore();
@@ -14,7 +15,7 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
 
     const verifyToken = async () => {
       try {
-        const res = await fetch("http://localhost:3012/auth/me", {
+        const res = await fetch(`${getApiHost(3012)}/auth/me`, {
           headers: {
             Authorization: `Bearer ${token}`
           },

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, Phone, ShieldCheck, Lock, RefreshCw, KeyRound, AlertCircle, Check, ShoppingCart, UserPlus } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
+import { getApiHost } from '@/lib/api';
 import { MapPicker } from '@/features/checkout';
 
 function LoginForm() {
@@ -60,7 +61,7 @@ function LoginForm() {
     setSuccessMsg('');
 
     try {
-      const res = await fetch('http://localhost:3012/auth/otp/send', {
+      const res = await fetch(`${getApiHost(3012)}/auth/otp/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: cleanPhone, actionType: 'LOGIN_OTP' }),
@@ -92,7 +93,7 @@ function LoginForm() {
     setIsLoading(true);
     setErrorMsg('');
     try {
-      const res = await fetch('http://localhost:3012/auth/otp/send', {
+      const res = await fetch(`${getApiHost(3012)}/auth/otp/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: cleanPhone, actionType: 'LOGIN_OTP' }),
@@ -162,7 +163,7 @@ function LoginForm() {
 
     try {
       const cleanPhone = phone.trim().replace(/\D/g, '');
-      const response = await fetch('http://localhost:3012/auth/login-otp', {
+      const response = await fetch(`${getApiHost(3012)}/auth/login-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -217,7 +218,7 @@ function LoginForm() {
 
     try {
       // Cập nhật profile & địa chỉ vào Backend CSDL (:3012/users/profile)
-      const response = await fetch('http://localhost:3012/users/profile', {
+      const response = await fetch(`${getApiHost(3012)}/users/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

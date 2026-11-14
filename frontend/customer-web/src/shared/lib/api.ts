@@ -1,4 +1,7 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3010';
+import { getApiHost } from './apiConfig';
+export { getApiHost };
+
+const API_URL = getApiHost(3010);
 
 export interface Product {
   id: string;

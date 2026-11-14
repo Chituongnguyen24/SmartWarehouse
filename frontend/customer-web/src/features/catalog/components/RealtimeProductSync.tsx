@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useCartStore } from '@/lib/store';
+import { getApiHost } from '@/lib/api';
 import { Zap, X } from 'lucide-react';
 
 export default function RealtimeProductSync() {
@@ -11,7 +12,7 @@ export default function RealtimeProductSync() {
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    const socket = io('http://localhost:3004', {
+    const socket = io(getApiHost(3004), {
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,

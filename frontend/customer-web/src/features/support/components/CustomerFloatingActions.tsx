@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import { useAuthStore } from "@/lib/store";
+import { getApiHost } from "@/lib/api";
 
 interface ProductCardData {
   id?: string;
@@ -130,7 +131,7 @@ export default function CustomerFloatingActions() {
         customerId: effectiveCustomerId
       };
 
-      const res = await fetch("http://localhost:3004/chat/sessions/init", {
+      const res = await fetch(`${getApiHost(3004)}/chat/sessions/init`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -205,7 +206,7 @@ export default function CustomerFloatingActions() {
 
   // Kết nối Socket.IO 2 chiều với Order-service Gateway (Port 3004) duy nhất 1 lần
   useEffect(() => {
-    const socket = io("http://localhost:3004", {
+    const socket = io(getApiHost(3004), {
       transports: ["websocket", "polling"],
       reconnectionAttempts: 10,
       reconnectionDelay: 2000,

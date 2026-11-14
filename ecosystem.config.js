@@ -179,6 +179,22 @@ module.exports = {
         DB_NAME: 'sfwms_transport',
       },
     },
+
+    // 10. Customer Web (Next.js SSR - Cổng 3000)
+    {
+      name: 'sfwms-customer-web',
+      cwd: './frontend/customer-web',
+      script: 'node_modules/next/dist/bin/next',
+      args: 'start -p 3000',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '450M',
+      env: {
+        NODE_ENV: 'production',
+        PORT: 3000,
+      },
+    },
   ],
 };
 

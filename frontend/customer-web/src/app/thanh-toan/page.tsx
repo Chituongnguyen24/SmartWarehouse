@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, MapPin, Truck, Store, CreditCard, Banknote, ShieldCheck, Ticket, ChevronLeft, Loader2, Navigation, Edit2, CheckCircle2, Info, Tag, AlertCircle, X } from 'lucide-react';
 import { useCartStore, useAuthStore } from '@/lib/store';
-import { getVouchers, validateVoucherCode, VoucherItem } from '@/lib/api';
+import { getVouchers, validateVoucherCode, VoucherItem, getApiHost } from '@/lib/api';
 import { PaymentSimulatorModal } from '@/features/checkout';
 
 interface AddressSuggestion {
@@ -389,7 +389,7 @@ export default function CheckoutPage() {
         } catch (e) {}
       }
       
-      const response = await fetch('http://localhost:3004/orders', {
+      const response = await fetch(`${getApiHost(3004)}/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -411,7 +411,7 @@ export default function CheckoutPage() {
 
       // Tự động lưu địa chỉ và tọa độ vào hồ sơ khách hàng để dùng vĩnh viễn cho các lần mua sau
       if (activeAuthToken && customerAddress) {
-        fetch('http://localhost:3012/users/profile', {
+        fetch(`${getApiHost(3012)}/users/profile`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
