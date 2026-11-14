@@ -1,8 +1,8 @@
 import { Injectable, OnModuleInit, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual } from 'typeorm';
+import { Repository, LessThanOrEqual, In, MoreThan } from 'typeorm';
 import { Lot, LotStatus } from './entities/lot.entity';
-import { Supplier } from './entities/supplier.entity';
+import { Supplier, SupplierStatus, SupplierCategory } from './entities/supplier.entity';
 import { StockMovement, MovementType } from './entities/stock-movement.entity';
 import { ProductService } from '../product/product.service';
 import { MLSpoilageService, MLPredictionResult } from './ml-spoilage.service';
@@ -55,16 +55,67 @@ export class InventoryService implements OnModuleInit {
     }
     // Seed default suppliers
     const defaultSuppliers = [
-      { id: '11111111-1111-1111-1111-111111111111', name: 'Dalat Organic Farms', contact: '0901234567', address: 'Dalat City, Lam Dong' },
-      { id: '22222222-2222-2222-2222-222222222222', name: 'Vissan Meat JSC', contact: '0283844438', address: 'Binh Thanh Dist, HCMC' },
-      { id: '33333333-3333-3333-3333-333333333333', name: 'Masan Consumer HCMC', contact: '0283827411', address: 'Dist 1, HCMC' },
+      {
+        id: '11111111-1111-1111-1111-111111111111',
+        code: 'SUP-001',
+        name: 'Công ty Cổ phần Nông nghiệp Công nghệ cao Đà Lạt (Dalat Organic Farms)',
+        shortName: 'Dalat Farms',
+        contact: 'Nguyễn Văn Thịnh (Giám đốc Phân phối)',
+        phone: '0901234567',
+        email: 'procurement@dalatorganic.vn',
+        taxCode: '5801234567',
+        address: 'Số 12 Hùng Vương, Phường 10, TP. Đà Lạt, Lâm Đồng',
+        category: 'RAU_CU_QUA',
+        paymentTerms: 'Công nợ 15 ngày (Net 15)',
+        rating: 4.9,
+        leadTimeDays: 1,
+        certifications: 'VietGAP, GlobalGAP, Organic USDA',
+        notes: 'Xe tải thùng lạnh 2-4°C, cam kết giao hàng lúc 04:00 sáng hàng ngày để đảm bảo độ tươi mới.',
+        status: SupplierStatus.ACTIVE,
+      },
+      {
+        id: '22222222-2222-2222-2222-222222222222',
+        code: 'SUP-002',
+        name: 'Công ty Cổ phần Việt Nam Kỹ Nghệ Súc Sản (VISSAN)',
+        shortName: 'Vissan Meat',
+        contact: 'Trần Quang Khải (Phụ trách Kênh B2B)',
+        phone: '0283844438',
+        email: 'sales.b2b@vissan.com.vn',
+        taxCode: '0300142823',
+        address: '420 Nơ Trang Long, Phường 13, Quận Bình Thạnh, TP.HCM',
+        category: 'THIT_CA_TUOI',
+        paymentTerms: 'Công nợ 30 ngày (Net 30)',
+        rating: 4.8,
+        leadTimeDays: 1,
+        certifications: 'ISO 22000, HACCP, Kiểm dịch Thú Y Cục ATTP',
+        notes: 'Cung cấp thịt heo, thịt bò tươi đạt chuẩn làm mát 0-2°C và thịt chế biến đông lạnh.',
+        status: SupplierStatus.ACTIVE,
+      },
+      {
+        id: '33333333-3333-3333-3333-333333333333',
+        code: 'SUP-003',
+        name: 'Công ty Cổ phần Hàng Tiêu Dùng Masan (Masan Consumer)',
+        shortName: 'Masan Consumer',
+        contact: 'Lê Hoàng Nam (Trưởng nhóm Key Account)',
+        phone: '0283827411',
+        email: 'supplychain@masangroup.com',
+        taxCode: '0302017440',
+        address: 'Tòa nhà MPlaza Saigon, 39 Lê Duẩn, Phường Bến Nghé, Quận 1, TP.HCM',
+        category: 'KHO_GIA_VI',
+        paymentTerms: 'Công nợ 30 ngày (Net 30)',
+        rating: 4.7,
+        leadTimeDays: 2,
+        certifications: 'FSSC 22000, ISO 9001:2015',
+        notes: 'Nhà sản xuất nước mắm Nam Ngư, Chinsu, Mì Omachi, Kokomi, Tương ớt Chinsu, Xúc xích Ponnie.',
+        status: SupplierStatus.ACTIVE,
+      },
     ];
 
     for (const sup of defaultSuppliers) {
       const exists = await this.supplierRepository.findOneBy({ id: sup.id });
       if (!exists) {
         await this.supplierRepository.save(this.supplierRepository.create(sup));
-        console.log(`Seeded supplier: ${sup.name}`);
+        console.log(`Seeded supplier: [${sup.code}] ${sup.name}`);
       }
     }
 
@@ -174,21 +225,110 @@ export class InventoryService implements OnModuleInit {
     });
   }
 
-  async findAllSuppliers(): Promise<Supplier[]> {
-    return this.supplierRepository.find({ order: { name: 'ASC' } });
+  async findAllSuppliers(query?: { search?: string; status?: string; category?: string }): Promise<Supplier[]> {
+    const qb = this.supplierRepository.createQueryBuilder('sup');
+
+    if (query?.status && query.status !== 'ALL') {
+      qb.andWhere('sup.status = :status', { status: query.status });
+    }
+
+    if (query?.category && query.category !== 'ALL') {
+      qb.andWhere('sup.category = :category', { category: query.category });
+    }
+
+    if (query?.search && query.search.trim()) {
+      const q = `%${query.search.trim().toLowerCase()}%`;
+      qb.andWhere(
+        '(LOWER(sup.name) LIKE :q OR LOWER(sup.shortName) LIKE :q OR LOWER(sup.code) LIKE :q OR LOWER(sup.taxCode) LIKE :q OR LOWER(sup.contact) LIKE :q OR sup.phone LIKE :q)',
+        { q },
+      );
+    }
+
+    qb.orderBy('sup.code', 'ASC').addOrderBy('sup.name', 'ASC');
+    return qb.getMany();
+  }
+
+  async findSupplierById(id: string): Promise<any> {
+    const supplier = await this.supplierRepository.findOneBy({ id });
+    if (!supplier) {
+      throw new NotFoundException(`Supplier with ID ${id} not found`);
+    }
+
+    const activeLotsCount = await this.lotRepository.count({
+      where: { supplierId: supplier.id, status: In([LotStatus.NORMAL, LotStatus.AT_RISK]), remainingQty: MoreThan(0) },
+    });
+    const totalLotsCount = await this.lotRepository.count({
+      where: { supplierId: supplier.id },
+    });
+
+    return {
+      ...supplier,
+      stats: {
+        activeLotsCount,
+        totalLotsCount,
+      },
+    };
   }
 
   async createSupplier(dto: Partial<Supplier>): Promise<Supplier> {
-    return this.supplierRepository.save(this.supplierRepository.create(dto));
+    if (!dto.code || !dto.code.trim()) {
+      const count = await this.supplierRepository.count();
+      dto.code = `SUP-${String(count + 1).padStart(3, '0')}`;
+    } else {
+      dto.code = dto.code.trim().toUpperCase();
+      const existing = await this.supplierRepository.findOneBy({ code: dto.code });
+      if (existing) {
+        throw new BadRequestException(`Mã nhà cung cấp "${dto.code}" đã tồn tại trong hệ thống.`);
+      }
+    }
+
+    const supplier = this.supplierRepository.create({
+      ...dto,
+      rating: dto.rating ? Number(dto.rating) : 4.8,
+      leadTimeDays: dto.leadTimeDays ? Number(dto.leadTimeDays) : 2,
+      status: (dto.status as any) || SupplierStatus.ACTIVE,
+    });
+
+    return this.supplierRepository.save(supplier);
   }
 
   async updateSupplier(id: string, dto: Partial<Supplier>): Promise<Supplier> {
-    await this.supplierRepository.update(id, dto);
+    const existing = await this.supplierRepository.findOneBy({ id });
+    if (!existing) {
+      throw new NotFoundException(`Supplier with ID ${id} not found`);
+    }
+
+    if (dto.code && dto.code.trim().toUpperCase() !== existing.code) {
+      const codeCheck = await this.supplierRepository.findOneBy({ code: dto.code.trim().toUpperCase() });
+      if (codeCheck && codeCheck.id !== id) {
+        throw new BadRequestException(`Mã nhà cung cấp "${dto.code}" đã được sử dụng.`);
+      }
+      dto.code = dto.code.trim().toUpperCase();
+    }
+
+    await this.supplierRepository.update(id, {
+      ...dto,
+      rating: dto.rating !== undefined ? Number(dto.rating) : existing.rating,
+      leadTimeDays: dto.leadTimeDays !== undefined ? Number(dto.leadTimeDays) : existing.leadTimeDays,
+    });
+
     return this.supplierRepository.findOneByOrFail({ id });
   }
 
-  async deleteSupplier(id: string): Promise<void> {
+  async deleteSupplier(id: string): Promise<{ message: string; action: 'DELETED' | 'DEACTIVATED' }> {
+    const lotCount = await this.lotRepository.count({ where: { supplierId: id } });
+    if (lotCount > 0) {
+      await this.supplierRepository.update(id, { status: SupplierStatus.INACTIVE });
+      return {
+        message: 'Nhà cung cấp đã có lịch sử lô hàng trong kho nên được chuyển sang trạng thái "Tạm ngưng" để đảm bảo tính toàn vẹn dữ liệu.',
+        action: 'DEACTIVATED',
+      };
+    }
     await this.supplierRepository.delete(id);
+    return {
+      message: 'Đã xóa nhà cung cấp hoàn toàn khỏi hệ thống.',
+      action: 'DELETED',
+    };
   }
 
   private async invalidateLotsCache() {

@@ -63,12 +63,13 @@ export const CreateInboundModal: React.FC<CreateInboundModalProps> = ({
 
   // Form states (MISA AMIS Enterprise Standard)
   const [transactionType, setTransactionType] = useState<'NHAP_MUA_NCC' | 'HANG_TRA_LAI' | 'DIEU_CHUYEN' | 'KIEM_KE_THUA'>('NHAP_MUA_NCC');
-  const [supplierTaxCode, setSupplierTaxCode] = useState<string>('0314892716');
+  const [supplierTaxCode, setSupplierTaxCode] = useState<string>('');
   const [vatRate, setVatRate] = useState<number>(8);
   const [warehouseCode, setWarehouseCode] = useState<string>(
     user?.role === 'WAREHOUSE_MANAGER' && user?.warehouseCode ? user.warehouseCode : defaultWarehouse
   );
-  const [supplierName, setSupplierName] = useState<string>('CÔNG TY TNHH THIẾT BỊ TÂN AN PHÁT');
+  const [supplierName, setSupplierName] = useState<string>('');
+  const [dbSuppliers, setDbSuppliers] = useState<any[]>([]);
   const [delivererName, setDelivererName] = useState<string>('Nguyễn Văn Giao');
   const [invoiceNumber, setInvoiceNumber] = useState<string>('1379');
   const [invoiceDate, setInvoiceDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -115,10 +116,42 @@ export const CreateInboundModal: React.FC<CreateInboundModalProps> = ({
       .catch(() => {});
   }, []);
 
+  // Fetch live suppliers from inventory-service
+  useEffect(() => {
+    fetch('http://localhost:3011/inventory/suppliers')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setDbSuppliers(data);
+          if (!initialData?.supplierName) {
+            setSupplierName(data[0].name);
+            setSupplierTaxCode(data[0].taxCode || '');
+            if (data[0].contact) setDelivererName(data[0].contact);
+          }
+        }
+      })
+      .catch(err => console.warn('Could not load suppliers:', err));
+  }, []);
+
+  const handleSupplierChange = (val: string) => {
+    setSupplierName(val);
+    const matched = dbSuppliers.find(
+      s => s.name.toLowerCase() === val.toLowerCase() ||
+           (s.shortName && s.shortName.toLowerCase() === val.toLowerCase()) ||
+           (s.code && s.code.toLowerCase() === val.toLowerCase())
+    );
+    if (matched) {
+      if (matched.taxCode) setSupplierTaxCode(matched.taxCode);
+      if (matched.contact) setDelivererName(matched.contact);
+    }
+  };
+
   // Sync initialData when provided (e.g. from AI Demand Forecast 1-click creation)
   useEffect(() => {
     if (isOpen && initialData) {
-      if (initialData.supplierName) setSupplierName(initialData.supplierName);
+      if (initialData.supplierName) {
+        handleSupplierChange(initialData.supplierName);
+      }
       if (initialData.notes) setNotes(initialData.notes);
       if (initialData.reason) setReason(initialData.reason);
       if (initialData.items && initialData.items.length > 0) {
@@ -292,10 +325,17 @@ export const CreateInboundModal: React.FC<CreateInboundModalProps> = ({
     }
 
     try {
+      const matchedSupplier = dbSuppliers.find(
+        s => s.name.toLowerCase() === supplierName.toLowerCase() ||
+             (s.shortName && s.shortName.toLowerCase() === supplierName.toLowerCase()) ||
+             (s.code && s.code.toLowerCase() === supplierName.toLowerCase())
+      );
+      const resolvedSupplierId = matchedSupplier ? matchedSupplier.id : (supplierName.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 15) || 'SUP-01');
+
       const payload = {
         warehouseCode,
         warehouseId: warehouseCode,
-        supplierId: supplierName.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 15) || 'SUP-01',
+        supplierId: resolvedSupplierId,
         supplierName,
         delivererName,
         invoiceNumber,
@@ -485,17 +525,32 @@ export const CreateInboundModal: React.FC<CreateInboundModalProps> = ({
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-                  Đơn Vị / Nhà Cung Cấp Giao *
-                </label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155' }}>
+                    Đơn Vị / Nhà Cung Cấp Giao *
+                  </label>
+                  {dbSuppliers.length > 0 && (
+                    <span style={{ fontSize: '0.7rem', color: '#0f766e', fontWeight: 600 }}>
+                      {dbSuppliers.length} NCC trong hệ thống
+                    </span>
+                  )}
+                </div>
                 <input
                   required
                   type="text"
+                  list="db-suppliers-datalist"
                   value={supplierName}
-                  onChange={e => setSupplierName(e.target.value)}
-                  placeholder="Ví dụ: CÔNG TY TNHH THIẾT BỊ TÂN AN PHÁT"
+                  onChange={e => handleSupplierChange(e.target.value)}
+                  placeholder="Chọn từ danh sách NCC hoặc nhập tự do..."
                   style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
                 />
+                <datalist id="db-suppliers-datalist">
+                  {dbSuppliers.map(s => (
+                    <option key={s.id} value={s.name}>
+                      [{s.code}] {s.shortName || s.name} - MST: {s.taxCode || '—'}
+                    </option>
+                  ))}
+                </datalist>
               </div>
 
               <div>

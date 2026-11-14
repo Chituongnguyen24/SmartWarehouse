@@ -19,9 +19,22 @@ export class InventoryController {
   }
 
   @Get('suppliers')
-  @ApiOperation({ summary: 'Get all suppliers' })
-  getSuppliers() {
-    return this.inventoryService.findAllSuppliers();
+  @ApiOperation({ summary: 'Get all suppliers with multi-parameter filtering' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by name, code, taxCode, phone' })
+  @ApiQuery({ name: 'status', required: false, description: 'Filter by status (ACTIVE, INACTIVE, ALL)' })
+  @ApiQuery({ name: 'category', required: false, description: 'Filter by category (RAU_CU_QUA, THIT_CA_TUOI, etc.)' })
+  getSuppliers(
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('category') category?: string,
+  ) {
+    return this.inventoryService.findAllSuppliers({ search, status, category });
+  }
+
+  @Get('suppliers/:id')
+  @ApiOperation({ summary: 'Get supplier details and linked inventory stats' })
+  getSupplierById(@Param('id') id: string) {
+    return this.inventoryService.findSupplierById(id);
   }
 
   @Post('suppliers')
@@ -33,6 +46,7 @@ export class InventoryController {
   }
 
   @Put('suppliers/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.WAREHOUSE_MANAGER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Update a supplier' })
   updateSupplier(@Param('id') id: string, @Body() body: any) {
@@ -40,11 +54,11 @@ export class InventoryController {
   }
 
   @Delete('suppliers/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Delete a supplier (Admin only)' })
+  @ApiOperation({ summary: 'Delete or deactivate a supplier (Admin only)' })
   async deleteSupplier(@Param('id') id: string) {
-    await this.inventoryService.deleteSupplier(id);
-    return { message: 'Supplier deleted successfully' };
+    return this.inventoryService.deleteSupplier(id);
   }
 
   @Get('lots')
