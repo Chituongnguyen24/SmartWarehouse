@@ -1,0 +1,73 @@
+version: '3.8'
+
+# CityMart (SFWMS) - Lean Infrastructure for AWS EC2 Deployment
+# Chỉ chạy 3 dịch vụ cơ sở hạ tầng cốt lõi: PostgreSQL 15, Redis 7, RabbitMQ
+# Tinh gọn, tối ưu RAM cho máy chủ EC2 (t3.small / t3.medium)
+
+services:
+  # ═══════════════════════════════════════════
+  # PostgreSQL 15 - Cơ sở dữ liệu quan hệ chính
+  # Tự động nạp toàn bộ 16 schema CSDL và dữ liệu seed từ scripts/init-db.sql
+  # ═══════════════════════════════════════════
+  postgres:
+    image: postgres:15-alpine
+    container_name: sfwms-postgres-ec2
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: postgres
+    ports:
+      - "127.0.0.1:5432:5432" # Chỉ cho phép localhost trên EC2 truy cập, chặn kết nối trực tiếp từ Internet
+    volumes:
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - postgres_data_ec2:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ═══════════════════════════════════════════
+  # Redis 7.0 - Cache & In-memory Pub/Sub
+  # ═══════════════════════════════════════════
+  redis:
+    image: redis:7.0-alpine
+    container_name: sfwms-redis-ec2
+    restart: always
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data_ec2:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ═══════════════════════════════════════════
+  # RabbitMQ 3 Management - Message Broker Event-Driven
+  # ═══════════════════════════════════════════
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: sfwms-rabbitmq-ec2
+    restart: always
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    volumes:
+      - rabbitmq_data_ec2:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  postgres_data_ec2:
+  redis_data_ec2:
+  rabbitmq_data_ec2:
+
