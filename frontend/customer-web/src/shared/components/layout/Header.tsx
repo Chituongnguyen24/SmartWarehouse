@@ -218,7 +218,7 @@ export default function Header() {
       <div className="bg-primary text-white text-sm py-2">
         <div className="container mx-auto px-4 flex justify-between items-center max-w-6xl">
           <div className="flex gap-6">
-            <Link href="/" className="opacity-90 hover:opacity-100 flex items-center gap-1">
+            <Link href="/store" className="opacity-90 hover:opacity-100 flex items-center gap-1">
               <MapPin size={14} /> Giao đến: Vui lòng chọn địa chỉ
             </Link>
           </div>
@@ -239,7 +239,7 @@ export default function Header() {
       <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md shadow-sm border-b border-border py-3 md:py-4 transition-all duration-300">
         <div className="container mx-auto px-4 max-w-6xl">
           <div className="flex items-center justify-between gap-4 md:gap-8">
-            <Link href="/" className="shrink-0">
+            <Link href="/store" className="shrink-0">
               <img src="/logos/logo_full.png" alt="C.T Mart" className={`w-auto object-contain ${isScrolled ? 'h-10' : 'h-14 md:h-16'}`} />
             </Link>
 
