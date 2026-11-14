@@ -184,8 +184,7 @@ module.exports = {
     {
       name: 'sfwms-customer-web',
       cwd: './frontend/customer-web',
-      script: 'node_modules/next/dist/bin/next',
-      args: 'start -p 3000',
+      script: 'server.js',
       instances: 1,
       autorestart: true,
       watch: false,
