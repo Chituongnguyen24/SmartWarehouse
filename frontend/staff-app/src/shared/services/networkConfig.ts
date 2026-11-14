@@ -23,7 +23,16 @@ export const getBackendHost = (): string => {
   if (typeof window !== 'undefined' && window.localStorage) {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved && saved.trim() !== '') {
-      return saved.trim();
+      const trimmed = saved.trim();
+      // Loại bỏ các IP nội bộ cũ / localhost còn sót lại trong localStorage của WebView
+      if (
+        !trimmed.startsWith('192.168.') &&
+        !trimmed.startsWith('10.0.') &&
+        trimmed !== 'localhost' &&
+        trimmed !== '127.0.0.1'
+      ) {
+        return trimmed;
+      }
     }
   }
 
@@ -40,7 +49,7 @@ export const getBackendHost = (): string => {
     }
   }
 
-  // On Capacitor native, default to deployed cloud domain
+  // Mặc định kết nối máy chủ Cloud EC2 chính thức
   return DEPLOYED_HOST;
 };
 

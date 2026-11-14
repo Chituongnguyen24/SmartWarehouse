@@ -69,8 +69,12 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setIsConnected(true);
     });
 
-    s.on('disconnect', () => {
-      console.log('[MOBILE WS] Disconnected from Gateway');
+    s.on('connect_error', (err) => {
+      console.warn('[MOBILE WS] Connection error:', err?.message || err);
+    });
+
+    s.on('disconnect', (reason) => {
+      console.log('[MOBILE WS] Disconnected from Gateway:', reason);
       setIsConnected(false);
     });
 

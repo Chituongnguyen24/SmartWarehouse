@@ -608,8 +608,9 @@ export const Login: React.FC = () => {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {[
-                  { label: 'Máy Thật qua Wi-Fi LAN', host: '192.168.2.147', desc: 'Điện thoại thật cùng Wi-Fi với máy chủ' },
+                  { label: 'Máy Chủ Cloud EC2 (Mặc định)', host: 'smartwarehouse-kltn.duckdns.org', desc: 'Đồng bộ Realtime toàn hệ thống C.T Mart' },
                   { label: 'Localhost / Cáp USB', host: 'localhost', desc: 'Cắm cáp USB và đã chạy adb reverse' },
+                  { label: 'Máy Thật qua Wi-Fi LAN', host: '192.168.2.147', desc: 'Dành cho thử nghiệm phát triển cục bộ' },
                   { label: 'Android Máy Ảo (Emulator)', host: '10.0.2.2', desc: 'Dùng cho Android Studio Emulator' },
                 ].map(opt => (
                   <button

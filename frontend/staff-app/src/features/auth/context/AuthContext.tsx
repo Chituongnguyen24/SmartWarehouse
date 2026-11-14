@@ -154,32 +154,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       let res: Response;
-      const primaryHost = getBackendHost();
-      const fallbackHost = primaryHost === DEFAULT_LAN_IP ? 'localhost' : DEFAULT_LAN_IP;
+      const primaryUrl = `${getServiceBaseUrl(3012)}/auth/login`;
 
       try {
-        res = await fetch(`http://${primaryHost}:3012/auth/login`, {
+        res = await fetch(primaryUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: accountInput, password }),
         });
       } catch (primaryErr) {
-        // If primary host failed (e.g. localhost without adb reverse or switched network)
-        try {
-          res = await fetch(`http://${fallbackHost}:3012/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: accountInput, password }),
-          });
-          // Fallback succeeded! Update current host so subsequent calls to other microservices use it
-          setBackendHost(fallbackHost);
-        } catch (fallbackErr) {
-          console.error('Login network error:', primaryErr, fallbackErr);
+        console.warn('Primary login attempt failed:', primaryUrl, primaryErr);
+        // Fallback sang máy chủ đám mây chính thức nếu đang trỏ localhost/LAN không thành công
+        const currentHost = getBackendHost();
+        if (currentHost !== DEFAULT_LAN_IP) {
+          try {
+            res = await fetch(`http://${DEFAULT_LAN_IP}/auth/login`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: accountInput, password }),
+            });
+            setBackendHost(DEFAULT_LAN_IP);
+          } catch (fallbackErr) {
+            console.error('Login network error:', primaryErr, fallbackErr);
+            return {
+              success: false,
+              message: `Không thể kết nối đến máy chủ xác thực (${DEFAULT_LAN_IP}). Vui lòng kiểm tra lại kết nối mạng của thiết bị!`,
+            };
+          }
+        } else {
+          console.error('Login network error:', primaryErr);
           return {
             success: false,
-            message: `Không thể kết nối đến máy chủ xác thực (Port 3012).
-• Nếu dùng Wi-Fi: Đảm bảo điện thoại bắt cùng Wi-Fi với máy tính và chọn IP ${DEFAULT_LAN_IP}.
-• Nếu cắm cáp USB: Đảm bảo đã bật 'Gỡ lỗi USB' và chạy lệnh reverse port trên máy tính.`,
+            message: `Không thể kết nối đến máy chủ xác thực (${DEFAULT_LAN_IP}). Vui lòng kiểm tra lại kết nối Internet!`,
           };
         }
       }
