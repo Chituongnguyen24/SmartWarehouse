@@ -799,7 +799,7 @@ const Inventory = () => {
         ]
       };
 
-      const res = await fetch('http://localhost:3007/outbound-orders', {
+      const res = await fetch(`${getApiHost(3007)}/outbound-orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -828,7 +828,7 @@ const Inventory = () => {
         }));
 
         // Sync product-service stock immediately
-        fetch('http://localhost:3010/products/sync-stock', {
+        fetch(`${getApiHost(3010)}/products/sync-stock`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sku: lot.displaySku || lot.productId || lot.sku })

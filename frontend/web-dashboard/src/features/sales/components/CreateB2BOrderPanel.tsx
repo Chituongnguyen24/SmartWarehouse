@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getApiHost } from '@/shared/utils/apiConfig';
 import {
   ShoppingBag,
   Plus,
@@ -283,7 +284,7 @@ export const CreateB2BOrderPanel: React.FC<CreateB2BOrderPanelProps> = ({
           const headers: Record<string, string> = { 'Content-Type': 'application/json' };
           if (token) headers['Authorization'] = `Bearer ${token}`;
 
-          const res = await fetch('http://localhost:3012/users/b2b-customers', {
+          const res = await fetch(`${getApiHost(3012)}/users/b2b-customers`, {
             method: 'POST',
             headers,
             body: JSON.stringify({

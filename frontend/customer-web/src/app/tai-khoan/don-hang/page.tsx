@@ -13,6 +13,7 @@ import {
 import { useAuthStore, useCartStore } from "@/lib/store";
 import { CustomerLiveTrackingMap } from "@/features/checkout";
 import { io } from "socket.io-client";
+import { getApiHost } from "@/shared/lib/apiConfig";
 
 interface OrderItem {
   id?: string;
@@ -101,7 +102,7 @@ export default function OrderHistoryPage() {
   // Fetch Product Catalog to enrich images
   const fetchProducts = async () => {
     try {
-      const res = await fetch("http://localhost:3010/products?limit=500");
+      const res = await fetch(`${getApiHost(3010)}/products?limit=500`);
       if (res.ok) {
         const data = await res.json();
         const map: Record<string, any> = {};
@@ -127,7 +128,7 @@ export default function OrderHistoryPage() {
       if (user?.phone) queryParams.set("customerPhone", user.phone);
 
       // Gọi endpoint my-orders an toàn (Anti-IDOR / Chỉ trả về đơn của chính khách hàng này)
-      const res = await fetch(`http://localhost:3004/orders/my-orders?${queryParams.toString()}`);
+      const res = await fetch(`${getApiHost(3004)}/orders/my-orders?${queryParams.toString()}`);
       if (res.ok) {
         const data: CustomerOrder[] = await res.json();
         const userOrders = Array.isArray(data) ? data : [];
@@ -151,7 +152,7 @@ export default function OrderHistoryPage() {
     fetchOrders();
 
     // ⚡ Enterprise WebSocket Connection (Socket.io) - Event-Driven Push (0% Polling Overhead)
-    const socket = io("http://localhost:3004");
+    const socket = io(getApiHost(3004));
 
     const handleOrderUpdate = (data: any) => {
       const targetId = data?.id || data?.orderId;
@@ -351,7 +352,7 @@ export default function OrderHistoryPage() {
     }
 
     try {
-      const res = await fetch(`http://localhost:3004/orders/${cancellingOrder.id}/cancel`, {
+      const res = await fetch(`${getApiHost(3004)}/orders/${cancellingOrder.id}/cancel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

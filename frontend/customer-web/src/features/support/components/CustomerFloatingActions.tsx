@@ -393,7 +393,7 @@ export default function CustomerFloatingActions() {
       });
     } else if (sessionId) {
       try {
-        await fetch(`http://localhost:3004/chat/sessions/${sessionId}/request-handoff`, {
+        await fetch(`${getApiHost(3004)}/chat/sessions/${sessionId}/request-handoff`, {
           method: "POST"
         });
       } catch (err) {
@@ -504,7 +504,7 @@ export default function CustomerFloatingActions() {
       try {
         setIsUploadingMedia(true);
         isVideoMsg = selectedMedia.isVideo;
-        const uploadRes = await fetch("http://localhost:3004/chat/upload", {
+        const uploadRes = await fetch(`${getApiHost(3004)}/chat/upload`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

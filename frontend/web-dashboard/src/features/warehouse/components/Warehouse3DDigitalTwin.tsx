@@ -37,6 +37,7 @@ import { Supermarket3DScene } from './Supermarket3DScene';
 import type { Rack3DData } from './Supermarket3DScene';
 import { useWarehouse } from '@/shared';
 import { useAuth } from '@/features/auth';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
 export interface ShelfItem {
   id?: string;
@@ -683,13 +684,13 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
 
     try {
       const url = whToQuery && whToQuery !== 'ALL'
-        ? `http://localhost:3011/inventory/lots?limit=10000&warehouseCode=${whToQuery}`
-        : `http://localhost:3011/inventory/lots?limit=10000`;
+        ? `${getApiHost(3011)}/inventory/lots?limit=10000&warehouseCode=${whToQuery}`
+        : `${getApiHost(3011)}/inventory/lots?limit=10000`;
 
       const [resLots, resProducts, resOutbounds] = await Promise.all([
         fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} }).catch(() => null),
-        fetch('http://localhost:3010/products?limit=6000', { headers: token ? { Authorization: `Bearer ${token}` } : {} }).catch(() => null),
-        fetch('http://localhost:3007/outbound-orders?limit=1000', { headers: token ? { Authorization: `Bearer ${token}` } : {} }).catch(() => null),
+        fetch(`${getApiHost(3010)}/products?limit=6000`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }).catch(() => null),
+        fetch(`${getApiHost(3007)}/outbound-orders?limit=1000`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }).catch(() => null),
       ]);
 
       // Parse existing active outbound orders map
@@ -1123,7 +1124,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
 
     try {
       const targetId = adjustModal.lot.id || adjustModal.lot.lotCode;
-      const res = await fetch(`http://localhost:3011/inventory/lots/${targetId}/adjust`, {
+      const res = await fetch(`${getApiHost(3011)}/inventory/lots/${targetId}/adjust`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1438,7 +1439,7 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
         items: itemsPayload
       };
 
-      const res = await fetch('http://localhost:3007/outbound-orders', {
+      const res = await fetch(`${getApiHost(3007)}/outbound-orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

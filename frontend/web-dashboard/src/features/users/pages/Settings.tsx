@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Cpu, Server, Terminal, Save, CheckCircle, RefreshCw, HardDrive, Download, Mail } from 'lucide-react';
 import { useAuth } from '@/features/auth';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
 interface ServiceStatus {
   name: string;
@@ -111,7 +112,7 @@ const Settings = () => {
   // Save general settings helper
   const saveToBackend = async (updates: Record<string, string>) => {
     try {
-      await fetch('http://localhost:3012/system-settings', {
+      await fetch(`${getApiHost(3012)}/system-settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -137,7 +138,7 @@ const Settings = () => {
     setLogs(prev => [...prev, `[${new Date().toISOString()}] [AI SERVICE] Manual retraining triggered by Admin. Loading historical Postgres & InfluxDB datasets...`]);
     
     try {
-      const res = await fetch('http://localhost:3012/system-settings/ai/retrain', {
+      const res = await fetch(`${getApiHost(3012)}/system-settings/ai/retrain`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -158,7 +159,7 @@ const Settings = () => {
     await saveToBackend({ backupSchedule, backupRetention: backupRetention.toString() });
     
     try {
-      await fetch('http://localhost:3012/system-settings/backup', {
+      await fetch(`${getApiHost(3012)}/system-settings/backup`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -182,7 +183,7 @@ const Settings = () => {
   // Fetch initial settings
   useEffect(() => {
     if (!token) return;
-    fetch('http://localhost:3012/system-settings', {
+    fetch(`${getApiHost(3012)}/system-settings`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => res.json())

@@ -14,6 +14,7 @@ import { PrintOrderSlipModal, detectSlipClassification } from '@/features/outbou
 import { OutboundReceiptModal } from '@/features/outbound';
 
 const ORDER_API = `${getApiHost(3004)}/orders`;
+const OUTBOUND_API = getApiHost(3007);
 
 interface OrderItem {
   id: string;
@@ -280,7 +281,7 @@ const OrderManagement: React.FC = () => {
     fetchOrders(false);
 
     // Socket.io connection for smooth real-time updates (no page refresh)
-    const socket = io('http://localhost:3004');
+    const socket = io(getApiHost(3004));
 
     socket.on('connect', () => {
       console.log('Connected to order-service websocket');
@@ -375,7 +376,7 @@ const OrderManagement: React.FC = () => {
       if (res.ok) {
         // Also notify outbound-service
         if (newStatus === 'COMPLETED') {
-          fetch(`http://localhost:3007/outbound-orders/sync-status/${orderId}`, {
+          fetch(`${OUTBOUND_API}/outbound-orders/sync-status/${orderId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'DELIVERED' })
@@ -401,7 +402,7 @@ const OrderManagement: React.FC = () => {
     try {
       const whCode = (targetOrder as any).assignedWarehouseCode || (targetOrder as any).assignedWarehouseId || (targetOrder.assignedWarehouseName?.includes('Gò Vấp') ? 'WH-006' : 'WH-001');
 
-      await fetch(`http://localhost:3007/outbound-orders`, {
+      await fetch(`${OUTBOUND_API}/outbound-orders`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

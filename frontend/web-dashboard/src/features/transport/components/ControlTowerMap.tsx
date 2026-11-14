@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ShieldAlert, Navigation, Gauge, ThermometerSnowflake, RefreshCw, AlertTriangle, Phone, Store, MapPin, Route, Layers, CheckCircle, Users, Eye, Clock, Check, Truck, Bike, Maximize2, Building2 } from 'lucide-react';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
 const GOONG_MAPTILES_KEY = import.meta.env.VITE_GOONG_MAPTILES_KEY || 'xR9zgCIphv0ZQ7sAS02MRDA9mouqEfatcx24BtYl';
 const GOONG_API_KEY = import.meta.env.VITE_GOONG_API_KEY || '9ZLtEkemS6YgqbCVlt5yfFCl0VdvJIN57mCXRge6';
@@ -244,10 +245,10 @@ export const ControlTowerMap: React.FC<{ activeAlert?: any; onDismissAlert?: () 
   useEffect(() => {
     async function syncRealData() {
       try {
-        const resOrders = await fetch('http://localhost:3004/orders').catch(() => null);
+        const resOrders = await fetch(`${getApiHost(3004)}/orders`).catch(() => null);
         const orders = resOrders && resOrders.ok ? await resOrders.json() : [];
 
-        const resLive = await fetch('http://localhost:3004/orders/drivers-live').catch(() => null);
+        const resLive = await fetch(`${getApiHost(3004)}/orders/drivers-live`).catch(() => null);
         const liveDrivers: any[] = resLive && resLive.ok ? await resLive.json() : [];
 
         setShippers(prev => {

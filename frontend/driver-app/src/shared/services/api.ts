@@ -1,7 +1,8 @@
 import { Platform } from 'react-native';
 
 // Dynamic host detection for Expo Web, iOS/Android Simulators, and Physical Devices
-export const DEFAULT_LAN_IP = '192.168.2.147';
+export const DEPLOYED_HOST = 'smartwarehouse-kltn.duckdns.org';
+export const DEFAULT_LAN_IP = DEPLOYED_HOST;
 
 const getResolvedHost = (): string => {
   if (typeof window !== 'undefined' && window.localStorage) {
@@ -16,22 +17,26 @@ const getResolvedHost = (): string => {
     }
   }
   
-  if (Platform.OS === 'android') {
-    // Physical Android devices on local Wi-Fi or USB
-    return DEFAULT_LAN_IP;
-  }
+  return DEPLOYED_HOST;
+};
 
-  // iOS simulator or default fallback
-  return 'localhost';
+export const getDriverServiceUrl = (port: number): string => {
+  const host = getResolvedHost();
+  if (host.includes('duckdns.org') || host.includes('amazonaws.com') || host.includes('.com') || host.includes('.vn')) {
+    const clean = host.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    return `http://${clean}`;
+  }
+  const cleanHost = host.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  return `http://${cleanHost}:${port}`;
 };
 
 export const BACKEND_HOST = getResolvedHost();
 
 export const API_CONFIG = {
-  get ORDER_SERVICE() { return `http://${getResolvedHost()}:3004`; },
-  get OUTBOUND_SERVICE() { return `http://${getResolvedHost()}:3007`; },
-  get AUTH_SERVICE() { return `http://${getResolvedHost()}:3012`; },
-  get NOTIFICATION_SERVICE() { return `http://${getResolvedHost()}:3004`; },
+  get ORDER_SERVICE() { return getDriverServiceUrl(3004); },
+  get OUTBOUND_SERVICE() { return getDriverServiceUrl(3007); },
+  get AUTH_SERVICE() { return getDriverServiceUrl(3012); },
+  get NOTIFICATION_SERVICE() { return getDriverServiceUrl(3004); },
 };
 
 export const DRIVER_SESSION_KEY = 'sfwms_driver_session_v1';

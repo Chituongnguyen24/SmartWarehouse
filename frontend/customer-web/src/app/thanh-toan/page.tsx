@@ -77,7 +77,7 @@ export default function CheckoutPage() {
       }
       if (!activeToken) return;
       try {
-        const res = await fetch('http://localhost:3012/auth/me', {
+        const res = await fetch(`${getApiHost(3012)}/auth/me`, {
           headers: { Authorization: `Bearer ${activeToken}` },
           signal: AbortSignal.timeout(3000)
         });

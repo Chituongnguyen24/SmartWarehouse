@@ -546,7 +546,7 @@ export default function OrderDispatch() {
 
   // WebSocket Live Updates (Instant in-place state update + fetchAllData)
   useEffect(() => {
-    const socket = io('http://localhost:3004');
+    const socket = io(getApiHost(3004));
 
     socket.on('order_status_updated', (updated: any) => {
       const targetId = (updated?.id || '').toLowerCase();
@@ -686,7 +686,7 @@ export default function OrderDispatch() {
 
       // 2. Đồng bộ lệnh xuất kho sang outbound-service (:3007) để nhân viên app mobile thấy và đi lấy hàng
       const whCode = order.warehouseCode || 'WH-006';
-      await fetch(`http://localhost:3007/outbound-orders`, {
+      await fetch(`${OUTBOUND_API}/outbound-orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

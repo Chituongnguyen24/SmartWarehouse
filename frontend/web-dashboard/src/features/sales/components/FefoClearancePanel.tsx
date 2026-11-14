@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiHost } from '@/shared/utils/apiConfig';
 import {
   TrendingUp,
   AlertTriangle,
@@ -70,7 +71,7 @@ export const FefoClearancePanel: React.FC<FefoClearancePanelProps> = ({
   const fetchFefoLots = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3011/inventory/expiry-alert?days=45');
+      const res = await fetch(`${getApiHost(3011)}/inventory/expiry-alert?days=45`);
       if (res.ok) {
         const rawLots: any[] = await res.json();
         const now = Date.now();

@@ -184,7 +184,7 @@ export const AdminControlCenter = () => {
         try {
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 3000);
-          const res = await fetch(`http://localhost:${svc.port}/`, { signal: controller.signal });
+          const res = await fetch(`${getApiHost(svc.port)}/`, { signal: controller.signal });
           clearTimeout(timeout);
           const latency = Math.round(performance.now() - start);
           return {

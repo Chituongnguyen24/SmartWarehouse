@@ -1160,7 +1160,7 @@ export const AIDemandForecastPanel: React.FC = () => {
 async function generateClientFallbackForecast(warehouseCode?: string, eventId = 'EVT_TET_NGUYEN_DAN'): Promise<FullInboundForecastResponse> {
   let skusList: any[] = [];
   try {
-    const res = await fetch('http://localhost:3010/products?limit=300');
+    const res = await fetch(`${getApiHost(3010)}/products?limit=300`);
     if (res.ok) {
       const data = await res.json();
       skusList = Array.isArray(data) ? data : data.items || [];

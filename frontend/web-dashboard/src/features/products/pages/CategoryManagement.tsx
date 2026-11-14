@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { FolderTree, Plus, Edit, Trash2, X, CheckCircle, Package } from 'lucide-react';
 import { useAuth } from '@/features/auth';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
-const API_BASE = 'http://localhost:3010';
+const API_BASE = getApiHost(3010);
 
 interface Category {
   id: string;

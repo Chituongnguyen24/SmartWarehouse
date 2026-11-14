@@ -2,9 +2,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { StaffUser } from '@/types';
 import { setAuthToken } from '@/shared';
 
-import { getBackendHost, setBackendHost, DEFAULT_LAN_IP } from '@/shared';
+import { getBackendHost, setBackendHost, DEFAULT_LAN_IP, getServiceBaseUrl } from '@/shared';
 
-const getUserApi = () => `http://${getBackendHost()}:3012`;
+const getUserApi = () => getServiceBaseUrl(3012);
 
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000; // Exactly 24 hours
 

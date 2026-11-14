@@ -1,14 +1,14 @@
 import { PickingItem } from '@/types';
 
-import { getBackendHost } from './networkConfig';
+import { getBackendHost, getServiceBaseUrl } from './networkConfig';
 
 export const API_URLS = {
-  get OUTBOUND() { return `http://${getBackendHost()}:3007`; },
-  get INVENTORY() { return `http://${getBackendHost()}:3011`; },
-  get PRODUCT() { return `http://${getBackendHost()}:3010`; },
-  get INBOUND() { return `http://${getBackendHost()}:3006`; },
-  get AUTH() { return `http://${getBackendHost()}:3012`; },
-  get IOT() { return `http://${getBackendHost()}:3014`; },
+  get OUTBOUND() { return getServiceBaseUrl(3007); },
+  get INVENTORY() { return getServiceBaseUrl(3011); },
+  get PRODUCT() { return getServiceBaseUrl(3010); },
+  get INBOUND() { return getServiceBaseUrl(3006); },
+  get AUTH() { return getServiceBaseUrl(3012); },
+  get IOT() { return getServiceBaseUrl(3014); },
 };
 
 let currentAuthToken: string | null = null;

@@ -232,7 +232,7 @@ export const SalesManagement = () => {
   const fetchCustomers = async () => {
     try {
       if (!token) return;
-      const res = await fetch('http://localhost:3012/users/b2b-customers', {
+      const res = await fetch(`${getApiHost(3012)}/users/b2b-customers`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -266,7 +266,7 @@ export const SalesManagement = () => {
 
   const fetchFefoLotsCount = async () => {
     try {
-      const res = await fetch('http://localhost:3011/inventory/expiry-alert?days=45');
+      const res = await fetch(`${getApiHost(3011)}/inventory/expiry-alert?days=45`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -330,7 +330,7 @@ export const SalesManagement = () => {
   // Realtime Live Chat Socket & Sessions Fetch
   const fetchLiveChatSessions = async () => {
     try {
-      const res = await fetch('http://localhost:3004/chat/sessions');
+      const res = await fetch(`${getApiHost(3004)}/chat/sessions`);
       if (res.ok) {
         const data = await res.json();
         const sessionsList: any[] = Array.isArray(data) ? data : (data.sessions || []);
@@ -381,7 +381,7 @@ export const SalesManagement = () => {
   useEffect(() => {
     fetchLiveChatSessions();
 
-    const socket = io('http://localhost:3004', {
+    const socket = io(getApiHost(3004), {
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 10,
     });
@@ -503,7 +503,7 @@ export const SalesManagement = () => {
       if (socketRef.current) {
         socketRef.current.emit('staff_takeover_session', { sessionId, staffId, staffName });
       }
-      await fetch(`http://localhost:3004/chat/sessions/${sessionId}/takeover`, {
+      await fetch(`${getApiHost(3004)}/chat/sessions/${sessionId}/takeover`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ staffId, staffName }),
@@ -527,7 +527,7 @@ export const SalesManagement = () => {
       if (socketRef.current) {
         socketRef.current.emit('hand_back_to_ai', { sessionId });
       }
-      await fetch(`http://localhost:3004/chat/sessions/${sessionId}/handback`, {
+      await fetch(`${getApiHost(3004)}/chat/sessions/${sessionId}/handback`, {
         method: 'POST',
       });
       setConversations(prev =>
@@ -552,7 +552,7 @@ export const SalesManagement = () => {
       if (socketRef.current) {
         socketRef.current.emit('delete_chat_session', { sessionId });
       }
-      await fetch(`http://localhost:3004/chat/sessions/${sessionId}`, {
+      await fetch(`${getApiHost(3004)}/chat/sessions/${sessionId}`, {
         method: 'DELETE',
       });
 
@@ -642,7 +642,7 @@ export const SalesManagement = () => {
     if (selectedMediaPreview) {
       try {
         setIsUploadingMedia(true);
-        const res = await fetch('http://localhost:3004/chat/upload', {
+        const res = await fetch(`${getApiHost(3004)}/chat/upload`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -877,7 +877,7 @@ export const SalesManagement = () => {
 
     // Ghi nhận nhật ký kiểm toán hệ thống (Audit Log)
     try {
-      fetch('http://localhost:3012/audit-logs', {
+      fetch(`${getApiHost(3012)}/audit-logs`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

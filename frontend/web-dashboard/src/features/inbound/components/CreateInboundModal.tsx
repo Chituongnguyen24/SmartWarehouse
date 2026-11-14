@@ -4,6 +4,7 @@ import {
   Package, Building, AlertCircle, CheckCircle2,
   Search, ChevronDown
 } from 'lucide-react';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
 export interface CreateInboundModalProps {
   isOpen: boolean;
@@ -98,7 +99,7 @@ export const CreateInboundModal: React.FC<CreateInboundModalProps> = ({
 
   // Fetch all live products
   useEffect(() => {
-    fetch('http://localhost:3010/products?limit=500')
+    fetch(`${getApiHost(3010)}/products?limit=500`)
       .then(res => res.json())
       .then(data => {
         const rawItems = Array.isArray(data) ? data : (data.items || data.products || data.data || []);
@@ -118,7 +119,7 @@ export const CreateInboundModal: React.FC<CreateInboundModalProps> = ({
 
   // Fetch live suppliers from inventory-service
   useEffect(() => {
-    fetch('http://localhost:3011/inventory/suppliers')
+    fetch(`${getApiHost(3011)}/inventory/suppliers`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
@@ -353,7 +354,7 @@ export const CreateInboundModal: React.FC<CreateInboundModalProps> = ({
         }))
       };
 
-      const res = await fetch('http://localhost:3006/inbound-orders', {
+      const res = await fetch(`${getApiHost(3006)}/inbound-orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -193,7 +193,7 @@ const Products = () => {
     fetchWarehouses();
 
     // Lắng nghe cập nhật tồn kho và giá sản phẩm qua socket thời gian thực (<1s)
-    const socket = io('http://localhost:3004', {
+    const socket = io(getApiHost(3004), {
       transports: ['websocket', 'polling']
     });
 

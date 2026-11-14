@@ -11,10 +11,11 @@ import {
   Truck
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
-const INBOUND_API = 'http://localhost:3006'; // inbound-service
-const PRODUCT_API = 'http://localhost:3010'; // product-service
-const INVENTORY_API = 'http://localhost:3011'; // inventory-service
+const INBOUND_API = getApiHost(3006); // inbound-service
+const PRODUCT_API = getApiHost(3010); // product-service
+const INVENTORY_API = getApiHost(3011); // inventory-service
 
 interface InboundOrderItem {
   id: string;

@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'vn.citymart.staff',
-  appName: 'CityMart Staff',
+  appName: 'C.T Mart Staff',
   webDir: 'dist',
   server: {
     androidScheme: 'http',

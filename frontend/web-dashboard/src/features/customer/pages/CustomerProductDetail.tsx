@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Star, ShoppingCart, ShieldCheck, Truck, RefreshCw, Zap, Plus, Minus, Check } from 'lucide-react';
 import { useWebCart, type Product } from '../contexts/WebCartContext';
 import { useAuth } from '@/features/auth';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
 const CustomerProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -20,7 +21,7 @@ const CustomerProductDetail: React.FC = () => {
     const fetchProductDetail = async () => {
       setLoading(true);
       try {
-        const res = await fetch('http://localhost:3010/products', {
+        const res = await fetch(`${getApiHost(3010)}/products`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {

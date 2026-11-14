@@ -1,6 +1,7 @@
 const STORAGE_KEY = 'sfwms_backend_host';
 
-export const DEFAULT_LAN_IP = '192.168.2.147';
+export const DEPLOYED_HOST = 'smartwarehouse-kltn.duckdns.org';
+export const DEFAULT_LAN_IP = DEPLOYED_HOST;
 
 /**
  * Detect if app is running inside Capacitor native shell (Android/iOS).
@@ -17,12 +18,6 @@ const isCapacitorNative = (): boolean => {
 
 /**
  * Returns the current backend host (IP or domain, without protocol or port).
- * Priority:
- * 1. Saved in localStorage ('sfwms_backend_host')
- * 2. Environment variable VITE_BACKEND_HOST
- * 3. window.location.hostname (if not localhost on web browser)
- * 4. Capacitor native: DEFAULT_LAN_IP (phone can't reach localhost of dev machine)
- * 5. Default fallback: 'localhost'
  */
 export const getBackendHost = (): string => {
   if (typeof window !== 'undefined' && window.localStorage) {
@@ -37,7 +32,7 @@ export const getBackendHost = (): string => {
     return envHost.trim();
   }
 
-  // On web browser, use the hostname that served the page (e.g. 192.168.2.147 from Vite dev server)
+  // On web browser, use the hostname that served the page
   if (typeof window !== 'undefined' && window.location && window.location.hostname) {
     const host = window.location.hostname;
     if (host !== 'localhost' && host !== '127.0.0.1' && host !== '') {
@@ -45,13 +40,24 @@ export const getBackendHost = (): string => {
     }
   }
 
-  // On Capacitor native (physical device), localhost points to the phone itself.
-  // Default to LAN IP so the app can reach the dev machine over Wi-Fi.
-  if (isCapacitorNative()) {
-    return DEFAULT_LAN_IP;
-  }
+  // On Capacitor native, default to deployed cloud domain
+  return DEPLOYED_HOST;
+};
 
-  return 'localhost';
+/**
+ * Resolves the full base URL for a microservice port.
+ * When pointing to the deployed domain (smartwarehouse-kltn.duckdns.org), all APIs
+ * are proxied via Nginx port 80 without port numbers.
+ * When pointing to a local LAN IP (e.g. 192.168.x.x), ports are retained.
+ */
+export const getServiceBaseUrl = (port: number): string => {
+  const host = getBackendHost();
+  if (host.includes('duckdns.org') || host.includes('amazonaws.com') || host.includes('.com') || host.includes('.vn')) {
+    const clean = host.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    return `http://${clean}`;
+  }
+  const cleanHost = host.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  return `http://${cleanHost}:${port}`;
 };
 
 export const setBackendHost = (newHost: string) => {

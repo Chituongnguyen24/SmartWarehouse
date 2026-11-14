@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Package, Clock, CheckCircle, PackageOpen } from 'lucide-react';
 import { useAuth } from '@/features/auth';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
 interface Order {
   id: string;
@@ -19,7 +20,7 @@ const CustomerOrders: React.FC = () => {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const res = await fetch('http://localhost:3007/outbound-orders');
+        const res = await fetch(`${getApiHost(3007)}/outbound-orders`);
         if (res.ok) {
           const data = await res.json();
           // Filter orders for the current logged-in customer

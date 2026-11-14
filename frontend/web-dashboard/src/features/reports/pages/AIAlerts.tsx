@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldAlert, Clock, AlertTriangle, Activity, RefreshCw, CheckCircle2, BrainCircuit } from 'lucide-react';
 import { useAuth } from '@/features/auth';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
 interface Anomaly {
   zone: string;
@@ -31,9 +32,9 @@ interface AiPrediction {
   details: string;
 }
 
-const IOT_API = 'http://localhost:3002';
-const INVENTORY_API = 'http://localhost:3011';
-const AI_API = 'http://localhost:3003';
+const IOT_API = getApiHost(3002);
+const INVENTORY_API = getApiHost(3011);
+const AI_API = getApiHost(3003);
 
 const AIAlerts = () => {
   const { token } = useAuth();

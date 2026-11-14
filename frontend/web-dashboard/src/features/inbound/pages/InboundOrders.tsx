@@ -15,6 +15,7 @@ import { CreateInboundModal } from '../components/CreateInboundModal';
 
 const API_BASE = getApiHost(3006); // inbound-service
 const INVENTORY_API = getApiHost(3011); // inventory-service
+const PRODUCT_API = getApiHost(3010); // product-service
 
 interface InboundOrderItem {
   id: string;
@@ -420,7 +421,7 @@ const InboundOrders: React.FC = () => {
 
           // 3. Sync live stock to product-service (:3010) so customer-web updates immediately (<1s)
           try {
-            await fetch(`http://localhost:3010/products/sync-stock`, {
+            await fetch(`${PRODUCT_API}/products/sync-stock`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ sku: item.sku })
@@ -523,7 +524,7 @@ const InboundOrders: React.FC = () => {
           });
 
           // Sync product stock to product-service
-          fetch(`http://localhost:3010/products/sync-stock`, {
+          fetch(`${PRODUCT_API}/products/sync-stock`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sku: item?.sku })
@@ -593,7 +594,7 @@ const InboundOrders: React.FC = () => {
         });
 
         // Sync live stock to product-service
-        fetch(`http://localhost:3010/products/sync-stock`, {
+        fetch(`${PRODUCT_API}/products/sync-stock`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sku: item.sku })

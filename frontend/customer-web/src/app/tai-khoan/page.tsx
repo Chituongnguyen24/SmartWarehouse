@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
 import { AddressSelector, MapPicker } from "@/features/checkout";
+import { getApiHost } from "@/shared/lib/apiConfig";
 
 export default function ProfilePage() {
   const { user, login, token, logout } = useAuthStore();
@@ -47,7 +48,7 @@ export default function ProfilePage() {
       }
       if (!activeToken) return;
       try {
-        const res = await fetch("http://localhost:3012/auth/me", {
+        const res = await fetch(`${getApiHost(3012)}/auth/me`, {
           headers: { Authorization: `Bearer ${activeToken}` },
           signal: AbortSignal.timeout(3000)
         });
@@ -95,7 +96,7 @@ export default function ProfilePage() {
         } catch (e) {}
       }
 
-      const res = await fetch("http://localhost:3012/users/profile", {
+      const res = await fetch(`${getApiHost(3012)}/users/profile`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

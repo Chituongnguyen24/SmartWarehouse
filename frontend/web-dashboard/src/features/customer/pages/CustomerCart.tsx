@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Trash2, Plus, Minus, ArrowLeft, MapPin, PlusCircle, Check, X } from 'lucide-react';
 import { useWebCart, type CustomerAddress } from '../contexts/WebCartContext';
 import { useAuth } from '@/features/auth';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
 const CustomerCart: React.FC = () => {
   const {
@@ -93,7 +94,7 @@ const CustomerCart: React.FC = () => {
         })),
       };
 
-      const res = await fetch('http://localhost:3007/outbound-orders', {
+      const res = await fetch(`${getApiHost(3007)}/outbound-orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

@@ -6,7 +6,11 @@ const monorepoRoot = path.resolve(projectRoot, '../..');
 
 const config = getDefaultConfig(projectRoot);
 
-config.watchFolders = [monorepoRoot];
+config.watchFolders = [projectRoot, monorepoRoot];
+config.server = {
+  ...(config.server || {}),
+  unstable_serverRoot: projectRoot,
+};
 
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),

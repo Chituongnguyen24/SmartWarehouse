@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, Star, Zap, Search, Plus, Minus } from 'lucide-react';
 import { useWebCart, type Product } from '../contexts/WebCartContext';
 import { useAuth } from '@/features/auth';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
 const CustomerStorefront: React.FC = () => {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ const CustomerStorefront: React.FC = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const res = await fetch('http://localhost:3010/products', {
+        const res = await fetch(`${getApiHost(3010)}/products`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }

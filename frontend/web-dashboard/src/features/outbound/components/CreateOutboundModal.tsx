@@ -4,6 +4,7 @@ import {
   Package, Building, AlertCircle, CheckCircle2,
   Search, ChevronDown, AlertTriangle, Info
 } from 'lucide-react';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
 interface CreateOutboundModalProps {
   isOpen: boolean;
@@ -90,7 +91,7 @@ export const CreateOutboundModal: React.FC<CreateOutboundModalProps> = ({
 
   // 1. Fetch all live products from product-service
   useEffect(() => {
-    fetch('http://localhost:3010/products?limit=500')
+    fetch(`${getApiHost(3010)}/products?limit=500`)
       .then(res => res.json())
       .then(data => {
         const rawItems = Array.isArray(data) ? data : (data.items || data.products || data.data || []);
@@ -115,7 +116,7 @@ export const CreateOutboundModal: React.FC<CreateOutboundModalProps> = ({
     if (!catalog.length) return;
     try {
       const skus = catalog.map(p => p.sku).filter(Boolean).slice(0, 150).join(',');
-      const res = await fetch(`http://localhost:3011/internal/inventory/warehouse-stock?skus=${skus}`);
+      const res = await fetch(`${getApiHost(3011)}/internal/inventory/warehouse-stock?skus=${skus}`);
       if (res.ok) {
         const data = await res.json();
         // data is { "WH-006": { "SKU-1": 100, ... }, "WH-001": { ... } }
@@ -347,7 +348,7 @@ export const CreateOutboundModal: React.FC<CreateOutboundModalProps> = ({
         }))
       };
 
-      const res = await fetch('http://localhost:3007/outbound-orders', {
+      const res = await fetch(`${getApiHost(3007)}/outbound-orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

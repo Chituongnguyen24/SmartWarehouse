@@ -358,7 +358,7 @@ export const Dashboard: React.FC = () => {
   const handleChirpShelf = async (shelfCode: string) => {
     try {
       setChirpingShelf(shelfCode);
-      await fetch('http://localhost:3007/outbound-orders/iot/chirp-shelf', {
+      await fetch(`${getApiHost(3007)}/outbound-orders/iot/chirp-shelf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

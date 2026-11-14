@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Building2, Phone, Mail, FileText, MapPin, DollarSign, Percent, CheckCircle2 } from 'lucide-react';
+import { getApiHost } from '@/shared/utils/apiConfig';
 
 interface CreateB2BCustomerModalProps {
   isOpen: boolean;
@@ -56,7 +57,7 @@ export const CreateB2BCustomerModal: React.FC<CreateB2BCustomerModalProps> = ({
       };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch('http://localhost:3012/users/b2b-customers', {
+      const res = await fetch(`${getApiHost(3012)}/users/b2b-customers`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
