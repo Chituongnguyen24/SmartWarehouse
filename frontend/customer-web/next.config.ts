@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   turbopack: {
-    root: path.resolve(__dirname),
+    root: path.resolve(__dirname, "../../"),
   },
   images: {
     remotePatterns: [
