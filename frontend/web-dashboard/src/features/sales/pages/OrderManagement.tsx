@@ -529,6 +529,24 @@ const OrderManagement: React.FC = () => {
         }),
       }).catch(() => {});
 
+      // Broadcast WebSocket sự kiện phân công tài xế tức thì tới App Driver
+      await fetch(`${ORDER_API}/broadcast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'order_status_updated',
+          payload: {
+            id: orderId,
+            orderCode: orderId.startsWith('ECOMM-') ? orderId : `ECOMM-${orderId.slice(0, 8).toUpperCase()}`,
+            status: 'READY_FOR_DELIVERY',
+            assignedDriverId: driver.id,
+            assignedDriverName: driver.name,
+            assignedDriverPhone: driver.phone,
+            assignedDriverPlate: driver.plate,
+          },
+        }),
+      }).catch(() => {});
+
       showToast(`Đã phân công tài xế ${driver.name} (${driver.plate}) cho đơn #${orderId.slice(0, 8).toUpperCase()}.`, 'success');
       setDispatchOrderModal(null);
       fetchOrders(false);
