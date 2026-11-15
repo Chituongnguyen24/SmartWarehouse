@@ -27,6 +27,9 @@ import {
   FileSpreadsheet,
   Key,
   X,
+  MoreVertical,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { PickingItem } from '@/types';
 import { CameraScannerModal } from '@/shared';
@@ -81,8 +84,14 @@ export const PickingWave: React.FC = () => {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState<boolean>(true);
   const [isShiftModalOpen, setIsShiftModalOpen] = useState<boolean>(false);
   const [isIncidentModalOpen, setIsIncidentModalOpen] = useState<boolean>(false);
+  const [isToolsMenuOpen, setIsToolsMenuOpen] = useState<boolean>(false);
+  const [expandedPickedIds, setExpandedPickedIds] = useState<Record<string, boolean>>({});
   const [activeLocatingShelf, setActiveLocatingShelf] = useState<string | null>(null);
   const [smartkeyPingingShelf, setSmartkeyPingingShelf] = useState<string | null>(null);
+
+  const toggleExpandPicked = (id: string) => {
+    setExpandedPickedIds(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   // Zone Filter State
   const [zoneFilter, setZoneFilter] = useState<'ALL' | 'DRY' | 'COOL' | 'FROZEN'>('ALL');
@@ -713,271 +722,281 @@ export const PickingWave: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '16px', paddingBottom: '90px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+    <div style={{ padding: '12px', paddingBottom: '90px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
 
-      {/* Available Pending Orders Filter Selector */}
-      {availableOrders.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', display: 'flex', justifyContent: 'space-between' }}>
-            <span>DANH SÁCH SOẠN HÀNG ({availableOrders.length} đơn chờ):</span>
-            <span style={{ color: '#0284c7' }}>{selectedOrderId === 'ALL' ? 'Hiển thị gộp tất cả món' : 'Đang lọc 1 đơn'}</span>
-          </div>
-          <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-            {/* Filter: All items in batch */}
-            <button
-              onClick={() => handleSelectOrderFilter('ALL')}
-              style={{
-                backgroundColor: selectedOrderId === 'ALL' ? '#0284c7' : '#ffffff',
-                border: `1.5px solid ${selectedOrderId === 'ALL' ? '#0284c7' : '#e2e8f0'}`,
-                borderRadius: '12px',
-                padding: '8px 12px',
-                color: selectedOrderId === 'ALL' ? '#ffffff' : '#334155',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                whiteSpace: 'nowrap',
-                fontSize: '11.5px',
-                fontWeight: 800,
-                boxShadow: selectedOrderId === 'ALL' ? '0 2px 8px rgba(2, 132, 199, 0.25)' : 'none',
-              }}
-            >
-              <Boxes size={14} color={selectedOrderId === 'ALL' ? '#ffffff' : '#0284c7'} />
-              <span>Toàn Bộ Danh Sách ({allWaveItems.length} món • {availableOrders.length} đơn)</span>
-            </button>
-
-            {availableOrders.map(ord => {
-              const isSelected = selectedOrderId === ord.id || selectedOrderId === ord.orderCode;
-              const ordItemsCount = allWaveItems.filter(i => i.orderId === ord.id || i.orderCode === ord.orderCode).length;
-              const lockInfo = activeLocks[ord.id];
-              const isOrdLocked = Boolean(lockInfo && lockInfo.userId !== (user?.id || 'usr-staff'));
-
-              return (
-                <button
-                  key={ord.id}
-                  onClick={() => handleSelectOrderFilter(ord.id)}
-                  style={{
-                    backgroundColor: isSelected ? '#0284c7' : '#ffffff',
-                    border: `1.5px solid ${isSelected ? '#0284c7' : isOrdLocked ? '#ef4444' : '#e2e8f0'}`,
-                    borderRadius: '12px',
-                    padding: '8px 12px',
-                    color: isSelected ? '#ffffff' : '#334155',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    whiteSpace: 'nowrap',
-                    fontSize: '11.5px',
-                    fontWeight: 800,
-                    boxShadow: isSelected ? '0 2px 8px rgba(2, 132, 199, 0.25)' : 'none',
-                  }}
-                >
-                  <Boxes size={14} color={isSelected ? '#ffffff' : '#0284c7'} />
-                  <span>{ord.orderCode}</span>
-                  <span style={{ fontSize: '10px', opacity: 0.8 }}>({ordItemsCount} món)</span>
-                  {isOrdLocked && <Lock size={12} color="#dc2626" />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Top Header Card with Wave Progress */}
+      {/* COMPACT UNIFIED HEADER */}
       <div
         style={{
           backgroundColor: '#ffffff',
-          padding: '16px',
-          borderRadius: '20px',
+          padding: '12px 14px',
+          borderRadius: '8px',
           border: '1px solid #e2e8f0',
-          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.04)',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '10.5px', color: '#0284c7', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                TIẾN ĐỘ SOẠN HÀNG XUẤT KHO
-              </span>
-              <span style={{ fontSize: '9px', backgroundColor: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
-                {selectedOrderId === 'ALL' ? `TỔNG HỢP ${availableOrders.length} ĐƠN` : currentSelectedOrder?.orderCode}
-              </span>
-            </div>
-            <h2 style={{ margin: '3px 0 0 0', fontSize: '16px', fontWeight: 900, color: '#0f172a' }}>
-              {selectedOrderId === 'ALL' ? 'Danh Sách Soạn Hàng Tổng Hợp' : `Soạn Đơn Xuất Kho: ${currentSelectedOrder?.orderCode}`}
-            </h2>
-            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-              {selectedOrderId === 'ALL'
-                ? `Lộ trình tối ưu qua các kệ cho toàn bộ ${items.length} món hàng`
-                : `Điểm đến: ${currentSelectedOrder?.destination || 'Siêu Thị Emart'}`}
-            </div>
+        {/* Row 1: Order selector + Progress Counter + Menu button */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, minWidth: 0 }}>
+            <Boxes size={16} color="#0f766e" style={{ flexShrink: 0 }} />
+            {availableOrders.length > 0 ? (
+              <select
+                value={selectedOrderId}
+                onChange={e => handleSelectOrderFilter(e.target.value)}
+                style={{
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: '#0f172a',
+                  backgroundColor: '#f8fafc',
+                  maxWidth: '100%',
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="ALL">
+                  Toàn bộ ({allWaveItems.length} món • {availableOrders.length} đơn)
+                </option>
+                {availableOrders.map(ord => {
+                  const ordCount = allWaveItems.filter(i => i.orderId === ord.id || i.orderCode === ord.orderCode).length;
+                  return (
+                    <option key={ord.id} value={ord.id}>
+                      {ord.orderCode} ({ordCount} món)
+                    </option>
+                  );
+                })}
+              </select>
+            ) : (
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>Danh Sách Soạn Hàng</span>
+            )}
           </div>
 
-          {/* Action Tools & Concurrency Lock Badge */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            {/* Voice Guidance Toggle */}
-            <button
-              onClick={() => {
-                const next = !isVoiceEnabled;
-                setIsVoiceEnabled(next);
-                voiceAssistant.setEnabled(next);
-                if (next) voiceAssistant.playTone('ALERT');
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '5px 10px',
-                borderRadius: '8px',
-                fontSize: '11px',
-                fontWeight: 800,
-                border: `1.5px solid ${isVoiceEnabled ? '#059669' : '#cbd5e1'}`,
-                backgroundColor: isVoiceEnabled ? '#ecfdf5' : '#f8fafc',
-                color: isVoiceEnabled ? '#047857' : '#64748b',
-                cursor: 'pointer',
-              }}
-              title={isVoiceEnabled ? 'Tắt âm thanh hiệu ứng' : 'Bật âm thanh hiệu ứng'}
-            >
-              {isVoiceEnabled ? <Volume2 size={14} color="#059669" /> : <VolumeX size={14} color="#94a3b8" />}
-              <span>{isVoiceEnabled ? 'Bật âm' : 'Tắt âm'}</span>
-            </button>
-
-            {/* Handover Daily Button */}
-            <button
-              onClick={() => setIsShiftModalOpen(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '5px 10px',
-                borderRadius: '8px',
-                fontSize: '11px',
-                fontWeight: 600,
-                border: '1px solid #0284c7',
-                backgroundColor: '#f0f9ff',
-                color: '#0369a1',
-                cursor: 'pointer',
-              }}
-              title="Tổng kết năng suất trong ngày"
-            >
-              <FileSpreadsheet size={13} color="#0284c7" />
-              <span>Tổng Kết Ngày</span>
-            </button>
-
-            {/* Incident Alert Button */}
-            <button
-              onClick={() => setIsIncidentModalOpen(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '5px 10px',
-                borderRadius: '8px',
-                fontSize: '11px',
-                fontWeight: 800,
-                border: '1.5px solid #fecaca',
-                backgroundColor: '#fef2f2',
-                color: '#dc2626',
-                cursor: 'pointer',
-              }}
-              title="Báo cáo sự cố rách bao bì, hỏng kệ"
-            >
-              <AlertTriangle size={13} color="#dc2626" />
-              <span>Báo Sự Cố</span>
-            </button>
-
-            {isLockedByOther ? (
-              <span style={{ fontSize: '10.5px', backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '4px 8px', borderRadius: '8px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Lock size={12} /> Khóa bởi {currentLock?.userName}
-              </span>
-            ) : (
-              <span style={{ fontSize: '10.5px', backgroundColor: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '4px 8px', borderRadius: '8px', fontWeight: 800 }}>
-                Sẵn sàng lấy
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+            {items.length > 0 && (
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: isAllPicked ? '#166534' : '#0f766e',
+                  backgroundColor: isAllPicked ? '#f0fdf4' : '#f0fdfa',
+                  border: `1px solid ${isAllPicked ? '#bbf7d0' : '#ccfbf1'}`,
+                  padding: '2px 8px',
+                  borderRadius: '6px',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                {pickedUnits}/{totalUnits} sp ({progressPercent}%)
               </span>
             )}
+
+            <button
+              type="button"
+              onClick={() => setIsToolsMenuOpen(true)}
+              style={{
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '6px',
+                padding: '5px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#475569',
+              }}
+              title="Menu tiện ích"
+            >
+              <MoreVertical size={16} />
+            </button>
           </div>
         </div>
 
-        {/* Active IoT Shelf Finding Banner */}
-        {activeLocatingShelf && (
-          <div
-            style={{
-              marginTop: '12px',
-              backgroundColor: '#fef3c7',
-              border: '1.5px solid #fde68a',
-              borderRadius: '12px',
-              padding: '10px 14px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '8px',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#92400e', fontWeight: 700 }}>
-              <Volume2 size={18} color="#d97706" />
-              <span>
-                Đang phát tín hiệu tới <strong style={{ color: '#b45309', textDecoration: 'underline' }}>{activeLocatingShelf}</strong> (Còi kêu & Nháy đèn). Hãy tới nơi và ấn Check-in!
-              </span>
-            </div>
-            <button
-              onClick={() => setActiveLocatingShelf(null)}
-              style={{ background: 'none', border: 'none', color: '#b45309', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px 6px' }}
-            >
-              <X size={14} />
-            </button>
+        {/* Thin Progress Bar */}
+        {items.length > 0 && (
+          <div style={{ height: '4px', backgroundColor: '#f1f5f9', borderRadius: '9999px', overflow: 'hidden' }}>
+            <div
+              style={{
+                height: '100%',
+                width: `${progressPercent}%`,
+                backgroundColor: isAllPicked ? '#166534' : '#0f766e',
+                transition: 'width 0.3s ease',
+                borderRadius: '9999px',
+              }}
+            />
           </div>
         )}
 
-        {/* Progress Bar (Only when items exist) */}
+        {/* View Switcher & Filter Chips */}
         {items.length > 0 && (
-          <div style={{ marginTop: '14px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 800, color: '#64748b', marginBottom: '4px' }}>
-              <span>Tiến độ soạn hàng:</span>
-              <span style={{ color: '#0284c7' }}>{pickedUnits}/{totalUnits} sản phẩm ({progressPercent}%)</span>
-            </div>
-            <div style={{ height: '8px', backgroundColor: '#f1f5f9', borderRadius: '999px', overflow: 'hidden' }}>
-              <div
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '2px' }}>
+            {/* View Switcher: Danh Sách vs Sơ Đồ 3D */}
+            <div style={{ display: 'flex', backgroundColor: '#f1f5f9', borderRadius: '6px', padding: '2px', border: '1px solid #e2e8f0' }}>
+              <button
+                type="button"
+                onClick={() => setActiveTab('ITEMS_LIST')}
                 style={{
-                  height: '100%',
-                  width: `${progressPercent}%`,
-                  backgroundColor: isAllPicked ? '#059669' : '#0284c7',
-                  transition: 'width 0.3s ease',
-                  borderRadius: '999px',
+                  flex: 1,
+                  padding: '6px 10px',
+                  borderRadius: '4px',
+                  border: 'none',
+                  fontSize: '11.5px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                  backgroundColor: activeTab === 'ITEMS_LIST' ? '#ffffff' : 'transparent',
+                  color: activeTab === 'ITEMS_LIST' ? '#0f766e' : '#64748b',
+                  boxShadow: activeTab === 'ITEMS_LIST' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
                 }}
-              />
+              >
+                <Layers size={13} />
+                <span>Danh Sách ({pickedCount}/{items.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('3D_MAP')}
+                style={{
+                  flex: 1,
+                  padding: '6px 10px',
+                  borderRadius: '4px',
+                  border: 'none',
+                  fontSize: '11.5px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                  backgroundColor: activeTab === '3D_MAP' ? '#ffffff' : 'transparent',
+                  color: activeTab === '3D_MAP' ? '#0f766e' : '#64748b',
+                  boxShadow: activeTab === '3D_MAP' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                }}
+              >
+                <Compass size={13} />
+                <span>Sơ Đồ Kệ 3D</span>
+              </button>
             </div>
+
+            {/* Filter Chips: Single Horizontal Row */}
+            {activeTab === 'ITEMS_LIST' && (
+              <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '2px' }}>
+                {[
+                  { id: 'PENDING', label: `Chưa lấy (${orderedItems.filter(i => i.status !== 'PICKED').length})` },
+                  { id: 'PICKED', label: `Đã xong (${orderedItems.filter(i => i.status === 'PICKED').length})` },
+                  { id: 'ALL', label: `Tất cả (${orderedItems.length})` },
+                ].map(chip => (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    onClick={() => setItemFilterTab(chip.id as any)}
+                    style={{
+                      backgroundColor: itemFilterTab === chip.id ? '#0f766e' : '#ffffff',
+                      color: itemFilterTab === chip.id ? '#ffffff' : '#475569',
+                      border: `1px solid ${itemFilterTab === chip.id ? '#0f766e' : '#cbd5e1'}`,
+                      borderRadius: '6px',
+                      padding: '3px 8px',
+                      fontSize: '10.5px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+
+                <div style={{ width: '1px', backgroundColor: '#e2e8f0', margin: '0 2px' }} />
+
+                {[
+                  { id: 'ALL', label: 'Tất cả khu' },
+                  { id: 'COOL', label: 'Mát' },
+                  { id: 'FROZEN', label: 'Đông' },
+                  { id: 'DRY', label: 'Khô' },
+                ].map(z => (
+                  <button
+                    key={z.id}
+                    type="button"
+                    onClick={() => setZoneFilter(z.id as any)}
+                    style={{
+                      backgroundColor: zoneFilter === z.id ? '#0f172a' : '#f8fafc',
+                      color: zoneFilter === z.id ? '#ffffff' : '#64748b',
+                      border: `1px solid ${zoneFilter === z.id ? '#0f172a' : '#e2e8f0'}`,
+                      borderRadius: '6px',
+                      padding: '3px 7px',
+                      fontSize: '10.5px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {z.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* Active IoT Shelf Finding Banner */}
+      {activeLocatingShelf && (
+        <div
+          style={{
+            backgroundColor: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderRadius: '8px',
+            padding: '8px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '8px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: '#92400e', fontWeight: 600 }}>
+            <Volume2 size={15} color="#d97706" />
+            <span>Đang định vị kệ: <b>{activeLocatingShelf}</b></span>
+          </div>
+          <button
+            onClick={() => setActiveLocatingShelf(null)}
+            style={{ background: 'none', border: 'none', color: '#92400e', cursor: 'pointer', padding: '2px 4px' }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Toast Notification */}
       {toastMessage && (
         <div
           style={{
-            backgroundColor: toastMessage.type === 'SUCCESS' ? '#ecfdf5' : '#fef2f2',
-            border: `1.5px solid ${toastMessage.type === 'SUCCESS' ? '#059669' : '#dc2626'}`,
-            borderRadius: '12px',
-            padding: '12px 16px',
-            color: toastMessage.type === 'SUCCESS' ? '#065f46' : '#991b1b',
-            fontSize: '12px',
-            fontWeight: 800,
+            backgroundColor: toastMessage.type === 'SUCCESS' ? '#f0fdf4' : '#fef2f2',
+            border: `1px solid ${toastMessage.type === 'SUCCESS' ? '#bbf7d0' : '#fecaca'}`,
+            borderRadius: '8px',
+            padding: '10px 14px',
+            color: toastMessage.type === 'SUCCESS' ? '#166534' : '#991b1b',
+            fontSize: '11.5px',
+            fontWeight: 600,
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            animation: 'slideUp 0.3s ease-out',
           }}
         >
-          {toastMessage.type === 'SUCCESS' ? <CheckCircle2 size={18} color="#059669" /> : <AlertTriangle size={18} color="#dc2626" />}
+          {toastMessage.type === 'SUCCESS' ? <CheckCircle2 size={16} color="#166534" /> : <AlertTriangle size={16} color="#991b1b" />}
           <span>{toastMessage.text}</span>
         </div>
       )}
 
-      {/* EMPTY STATE: When no pending orders in database */}
+      {/* EMPTY STATE */}
       {items.length === 0 && !isLoading && (
         <div
           style={{
             backgroundColor: '#ffffff',
-            borderRadius: '20px',
+            borderRadius: '10px',
             padding: '36px 20px',
             textAlign: 'center',
             border: '1px dashed #cbd5e1',
@@ -989,33 +1008,33 @@ export const PickingWave: React.FC = () => {
         >
           <div
             style={{
-              width: '64px',
-              height: '64px',
-              borderRadius: '20px',
-              backgroundColor: '#f0f9ff',
+              width: '56px',
+              height: '56px',
+              borderRadius: '12px',
+              backgroundColor: '#f0fdfa',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Inbox size={32} color="#0284c7" />
+            <Inbox size={28} color="#0f766e" />
           </div>
-          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 900, color: '#0f172a' }}>
+          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>
             Chưa có đợt lấy hàng nào đang chờ
           </h3>
-          <p style={{ margin: 0, fontSize: '12px', color: '#64748b', maxWidth: '300px', lineHeight: 1.5 }}>
-            Hệ thống đang kết nối và chờ đơn xuất kho mới được tạo.
+          <p style={{ margin: 0, fontSize: '12px', color: '#64748b', maxWidth: '300px', lineHeight: 1.4 }}>
+            Hệ thống đang kết nối và chờ đơn xuất kho mới được tiếp nhận.
           </p>
           <button
             onClick={() => loadLiveData()}
             style={{
-              backgroundColor: '#0284c7',
+              backgroundColor: '#0f766e',
               color: '#ffffff',
               border: 'none',
-              padding: '10px 18px',
-              borderRadius: '12px',
-              fontWeight: 800,
-              fontSize: '12.5px',
+              padding: '9px 16px',
+              borderRadius: '6px',
+              fontWeight: 600,
+              fontSize: '12px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -1027,60 +1046,10 @@ export const PickingWave: React.FC = () => {
         </div>
       )}
 
-      {/* View Switcher Tabs */}
-      {items.length > 0 && (
-        <div style={{ display: 'flex', backgroundColor: '#f1f5f9', borderRadius: '12px', padding: '4px', border: '1px solid #e2e8f0' }}>
-          <button
-            type="button"
-            onClick={() => setActiveTab('3D_MAP')}
-            style={{
-              flex: 1,
-              padding: '10px',
-              borderRadius: '8px',
-              border: 'none',
-              fontSize: '12px',
-              fontWeight: 800,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              backgroundColor: activeTab === '3D_MAP' ? '#ffffff' : 'transparent',
-              color: activeTab === '3D_MAP' ? '#0284c7' : '#64748b',
-              boxShadow: activeTab === '3D_MAP' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
-            }}
-          >
-            <Compass size={16} /> Sơ Đồ Kệ 3D
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('ITEMS_LIST')}
-            style={{
-              flex: 1,
-              padding: '10px',
-              borderRadius: '8px',
-              border: 'none',
-              fontSize: '12px',
-              fontWeight: 800,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              backgroundColor: activeTab === 'ITEMS_LIST' ? '#ffffff' : 'transparent',
-              color: activeTab === 'ITEMS_LIST' ? '#0284c7' : '#64748b',
-              boxShadow: activeTab === 'ITEMS_LIST' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
-            }}
-          >
-            <Layers size={16} /> Danh Sách Món ({pickedCount}/{items.length})
-          </button>
-        </div>
-      )}
-
       {/* 3D MAP TAB */}
       {items.length > 0 && activeTab === '3D_MAP' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div style={{ borderRadius: '18px', overflow: 'hidden', border: '1px solid #e2e8f0', minHeight: '260px', backgroundColor: '#0f172a' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid #e2e8f0', minHeight: '260px', backgroundColor: '#0f172a' }}>
             {!isScannerOpen ? (
               <Mobile3DWarehouseView
                 waypoints={waypoints}
@@ -1092,29 +1061,28 @@ export const PickingWave: React.FC = () => {
                 products={liveProducts}
               />
             ) : (
-              <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
+              <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94a3b8', fontSize: '12.5px' }}>
                 Đang tạm dừng đồ họa 3D để tối ưu hóa hiệu năng quét Camera...
               </div>
             )}
           </div>
 
-          {/* Current Target Shelf Beacon Banner */}
           {currentPendingItem ? (
             <div
               style={{
                 backgroundColor: '#ffffff',
-                padding: '14px',
-                borderRadius: '16px',
-                border: '1.5px solid #0284c7',
-                boxShadow: '0 2px 8px rgba(2, 132, 199, 0.08)',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid #0f766e',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
               }}
             >
               <div>
-                <div style={{ fontSize: '10.5px', color: '#0284c7', fontWeight: 800 }}>VỊ TRÍ KỆ TIẾP THEO:</div>
-                <div style={{ fontSize: '14px', fontWeight: 900, color: '#0f172a', marginTop: '2px' }}>
+                <div style={{ fontSize: '10px', color: '#0f766e', fontWeight: 600 }}>KỆ TIẾP THEO:</div>
+                <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
                   {currentPendingItem.shelfLocation}
                 </div>
                 <div style={{ fontSize: '11px', color: '#64748b' }}>
@@ -1122,60 +1090,54 @@ export const PickingWave: React.FC = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                 <button
                   onClick={() => handleLocateShelf(currentPendingItem)}
                   style={{
                     backgroundColor: activeLocatingShelf === currentPendingItem.shelfLocation ? '#d97706' : '#fffbeb',
                     color: activeLocatingShelf === currentPendingItem.shelfLocation ? '#ffffff' : '#b45309',
-                    border: '1.5px solid #fde68a',
-                    padding: '10px 12px',
-                    borderRadius: '12px',
-                    fontWeight: 900,
-                    fontSize: '12px',
+                    border: '1px solid #fde68a',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    fontWeight: 600,
+                    fontSize: '11.5px',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px',
-                    boxShadow: activeLocatingShelf === currentPendingItem.shelfLocation ? '0 0 10px rgba(217, 119, 6, 0.4)' : 'none',
+                    gap: '4px',
                   }}
-                  title="Kích hoạt còi & đèn LED trên kệ hàng"
                 >
-                  <Volume2 size={16} />
-                  <span>{activeLocatingShelf === currentPendingItem.shelfLocation ? 'Đang phát tín hiệu...' : 'Định Vị Kệ'}</span>
+                  <Volume2 size={14} />
+                  <span>{activeLocatingShelf === currentPendingItem.shelfLocation ? 'Đang kêu' : 'Định Vị'}</span>
                 </button>
 
                 <button
                   disabled={isLockedByOther}
                   onClick={() => handleStartScan(currentPendingItem)}
                   style={{
-                    backgroundColor: isLockedByOther ? '#94a3b8' : '#0284c7',
+                    backgroundColor: isLockedByOther ? '#94a3b8' : '#0f766e',
                     color: '#ffffff',
                     border: 'none',
-                    padding: '10px 14px',
-                    borderRadius: '12px',
-                    fontWeight: 900,
-                    fontSize: '12px',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    fontWeight: 600,
+                    fontSize: '11.5px',
                     cursor: isLockedByOther ? 'not-allowed' : 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px',
-                    boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)',
+                    gap: '4px',
                   }}
                 >
-                  <ScanBarcode size={16} /> {isLockedByOther ? 'Bị Khóa' : 'Quét'}
+                  <ScanBarcode size={14} /> {isLockedByOther ? 'Khóa' : 'Quét'}
                 </button>
               </div>
             </div>
           ) : (
-            <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ fontSize: '13.5px', fontWeight: 600, color: '#166534', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                <CheckCircle2 size={18} color="#166534" />
+            <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '14px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#166534', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                <CheckCircle2 size={16} color="#166534" />
                 ĐÃ HOÀN TẤT LẤY TOÀN BỘ SẢN PHẨM TRÊN KỆ
               </div>
-              <p style={{ margin: 0, fontSize: '12px', color: '#475569' }}>
-                Tất cả các món đã gom đủ số lượng. Xác nhận để chuyển phiếu sang khâu đóng gói.
-              </p>
               <button
                 disabled={isLockedByOther}
                 onClick={handleTransferToPacking}
@@ -1184,19 +1146,18 @@ export const PickingWave: React.FC = () => {
                   backgroundColor: isLockedByOther ? '#cbd5e1' : '#0f766e',
                   color: '#ffffff',
                   border: 'none',
-                  padding: '12px 16px',
-                  borderRadius: '8px',
+                  padding: '10px 14px',
+                  borderRadius: '6px',
                   fontWeight: 600,
-                  fontSize: '13.5px',
+                  fontSize: '13px',
                   cursor: isLockedByOther ? 'not-allowed' : 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '8px',
-                  transition: 'background-color 150ms ease',
+                  gap: '6px',
                 }}
               >
-                <PackageCheck size={18} />
+                <PackageCheck size={16} />
                 <span>Chuyển Sang Khâu Đóng Gói →</span>
               </button>
             </div>
@@ -1206,65 +1167,7 @@ export const PickingWave: React.FC = () => {
 
       {/* ITEMS LIST TAB */}
       {items.length > 0 && activeTab === 'ITEMS_LIST' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {/* Item Status Filter Chips */}
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', overflowX: 'auto', paddingBottom: '2px' }}>
-            {[
-              { id: 'ALL', label: `Tất cả (${orderedItems.length})` },
-              { id: 'PENDING', label: `Cần lấy (${orderedItems.filter(i => i.status !== 'PICKED').length})` },
-              { id: 'PICKED', label: `Đã xong (${orderedItems.filter(i => i.status === 'PICKED').length})` },
-            ].map(chip => (
-              <button
-                key={chip.id}
-                type="button"
-                onClick={() => setItemFilterTab(chip.id as any)}
-                style={{
-                  backgroundColor: itemFilterTab === chip.id ? '#0284c7' : '#ffffff',
-                  color: itemFilterTab === chip.id ? '#ffffff' : '#475569',
-                  border: `1px solid ${itemFilterTab === chip.id ? '#0284c7' : '#cbd5e1'}`,
-                  borderRadius: '6px',
-                  padding: '5px 10px',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {chip.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Storage Zone Filter Tabs (Khô / Mát / Đông) */}
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', overflowX: 'auto', paddingBottom: '2px' }}>
-            {[
-              { id: 'ALL', label: `Tất cả khu vực`, count: orderedItems.length },
-              { id: 'COOL', label: `Kho Mát (0-4°C)`, count: orderedItems.filter(i => i.zone === 'COOL').length },
-              { id: 'FROZEN', label: `Kho Đông (-18°C)`, count: orderedItems.filter(i => i.zone === 'FROZEN').length },
-              { id: 'DRY', label: `Kho Khô (DRY)`, count: orderedItems.filter(i => i.zone === 'DRY').length },
-            ].map(z => (
-              <button
-                key={z.id}
-                type="button"
-                onClick={() => setZoneFilter(z.id as any)}
-                style={{
-                  backgroundColor: zoneFilter === z.id ? '#0f172a' : '#f8fafc',
-                  color: zoneFilter === z.id ? '#ffffff' : '#475569',
-                  border: `1px solid ${zoneFilter === z.id ? '#0f172a' : '#e2e8f0'}`,
-                  borderRadius: '6px',
-                  padding: '4px 8px',
-                  fontSize: '10.5px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {z.label} ({z.count})
-              </button>
-            ))}
-          </div>
-
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {orderedItems
             .filter(item => {
               if (itemFilterTab === 'PENDING' && item.status === 'PICKED') return false;
@@ -1274,253 +1177,262 @@ export const PickingWave: React.FC = () => {
             })
             .map((item, idx) => {
               const isPicked = item.status === 'PICKED';
+              const isExpanded = Boolean(expandedPickedIds[item.id]);
+
+              // COLLAPSED PICKED ITEM ROW
+              if (isPicked && !isExpanded) {
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => toggleExpandPicked(item.id)}
+                    style={{
+                      backgroundColor: '#f0fdf4',
+                      border: '1px solid #bbf7d0',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                      <CheckCircle2 size={16} color="#166534" style={{ flexShrink: 0 }} />
+                      <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#166534', flexShrink: 0 }}>
+                        {item.shelfLocation}
+                      </span>
+                      <span style={{ fontSize: '12px', color: '#166534', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {item.productName}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: '#166534', fontVariantNumeric: 'tabular-nums' }}>
+                        {item.quantity} {item.unit}
+                      </span>
+                      <ChevronDown size={14} color="#166534" />
+                    </div>
+                  </div>
+                );
+              }
+
+              // FULL ACTIVE ITEM CARD (OR EXPANDED PICKED)
               const isNext = !isPicked && item.id === currentPendingItem?.id;
 
               return (
                 <div
                   key={item.id}
                   style={{
-                    backgroundColor: isPicked ? '#f0fdf4' : isNext ? '#f0f9ff' : '#ffffff',
-                    borderRadius: '10px',
-                    border: `1px solid ${isPicked ? '#bbf7d0' : isNext ? '#bae6fd' : '#e2e8f0'}`,
-                    padding: '14px',
+                    backgroundColor: isPicked ? '#f0fdf4' : '#ffffff',
+                    borderRadius: '8px',
+                    border: `1px solid ${isPicked ? '#bbf7d0' : isNext ? '#0f766e' : '#e2e8f0'}`,
+                    padding: '12px',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '10px',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                    gap: '8px',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
                   }}
                 >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <div
-                      style={{
-                        width: '24px',
-                        height: '24px',
-                        borderRadius: '6px',
-                        backgroundColor: isPicked ? '#059669' : isNext ? '#0284c7' : '#cbd5e1',
-                        color: '#ffffff',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '11px',
-                        fontWeight: 900,
-                      }}
-                    >
-                      {idx + 1}
-                    </div>
-
-                    <span
-                      style={{
-                        fontSize: '10px',
-                        fontWeight: 800,
-                        padding: '2px 8px',
-                        borderRadius: '6px',
-                        backgroundColor: item.zone === 'COOL' ? '#d1fae5' : item.zone === 'FROZEN' ? '#e0f2fe' : '#fef3c7',
-                        color: item.zone === 'COOL' ? '#047857' : item.zone === 'FROZEN' ? '#0369a1' : '#b45309',
-                      }}
-                    >
-                      {item.zone === 'COOL' ? '0-4°C' : item.zone === 'FROZEN' ? '-18°C' : 'Kho Khô'}
-                    </span>
-
-                    {item.orderCode && (
+                  {/* Top Row: Shelf Location & Zone + Target Quantity */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          backgroundColor: isNext ? '#0f766e' : '#0f172a',
+                          color: '#ffffff',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                        }}
+                      >
+                        <MapPin size={12} />
+                        <span>{item.shelfLocation}</span>
+                      </div>
                       <span
                         style={{
                           fontSize: '10px',
                           fontWeight: 600,
-                          padding: '2px 7px',
-                          borderRadius: '6px',
-                          backgroundColor: '#f5f3ff',
-                          color: '#6d28d9',
-                          border: '1px solid #ddd6fe',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          backgroundColor: item.zone === 'COOL' ? '#f0fdf4' : item.zone === 'FROZEN' ? '#f0f9ff' : '#f8fafc',
+                          color: item.zone === 'COOL' ? '#166534' : item.zone === 'FROZEN' ? '#075985' : '#475569',
+                          border: `1px solid ${item.zone === 'COOL' ? '#bbf7d0' : item.zone === 'FROZEN' ? '#bae6fd' : '#e2e8f0'}`,
                         }}
                       >
-                        {item.orderCode}
+                        {item.zone === 'COOL' ? '0-4°C' : item.zone === 'FROZEN' ? '-18°C' : 'Khô'}
                       </span>
-                    )}
-                  </div>
-
-                  <span
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      color: isPicked ? '#059669' : '#64748b',
-                      backgroundColor: isPicked ? '#ecfdf5' : '#f1f5f9',
-                      border: `1px solid ${isPicked ? '#a7f3d0' : '#e2e8f0'}`,
-                      padding: '2px 8px',
-                      borderRadius: '6px',
-                    }}
-                  >
-                    {isPicked ? 'Đã Lấy' : 'Chờ Quét'}
-                  </span>
-                </div>
-
-                <div>
-                  <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 900, color: '#0f172a' }}>
-                    {item.productName}
-                  </h4>
-                  <div style={{ fontSize: '11px', color: '#64748b', marginTop: '3px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    <span>Mã SP: <strong style={{ color: '#0f172a' }}>{item.sku}</strong></span>
-                    <span>• Lô: <strong style={{ color: '#0284c7' }}>{item.lotCode}</strong></span>
-                    <span>• HSD: <strong style={{ color: '#d97706' }}>{item.expiryDate}</strong></span>
-                  </div>
-                </div>
-
-                {/* Location & Quantity Row */}
-                <div
-                  style={{
-                    backgroundColor: isPicked ? '#f0fdf4' : '#f8fafc',
-                    borderRadius: '10px',
-                    padding: '10px 12px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '6px',
-                    border: '1px solid #e2e8f0',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <MapPin size={14} color="#0284c7" />
-                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a' }}>{item.shelfLocation}</span>
-                      </div>
-
-                      {!isPicked && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          {/* Nút Nháy đèn định vị */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleLocateShelf(item);
-                            }}
-                            style={{
-                              backgroundColor: activeLocatingShelf === item.shelfLocation ? '#0284c7' : '#f0f9ff',
-                              color: activeLocatingShelf === item.shelfLocation ? '#ffffff' : '#0369a1',
-                              border: '1px solid #bae6fd',
-                              padding: '3px 8px',
-                              borderRadius: '6px',
-                              fontSize: '11px',
-                              fontWeight: 800,
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              cursor: 'pointer',
-                            }}
-                            title="Mặc định: Bật/tắt nháy đèn LED định vị kệ (hoàn toàn không kêu còi)"
-                          >
-                            <Radio size={12} />
-                            <span>{activeLocatingShelf === item.shelfLocation ? 'Đang nháy' : 'Nháy đèn'}</span>
-                          </button>
-
-                          {/* Nút Phát còi định vị kệ */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSmartkeyChirp(item);
-                            }}
-                            style={{
-                              backgroundColor: smartkeyPingingShelf === item.shelfLocation ? '#d97706' : '#fffbeb',
-                              color: smartkeyPingingShelf === item.shelfLocation ? '#ffffff' : '#b45309',
-                              border: '1px solid #fde68a',
-                              padding: '3px 9px',
-                              borderRadius: '6px',
-                              fontSize: '11px',
-                              fontWeight: 800,
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              cursor: 'pointer',
-                              boxShadow: smartkeyPingingShelf === item.shelfLocation ? '0 0 10px rgba(217,119,6,0.4)' : 'none',
-                              transform: smartkeyPingingShelf === item.shelfLocation ? 'scale(1.04)' : 'scale(1)',
-                              transition: 'all 0.15s ease',
-                            }}
-                            title="Bấm để kệ phát tiếng còi bíp bíp tìm vị trí"
-                          >
-                            <Volume2 size={12} />
-                            <span>{smartkeyPingingShelf === item.shelfLocation ? 'Đang kêu...' : 'Bấm còi'}</span>
-                          </button>
-                        </div>
+                      {item.orderCode && (
+                        <span style={{ fontSize: '10px', fontWeight: 500, color: '#64748b' }}>
+                          #{item.orderCode.slice(-6)}
+                        </span>
                       )}
                     </div>
 
-                    <div style={{ fontSize: '12.5px', fontWeight: 900, color: isPicked ? '#059669' : '#0284c7' }}>
-                      Đã lấy: <b style={{ fontSize: '14px' }}>{item.pickedQuantity || (isPicked ? item.quantity : 0)}</b> / {item.quantity} {item.unit}
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: isPicked ? '#166534' : '#0f766e', fontVariantNumeric: 'tabular-nums' }}>
+                      {isPicked
+                        ? `Đủ: ${item.quantity} ${item.unit}`
+                        : (item.pickedQuantity || 0) > 0
+                        ? `Lấy: ${item.pickedQuantity}/${item.quantity} ${item.unit}`
+                        : `Cần: ${item.quantity} ${item.unit}`}
                     </div>
                   </div>
 
-                  {/* Partial Progress Bar */}
+                  {/* Product Name & SKU / Lot */}
+                  <div>
+                    <div style={{ fontSize: '13.5px', fontWeight: 600, color: '#0f172a', lineHeight: 1.3 }}>
+                      {item.productName}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      <span>SKU: <strong style={{ color: '#0f172a' }}>{item.sku}</strong></span>
+                      <span>•</span>
+                      <span>Lô: <strong style={{ color: '#0284c7' }}>{item.lotCode}</strong></span>
+                      <span>•</span>
+                      <span>HSD: <strong style={{ color: '#92400e' }}>{item.expiryDate}</strong></span>
+                    </div>
+                  </div>
+
+                  {/* Partial Progress if started */}
                   {!isPicked && (item.pickedQuantity || 0) > 0 && (
-                    <div style={{ height: '4px', backgroundColor: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
+                    <div style={{ height: '3px', backgroundColor: '#e2e8f0', borderRadius: '9999px', overflow: 'hidden' }}>
                       <div
                         style={{
                           height: '100%',
                           width: `${Math.min(100, Math.round(((item.pickedQuantity || 0) / item.quantity) * 100))}%`,
-                          backgroundColor: '#0284c7',
-                          borderRadius: '999px',
+                          backgroundColor: '#0f766e',
                         }}
                       />
                     </div>
                   )}
-                </div>
 
-                {/* Scan & Exception Action Buttons */}
-                {!isPicked && (
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
-                      disabled={isLockedByOther}
-                      onClick={() => handleStartScan(item)}
-                      style={{
-                        flex: 1,
-                        backgroundColor: isLockedByOther ? '#cbd5e1' : isNext ? '#0284c7' : '#f8fafc',
-                        color: isLockedByOther ? '#64748b' : isNext ? '#ffffff' : '#0f172a',
-                        border: isNext ? 'none' : '1px solid #cbd5e1',
-                        padding: '10px 12px',
-                        borderRadius: '6px',
-                        fontWeight: 600,
-                        fontSize: '12px',
-                        cursor: isLockedByOther ? 'not-allowed' : 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                      }}
-                    >
-                      {isLockedByOther ? <Lock size={15} /> : <ScanBarcode size={15} />}
-                      <span>
-                        {isLockedByOther
-                          ? `Bị khóa bởi ${currentLock?.userName}`
-                          : (item.pickedQuantity || 0) > 0
-                          ? `Quét Tiếp Tục (${item.pickedQuantity}/${item.quantity})`
-                          : 'Quét Barcode / Mã Lô'}
+                  {/* Action Buttons Row */}
+                  {!isPicked ? (
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      {/* Main Scan Button */}
+                      <button
+                        disabled={isLockedByOther}
+                        onClick={() => handleStartScan(item)}
+                        style={{
+                          flex: 1,
+                          height: '38px',
+                          backgroundColor: isLockedByOther ? '#cbd5e1' : isNext ? '#0f766e' : '#0284c7',
+                          color: isLockedByOther ? '#64748b' : '#ffffff',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontWeight: 600,
+                          fontSize: '12.5px',
+                          cursor: isLockedByOther ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        {isLockedByOther ? <Lock size={15} /> : <ScanBarcode size={15} />}
+                        <span>
+                          {isLockedByOther
+                            ? `Khóa bởi ${currentLock?.userName}`
+                            : (item.pickedQuantity || 0) > 0
+                            ? `Quét tiếp (${item.pickedQuantity}/${item.quantity})`
+                            : 'Quét lấy hàng'}
+                        </span>
+                      </button>
+
+                      {/* IoT LED button */}
+                      <button
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleLocateShelf(item);
+                        }}
+                        style={{
+                          width: '38px',
+                          height: '38px',
+                          borderRadius: '6px',
+                          border: `1px solid ${activeLocatingShelf === item.shelfLocation ? '#0284c7' : '#cbd5e1'}`,
+                          backgroundColor: activeLocatingShelf === item.shelfLocation ? '#0284c7' : '#f8fafc',
+                          color: activeLocatingShelf === item.shelfLocation ? '#ffffff' : '#475569',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                        }}
+                        title="Nháy đèn LED định vị kệ"
+                      >
+                        <Radio size={16} />
+                      </button>
+
+                      {/* Smartkey Horn Chirp button */}
+                      <button
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleSmartkeyChirp(item);
+                        }}
+                        style={{
+                          width: '38px',
+                          height: '38px',
+                          borderRadius: '6px',
+                          border: `1px solid ${smartkeyPingingShelf === item.shelfLocation ? '#d97706' : '#cbd5e1'}`,
+                          backgroundColor: smartkeyPingingShelf === item.shelfLocation ? '#fef3c7' : '#f8fafc',
+                          color: smartkeyPingingShelf === item.shelfLocation ? '#b45309' : '#475569',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                        }}
+                        title="Bấm còi tìm kệ"
+                      >
+                        <Volume2 size={16} />
+                      </button>
+
+                      {/* Shortage Exception button */}
+                      <button
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleOpenShortage(item);
+                        }}
+                        style={{
+                          width: '38px',
+                          height: '38px',
+                          borderRadius: '6px',
+                          border: '1px solid #fde68a',
+                          backgroundColor: '#fffbeb',
+                          color: '#92400e',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                        }}
+                        title="Báo thiếu hàng / Đổi lô"
+                      >
+                        <AlertTriangle size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px', borderTop: '1px dashed #bbf7d0' }}>
+                      <span style={{ fontSize: '11px', color: '#166534', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <CheckCircle2 size={13} color="#166534" /> Đã gom đủ sản phẩm
                       </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleOpenShortage(item)}
-                      style={{
-                        backgroundColor: '#fffbeb',
-                        color: '#92400e',
-                        border: '1px solid #fde68a',
-                        padding: '10px 12px',
-                        borderRadius: '6px',
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        whiteSpace: 'nowrap',
-                      }}
-                      title="Báo thiếu hàng hoặc đổi sang lô dự phòng khác"
-                    >
-                      <AlertTriangle size={13} color="#92400e" />
-                      <span>Báo Thiếu / Đổi Lô</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                      <button
+                        type="button"
+                        onClick={() => toggleExpandPicked(item.id)}
+                        style={{ background: 'none', border: 'none', color: '#166534', fontSize: '11px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+                      >
+                        Thu gọn <ChevronUp size={13} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
           {/* Full Wave Completion Card */}
           {isAllPicked && (
@@ -1528,40 +1440,27 @@ export const PickingWave: React.FC = () => {
               style={{
                 marginTop: '10px',
                 backgroundColor: '#ffffff',
-                border: '2px solid #059669',
-                borderRadius: '18px',
-                padding: '18px',
-                boxShadow: '0 4px 16px rgba(5, 150, 105, 0.15)',
+                border: '1px solid #bbf7d0',
+                borderRadius: '8px',
+                padding: '14px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '12px',
+                gap: '10px',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div
-                  style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '10px',
-                    backgroundColor: '#ecfdf5',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <CheckCircle2 size={22} color="#059669" />
-                </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CheckCircle2 size={20} color="#166534" />
                 <div>
-                  <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 900, color: '#0f172a' }}>
+                  <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
                     ĐÃ GOM ĐỦ 100% SẢN PHẨM!
                   </h4>
-                  <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', color: '#64748b' }}>
-                    Tất cả các món đã được lấy chính xác theo đúng hạn sử dụng.
+                  <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#64748b' }}>
+                    Tất cả các món đã gom đủ. Bấm nút dưới để chuyển sang khâu đóng gói.
                   </p>
                 </div>
               </div>
 
-              {/* Primary Action: Chuyển Sang Khâu Đóng Gói (Packing) */}
               <button
                 disabled={isLockedByOther}
                 onClick={handleTransferToPacking}
@@ -1570,23 +1469,174 @@ export const PickingWave: React.FC = () => {
                   backgroundColor: isLockedByOther ? '#cbd5e1' : '#0f766e',
                   color: '#ffffff',
                   border: 'none',
-                  padding: '13px',
-                  borderRadius: '10px',
+                  padding: '11px',
+                  borderRadius: '6px',
                   fontWeight: 600,
-                  fontSize: '14px',
+                  fontSize: '13.5px',
                   cursor: isLockedByOther ? 'not-allowed' : 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '8px',
-                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+                  gap: '6px',
                 }}
               >
-                <PackageCheck size={18} />
+                <PackageCheck size={16} />
                 <span>Chuyển Sang Khâu Đóng Gói →</span>
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Tools Menu Bottom Sheet / Modal */}
+      {isToolsMenuOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.5)',
+            zIndex: 9990,
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+          }}
+          onClick={() => setIsToolsMenuOpen(false)}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderTopLeftRadius: '14px',
+              borderTopRightRadius: '14px',
+              width: '100%',
+              maxWidth: '460px',
+              padding: '16px',
+              boxShadow: '0 -4px 16px rgba(0,0,0,0.15)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
+                Tiện Ích & Báo Cáo
+              </span>
+              <button
+                onClick={() => setIsToolsMenuOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {/* Voice toggle */}
+              <button
+                onClick={() => {
+                  const next = !isVoiceEnabled;
+                  setIsVoiceEnabled(next);
+                  voiceAssistant.setEnabled(next);
+                  if (next) voiceAssistant.playTone('ALERT');
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  backgroundColor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  color: '#0f172a',
+                  fontSize: '12.5px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {isVoiceEnabled ? <Volume2 size={16} color="#059669" /> : <VolumeX size={16} color="#94a3b8" />}
+                  <span>Âm thanh phản hồi</span>
+                </div>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: isVoiceEnabled ? '#059669' : '#94a3b8' }}>
+                  {isVoiceEnabled ? 'ĐANG BẬT' : 'ĐANG TẮT'}
+                </span>
+              </button>
+
+              {/* Handover shift */}
+              <button
+                onClick={() => {
+                  setIsToolsMenuOpen(false);
+                  setIsShiftModalOpen(true);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  backgroundColor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  color: '#0f172a',
+                  fontSize: '12.5px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <FileSpreadsheet size={16} color="#0284c7" />
+                <span>Tổng Kết & Bàn Giao Ca</span>
+              </button>
+
+              {/* Incident report */}
+              <button
+                onClick={() => {
+                  setIsToolsMenuOpen(false);
+                  setIsIncidentModalOpen(true);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  backgroundColor: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  color: '#991b1b',
+                  fontSize: '12.5px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <AlertTriangle size={16} color="#dc2626" />
+                <span>Báo Cáo Sự Cố Kho / Hỏng Kệ</span>
+              </button>
+
+              {/* Refresh data */}
+              <button
+                onClick={() => {
+                  setIsToolsMenuOpen(false);
+                  loadLiveData(false);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  backgroundColor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  color: '#0f172a',
+                  fontSize: '12.5px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <RefreshCw size={16} color="#0f766e" />
+                <span>Làm Mới Danh Sách Soạn Hàng</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

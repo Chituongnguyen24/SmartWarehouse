@@ -114,7 +114,7 @@ export class ProductService implements OnModuleInit {
           return JSON.parse(cached);
         }
       }
-    } catch (e) {}
+    } catch (e) { }
 
     const queryBuilder = this.productRepository.createQueryBuilder('product');
 
@@ -126,7 +126,7 @@ export class ProductService implements OnModuleInit {
         { keyword: `%${cleanKeyword}%`, noHyphen: `%${noHyphen}%` }
       );
     }
-    
+
     if (category) {
       queryBuilder.andWhere('LOWER(TRIM(product.category)) = LOWER(TRIM(:category))', { category });
     }
@@ -137,7 +137,7 @@ export class ProductService implements OnModuleInit {
 
     const skip = (page - 1) * limit;
     queryBuilder.skip(skip).take(limit);
-    
+
     // Sort by latest created first or highest sold count
     queryBuilder.orderBy('product.soldCount', 'DESC');
 
@@ -155,7 +155,7 @@ export class ProductService implements OnModuleInit {
       if (this.redisClient && this.redisClient.status === 'ready') {
         await this.redisClient.set(cacheKey, JSON.stringify(result), 'EX', 300);
       }
-    } catch (e) {}
+    } catch (e) { }
 
     return result;
   }
@@ -169,7 +169,7 @@ export class ProductService implements OnModuleInit {
           return JSON.parse(cached);
         }
       }
-    } catch (e) {}
+    } catch (e) { }
 
     const rawResults = await this.productRepository
       .createQueryBuilder('product')
@@ -204,7 +204,7 @@ export class ProductService implements OnModuleInit {
       if (this.redisClient && this.redisClient.status === 'ready') {
         await this.redisClient.set(cacheKey, JSON.stringify(categories), 'EX', 600);
       }
-    } catch (e) {}
+    } catch (e) { }
 
     return categories;
   }
@@ -216,7 +216,7 @@ export class ProductService implements OnModuleInit {
         const cached = await this.redisClient.get(cacheKey);
         if (cached) return JSON.parse(cached);
       }
-    } catch (e) {}
+    } catch (e) { }
 
     const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id);
     const prod = isUuid
@@ -228,7 +228,7 @@ export class ProductService implements OnModuleInit {
         if (this.redisClient && this.redisClient.status === 'ready') {
           await this.redisClient.set(cacheKey, JSON.stringify(prod), 'EX', 300);
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     return prod;
@@ -241,7 +241,7 @@ export class ProductService implements OnModuleInit {
         const cached = await this.redisClient.get(cacheKey);
         if (cached) return JSON.parse(cached);
       }
-    } catch (e) {}
+    } catch (e) { }
 
     const prod = await this.productRepository.findOneBy({ sku });
     if (prod) {
@@ -249,7 +249,7 @@ export class ProductService implements OnModuleInit {
         if (this.redisClient && this.redisClient.status === 'ready') {
           await this.redisClient.set(cacheKey, JSON.stringify(prod), 'EX', 300);
         }
-      } catch (e) {}
+      } catch (e) { }
     }
     return prod;
   }
@@ -279,8 +279,8 @@ export class ProductService implements OnModuleInit {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ event, payload }),
-      }).catch(() => {});
-    } catch (e) {}
+      }).catch(() => { });
+    } catch (e) { }
   }
 
   async generateNextSku(): Promise<string> {
