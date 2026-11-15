@@ -154,20 +154,21 @@ export const InboundReceiving: React.FC = () => {
   // Statistics
   const stats = useMemo(() => {
     const total = inbounds.length;
-    const normal = inbounds.filter(i => i.riskLevel === 'NORMAL' && i.status !== 'STORED').length;
-    const risk = inbounds.filter(i => i.riskLevel === 'RISK' && i.status !== 'STORED').length;
-    const critical = inbounds.filter(i => i.riskLevel === 'CRITICAL' && i.status !== 'STORED').length;
-    const stored = inbounds.filter(i => i.status === 'STORED').length;
+    const normal = inbounds.filter(i => i.riskLevel === 'NORMAL' && i.status !== 'STORED' && i.status !== 'COMPLETED').length;
+    const risk = inbounds.filter(i => i.riskLevel === 'RISK' && i.status !== 'STORED' && i.status !== 'COMPLETED').length;
+    const critical = inbounds.filter(i => i.riskLevel === 'CRITICAL' && i.status !== 'STORED' && i.status !== 'COMPLETED').length;
+    const stored = inbounds.filter(i => i.status === 'STORED' || i.status === 'COMPLETED').length;
     return { total, normal, risk, critical, stored };
   }, [inbounds]);
 
   // Filtered inbounds
   const filteredInbounds = useMemo(() => {
     return inbounds.filter(inb => {
+      const isDone = inb.status === 'STORED' || inb.status === 'COMPLETED';
       if (riskFilter === 'STORED') {
-        if (inb.status !== 'STORED') return false;
+        if (!isDone) return false;
       } else if (riskFilter !== 'ALL') {
-        if (inb.riskLevel !== riskFilter || inb.status === 'STORED') return false;
+        if (inb.riskLevel !== riskFilter || isDone) return false;
       }
 
       if (!searchQuery.trim()) return true;
@@ -287,6 +288,10 @@ export const InboundReceiving: React.FC = () => {
         })
       );
 
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('staff_badge_refresh'));
+      }
+
       setModalStep('COMPLETED');
       setIsCompleted(true);
     } catch (e) {
@@ -312,7 +317,7 @@ export const InboundReceiving: React.FC = () => {
           if (it.id === selectedInbound.id) {
             return {
               ...it,
-              status: 'STORED',
+              status: 'COMPLETED',
               qcPassed: true,
               packageCondition,
               destinationStation: 'PACKING_STATION',
@@ -323,6 +328,10 @@ export const InboundReceiving: React.FC = () => {
           return it;
         })
       );
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('staff_badge_refresh'));
+      }
 
       setModalStep('COMPLETED');
       setIsCompleted(true);
@@ -1086,7 +1095,7 @@ export const InboundReceiving: React.FC = () => {
             </div>
           ) : (
             filteredInbounds.map(it => {
-              const isDone = it.status === 'STORED';
+              const isDone = it.status === 'STORED' || it.status === 'COMPLETED';
               const isRejected = it.status === 'REJECTED';
               const isTransfer = isTransferInbound(it.orderCode, it.supplierName);
               const badge = getRiskBadge(it.riskLevel);
