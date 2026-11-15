@@ -75,6 +75,7 @@ const STEPS = [
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string; border: string }> = {
   PENDING: { label: 'Tạo yêu cầu', bg: '#fef3c7', color: '#b45309', border: '#fde68a' },
+  WAITING_TRANSFER: { label: 'Chờ nhập điều chuyển', bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' },
   PROCESSING: { label: 'Đã duyệt', bg: '#dbeafe', color: '#1d4ed8', border: '#bfdbfe' },
   PICKING: { label: 'Đang gom hàng', bg: '#ede9fe', color: '#6d28d9', border: '#ddd6fe' },
   PACKING: { label: 'Đang đóng gói', bg: '#ccfbf1', color: '#0f766e', border: '#99f6e4' },
@@ -92,6 +93,9 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string; 
 const formatShelfLocation = (slotId?: string): string => {
   if (!slotId) return 'Chưa cấp kệ';
   const loc = slotId.trim();
+  if (loc === 'TRANSFER_DOCK' || loc.includes('TRANSFER') || loc.includes('CHỜ NHẬP') || loc.includes('TRUNG CHUYỂN')) {
+    return 'Khu vực nhận hàng điều chuyển (Dock Nhập)';
+  }
 
   // 1. Match DRY shelf
   const dryMatch = loc.match(/(?:dry|kho\s*khô)[-_ ]*shelf[-_ ]*(\d+)(?:[-_ ]*slot[-_ ]*(\d+))?/i);
@@ -687,7 +691,12 @@ const OutboundOrders: React.FC = () => {
         method: 'PUT',
       });
       if (res.ok) {
-        showToast('Đã duyệt đơn thành công! Đơn hàng đã hiển thị trên Mobile App để nhân viên kho đi lấy hàng.', 'success');
+        const approvedOrder = await res.json().catch(() => null);
+        if (approvedOrder?.status === 'WAITING_TRANSFER') {
+          showToast('Đã tiếp nhận đơn hàng. Đơn ở trạng thái "Chờ nhập điều chuyển" do cần đợi xe trung chuyển giao hàng về kho Gò Vấp.', 'info');
+        } else {
+          showToast('Đã duyệt đơn thành công! Đơn hàng đã hiển thị trên Mobile App để nhân viên kho đi lấy hàng.', 'success');
+        }
         fetchOrders(true);
       } else {
         showToast('Không thể duyệt đơn. Vui lòng kiểm tra lại kết nối.', 'error');
@@ -1465,6 +1474,10 @@ const OutboundOrders: React.FC = () => {
                               <span style={{ padding: '3px 8px', borderRadius: '6px', backgroundColor: '#dcfce7', color: '#166534', fontWeight: 700, fontSize: '0.75rem', border: '1px solid #bbf7d0' }}>
                                 {item.lotCode} ({item.pickedQuantity || item.requestedQuantity} sp)
                               </span>
+                            ) : (item.slotId === 'TRANSFER_DOCK' || selectedOrder.notes?.includes('[CHỜ HÀNG ĐIỀU CHUYỂN]')) ? (
+                              <span style={{ padding: '3px 8px', borderRadius: '6px', backgroundColor: '#fff7ed', color: '#c2410c', fontWeight: 700, fontSize: '0.75rem', border: '1px solid #fed7aa' }}>
+                                Chờ xe trung chuyển
+                              </span>
                             ) : (
                               <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.75rem' }}>Chưa cấp lô</span>
                             )}
@@ -1476,17 +1489,21 @@ const OutboundOrders: React.FC = () => {
                               gap: '4px',
                               padding: '4px 9px', 
                               borderRadius: '6px', 
-                              backgroundColor: item.slotId ? '#f0fdf4' : '#f1f5f9', 
-                              color: item.slotId ? '#15803d' : '#64748b', 
+                              backgroundColor: (item.slotId === 'TRANSFER_DOCK' || (!item.lotCode && selectedOrder.notes?.includes('[CHỜ HÀNG ĐIỀU CHUYỂN]'))) ? '#fff7ed' : item.slotId ? '#f0fdf4' : '#f1f5f9', 
+                              color: (item.slotId === 'TRANSFER_DOCK' || (!item.lotCode && selectedOrder.notes?.includes('[CHỜ HÀNG ĐIỀU CHUYỂN]'))) ? '#c2410c' : item.slotId ? '#15803d' : '#64748b', 
                               fontWeight: 600, 
                               fontSize: '0.8rem', 
-                              border: item.slotId ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
+                              border: (item.slotId === 'TRANSFER_DOCK' || (!item.lotCode && selectedOrder.notes?.includes('[CHỜ HÀNG ĐIỀU CHUYỂN]'))) ? '1px solid #fed7aa' : item.slotId ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
                             }}>
-                              <MapPin size={12} /> {formatShelfLocation(item.slotId)}
+                              <MapPin size={12} /> {item.slotId === 'TRANSFER_DOCK' || (!item.lotCode && selectedOrder.notes?.includes('[CHỜ HÀNG ĐIỀU CHUYỂN]')) ? 'Khu nhận hàng điều chuyển' : formatShelfLocation(item.slotId)}
                             </span>
                           </td>
                           <td style={{ padding: '12px 14px', color: '#64748b' }}>
-                            {item.expiryDate ? new Date(item.expiryDate).toLocaleDateString('vi-VN') : '15/09/2026'}
+                            {item.lotCode && item.expiryDate 
+                              ? new Date(item.expiryDate).toLocaleDateString('vi-VN') 
+                              : (item.slotId === 'TRANSFER_DOCK' || selectedOrder.notes?.includes('[CHỜ HÀNG ĐIỀU CHUYỂN]'))
+                              ? <span style={{ color: '#c2410c', fontStyle: 'italic', fontSize: '0.75rem' }}>Theo phiếu nhập TRF</span>
+                              : '15/09/2026'}
                           </td>
                         </tr>
                       ))

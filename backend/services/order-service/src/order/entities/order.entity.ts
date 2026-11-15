@@ -3,6 +3,7 @@ import { OrderItem } from './order-item.entity';
 
 export enum OrderStatus {
   PENDING = 'PENDING',                             // Vừa đặt hàng
+  WAITING_TRANSFER = 'WAITING_TRANSFER',           // Chờ hàng điều chuyển (chưa đủ sản phẩm tại kho giao)
   PROCESSING = 'PROCESSING',                       // Đang chờ xử lý
   PICKING = 'PICKING',                             // Đang nhặt hàng trong kho (FEFO)
   PACKING = 'PACKING',                             // Đang đóng gói

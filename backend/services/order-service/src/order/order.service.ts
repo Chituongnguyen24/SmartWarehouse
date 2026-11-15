@@ -714,6 +714,20 @@ export class OrderService {
         });
       }
 
+      // Tiếp nhận đơn hàng điều chuyển liên kho: Giữ ở trạng thái WAITING_TRANSFER (Chờ nhập điều chuyển)
+      if (status === OrderStatus.PROCESSING || status === OrderStatus.PICKING) {
+        const isTransferOrder = (order.note || '').includes('[CHỜ HÀNG ĐIỀU CHUYỂN]');
+        if (isTransferOrder && body?.forcePicking !== true) {
+          status = OrderStatus.WAITING_TRANSFER;
+          const cleanId = order.id.slice(0, 8).toUpperCase();
+          fetch(`http://localhost:3007/outbound-orders/ECOMM-${cleanId}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'WAITING_TRANSFER' }),
+          }).catch(() => {});
+        }
+      }
+
       if (status) order.status = status;
       if (body?.driverId) order.assignedDriverId = body.driverId;
       if (body?.driverName) order.assignedDriverName = body.driverName;

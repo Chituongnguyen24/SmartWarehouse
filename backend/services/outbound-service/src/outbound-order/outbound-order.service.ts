@@ -728,6 +728,33 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
   // Quản lý kho tiếp nhận & duyệt đơn hàng giao việc cho nhân viên kho lấy hàng
   async approve(orderId: string): Promise<OutboundOrder> {
     const order = await this.findOne(orderId);
+
+    // Kiểm tra nếu đơn hàng có sản phẩm đang chờ điều chuyển từ kho khác về
+    const hasTransferPending = (order.notes || '').includes('[CHỜ HÀNG ĐIỀU CHUYỂN]') ||
+      order.items?.some(it => it.slotId === 'TRANSFER_DOCK' || (!it.lotCode && !it.lotId));
+
+    if (hasTransferPending) {
+      order.status = 'WAITING_TRANSFER';
+      const saved = await this.orderRepository.save(order);
+      await this.syncStatusToOrderService(order, 'WAITING_TRANSFER');
+      this.broadcastOrderEvent('order_status_updated', { orderId: order.id, status: 'WAITING_TRANSFER', order: saved });
+
+      fetch(`http://localhost:3004/orders/broadcast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'order_status_updated',
+          payload: {
+            id: saved.id,
+            orderCode: saved.orderCode,
+            status: 'WAITING_TRANSFER',
+          },
+        }),
+      }).catch(() => {});
+
+      return saved;
+    }
+
     order.status = 'PICKING';
 
     for (const item of order.items) {
@@ -1060,6 +1087,7 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
       status === 'CONFIRMED' || status === 'READY_FOR_DELIVERY' ? 'READY_FOR_DELIVERY' :
       status === 'PACKED' ? 'PACKED' :
       (status === 'PACKING' || status === 'PICKED') ? 'PACKING' :
+      status === 'WAITING_TRANSFER' ? 'WAITING_TRANSFER' :
       status === 'PICKING' ? 'PICKING' :
       status === 'CANCELLED' ? 'CANCELLED' : status;
 
@@ -1335,14 +1363,11 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
       if (lotsRes.ok) {
         const lots = await lotsRes.json();
         if (Array.isArray(lots) && lots.length > 0) {
-          let matched = lots.find((l: any) => 
-            (cleanSku && l.lotCode && l.lotCode.includes(cleanSku)) ||
-            l.sku === sku ||
-            l.productId === sku
+          const matched = lots.find((l: any) => 
+            (cleanSku && l.lotCode && l.lotCode.toLowerCase().includes(cleanSku.toLowerCase())) ||
+            (l.sku && l.sku.toLowerCase() === sku.toLowerCase()) ||
+            (l.productId && l.productId.toLowerCase() === sku.toLowerCase())
           );
-          if (!matched) {
-            matched = lots[0];
-          }
           if (matched) {
             return {
               lotId: matched.id,
@@ -1358,7 +1383,15 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     } catch (e) {
       console.warn(`[OUTBOUND] Error fetching matching lot for SKU ${sku}:`, e.message);
     }
-    return null;
+    // Không tìm thấy lô trong kho này -> Đánh dấu vị trí chờ xe trung chuyển
+    return {
+      lotId: null,
+      lotCode: null,
+      slotId: 'TRANSFER_DOCK',
+      expiryDate: undefined,
+      riskScore: 0,
+      priorityScore: 0,
+    };
   }
 
   async syncLotLocationsForAllPendingOrders(): Promise<{ updatedOrders: number; updatedItems: number }> {

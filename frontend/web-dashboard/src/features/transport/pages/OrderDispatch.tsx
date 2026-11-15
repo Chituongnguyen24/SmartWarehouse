@@ -93,6 +93,7 @@ interface Warehouse {
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; icon: React.ReactNode }> = {
   PENDING:             { label: 'Chờ tiếp nhận', color: '#b45309', bg: '#fef3c7', border: '#fde68a', icon: <Clock size={12} /> },
+  WAITING_TRANSFER:    { label: 'Chờ nhập điều chuyển', color: '#c2410c', bg: '#fff7ed', border: '#fed7aa', icon: <RotateCcw size={12} /> },
   PROCESSING:          { label: 'Đang soạn hàng', color: '#1d4ed8', bg: '#dbeafe', border: '#bfdbfe', icon: <Boxes size={12} /> },
   PICKING:             { label: 'Đang soạn hàng', color: '#6d28d9', bg: '#ede9fe', border: '#ddd6fe', icon: <Boxes size={12} /> },
   PACKING:             { label: 'Đang đóng gói', color: '#0f766e', bg: '#ccfbf1', border: '#99f6e4', icon: <PackageCheck size={12} /> },
@@ -690,27 +691,32 @@ export default function OrderDispatch() {
     };
   }, [fetchAllData]);
 
-  // 1. Tiếp nhận đơn và chuyển sang trạng thái Đang Soạn Hàng (PROCESSING / PICKING)
+  // 1. Tiếp nhận đơn và chuyển sang trạng thái Đang Soạn Hàng (PROCESSING / PICKING) hoặc Chờ Điều Chuyển (WAITING_TRANSFER)
   const handleReceiveAndStartPicking = async (order: UnifiedOrder) => {
     try {
+      const isTransferOrder = (order.note || '').includes('[CHỜ HÀNG ĐIỀU CHUYỂN]') || 
+                              (order.notes || '').includes('[CHỜ HÀNG ĐIỀU CHUYỂN]') ||
+                              (order.deliveryNotes || '').includes('điều chuyển');
+      const targetStatus = isTransferOrder ? 'WAITING_TRANSFER' : 'PROCESSING';
+
       // Cập nhật lạc quan ngay lập tức trên UI để tránh bị treo giao diện
-      setOrders(prev => prev.map(o => (o.id === order.id || o.orderCode === order.orderCode) ? { ...o, status: 'PROCESSING' } : o));
-      setSelectedOrder(prev => (prev && (prev.id === order.id || prev.orderCode === order.orderCode)) ? { ...prev, status: 'PROCESSING' } : prev);
+      setOrders(prev => prev.map(o => (o.id === order.id || o.orderCode === order.orderCode) ? { ...o, status: targetStatus } : o));
+      setSelectedOrder(prev => (prev && (prev.id === order.id || prev.orderCode === order.orderCode)) ? { ...prev, status: targetStatus } : prev);
 
       const cleanId = order.id.replace(/^ECOMM-/, '').replace(/^OB-/, '');
 
-      // 1. Cập nhật status order-service sang PROCESSING (Đang gom hàng)
+      // 1. Cập nhật status order-service sang targetStatus (WAITING_TRANSFER hoặc PROCESSING)
       await fetch(`${ORDER_API}/sync-status/${order.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'PROCESSING' }),
+        body: JSON.stringify({ status: targetStatus }),
       }).catch(() => {});
 
       if (cleanId && cleanId !== order.id) {
         await fetch(`${ORDER_API}/sync-status/${cleanId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'PROCESSING' }),
+          body: JSON.stringify({ status: targetStatus }),
         }).catch(() => {});
       }
 
@@ -727,7 +733,8 @@ export default function OrderDispatch() {
           requestedBy: user?.id || 'mgr-govap',
           requesterName: order.customerName,
           destination: order.customerAddress,
-          notes: `Đơn hàng Online: KH ${order.customerName} (${order.customerPhone}) [ORDER_ID:${order.id}] [ID:${order.id}]`,
+          status: targetStatus,
+          notes: (order.note || order.notes || '') + (isTransferOrder ? ' [CHỜ HÀNG ĐIỀU CHUYỂN]' : ''),
           items: order.items.map(i => ({
             sku: i.sku,
             productName: i.productName,
@@ -745,12 +752,16 @@ export default function OrderDispatch() {
           payload: {
             id: order.id,
             orderCode: order.orderCode,
-            status: 'PROCESSING',
+            status: targetStatus,
           },
         }),
       }).catch(() => {});
 
-      showToast(`Đã tiếp nhận đơn #${order.orderCode}. Đơn đã chuyển sang Quản lý Xuất Kho để tiếp nhận & giao kho.`, 'success');
+      if (isTransferOrder) {
+        showToast(`Đã tiếp nhận đơn #${order.orderCode}. Đơn ở trạng thái 'Chờ nhập điều chuyển' do cần đợi xe trung chuyển giao hàng về kho Gò Vấp.`, 'success');
+      } else {
+        showToast(`Đã tiếp nhận đơn #${order.orderCode}. Đơn đã chuyển sang Quản lý Xuất Kho để tiếp nhận & giao kho.`, 'success');
+      }
       await fetchAllData(false);
     } catch (e) {
       showToast('Có lỗi khi tiếp nhận đơn', 'error');

@@ -66,38 +66,51 @@ export class InboundOrderService {
     if (status === 'COMPLETED' || status === 'STORED') {
       order.receivedDate = new Date();
 
-      // Nếu đây là phiếu nhập điều chuyển liên kho TRF-IMP-: Tự động kích hoạt đơn hàng TMĐT sang khâu đóng gói
+      // Nếu đây là phiếu nhập điều chuyển liên kho TRF-IMP-: Tự động kích hoạt đơn hàng TMĐT sang khâu đóng gói khi đủ hàng
       if (order.orderCode && order.orderCode.startsWith('TRF-IMP-')) {
         const cleanId = order.orderCode.replace(/^TRF-IMP-/, '').split('-')[0];
         try {
-          // 1. Sync order-service: Chuyển sang PACKING (Đang đóng gói tại trạm phân phối)
-          await fetch(`http://localhost:3004/orders/sync-status/${cleanId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'PACKING' }),
-          }).catch(() => {});
+          // Kiểm tra xem đơn hàng này còn phiếu nhập điều chuyển nào khác chưa hoàn tất không
+          const allOrders = await this.orderRepo.find();
+          const pendingSisterTransfers = allOrders.filter(o => 
+            o.id !== order.id &&
+            o.orderCode &&
+            o.orderCode.startsWith(`TRF-IMP-${cleanId}`) &&
+            o.status !== 'COMPLETED' &&
+            o.status !== 'STORED'
+          );
 
-          // 2. Sync outbound-service: Chuyển đơn ECOMM sang PACKING
-          await fetch(`http://localhost:3007/outbound-orders/ECOMM-${cleanId}/status`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'PACKING' }),
-          }).catch(() => {});
+          // Chỉ khi TẤT CẢ các chân điều chuyển đã nhập về kho Gò Vấp:
+          if (pendingSisterTransfers.length === 0) {
+            // 1. Sync order-service: Chuyển sang PACKING (Đang đóng gói tại trạm phân phối)
+            await fetch(`http://localhost:3004/orders/sync-status/${cleanId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'PACKING', forcePicking: true }),
+            }).catch(() => {});
 
-          // 3. Live broadcast WebSocket đến Web Dashboard & Staff App
-          await fetch(`http://localhost:3004/orders/broadcast`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              event: 'order_status_updated',
-              payload: {
-                id: cleanId,
-                orderCode: `ECOMM-${cleanId}`,
-                status: 'PACKING',
-                warehouseCode: order.warehouseCode || 'WH-006',
-              },
-            }),
-          }).catch(() => {});
+            // 2. Sync outbound-service: Chuyển đơn ECOMM sang PACKING
+            await fetch(`http://localhost:3007/outbound-orders/ECOMM-${cleanId}/status`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'PACKING' }),
+            }).catch(() => {});
+
+            // 3. Live broadcast WebSocket đến Web Dashboard & Staff App
+            await fetch(`http://localhost:3004/orders/broadcast`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                event: 'order_status_updated',
+                payload: {
+                  id: cleanId,
+                  orderCode: `ECOMM-${cleanId}`,
+                  status: 'PACKING',
+                  warehouseCode: order.warehouseCode || 'WH-006',
+                },
+              }),
+            }).catch(() => {});
+          }
         } catch (e) {
           console.warn('[InboundService] Failed to notify order/outbound of transfer receipt:', e);
         }
