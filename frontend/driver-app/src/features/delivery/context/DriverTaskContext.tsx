@@ -374,34 +374,31 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           if (!hasAssignedDriver) {
             return false;
           }
-            // Strict ID match
-            const isIdMatch = Boolean(cleanProfileId && oId && (oId === cleanProfileId));
 
-            // Strict Phone match
-            const isPhoneMatch = Boolean(cleanProfilePhone && oPhone && (
-              oPhone === cleanProfilePhone ||
-              (cleanProfilePhone.length >= 9 && oPhone.includes(cleanProfilePhone)) ||
-              (oPhone.length >= 9 && cleanProfilePhone.includes(oPhone))
-            ));
+          // Strict ID match
+          const isIdMatch = Boolean(cleanProfileId && oId && (oId === cleanProfileId));
 
-            // Strict Driver Name match (1-to-1 without blanket startsWith)
-            let isNameMatch = false;
-            if (profileName && oName) {
-              if (profileName.includes('phúc') && oName.includes('phúc')) isNameMatch = true;
-              else if (profileName.includes('trí') && oName.includes('trí')) isNameMatch = true;
-              else if (profileName.includes('hùng') && oName.includes('hùng')) isNameMatch = true;
-              else if (profileName.includes('bảo') && oName.includes('bảo')) isNameMatch = true;
-              else if (profileName.includes('tùng') && oName.includes('tùng')) isNameMatch = true;
-              else if (profileName.includes('long') && oName.includes('long')) isNameMatch = true;
-              else if (profileName.includes('huy') && oName.includes('huy')) isNameMatch = true;
-              else if (profileName.includes('nam') && oName.includes('nam') && !oName.includes('hoàng nam')) isNameMatch = true;
-            }
+          // Strict Phone match
+          const isPhoneMatch = Boolean(cleanProfilePhone && oPhone && (
+            oPhone === cleanProfilePhone ||
+            (cleanProfilePhone.length >= 9 && oPhone.includes(cleanProfilePhone)) ||
+            (oPhone.length >= 9 && cleanProfilePhone.includes(oPhone))
+          ));
 
-            return isIdMatch || isPhoneMatch || isNameMatch;
+          // Strict Driver Name match (1-to-1 without blanket startsWith)
+          let isNameMatch = false;
+          if (profileName && oName) {
+            if (profileName.includes('phúc') && oName.includes('phúc')) isNameMatch = true;
+            else if (profileName.includes('trí') && oName.includes('trí')) isNameMatch = true;
+            else if (profileName.includes('hùng') && oName.includes('hùng')) isNameMatch = true;
+            else if (profileName.includes('bảo') && oName.includes('bảo')) isNameMatch = true;
+            else if (profileName.includes('tùng') && oName.includes('tùng')) isNameMatch = true;
+            else if (profileName.includes('long') && oName.includes('long')) isNameMatch = true;
+            else if (profileName.includes('huy') && oName.includes('huy')) isNameMatch = true;
+            else if (profileName.includes('nam') && oName.includes('nam') && !oName.includes('hoàng nam')) isNameMatch = true;
           }
 
-          // Không tự ý gán đơn chưa được phân công: Chỉ nhận đơn khi Quản lý kho đã phân công tài xế chính thức
-          return false;
+          return isIdMatch || isPhoneMatch || isNameMatch;
         });
 
         if (matchedOrders.length === 0) {

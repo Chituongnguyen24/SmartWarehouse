@@ -73,6 +73,19 @@ console.log('===================================================================
 const driverDir = path.join(rootDir, 'frontend', 'driver-app');
 const driverAndroidDir = path.join(driverDir, 'android');
 
+console.log('>> [Driver App] Đóng gói offline JS bundle...');
+const driverAssetsDir = path.join(driverAndroidDir, 'app', 'src', 'main', 'assets');
+if (!fs.existsSync(driverAssetsDir)) fs.mkdirSync(driverAssetsDir, { recursive: true });
+run(npxCmd, [
+  'expo',
+  'export:embed',
+  '--platform', 'android',
+  '--dev', 'false',
+  '--entry-file', 'index.js',
+  '--bundle-output', 'android/app/src/main/assets/index.android.bundle',
+  '--assets-dest', 'android/app/src/main/res'
+], driverDir);
+
 run(gradlewCmd, ['assembleDebug'], driverAndroidDir);
 
 const driverApkSrc = path.join(driverAndroidDir, 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk');
@@ -103,9 +116,9 @@ try {
   if (hasDevice) {
     console.log('>> Phát hiện thiết bị Android kết nối. Bắt đầu cài đặt...');
     console.log('>> Đang cài C.T Mart Staff...');
-    run('adb', ['install', '-r', staffApkDest], rootDir);
+    run('adb', ['install', '-r', '"build-apks/CT-Mart-Staff.apk"'], rootDir);
     console.log('>> Đang cài C.T Mart Driver...');
-    run('adb', ['install', '-r', driverApkDest], rootDir);
+    run('adb', ['install', '-r', '"build-apks/CT-Mart-Driver.apk"'], rootDir);
     console.log('\n✓ ĐÃ CÀI ĐẶT THÀNH CÔNG 2 APP VÀO ĐIỆN THOẠI!');
   } else {
     console.log('>> Không phát hiện thiết bị qua ADB. File APK đã sẵn sàng trong thư mục build-apks/');
