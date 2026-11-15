@@ -503,7 +503,7 @@ export default function CheckoutPage() {
                 <div className="mt-6 pt-6 border-t border-gray-100">
                   <div className="flex items-center gap-2 mb-4">
                     <MapPin size={18} className="text-emerald-600" />
-                    <h3 className="font-semibold text-gray-800">Thông tin nhận hàng (Định vị Goong Maps)</h3>
+                    <h3 className="font-semibold text-gray-800">Thông tin nhận hàng</h3>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -613,7 +613,7 @@ export default function CheckoutPage() {
                       <div className="absolute z-50 left-0 right-0 mt-1 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden max-h-60 overflow-y-auto animate-fadeIn">
                         <div className="p-2 text-[11px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-gray-100 flex items-center justify-between">
                           <span>Địa chỉ khớp tại TP. Hồ Chí Minh</span>
-                          <span className="text-emerald-600">Goong Maps</span>
+                          <span className="text-emerald-600">Gợi ý địa chỉ</span>
                         </div>
                         {suggestions.map((s, idx) => (
                           <div

@@ -55,13 +55,17 @@ export function detectSlipClassification(order: PrintableOrder | null): SlipClas
   if (typeStr.includes('CHUYEN') || typeStr.includes('TRANSFER') || typeStr.includes('DIEU_CHUYEN')) return 'TRANSFER';
   if (typeStr.includes('BAN') || typeStr.includes('SALE') || typeStr.includes('ECOMMERCE') || typeStr.includes('B2C') || typeStr.includes('B2B')) return 'SALE';
 
+  if (order.status === 'RETURN_TO_WAREHOUSE' || order.status === 'FAILED_DELIVERY' || order.status === 'RETURNED') {
+    return 'RETURN';
+  }
+
   const code = (order.orderCode || '').toUpperCase();
+  const isEcom = code.startsWith('ECOMM-') || code.startsWith('ORD-') || Boolean(order.customerPhone);
+
   if (code.startsWith('DSP-') || code.startsWith('DISP-') || code.startsWith('HUY-')) return 'DISPOSAL';
   if (code.startsWith('RET-') || code.startsWith('RTN-') || code.startsWith('HOAN-') || code.startsWith('TRA-')) return 'RETURN';
-  if (code.startsWith('TRF-') || code.startsWith('TRANS-') || code.startsWith('CK-') || code.startsWith('DC-')) return 'TRANSFER';
-
-  if (order.status === 'RETURN_TO_WAREHOUSE' || order.status === 'FAILED_DELIVERY') {
-    return 'RETURN';
+  if (!isEcom && (code.startsWith('TRF-') || code.startsWith('TRANS-') || code.startsWith('TRANSFER-') || code.startsWith('DIEUCHUYEN-'))) {
+    return 'TRANSFER';
   }
 
   const text = `${order.notes || ''} ${order.note || ''} ${order.customerName || ''} ${order.requesterName || ''} ${order.destination || ''}`.toLowerCase();
@@ -72,7 +76,7 @@ export function detectSlipClassification(order: PrintableOrder | null): SlipClas
   if (text.includes('trả hàng cho ncc') || text.includes('trả ncc') || text.includes('hoàn hàng về kho') || text.includes('trả hàng nhà cung cấp') || text.includes('đơn trả hàng')) {
     return 'RETURN';
   }
-  if (text.includes('điều chuyển kho') || text.includes('chuyển kho nội bộ') || text.includes('điều chuyển liên kho') || text.includes('chuyển liên kho')) {
+  if (!isEcom && (text.includes('điều chuyển kho') || text.includes('chuyển kho nội bộ') || text.includes('điều chuyển liên kho') || text.includes('chuyển liên kho'))) {
     return 'TRANSFER';
   }
 

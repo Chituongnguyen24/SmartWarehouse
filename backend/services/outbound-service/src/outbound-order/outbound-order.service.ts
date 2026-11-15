@@ -738,8 +738,23 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     }
 
     const saved = await this.orderRepository.save(order);
-    await this.syncStatusToOrderService(order, 'PROCESSING');
+    await this.syncStatusToOrderService(order, 'PICKING');
     this.broadcastOrderEvent('order_status_updated', { orderId: order.id, status: 'PICKING', order: saved });
+
+    // Live broadcast to Order Gateway Socket on port 3004 so Web Dashboard & Staff App update instantly
+    fetch(`http://localhost:3004/orders/broadcast`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'order_status_updated',
+        payload: {
+          id: saved.id,
+          orderCode: saved.orderCode,
+          status: 'PICKING',
+        },
+      }),
+    }).catch(() => {});
+
     return saved;
   }
 
@@ -836,6 +851,20 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     await this.syncStatusToOrderService(order, 'READY_FOR_DELIVERY');
     this.broadcastOrderEvent('outbound_confirmed', { orderId: confirmed.id, status: 'CONFIRMED', order: confirmed });
     this.broadcastOrderEvent('order_status_updated', { orderId: confirmed.id, status: 'CONFIRMED', order: confirmed });
+
+    // Live broadcast to Order Gateway Socket on port 3004 so Web Dashboard updates instantly
+    fetch(`http://localhost:3004/orders/broadcast`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'order_status_updated',
+        payload: {
+          id: confirmed.id,
+          orderCode: confirmed.orderCode,
+          status: 'READY_FOR_DELIVERY',
+        },
+      }),
+    }).catch(() => {});
 
     return confirmed;
   }

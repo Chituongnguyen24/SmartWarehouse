@@ -327,7 +327,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask, onOpenPOD 
             >
               <PackageCheck size={18} color="#fff" style={{ marginRight: 8 }} />
               <Text style={styles.acceptBatchBtnText}>
-                NHẬN {tasks.length} ĐƠN HÀNG ({totalTripBoxes} KIỆN HÀNG) & XUẤT PHÁT
+                TIẾP NHẬN {tasks.length} ĐƠN HÀNG ({totalTripBoxes} KIỆN HÀNG)
               </Text>
             </TouchableOpacity>
           </View>

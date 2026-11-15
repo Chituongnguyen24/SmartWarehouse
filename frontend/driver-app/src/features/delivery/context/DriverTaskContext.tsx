@@ -348,8 +348,20 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         // Match orders strictly assigned to this driver AND already packed/dispatched by warehouse
         let matchedOrders = combinedOrders.filter((o: any) => {
           const s = (o.status || '').toUpperCase();
-          // QUY TẮC TMS: Tuyệt đối KHÔNG hiển thị đơn chưa đóng gói/chưa xong kho (PENDING, PROCESSING, PICKING, PACKING)
-          if (['PENDING', 'PROCESSING', 'PICKING', 'PACKING', 'CANCELLED'].includes(s)) {
+          // QUY TẮC TMS: Chỉ hiển thị đơn ĐÃ ĐÓNG GÓI XONG, ĐÃ BÀN GIAO hoặc ĐANG GIAO / ĐÃ GIAO
+          // Tuyệt đối KHÔNG hiển thị đơn chưa soạn, đang nhặt, đang đóng gói hoặc đã hủy
+          const ALLOWED_DRIVER_STATUSES = [
+            'READY_FOR_DELIVERY',
+            'CONFIRMED',
+            'SHIPPED',
+            'DELIVERING',
+            'IN_TRANSIT',
+            'COMPLETED',
+            'DELIVERED',
+            'FAILED_DELIVERY',
+            'RETURN_TO_WAREHOUSE',
+          ];
+          if (!ALLOWED_DRIVER_STATUSES.includes(s)) {
             return false;
           }
 
@@ -357,9 +369,11 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           const oId = (o.assignedDriverId || '').toUpperCase().trim();
           const oName = (o.assignedDriverName || '').toLowerCase().trim();
 
-          // 1. If this order has an assigned driver
+          // 1. Phải có tài xế được phân công chính thức
           const hasAssignedDriver = Boolean(oId || oPhone || oName);
-          if (hasAssignedDriver) {
+          if (!hasAssignedDriver) {
+            return false;
+          }
             // Strict ID match
             const isIdMatch = Boolean(cleanProfileId && oId && (oId === cleanProfileId));
 

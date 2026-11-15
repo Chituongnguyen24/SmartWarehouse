@@ -676,7 +676,9 @@ export default function Home() {
             <div className="flex flex-wrap gap-4">
               <a href="#" className="bg-black hover:bg-gray-900 border border-gray-800 text-white px-4 py-2 rounded-xl flex items-center gap-3 transition-colors shadow-md group">
                 <div className="w-6 h-6 flex items-center justify-center shrink-0">
-                  <img src="/app-store/apple-store.jpg" alt="Apple App Store" className="w-full h-full object-contain filter invert contrast-200 brightness-200" />
+                  <svg className="w-6 h-6 fill-white shrink-0" viewBox="0 0 24 24">
+                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.62-.75 1.04-1.8 1.01-2.87-.96.04-2.13.64-2.79 1.41-.58.68-1.1 1.76-.96 2.8 1.07.08 2.12-.59 2.74-1.34z"/>
+                  </svg>
                 </div>
                 <div className="text-left">
                   <div className="text-[9px] uppercase tracking-wider leading-tight text-gray-400 font-medium">Download on the</div>
@@ -685,7 +687,12 @@ export default function Home() {
               </a>
               <a href="#" className="bg-black hover:bg-gray-900 border border-gray-800 text-white px-4 py-2 rounded-xl flex items-center gap-3 transition-colors shadow-md group">
                 <div className="w-6 h-6 flex items-center justify-center shrink-0">
-                  <img src="/app-store/google-play.jpg" alt="Google Play" className="w-full h-full object-contain rounded-xs" />
+                  <svg className="w-6 h-6 shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M3.6 2.3l10.9 10.9-3.3 3.3L3.6 2.3z" />
+                    <path fill="#34A853" d="M14.5 13.2l3.4 3.4-3.4 1.9-3.3-2 3.3-3.3z" />
+                    <path fill="#EA4335" d="M3.6 21.7l7.6-7.6 3.3 3.3-10.9 4.3z" />
+                    <path fill="#FBBC05" d="M17.9 16.6l3-1.7c.9-.5.9-1.3 0-1.8l-3-1.7-3.4 1.8 3.4 3.4z" />
+                  </svg>
                 </div>
                 <div className="text-left">
                   <div className="text-[9px] uppercase tracking-wider leading-tight text-gray-400 font-medium">GET IT ON</div>

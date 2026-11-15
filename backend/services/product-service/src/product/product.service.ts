@@ -28,6 +28,15 @@ export class ProductService implements OnModuleInit {
   async onModuleInit() {
     console.log('[ProductService] Initialized with real database data & Redis Caching.');
     await this.seedMissingInventorySkus();
+    // Auto-sync real lot stock from inventory-service immediately on startup
+    setTimeout(() => {
+      this.syncAllStock().catch(e => console.warn('[ProductService] Initial syncAllStock warning:', e.message));
+    }, 2000);
+
+    // Periodic sync every 60s to ensure zero desync with physical warehouse lots
+    setInterval(() => {
+      this.syncAllStock().catch(e => console.warn('[ProductService] Periodic syncAllStock warning:', e.message));
+    }, 60000);
   }
 
   private async seedMissingInventorySkus() {

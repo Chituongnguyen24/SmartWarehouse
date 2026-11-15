@@ -540,6 +540,12 @@ export default function OrderHistoryPage() {
                         <MapPin size={11} className="text-emerald-700" />
                         <span>{order.assignedWarehouseName || "Kho Hàng Gò Vấp (WH-006)"}</span>
                       </div>
+                      {order.note && order.note.includes('[SPLIT_ORDER') && (
+                        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-sky-800 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-md">
+                          <Package size={12} className="text-sky-600" />
+                          <span>Đơn hàng chia kiện giao từ nhiều kho để đảm bảo đủ sản phẩm</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 

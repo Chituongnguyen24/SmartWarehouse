@@ -223,8 +223,8 @@ export const fetchPickingTasksApi = async (warehouseCode?: string): Promise<Pick
       lotMap.set(l.id, l);
     });
 
-    // Filter PENDING / PICKING orders
-    const pendingOrders = orders.filter(o => o.status === 'PENDING' || o.status === 'PICKING');
+    // Filter strictly PICKING orders (Chỉ hiển thị đơn đã được Quản lý kho duyệt Tiếp Nhận & Giao Kho)
+    const pendingOrders = orders.filter(o => o.status === 'PICKING');
 
     const pickingItems: PickingItem[] = [];
 

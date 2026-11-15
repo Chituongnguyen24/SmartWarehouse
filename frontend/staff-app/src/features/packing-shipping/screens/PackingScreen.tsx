@@ -35,8 +35,16 @@ export const PackingScreen: React.FC = () => {
     try {
       const orders = await fetchPackingOrdersApi(activeWarehouse);
       setPackingOrders(orders);
-      if (orders.length > 0 && !selectedOrder) {
-        setSelectedOrder(orders[0]);
+      if (orders.length > 0) {
+        if (!selectedOrder) {
+          setSelectedOrder(orders[0]);
+        } else {
+          // Luôn đồng bộ dữ liệu mới nhất cho đơn hàng đang chọn (tránh bị kẹt danh sách cũ)
+          const fresh = orders.find(o => o.id === selectedOrder.id || o.orderCode === selectedOrder.orderCode);
+          if (fresh) {
+            setSelectedOrder(fresh);
+          }
+        }
       }
     } catch (e) {
       console.error(e);
@@ -117,6 +125,8 @@ export const PackingScreen: React.FC = () => {
           {packingOrders.map(ord => {
             const isSelected = selectedOrder?.id === ord.id;
             const isDone = confirmedOrderIds.includes(ord.id) || ord.status === 'CONFIRMED';
+            const matchPkg = (ord.notes || '').match(/\[KIỆN (\d+\/\d+)[^\]]*\]/i);
+            const pkgLabel = matchPkg ? ` (${matchPkg[1]})` : '';
 
             return (
               <TouchableOpacity
@@ -126,7 +136,7 @@ export const PackingScreen: React.FC = () => {
                 activeOpacity={0.8}
               >
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={[styles.orderChipCode, isSelected && { color: '#065f46' }]}>{ord.orderCode}</Text>
+                  <Text style={[styles.orderChipCode, isSelected && { color: '#065f46' }]}>{ord.orderCode}{pkgLabel}</Text>
                   {isDone ? (
                     <CheckCircle2 size={14} color="#059669" />
                   ) : (
@@ -144,8 +154,16 @@ export const PackingScreen: React.FC = () => {
       {selectedOrder && (
         <View style={styles.detailCard}>
           <View style={styles.cardHeader}>
-            <View>
+            <View style={{ flex: 1, marginRight: 8 }}>
               <Text style={styles.cardTitle}>Chi tiết kiện hàng: {selectedOrder.orderCode}</Text>
+              {(() => {
+                const matchPkg = (selectedOrder.notes || '').match(/\[KIỆN (\d+\/\d+)[^\]]*\]/i);
+                return matchPkg ? (
+                  <View style={{ backgroundColor: '#ecfdf5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start', marginVertical: 3, borderWidth: 1, borderColor: '#a7f3d0' }}>
+                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#047857' }}>ĐƠN TÁCH KHO • KIỆN HÀNG {matchPkg[1]}</Text>
+                  </View>
+                ) : null;
+              })()}
               <Text style={styles.cardCustomer}>Người nhận: {selectedOrder.requesterName || 'Khách hàng CityMart'}</Text>
             </View>
             <View style={styles.stagingBadge}>

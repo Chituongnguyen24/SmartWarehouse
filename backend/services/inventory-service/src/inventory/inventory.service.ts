@@ -781,6 +781,9 @@ export class InventoryService implements OnModuleInit {
 
       await queryRunner.commitTransaction();
       this.invalidateLotsCache();
+      for (const item of items) {
+        this.syncProductServiceStock(item.sku).catch(() => {});
+      }
       return true;
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -872,6 +875,9 @@ export class InventoryService implements OnModuleInit {
 
       await queryRunner.commitTransaction();
       this.invalidateLotsCache();
+      for (const item of items) {
+        this.syncProductServiceStock(item.sku).catch(() => {});
+      }
       return true;
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -1196,11 +1202,23 @@ export class InventoryService implements OnModuleInit {
   private async syncProductServiceStock(skuOrProductId: string) {
     if (!skuOrProductId) return;
     try {
-      const lots = await this.lotRepository.find({
-        where: [
-          { productId: skuOrProductId },
-        ]
-      });
+      let product: any = null;
+      try {
+        product = await this.productService.findOne(skuOrProductId, true);
+      } catch (e) {}
+
+      const targetIds = [skuOrProductId];
+      if (product?.id) targetIds.push(product.id);
+      if (product?.sku) targetIds.push(product.sku);
+
+      const lots = await this.lotRepository
+        .createQueryBuilder('lot')
+        .where('(lot.productId IN (:...targetIds) OR lot.lotCode ILIKE :lotPrefix)', {
+          targetIds,
+          lotPrefix: `%${product?.sku || skuOrProductId}%`,
+        })
+        .getMany();
+
       const now = new Date();
       // Only count unexpired lots that are not expired/disposed
       const unexpiredLots = lots.filter(l => 
@@ -1212,12 +1230,13 @@ export class InventoryService implements OnModuleInit {
       const hasLots = lots.length > 0;
       const isExpired = hasLots && totalRemaining === 0 && lots.some(l => new Date(l.expiryDate) <= now || l.status === LotStatus.EXPIRED);
 
+      const skuToSync = product?.sku || skuOrProductId;
       await fetch('http://localhost:3010/products/sync-stock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sku: skuOrProductId, stock: totalRemaining, isExpired })
+        body: JSON.stringify({ sku: skuToSync, productId: product?.id, stock: totalRemaining, isExpired })
       });
-      console.log(`[INVENTORY SERVICE] 🔄 Synced unexpired stock for ${skuOrProductId} to product-service: ${totalRemaining} (isExpired: ${isExpired})`);
+      console.log(`[INVENTORY SERVICE] 🔄 Synced unexpired stock for ${skuToSync} (${product?.id || 'no-id'}) to product-service: ${totalRemaining} (isExpired: ${isExpired})`);
     } catch (e: any) {
       console.warn(`[INVENTORY SERVICE] Failed to sync stock to product-service: ${e.message}`);
     }

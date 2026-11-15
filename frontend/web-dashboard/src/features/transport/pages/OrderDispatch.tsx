@@ -432,6 +432,19 @@ export default function OrderDispatch() {
           matchingEcomKey = `ECOMM-${shortId}`;
         }
 
+        if (!matchingEcomKey && (o.notes || o.note)) {
+          const match = `${o.notes || ''} ${o.note || ''}`.match(/\[(?:ORDER_)?ID:([^\]]+)\]/i);
+          if (match) {
+            const extractedOrderId = match[1].toLowerCase().trim();
+            const extractedShort = extractedOrderId.replace(/-/g, '').slice(0, 8).toUpperCase();
+            if (ecomByShortId.has(extractedShort)) {
+              matchingEcomKey = `ECOMM-${extractedShort}`;
+            } else if (combinedMap.has(extractedOrderId)) {
+              matchingEcomKey = extractedOrderId;
+            }
+          }
+        }
+
         const isDeliveredThis = 
           o.status === 'DELIVERED' || o.status === 'COMPLETED' ||
           completedIds.has(rawId) || completedIds.has(normId) ||
@@ -684,20 +697,31 @@ export default function OrderDispatch() {
       setOrders(prev => prev.map(o => (o.id === order.id || o.orderCode === order.orderCode) ? { ...o, status: 'PROCESSING' } : o));
       setSelectedOrder(prev => (prev && (prev.id === order.id || prev.orderCode === order.orderCode)) ? { ...prev, status: 'PROCESSING' } : prev);
 
-      // 1. Cập nhật status order-service sang PROCESSING (Đang soạn hàng)
+      const cleanId = order.id.replace(/^ECOMM-/, '').replace(/^OB-/, '');
+
+      // 1. Cập nhật status order-service sang PROCESSING (Đang gom hàng)
       await fetch(`${ORDER_API}/sync-status/${order.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'PROCESSING' }),
       }).catch(() => {});
 
+      if (cleanId && cleanId !== order.id) {
+        await fetch(`${ORDER_API}/sync-status/${cleanId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'PROCESSING' }),
+        }).catch(() => {});
+      }
+
       // 2. Đồng bộ lệnh xuất kho sang outbound-service (:3007) để quản lý kho tiếp nhận & giao việc
       const whCode = order.warehouseCode || 'WH-006';
+      const resolvedObCode = order.orderCode.startsWith('ECOMM-') ? order.orderCode : `ECOMM-${order.orderCode}`;
       await fetch(`${OUTBOUND_API}/outbound-orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          orderCode: order.orderCode.startsWith('ECOMM-') ? order.orderCode : `ECOMM-${order.orderCode}`,
+          orderCode: resolvedObCode,
           warehouseCode: whCode,
           warehouseId: whCode,
           requestedBy: user?.id || 'mgr-govap',
@@ -710,6 +734,20 @@ export default function OrderDispatch() {
             requestedQuantity: i.requestedQuantity || i.quantity || 1,
           })),
         })
+      }).catch(() => {});
+
+      // 3. Phóng WebSocket broadcast sang Order Gateway (:3004) để cập nhật tức thì
+      await fetch(`${ORDER_API}/broadcast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'order_status_updated',
+          payload: {
+            id: order.id,
+            orderCode: order.orderCode,
+            status: 'PROCESSING',
+          },
+        }),
       }).catch(() => {});
 
       showToast(`Đã tiếp nhận đơn #${order.orderCode}. Đơn đã chuyển sang Quản lý Xuất Kho để tiếp nhận & giao kho.`, 'success');
@@ -1357,6 +1395,10 @@ export default function OrderDispatch() {
       if (classificationFilter !== 'ALL') {
         const cls = detectSlipClassification(o as any);
         if (cls !== classificationFilter) return false;
+        // Khi người dùng bấm lọc riêng "Trả Hàng / Hoàn", "Điều Chuyển Liên Kho", "Xuất Tiêu Hủy" -> Hiển thị tất cả đơn thuộc loại đó, không bị chặn bởi bước pipeline
+        if (classificationFilter === 'RETURN' || classificationFilter === 'TRANSFER' || classificationFilter === 'DISPOSAL') {
+          return true;
+        }
       }
 
       if (activePipelineStep === 'STEP_1_PICKING') {

@@ -70,37 +70,125 @@ export class OrderService {
     }
 
     // 2. KHÓA GIỮ TỒN KHO & CHỐNG BÁN QUÁ SỐ LƯỢNG (RACE CONDITION / CONCURRENCY CONTROL BẰNG PESSIMISTIC LOCK)
-    const reserveItems = items.map((item) => ({
-      sku: item.sku || item.productId,
-      quantity: Number(item.quantity || 1),
-    }));
-
+    // Hỗ trợ tự động phân bổ đa kho (Split Order) khi sản phẩm phân tán tại nhiều kho
+    const allSkus = Array.from(new Set(items.map((i) => (i.sku || i.productId).trim()))).join(',');
+    let warehouseStockMap: Record<string, Record<string, number>> = {};
     try {
-      const reserveRes = await fetch(this.inventoryApi, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: reserveItems,
-          warehouseId: assignedWarehouseCode || assignedWarehouseId || 'WH-006',
-        }),
-      });
+      const stockRes = await fetch(`http://localhost:3011/internal/inventory/warehouse-stock?skus=${encodeURIComponent(allSkus)}`);
+      if (stockRes.ok) {
+        warehouseStockMap = await stockRes.json();
+      }
+    } catch (e: any) {
+      this.logger.warn(`Could not fetch warehouse stock: ${e.message}`);
+    }
 
-      if (!reserveRes.ok) {
-        const errJson = await reserveRes.json().catch(() => ({}));
-        const rawMsg = errJson.message || '';
-        let userFriendlyMsg = 'Số lượng sản phẩm trong kho hoặc suất ưu đãi Flash Sale không đủ.';
-        if (rawMsg.includes('Out of stock for SKU')) {
-          const skuMatch = rawMsg.match(/Out of stock for SKU ([^.]+)/);
-          const matchedSku = skuMatch ? skuMatch[1] : '';
-          const failedItem = items.find((i) => (i.sku || i.productId) === matchedSku);
-          const prodName = failedItem ? failedItem.productName : matchedSku;
-          userFriendlyMsg = `Sản phẩm "${prodName}" hiện không đủ số lượng trong kho hoặc vừa có khách hàng khác đặt mua trước đó. Quý khách vui lòng điều chỉnh lại số lượng giỏ hàng!`;
-        } else if (rawMsg) {
-          userFriendlyMsg = rawMsg;
+    const primaryWarehouse = assignedWarehouseCode || assignedWarehouseId || 'WH-006';
+    const warehouseAllocations = new Map<string, Array<{ sku: string; quantity: number; itemDto: any }>>();
+
+    // Kiểm tra khả năng cung ứng toàn hệ thống & phân bổ kho
+    for (const itemDto of items) {
+      const sku = itemDto.sku || itemDto.productId;
+      const requestedQty = Number(itemDto.quantity || 1);
+
+      let totalAvailable = 0;
+      for (const whCode of Object.keys(warehouseStockMap)) {
+        totalAvailable += (warehouseStockMap[whCode]?.[sku] || 0);
+      }
+
+      if (Object.keys(warehouseStockMap).length > 0 && totalAvailable < requestedQty) {
+        const prodName = itemDto.productName || sku;
+        throw new BadRequestException(
+          `Sản phẩm "${prodName}" hiện không đủ số lượng trong kho hoặc vừa có khách hàng khác đặt mua trước đó. Quý khách vui lòng điều chỉnh lại số lượng giỏ hàng!`,
+        );
+      }
+
+      let remainingToAllocate = requestedQty;
+
+      // 1. Ưu tiên kho gần nhất / kho mặc định
+      const primaryStock = warehouseStockMap[primaryWarehouse]?.[sku] || 0;
+      if (primaryStock > 0) {
+        const takeQty = Math.min(primaryStock, remainingToAllocate);
+        if (!warehouseAllocations.has(primaryWarehouse)) {
+          warehouseAllocations.set(primaryWarehouse, []);
+        }
+        warehouseAllocations.get(primaryWarehouse)!.push({ sku, quantity: takeQty, itemDto });
+        warehouseStockMap[primaryWarehouse][sku] -= takeQty;
+        remainingToAllocate -= takeQty;
+      }
+
+      // 2. Nếu kho chính thiếu hàng, tự động lấy thêm từ các kho khác còn hàng
+      if (remainingToAllocate > 0) {
+        for (const [whCode, whStocks] of Object.entries(warehouseStockMap)) {
+          if (whCode === primaryWarehouse) continue;
+          const whStock = whStocks[sku] || 0;
+          if (whStock > 0) {
+            const takeQty = Math.min(whStock, remainingToAllocate);
+            if (!warehouseAllocations.has(whCode)) {
+              warehouseAllocations.set(whCode, []);
+            }
+            warehouseAllocations.get(whCode)!.push({ sku, quantity: takeQty, itemDto });
+            whStocks[sku] -= takeQty;
+            remainingToAllocate -= takeQty;
+            if (remainingToAllocate <= 0) break;
+          }
+        }
+      }
+
+      // Dự phòng nếu không có thông tin tồn kho
+      if (remainingToAllocate > 0) {
+        if (!warehouseAllocations.has(primaryWarehouse)) {
+          warehouseAllocations.set(primaryWarehouse, []);
+        }
+        warehouseAllocations.get(primaryWarehouse)!.push({ sku, quantity: remainingToAllocate, itemDto });
+      }
+    }
+
+    // Thực hiện giữ tồn kho (Reserve) trên từng kho đã phân bổ
+    const completedReservations: Array<{ warehouseId: string; items: any[] }> = [];
+    try {
+      for (const [whCode, whItems] of warehouseAllocations.entries()) {
+        const reserveItems = whItems.map(i => ({ sku: i.sku, quantity: i.quantity }));
+        const reserveRes = await fetch(this.inventoryApi, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: reserveItems,
+            warehouseId: whCode,
+          }),
+        });
+
+        if (!reserveRes.ok) {
+          const errJson = await reserveRes.json().catch(() => ({}));
+          const rawMsg = errJson.message || '';
+          let userFriendlyMsg = 'Số lượng sản phẩm trong kho hoặc suất ưu đãi Flash Sale không đủ.';
+          if (rawMsg.includes('Out of stock for SKU')) {
+            const skuMatch = rawMsg.match(/Out of stock for SKU ([^.]+)/);
+            const matchedSku = skuMatch ? skuMatch[1] : '';
+            const failedItem = items.find((i) => (i.sku || i.productId) === matchedSku);
+            const prodName = failedItem ? failedItem.productName : matchedSku;
+            userFriendlyMsg = `Sản phẩm "${prodName}" hiện không đủ số lượng trong kho hoặc vừa có khách hàng khác đặt mua trước đó. Quý khách vui lòng điều chỉnh lại số lượng giỏ hàng!`;
+          } else if (rawMsg) {
+            userFriendlyMsg = rawMsg;
+          }
+
+          // Hoàn tác các kho đã giữ hàng trước đó
+          for (const rollback of completedReservations) {
+            await fetch('http://localhost:3011/internal/inventory/release', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                items: rollback.items,
+                warehouseId: rollback.warehouseId,
+                reason: 'Hủy giữ hàng do lỗi thanh toán',
+              }),
+            }).catch(() => {});
+          }
+
+          this.logger.warn(`[Inventory Reserve Failed for ${whCode}] ${rawMsg}`);
+          throw new BadRequestException(userFriendlyMsg);
         }
 
-        this.logger.warn(`[Inventory Reserve Failed] ${rawMsg}`);
-        throw new BadRequestException(userFriendlyMsg);
+        completedReservations.push({ warehouseId: whCode, items: reserveItems });
       }
     } catch (err) {
       if (err instanceof BadRequestException) {
@@ -191,8 +279,16 @@ export class OrderService {
     const hasTransaction = Boolean(createOrderDto.transactionId || (orderData as any).transactionId);
     const isPaid = isOnlineMethod && hasTransaction;
 
+    let finalNote = orderData.note || '';
+    if (warehouseAllocations.size > 1) {
+      const whList = Array.from(warehouseAllocations.keys()).join(', ');
+      const splitNotice = `[SPLIT_ORDER:${whList}] Đơn hàng được tách thành ${warehouseAllocations.size} kiện từ các kho (${whList})`;
+      finalNote = finalNote ? `${splitNotice} - ${finalNote}` : splitNotice;
+    }
+
     const order = this.orderRepository.create({
       ...orderData,
+      note: finalNote,
       idempotencyKey: createOrderDto.idempotencyKey || null,
       transactionId: createOrderDto.transactionId || null,
       paidAt: isPaid ? new Date() : null,
@@ -220,34 +316,74 @@ export class OrderService {
 
     // Tự động tạo yêu cầu xuất kho OutboundOrder sang outbound-service (port 3007)
     try {
-      const outboundPayload = {
-        orderCode: `ECOMM-${savedOrder.id.slice(0, 8).toUpperCase()}`,
-        requestedBy: savedOrder.customerId || 'customer-web',
-        requesterName: savedOrder.customerName || 'Khách hàng',
-        customerPhone: savedOrder.customerPhone || '0909000111',
-        destination: savedOrder.customerAddress || 'TP.HCM',
-        latitude: savedOrder.shippingLat ? Number(savedOrder.shippingLat) : undefined,
-        longitude: savedOrder.shippingLng ? Number(savedOrder.shippingLng) : undefined,
-        warehouseCode: savedOrder.assignedWarehouseCode || 'WH-006',
-        warehouseId: savedOrder.assignedWarehouseId,
-        notes: `Đơn hàng TMĐT C.T Mart #${savedOrder.id.slice(0, 8).toUpperCase()}${savedOrder.note ? ' - ' + savedOrder.note : ''}`,
-        totalAmount: Number(savedOrder.totalAmount || 0),
-        items: (savedOrder.items || []).map((item) => ({
-          sku: item.sku || item.productId,
-          productName: item.productName,
-          requestedQuantity: item.quantity,
-          price: Number(item.price || 0),
-        })),
-      };
+      const cleanId = savedOrder.id.slice(0, 8).toUpperCase();
+      if (warehouseAllocations.size <= 1) {
+        const primaryAllocWh = Array.from(warehouseAllocations.keys())[0] || savedOrder.assignedWarehouseCode || 'WH-006';
+        const outboundPayload = {
+          orderCode: `ECOMM-${cleanId}`,
+          requestedBy: savedOrder.customerId || 'customer-web',
+          requesterName: savedOrder.customerName || 'Khách hàng',
+          customerPhone: savedOrder.customerPhone || '0909000111',
+          destination: savedOrder.customerAddress || 'TP.HCM',
+          latitude: savedOrder.shippingLat ? Number(savedOrder.shippingLat) : undefined,
+          longitude: savedOrder.shippingLng ? Number(savedOrder.shippingLng) : undefined,
+          warehouseCode: primaryAllocWh,
+          warehouseId: primaryAllocWh,
+          notes: `[ORDER_ID:${savedOrder.id}] Đơn hàng TMĐT C.T Mart #${cleanId}${savedOrder.note ? ' - ' + savedOrder.note : ''}`,
+          totalAmount: Number(savedOrder.totalAmount || 0),
+          items: (savedOrder.items || []).map((item) => ({
+            sku: item.sku || item.productId,
+            productName: item.productName,
+            requestedQuantity: item.quantity,
+            price: Number(item.price || 0),
+          })),
+        };
 
-      await fetch('http://localhost:3007/outbound-orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(outboundPayload),
-      }).catch((err) => {
-        this.logger.warn(`[OrderService -> OutboundService] Lỗi tạo đơn xuất kho: ${err.message}`);
-      });
-    } catch (err) {
+        await fetch('http://localhost:3007/outbound-orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(outboundPayload),
+        }).catch((err) => {
+          this.logger.warn(`[OrderService -> OutboundService] Lỗi tạo đơn xuất kho: ${err.message}`);
+        });
+      } else {
+        // Tách đơn tự động theo kho (Multi-warehouse Split Order)
+        const totalSplits = warehouseAllocations.size;
+        let splitIdx = 1;
+        for (const [whCode, whItems] of warehouseAllocations.entries()) {
+          const splitCode = `ECOMM-${cleanId}-${whCode}`;
+          const splitPayload = {
+            orderCode: splitCode,
+            requestedBy: savedOrder.customerId || 'customer-web',
+            requesterName: savedOrder.customerName || 'Khách hàng',
+            customerPhone: savedOrder.customerPhone || '0909000111',
+            destination: savedOrder.customerAddress || 'TP.HCM',
+            latitude: savedOrder.shippingLat ? Number(savedOrder.shippingLat) : undefined,
+            longitude: savedOrder.shippingLng ? Number(savedOrder.shippingLng) : undefined,
+            warehouseCode: whCode,
+            warehouseId: whCode,
+            notes: `[ORDER_ID:${savedOrder.id}] [KIỆN ${splitIdx}/${totalSplits} - KHO ${whCode}] Đơn hàng TMĐT C.T Mart #${cleanId}${savedOrder.note ? ' - ' + savedOrder.note : ''}`,
+            totalAmount: whItems.reduce((sum, i) => sum + (Number(i.itemDto.price || 0) * i.quantity), 0),
+            items: whItems.map((i) => ({
+              sku: i.sku,
+              productName: i.itemDto.productName,
+              requestedQuantity: i.quantity,
+              price: Number(i.itemDto.price || 0),
+            })),
+          };
+
+          await fetch('http://localhost:3007/outbound-orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(splitPayload),
+          }).catch((err) => {
+            this.logger.warn(`[OrderService -> OutboundService] Lỗi tạo kiện xuất kho ${splitCode}: ${err.message}`);
+          });
+
+          splitIdx++;
+        }
+      }
+    } catch (err: any) {
       this.logger.warn(`[OrderService] Exception khi trigger outbound-service: ${err.message}`);
     }
 
@@ -439,7 +575,7 @@ export class OrderService {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             items: releaseItems,
-            warehouseId: saved.assignedWarehouseCode || saved.assignedWarehouseId || 'WH-006',
+            warehouseId: 'ALL',
             orderId: saved.id,
             reason: cancelReason,
           }),

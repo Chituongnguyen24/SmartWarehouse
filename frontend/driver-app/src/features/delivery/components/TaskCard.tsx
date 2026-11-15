@@ -83,16 +83,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             onPress={onOpenSms ? onOpenSms : handleQuickSms} 
             activeOpacity={0.7}
           >
-            <MessageSquare size={13} color="#059669" style={{ marginRight: 4 }} />
-            <Text style={styles.smsSmallText}>Nhắn tin</Text>
+            <MessageSquare size={12} color="#059669" style={{ marginRight: 3 }} />
+            <Text style={styles.smsSmallText}>SMS</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.mapSmallBtn} onPress={handleOpenSingleGoogleMap} activeOpacity={0.7}>
-            <ExternalLink size={13} color="#0284c7" style={{ marginRight: 4 }} />
-            <Text style={styles.mapSmallText}>Bản đồ</Text>
+            <ExternalLink size={12} color="#0284c7" style={{ marginRight: 3 }} />
+            <Text style={styles.mapSmallText}>Maps</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.callBtn} onPress={onCallCustomer} activeOpacity={0.7}>
-            <Phone size={13} color="#0f766e" style={{ marginRight: 4 }} />
-            <Text style={styles.callText}>Gọi điện</Text>
+            <Phone size={12} color="#0f766e" style={{ marginRight: 3 }} />
+            <Text style={styles.callText}>Gọi</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -110,14 +110,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       {/* Package Specification Highlight: Phân định rõ số lượng kiện hàng của đơn */}
       <View style={styles.packageCardHighlight}>
         <View style={styles.packageCardHeader}>
-          <View style={styles.packageBadge}>
+          <View style={[styles.packageBadge, { flex: 1, flexShrink: 1, marginRight: 6 }]}>
             <Package size={13} color="#047857" style={{ marginRight: 4 }} />
-            <Text style={styles.packageBadgeText}>
-              {boxCount} Kiện Hàng {task.isDisposal ? '(Thùng Tiêu Hủy)' : '(Thùng Đóng Gói)'}
+            <Text style={[styles.packageBadgeText, { flexShrink: 1 }]} numberOfLines={1}>
+              {boxCount} Kiện Hàng {task.isDisposal ? '(Tiêu Hủy)' : '(Đóng Gói)'}
             </Text>
           </View>
-          <View style={styles.timeTag}>
-            <Text style={styles.timeSlotTag}>{task.timeSlotText}</Text>
+          <View style={[styles.timeTag, { flexShrink: 0 }]}>
+            <Text style={styles.timeSlotTag} numberOfLines={1}>{task.timeSlotText}</Text>
           </View>
         </View>
 
@@ -139,17 +139,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
       {/* Footer Info Grid: Distance & COD */}
       <View style={styles.footerContainer}>
-        <View style={styles.metaBox}>
+        <View style={[styles.metaBox, { flex: 1, flexShrink: 1, marginRight: 6 }]}>
           <Navigation size={13} color="#0284c7" />
-          <Text style={styles.metaText}>
+          <Text style={[styles.metaText, { flexShrink: 1 }]} numberOfLines={1}>
             {task.distanceKm} km (~{task.estimatedTimeMinutes} phút)
           </Text>
         </View>
 
-        <View style={[styles.codBox, task.codAmount > 0 ? styles.codBoxDue : styles.codBoxPaid]}>
-          <Text style={styles.codLabel}>Thu hộ (COD): </Text>
+        <View style={[styles.codBox, task.codAmount > 0 ? styles.codBoxDue : styles.codBoxPaid, { flexShrink: 0 }]}>
+          <Text style={styles.codLabel}>COD: </Text>
           <Text style={[styles.codValue, task.codAmount > 0 ? styles.codValueDue : styles.codValuePaid]}>
-            {task.codAmount > 0 ? formatPrice(task.codAmount) : 'Đã thanh toán (0đ)'}
+            {task.codAmount > 0 ? formatPrice(task.codAmount) : '0đ'}
           </Text>
         </View>
       </View>
