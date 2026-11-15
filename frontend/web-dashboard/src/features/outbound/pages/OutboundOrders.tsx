@@ -78,6 +78,7 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string; 
   PROCESSING: { label: 'Đã duyệt', bg: '#dbeafe', color: '#1d4ed8', border: '#bfdbfe' },
   PICKING: { label: 'Đang gom hàng', bg: '#ede9fe', color: '#6d28d9', border: '#ddd6fe' },
   PACKING: { label: 'Đang đóng gói', bg: '#ccfbf1', color: '#0f766e', border: '#99f6e4' },
+  PICKED: { label: 'Đang đóng gói', bg: '#ccfbf1', color: '#0f766e', border: '#99f6e4' },
   PACKED: { label: 'Đã đóng gói', bg: '#ccfbf1', color: '#0f766e', border: '#99f6e4' },
   READY_FOR_DELIVERY: { label: 'Chờ giao hàng', bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' },
   CONFIRMED: { label: 'Đã xuất kho', bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd' },
@@ -519,7 +520,7 @@ const OutboundOrders: React.FC = () => {
   const advanceState = useCallback(async (orderId: string, action: string, body?: any) => {
     // Optimistic next status mapping
     const nextStatus = 
-      action === 'confirm-picking' ? 'PACKED' :
+      action === 'confirm-picking' ? 'PACKING' :
       action === 'confirm' ? 'CONFIRMED' :
       action === 'deliver' ? 'DELIVERED' : 'PENDING';
 
@@ -1535,6 +1536,25 @@ const OutboundOrders: React.FC = () => {
                           onClick={() => advanceState(selectedOrder.id, 'confirm-picking')}
                         >
                           Bỏ qua quét & Xác nhận lấy đủ <ArrowRight size={18} />
+                        </button>
+                      </div>
+                    )}
+
+                    {selectedOrder.status === 'PACKING' && (
+                      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', width: '100%' }}>
+                        <button 
+                          style={{ flex: 1, padding: '12px 20px', borderRadius: '10px', background: '#059669', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                          onClick={async () => {
+                            await fetch(`${API_BASE}/outbound-orders/${selectedOrder.id}/status`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                              body: JSON.stringify({ status: 'PACKED' }),
+                            }).catch(() => {});
+                            setOrders(prev => prev.map(o => o.id === selectedOrder.id ? { ...o, status: 'PACKED' } : o));
+                            showToast('Đã hoàn tất đóng gói kiện hàng! Sẵn sàng bàn giao shipper.', 'success');
+                          }}
+                        >
+                          <CheckCircle2 size={18} /> Hoàn Tất Đóng Gói (Chuyển Sang PACKED)
                         </button>
                       </div>
                     )}

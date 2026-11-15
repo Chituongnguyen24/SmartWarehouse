@@ -139,6 +139,7 @@ export class OutboundOrderController {
   }
 
   @Patch(':id/status')
+  @Put(':id/status')
   @ApiOperation({ summary: 'Cập nhật trạng thái đơn xuất kho' })
   updateStatus(@Param('id') id: string, @Body() body: any) {
     return this.service.updateStatus(id, body?.status, body);

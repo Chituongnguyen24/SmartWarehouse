@@ -49,6 +49,7 @@ import {
   locateShelfIotApi,
   chirpShelfIotApi,
   completeShelfIotApi,
+  API_URLS,
 } from '@/shared';
 import { useStaffWebSocket } from '@/features/dashboard';
 import { useAuth } from '@/features/auth';
@@ -534,11 +535,39 @@ export const PickingWave: React.FC = () => {
       });
     }
 
-    // Immediately notify backend that picking is in progress -> Web dashboard flips to PICKING without F5
+    // Check if all items in this order are now fully picked
+    const updatedOrderItems = items
+      .filter(it => it.orderId === activeScanItem.orderId)
+      .map(it => it.id === activeScanItem.id ? { ...it, pickedQuantity: newPickedCount } : it);
+    const isOrderFullyPicked = updatedOrderItems.length > 0 && updatedOrderItems.every(it => (it.pickedQuantity || 0) >= it.quantity);
+
+    // Immediately notify backend -> If fully picked: status transitions to PACKING (Đang đóng gói)
+    // If partially picked: status transitions to PICKING (Đang gom hàng)
     if (activeScanItem.orderId) {
-      updateOutboundStatus(activeScanItem.orderId, 'PICKING').catch(err => {
+      const targetStatus = isOrderFullyPicked ? 'PACKING' : 'PICKING';
+      updateOutboundStatus(activeScanItem.orderId, targetStatus).catch(err => {
         console.warn('Live backend picking status sync error:', err);
       });
+
+      if (isOrderFullyPicked) {
+        localStorage.setItem(`citymart_order_just_transferred_${activeScanItem.orderId}`, 'true');
+        localStorage.setItem(`citymart_order_ready_pack_${activeScanItem.orderId}`, 'true');
+        if (activeScanItem.orderCode) {
+          localStorage.setItem(`citymart_order_just_transferred_${activeScanItem.orderCode}`, 'true');
+          localStorage.setItem(`citymart_order_ready_pack_${activeScanItem.orderCode}`, 'true');
+        }
+
+        const cleanId = activeScanItem.orderId.replace(/^ECOMM-/, '').replace(/^OB-/, '');
+        fetch(`${API_URLS.ORDER}/orders/sync-status/${cleanId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'PACKING' }),
+        }).catch(() => {});
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('staff_badge_refresh'));
+        }
+      }
     }
 
     setTimeout(() => setToastMessage(null), 3000);
@@ -609,13 +638,26 @@ export const PickingWave: React.FC = () => {
     const orderIdsToUnlock = Array.from(new Set(items.map(it => it.orderId)));
     for (const ordId of orderIdsToUnlock) {
       try {
-        await updateOutboundStatus(ordId, 'PICKED').catch(() => {});
+        await updateOutboundStatus(ordId, 'PACKING').catch(() => {});
+        const cleanId = ordId.replace(/^ECOMM-/, '').replace(/^OB-/, '');
+        fetch(`${API_URLS.ORDER}/orders/sync-status/${cleanId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'PACKING' }),
+        }).catch(() => {});
+
         localStorage.setItem(`citymart_order_just_transferred_${ordId}`, 'true');
         localStorage.setItem(`citymart_order_ready_pack_${ordId}`, 'true');
         const foundOrder = availableOrders.find(o => o.id === ordId);
         if (foundOrder?.orderCode) {
           localStorage.setItem(`citymart_order_just_transferred_${foundOrder.orderCode}`, 'true');
           localStorage.setItem(`citymart_order_ready_pack_${foundOrder.orderCode}`, 'true');
+          const cleanCode = foundOrder.orderCode.replace(/^ECOMM-/, '').replace(/^OB-/, '');
+          fetch(`${API_URLS.ORDER}/orders/sync-status/${cleanCode}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'PACKING' }),
+          }).catch(() => {});
         }
         await unlockOrder(ordId, user?.id || 'usr-staff');
       } catch (e) {

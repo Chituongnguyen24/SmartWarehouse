@@ -96,6 +96,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
   PROCESSING:          { label: 'Đang soạn hàng', color: '#1d4ed8', bg: '#dbeafe', border: '#bfdbfe', icon: <Boxes size={12} /> },
   PICKING:             { label: 'Đang soạn hàng', color: '#6d28d9', bg: '#ede9fe', border: '#ddd6fe', icon: <Boxes size={12} /> },
   PACKING:             { label: 'Đang đóng gói', color: '#0f766e', bg: '#ccfbf1', border: '#99f6e4', icon: <PackageCheck size={12} /> },
+  PICKED:              { label: 'Đang đóng gói', color: '#0f766e', bg: '#ccfbf1', border: '#99f6e4', icon: <PackageCheck size={12} /> },
   PACKED:              { label: 'Đã đóng gói (Chờ bàn giao)', color: '#0f766e', bg: '#ccfbf1', border: '#99f6e4', icon: <PackageCheck size={12} /> },
   CONFIRMED:           { label: 'Đã xuất kho', color: '#c2410c', bg: '#ffedd5', border: '#fed7aa', icon: <PackageCheck size={12} /> },
   READY_FOR_DELIVERY:  { label: 'Đã bàn giao (Chờ phân tuyến)', color: '#c2410c', bg: '#fff7ed', border: '#fed7aa', icon: <Clock size={12} /> },
@@ -443,6 +444,7 @@ export default function OrderDispatch() {
             PROCESSING: 2,
             PICKING: 3,
             PACKING: 3.5,
+            PICKED: 3.5,
             PACKED: 4,
             CONFIRMED: 5,
             READY_FOR_DELIVERY: 6,
@@ -499,6 +501,7 @@ export default function OrderDispatch() {
             PROCESSING: 2,
             PICKING: 3,
             PACKING: 3.5,
+            PICKED: 3.5,
             PACKED: 4,
             CONFIRMED: 5,
             READY_FOR_DELIVERY: 6,
@@ -716,16 +719,67 @@ export default function OrderDispatch() {
     }
   };
 
+  // Chuyển đơn sang trạng thái ĐANG ĐÓNG GÓI (PACKING)
+  const handleMoveToPacking = async (order: UnifiedOrder) => {
+    try {
+      const isOutbound = order.orderCode?.startsWith('OB-') || !order.isEcommerce;
+      const cleanId = order.id.replace(/^ECOMM-/, '').replace(/^OB-/, '');
+
+      // 1. Sync outbound service
+      await fetch(`${OUTBOUND_API}/outbound-orders/${order.id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'PACKING' }),
+      }).catch(() => {});
+
+      // 2. Sync order service
+      await fetch(`${ORDER_API}/sync-status/${cleanId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'PACKING' }),
+      }).catch(() => {});
+      await fetch(`${ORDER_API}/sync-status/${order.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'PACKING' }),
+      }).catch(() => {});
+
+      // 3. Broadcast WebSocket
+      await fetch(`${ORDER_API}/broadcast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'order_status_updated',
+          payload: {
+            id: order.id,
+            orderCode: order.orderCode,
+            status: 'PACKING',
+            warehouseCode: order.warehouseCode || 'WH-006',
+          },
+        }),
+      }).catch(() => {});
+
+      showToast(`Đã chuyển đơn #${order.orderCode} sang trạng thái Đang đóng gói.`, 'success');
+      await fetchAllData(true);
+    } catch (e) {
+      showToast('Có lỗi khi chuyển đơn sang đóng gói', 'error');
+    }
+  };
+
   // Hoàn tất soạn hàng và chuyển sang trạng thái ĐÃ ĐÓNG GÓI (PACKED)
   const handleCompletePicking = async (order: UnifiedOrder) => {
     try {
       const isOutbound = order.orderCode?.startsWith('OB-') || !order.isEcommerce;
-      const endpoint = isOutbound
-        ? `${OUTBOUND_API}/outbound-orders/${order.id}/advance-status`
-        : `${ORDER_API}/sync-status/${order.id}`;
+      const cleanId = order.id.replace(/^ECOMM-/, '').replace(/^OB-/, '');
 
-      await fetch(endpoint, {
-        method: isOutbound ? 'POST' : 'PUT',
+      await fetch(`${OUTBOUND_API}/outbound-orders/${order.id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'PACKED' }),
+      }).catch(() => {});
+
+      await fetch(`${ORDER_API}/sync-status/${cleanId}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'PACKED' }),
       }).catch(() => {});
@@ -1282,7 +1336,7 @@ export default function OrderDispatch() {
   }, [orders, activeWh]);
 
   // Pipeline Counts based on scoped orders
-  const step1Count = useMemo(() => whScopedOrders.filter(o => o.status === 'PENDING' || o.status === 'PROCESSING' || o.status === 'PICKING').length, [whScopedOrders]);
+  const step1Count = useMemo(() => whScopedOrders.filter(o => o.status === 'PENDING' || o.status === 'PROCESSING' || o.status === 'PICKING' || o.status === 'PACKING' || o.status === 'PICKED').length, [whScopedOrders]);
   const step2Count = useMemo(() => whScopedOrders.filter(o => o.status === 'PACKED' || o.status === 'READY_FOR_DELIVERY' || o.status === 'CONFIRMED').length, [whScopedOrders]);
   const step3Count = useMemo(() => whScopedOrders.filter(o => o.status === 'DELIVERING' || o.status === 'SHIPPED').length, [whScopedOrders]);
   const stepExceptionCount = useMemo(() => whScopedOrders.filter(o => o.status === 'FAILED_DELIVERY' || o.status === 'RETURN_TO_WAREHOUSE').length, [whScopedOrders]);
@@ -1306,7 +1360,7 @@ export default function OrderDispatch() {
       }
 
       if (activePipelineStep === 'STEP_1_PICKING') {
-        return o.status === 'PENDING' || o.status === 'PROCESSING' || o.status === 'PICKING';
+        return o.status === 'PENDING' || o.status === 'PROCESSING' || o.status === 'PICKING' || o.status === 'PACKING' || o.status === 'PICKED';
       }
       if (activePipelineStep === 'STEP_2_DISPATCH') {
         return o.status === 'PACKED' || o.status === 'READY_FOR_DELIVERY' || o.status === 'CONFIRMED';
@@ -1332,6 +1386,8 @@ export default function OrderDispatch() {
         PENDING: 1,
         PROCESSING: 2,
         PICKING: 3,
+        PACKING: 3.5,
+        PICKED: 3.5,
         PACKED: 4,
         READY_FOR_DELIVERY: 5,
         CONFIRMED: 6,
@@ -2748,6 +2804,25 @@ export default function OrderDispatch() {
 
                             {(order.status === 'PROCESSING' || order.status === 'PICKING') && (
                               <button
+                                onClick={() => handleMoveToPacking(order)}
+                                style={{
+                                  backgroundColor: '#0284c7',
+                                  color: '#ffffff',
+                                  padding: '6px 12px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                }}
+                                title="Chuyển đơn sang khâu đóng gói kiện hàng"
+                              >
+                                Đã Soạn Xong (Chuyển Đóng Gói)
+                              </button>
+                            )}
+
+                            {(order.status === 'PACKING' || order.status === 'PICKED') && (
+                              <button
                                 onClick={() => handleCompletePicking(order)}
                                 style={{
                                   backgroundColor: '#059669',
@@ -2759,8 +2834,9 @@ export default function OrderDispatch() {
                                   border: 'none',
                                   cursor: 'pointer',
                                 }}
+                                title="Xác nhận đóng gói hoàn tất để chuyển sang bàn giao shipper"
                               >
-                                Đã Soạn Xong
+                                Hoàn Tất Đóng Gói
                               </button>
                             )}
 

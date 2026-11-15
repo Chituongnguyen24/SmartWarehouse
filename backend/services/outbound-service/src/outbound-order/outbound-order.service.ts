@@ -743,10 +743,10 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     return saved;
   }
 
-  // Bước 4: Nhân viên xác nhận đã lấy hàng -> Chuyển sang Đóng Gói (PACKED)
+  // Bước 4: Nhân viên xác nhận đã lấy hàng -> Chuyển sang Đang Đóng Gói (PACKING)
   async confirmPicking(orderId: string): Promise<OutboundOrder> {
     const order = await this.findOne(orderId);
-    if (order.status === 'PACKED' || order.status === 'CONFIRMED') {
+    if (order.status === 'PACKING' || order.status === 'PACKED' || order.status === 'CONFIRMED' || order.status === 'SHIPPED' || order.status === 'DELIVERED') {
       return order;
     }
 
@@ -759,12 +759,26 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
       await this.itemRepository.save(item);
     }
 
-    order.status = 'PACKED';
+    order.status = 'PACKING';
     const savedOrder = await this.orderRepository.save(order);
 
     // Call Webhook to sync status with order-service (CustomerOrder) & broadcast WebSocket
-    await this.syncStatusToOrderService(savedOrder, 'PACKED');
-    this.broadcastOrderEvent('order_status_updated', { orderId: savedOrder.id, status: 'PACKED', order: savedOrder });
+    await this.syncStatusToOrderService(savedOrder, 'PACKING');
+    this.broadcastOrderEvent('order_status_updated', { orderId: savedOrder.id, status: 'PACKING', order: savedOrder });
+
+    // Live broadcast to Order Gateway Socket on port 3004 so Web Dashboard updates instantly
+    fetch(`http://localhost:3004/orders/broadcast`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'order_status_updated',
+        payload: {
+          id: savedOrder.id,
+          orderCode: savedOrder.orderCode,
+          status: 'PACKING',
+        },
+      }),
+    }).catch(() => {});
 
     return savedOrder;
   }
@@ -974,6 +988,9 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
   async updateStatus(orderId: string, status: string, extraBody?: any): Promise<OutboundOrder> {
     const order = await this.findOne(orderId);
     const prevStatus = order.status;
+    if (status === 'PICKED') {
+      status = 'PACKING';
+    }
     if (status) order.status = status;
     if ((status === 'CONFIRMED' || status === 'DELIVERED') && !order.confirmedAt) {
       order.confirmedAt = new Date();
@@ -1013,6 +1030,7 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
       status === 'SHIPPED' ? 'DELIVERING' :
       status === 'CONFIRMED' || status === 'READY_FOR_DELIVERY' ? 'READY_FOR_DELIVERY' :
       status === 'PACKED' ? 'PACKED' :
+      (status === 'PACKING' || status === 'PICKED') ? 'PACKING' :
       status === 'PICKING' ? 'PICKING' :
       status === 'CANCELLED' ? 'CANCELLED' : status;
 
