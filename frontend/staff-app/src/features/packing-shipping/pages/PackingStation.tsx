@@ -826,39 +826,64 @@ export const PackingStation: React.FC = () => {
               <span style={{ color: '#0284c7', fontWeight: 700 }}>TỔNG CỘNG: {selectedOrder.totalUnits} SP</span>
             </div>
 
-            {selectedOrder.items.map((it, idx) => (
-              <div
-                key={idx}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  fontSize: '12px',
-                  color: '#0f172a',
-                  padding: '6px 0',
-                  borderBottom: idx < selectedOrder.items.length - 1 ? '1px solid #e2e8f0' : 'none',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <CheckCircle2 size={16} color="#059669" />
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{it.name}</div>
-                    <div style={{ fontSize: '10px', color: '#64748b' }}>
-                      {it.shelfLocation} • Mã Lô: <span style={{ color: '#0f172a' }}>{it.lotCode}</span>
+            {selectedOrder.items?.some((it: any) => it.shelfLocation === 'TRANSFER_DOCK' || it.shelfLocation === 'PACKING_STATION') && (
+              <div style={{
+                backgroundColor: '#fff7ed',
+                border: '1px solid #fed7aa',
+                borderRadius: '8px',
+                padding: '6px 10px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '11px',
+                color: '#c2410c',
+                fontWeight: 600,
+              }}>
+                <Boxes size={14} color="#ea580c" />
+                <span>Đơn hàng có mặt hàng điều chuyển liên kho (Đã tập kết tại Bàn Đóng Gói)</span>
+              </div>
+            )}
+
+            {selectedOrder.items.map((it, idx) => {
+              const isTransferItem = it.shelfLocation === 'TRANSFER_DOCK' || it.shelfLocation === 'PACKING_STATION';
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    fontSize: '12px',
+                    color: '#0f172a',
+                    padding: '6px 0',
+                    borderBottom: idx < selectedOrder.items.length - 1 ? '1px solid #e2e8f0' : 'none',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <CheckCircle2 size={16} color="#059669" />
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{it.name}</div>
+                      <div style={{ fontSize: '10px', color: '#64748b' }}>
+                        {isTransferItem ? (
+                          <span style={{ color: '#c2410c', fontWeight: 600 }}>Bàn Đóng Gói (Hàng điều chuyển)</span>
+                        ) : (
+                          `${it.shelfLocation} • Mã Lô: ${it.lotCode || 'N/A'}`
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontWeight: 700, color: '#059669', fontSize: '13px' }}>x{it.qty} {it.unit}</span>
-                  {it.isCold && (
-                    <span style={{ fontSize: '10px', backgroundColor: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd', padding: '1px 5px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                      <Snowflake size={10} /> Lạnh
-                    </span>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontWeight: 700, color: '#059669', fontSize: '13px' }}>x{it.qty} {it.unit}</span>
+                    {it.isCold && (
+                      <span style={{ fontSize: '10px', backgroundColor: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd', padding: '1px 5px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                        <Snowflake size={10} /> Lạnh
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* ════════ CARTONIZATION & PACKAGING CONFIGURATION ════════ */}

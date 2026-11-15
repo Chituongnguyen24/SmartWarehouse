@@ -54,13 +54,42 @@ export class InboundOrderService {
     return this.findOne(savedOrder.id);
   }
 
-  async updateStatus(id: string, status: string, qualityCheckPassed?: boolean): Promise<InboundOrder> {
+  async updateStatus(
+    id: string,
+    status: string,
+    qualityCheckPassed?: boolean,
+    packageCondition?: string,
+    destinationStation?: string,
+    packingNote?: string,
+  ): Promise<InboundOrder> {
     const order = await this.findOne(id);
     if (!order) throw new NotFoundException('Inbound order not found');
 
     order.status = status;
     if (qualityCheckPassed !== undefined) {
       order.qualityCheckPassed = qualityCheckPassed;
+    }
+    if (packageCondition !== undefined) {
+      order.packageCondition = packageCondition;
+    }
+    if (destinationStation !== undefined) {
+      order.destinationStation = destinationStation;
+    }
+    if (packingNote !== undefined) {
+      order.packingNote = packingNote;
+    }
+
+    const isTransfer = order.orderCode && (order.orderCode.startsWith('TRF-IMP-') || order.orderCode.includes('TRF'));
+    if (isTransfer) {
+      order.destinationStation = 'PACKING_STATION';
+      if (order.items && order.items.length > 0) {
+        for (const it of order.items) {
+          it.assignedSlotId = 'PACKING_STATION';
+          it.assignedZone = 'Z-PACKING';
+          it.status = status === 'COMPLETED' || status === 'STORED' ? 'TRANSFERRED_TO_PACKING' : it.status;
+          await this.itemRepo.save(it);
+        }
+      }
     }
     
     if (status === 'COMPLETED' || status === 'STORED') {
@@ -80,20 +109,29 @@ export class InboundOrderService {
             o.status !== 'STORED'
           );
 
-          // Chỉ khi TẤT CẢ các chân điều chuyển đã nhập về kho Gò Vấp:
+          // Chỉ khi TẤT CẢ các chân điều chuyển đã nhập về kho:
           if (pendingSisterTransfers.length === 0) {
             // 1. Sync order-service: Chuyển sang PACKING (Đang đóng gói tại trạm phân phối)
             await fetch(`http://localhost:3004/orders/sync-status/${cleanId}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status: 'PACKING', forcePicking: true }),
+              body: JSON.stringify({
+                status: 'PACKING',
+                forcePicking: true,
+                packageCondition: order.packageCondition,
+                packingNote: order.packingNote,
+              }),
             }).catch(() => {});
 
             // 2. Sync outbound-service: Chuyển đơn ECOMM sang PACKING
             await fetch(`http://localhost:3007/outbound-orders/ECOMM-${cleanId}/status`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status: 'PACKING' }),
+              body: JSON.stringify({
+                status: 'PACKING',
+                packageCondition: order.packageCondition,
+                packingNote: order.packingNote,
+              }),
             }).catch(() => {});
 
             // 3. Live broadcast WebSocket đến Web Dashboard & Staff App
@@ -107,6 +145,8 @@ export class InboundOrderService {
                   orderCode: `ECOMM-${cleanId}`,
                   status: 'PACKING',
                   warehouseCode: order.warehouseCode || 'WH-006',
+                  packageCondition: order.packageCondition,
+                  packingNote: order.packingNote,
                 },
               }),
             }).catch(() => {});

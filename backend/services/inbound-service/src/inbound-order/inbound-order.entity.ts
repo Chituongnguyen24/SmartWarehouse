@@ -42,6 +42,15 @@ export class InboundOrder {
   @Column({ name: 'quality_check_passed', default: false })
   qualityCheckPassed: boolean;
 
+  @Column({ name: 'package_condition', nullable: true }) // PACKED_OK, NEEDS_PACKING
+  packageCondition: string;
+
+  @Column({ name: 'destination_station', nullable: true, default: 'STORAGE_SHELF' }) // STORAGE_SHELF, PACKING_STATION
+  destinationStation: string;
+
+  @Column({ name: 'packing_note', nullable: true })
+  packingNote: string;
+
   @Column({ name: 'warehouse_id', nullable: true })
   warehouseId: string;
 

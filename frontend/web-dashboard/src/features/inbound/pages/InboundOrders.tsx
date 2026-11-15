@@ -7,7 +7,7 @@ import {
   Download, PackageCheck, AlertCircle, ArrowRight, CheckCircle2, 
   Layers, Plus, X, Search, FileText, ScanBarcode, Printer,
   ChevronLeft, ChevronRight, RefreshCw, Warehouse, ShieldCheck,
-  MapPin, Check, Box
+  MapPin, Check, Box, Truck
 } from 'lucide-react';
 import { WarehouseMap3D } from '@/features/warehouse';
 import { InboundReceiptModal } from '../components/InboundReceiptModal';
@@ -48,6 +48,9 @@ interface InboundOrder {
   totalItems: number;
   totalQuantity: number;
   qualityCheckPassed: boolean;
+  packageCondition?: 'PACKED_OK' | 'NEEDS_PACKING' | null;
+  destinationStation?: string;
+  packingNote?: string;
   notes?: string;
   createdAt: string;
   items: InboundOrderItem[];
@@ -248,6 +251,13 @@ const STEPS = [
   { key: 'COMPLETED', label: '5. Hoàn tất & Ghi sổ', icon: <CheckCircle2 size={16} /> }
 ];
 
+const TRANSFER_STEPS = [
+  { key: 'PENDING', label: '1. Chờ xe trung chuyển', icon: <Truck size={16} /> },
+  { key: 'RECEIVING', label: '2. Tiếp nhận tại Dock', icon: <Download size={16} /> },
+  { key: 'QUALITY_CHECK', label: '3. Kiểm tra đóng gói', icon: <PackageCheck size={16} /> },
+  { key: 'COMPLETED', label: '4. Chuyển Bàn Đóng Gói', icon: <CheckCircle2 size={16} /> }
+];
+
 const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string; border: string }> = {
   PENDING: { label: 'Chờ nhận hàng', bg: '#fef3c7', color: '#b45309', border: '#fde68a' },
   RECEIVING: { label: 'Đang nhận hàng', bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd' },
@@ -320,6 +330,10 @@ const InboundOrders: React.FC = () => {
   // Storage Assignment state per SKU (itemId -> assignment info)
   const [itemAssignments, setItemAssignments] = useState<Record<string, { shelfId: string; zone: string; slotLabel: string; lotCode: string; expiryDate: string }>>({});
 
+  // Transfer Order Package Condition Check state
+  const [packageCondition, setPackageCondition] = useState<'PACKED_OK' | 'NEEDS_PACKING'>('PACKED_OK');
+  const [packingNote, setPackingNote] = useState<string>('');
+
   const showToast = useCallback((text: string, type: 'success' | 'info' | 'error' = 'success') => {
     setToastMessage({ text, type });
     setTimeout(() => {
@@ -389,29 +403,84 @@ const InboundOrders: React.FC = () => {
       });
       return next;
     });
+
+    if (selectedOrder) {
+      setPackageCondition((selectedOrder.packageCondition as any) || 'PACKED_OK');
+      setPackingNote(selectedOrder.packingNote || '');
+    }
   }, [selectedOrder]);
 
   // Advance Inbound state
   const advanceState = useCallback(async (orderId: string, action: string, body?: any) => {
+    const currentOrder = orders.find(o => o.id === orderId);
+    const isTransfer = currentOrder ? detectInboundClassification(currentOrder) === 'DIEU_CHUYEN' : false;
+
     const nextStatus = 
       action === 'receive' ? 'RECEIVING' :
       action === 'quality-check' ? 'QUALITY_CHECK' :
       action === 'store' ? 'STORING' :
-      action === 'complete' ? 'COMPLETED' : 'PENDING';
+      (action === 'complete' || action === 'transfer-packing') ? 'COMPLETED' : 'PENDING';
 
     // Optimistic Update
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: nextStatus } : o));
+    setOrders(prev => prev.map(o => o.id === orderId ? {
+      ...o,
+      status: nextStatus,
+      packageCondition: body?.packageCondition !== undefined ? body.packageCondition : o.packageCondition,
+      packingNote: body?.packingNote !== undefined ? body.packingNote : o.packingNote,
+      destinationStation: isTransfer ? 'PACKING_STATION' : o.destinationStation
+    } : o));
 
-    if (action === 'complete') {
-      showToast('Đã hoàn tất nhập kho. Hàng hóa và lô đã được ghi nhận vào hệ thống.', 'success');
+    if (action === 'transfer-packing') {
+      showToast('Đã chuyển hàng điều chuyển về Bàn Đóng Gói (Packing Station). Đơn hàng đã sẵn sàng đóng kiện!', 'success');
+    } else if (action === 'complete') {
+      showToast(isTransfer ? 'Đã hoàn tất chuyển Bàn Đóng Gói.' : 'Đã hoàn tất nhập kho. Hàng hóa và lô đã được ghi nhận vào hệ thống.', 'success');
     } else if (action === 'quality-check') {
-      showToast('Kiểm định chất lượng (QC) đạt chuẩn 100%.', 'success');
+      showToast(isTransfer ? 'Chuyển sang kiểm tra quy cách đóng gói kiện hàng.' : 'Kiểm định chất lượng (QC) đạt chuẩn 100%.', 'info');
     } else {
       showToast(`Đã chuyển trạng thái: ${STATUS_CONFIG[nextStatus]?.label || nextStatus}`, 'info');
     }
 
-    // If completing, sync all items to inventory-service (:3011) so they exist in food_lots and 3D map!
-    if (action === 'complete') {
+    // Call API status
+    try {
+      await fetch(`${API_BASE}/inbound-orders/${orderId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          status: nextStatus,
+          qualityCheckPassed: true,
+          packageCondition: body?.packageCondition || packageCondition,
+          destinationStation: isTransfer ? 'PACKING_STATION' : 'STORAGE_SHELF',
+          packingNote: body?.packingNote || packingNote
+        })
+      });
+    } catch (err) {
+      console.error('Failed to update inbound order status:', err);
+    }
+
+    // If transfer order is completed / transferred to packing:
+    if (isTransfer && (action === 'transfer-packing' || action === 'complete')) {
+      if (currentOrder?.items) {
+        for (const item of currentOrder.items) {
+          try {
+            await fetch(`${API_BASE}/inbound-orders/items/${item.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({
+                assignedZone: 'Z-PACKING',
+                assignedSlotId: 'PACKING_STATION',
+                status: 'TRANSFERRED_TO_PACKING'
+              })
+            });
+          } catch (err) {
+            console.error(err);
+          }
+        }
+      }
+      return;
+    }
+
+    // If completing normal supplier order, sync all items to inventory-service (:3011) so they exist in food_lots and 3D map!
+    if (action === 'complete' && !isTransfer) {
       const currentOrder = orders.find(o => o.id === orderId);
       if (currentOrder?.items) {
         for (let idx = 0; idx < currentOrder.items.length; idx++) {
@@ -745,19 +814,23 @@ const InboundOrders: React.FC = () => {
     return filteredOrders.slice(start, start + pageSize);
   }, [filteredOrders, currentPage]);
 
-  const renderStepper = (status: string) => {
+  const renderStepper = (status: string, isTransfer?: boolean) => {
     const isOrderDone = status === 'COMPLETED' || status === 'STORED';
-    const currentIndex = isOrderDone ? 4 : STEPS.findIndex(s => s.key === status);
+    const activeSteps = isTransfer ? TRANSFER_STEPS : STEPS;
+    const maxIdx = activeSteps.length - 1;
+    const currentIndex = isOrderDone ? maxIdx : activeSteps.findIndex(s => s.key === status);
+    const progressPercent = maxIdx > 0 ? (Math.max(0, currentIndex) / maxIdx) * 100 : 0;
+
     return (
       <div style={{ display: 'flex', justifyContent: 'space-between', margin: '1.5rem 0', position: 'relative' }}>
         <div style={{ position: 'absolute', top: '15px', left: '10%', right: '10%', height: '2px', background: '#e2e8f0', zIndex: 1 }}>
-          <div style={{ height: '100%', background: '#0f766e', width: `${Math.max(0, currentIndex) * 25}%`, transition: 'width 0.3s ease' }}></div>
+          <div style={{ height: '100%', background: '#0f766e', width: `${progressPercent}%`, transition: 'width 0.3s ease' }}></div>
         </div>
-        {STEPS.map((step, idx) => {
+        {activeSteps.map((step, idx) => {
           const isCompleted = idx < currentIndex || isOrderDone;
           const isCurrent = idx === currentIndex && !isOrderDone;
           return (
-            <div key={step.key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 2, width: '20%' }}>
+            <div key={step.key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 2, width: `${100 / activeSteps.length}%` }}>
               <div style={{ 
                 width: '32px', height: '32px', borderRadius: '50%', 
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1094,13 +1167,30 @@ const InboundOrders: React.FC = () => {
                     </td>
 
                     <td style={{ padding: '14px 18px' }}>
-                      <span style={{ 
-                        fontSize: '0.75rem', padding: '4px 10px', borderRadius: '12px',
-                        background: statusCfg.bg, color: statusCfg.color, fontWeight: 700,
-                        border: `1px solid ${statusCfg.border}`
-                      }}>
-                        {statusCfg.label}
-                      </span>
+                      {cls === 'DIEU_CHUYEN' && (o.status === 'COMPLETED' || o.status === 'STORED') ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <span style={{ 
+                            fontSize: '0.75rem', padding: '3px 8px', borderRadius: '12px',
+                            background: '#f0fdf4', color: '#166534', fontWeight: 700,
+                            border: '1px solid #bbf7d0', whiteSpace: 'nowrap'
+                          }}>
+                            Đã chuyển Bàn Đóng Gói
+                          </span>
+                          {o.packageCondition && (
+                            <span style={{ fontSize: '0.7rem', color: o.packageCondition === 'PACKED_OK' ? '#15803d' : '#c2410c', fontWeight: 600 }}>
+                              {o.packageCondition === 'PACKED_OK' ? 'Đóng gói đạt chuẩn' : 'Cần gộp đơn đóng lại'}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{ 
+                          fontSize: '0.75rem', padding: '4px 10px', borderRadius: '12px',
+                          background: statusCfg.bg, color: statusCfg.color, fontWeight: 700,
+                          border: `1px solid ${statusCfg.border}`
+                        }}>
+                          {statusCfg.label}
+                        </span>
+                      )}
                     </td>
 
                     <td style={{ padding: '14px 18px', textAlign: 'right' }}>
@@ -1211,7 +1301,35 @@ const InboundOrders: React.FC = () => {
               </button>
             </div>
 
-            {renderStepper(selectedOrder.status)}
+            {(() => {
+              const isTransfer = detectInboundClassification(selectedOrder) === 'DIEU_CHUYEN';
+              return (
+                <>
+                  {renderStepper(selectedOrder.status, isTransfer)}
+
+                  {isTransfer && (
+                    <div style={{
+                      backgroundColor: '#fff7ed',
+                      border: '1px solid #fed7aa',
+                      borderRadius: '10px',
+                      padding: '12px 16px',
+                      marginBottom: '1rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      color: '#c2410c',
+                      fontSize: '0.84rem',
+                      fontWeight: 600
+                    }}>
+                      <PackageCheck size={20} color="#ea580c" style={{ flexShrink: 0 }} />
+                      <span>
+                        <b>Hàng điều chuyển liên kho (Cross-Docking):</b> Mặt hàng này phục vụ trực tiếp cho đơn hàng thương mại đang chờ tại kho. Sau khi tiếp nhận và kiểm tra quy cách đóng gói, hàng sẽ được chuyển thẳng về <b>Bàn Đóng Gói (Packing Station)</b> để xuất kho, bỏ qua khâu cất kệ lưu kho.
+                      </span>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             <div style={{ marginTop: '1.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -1317,7 +1435,27 @@ const InboundOrders: React.FC = () => {
                             {item.receivedQuantity || item.expectedQuantity}
                           </td>
                           <td style={{ padding: '12px 14px', fontWeight: 600, color: '#0f766e' }}>
-                            {selectedOrder.status === 'STORING' ? (
+                            {detectInboundClassification(selectedOrder) === 'DIEU_CHUYEN' ? (
+                              <div>
+                                <span style={{
+                                  padding: '4px 10px',
+                                  borderRadius: '6px',
+                                  background: '#eff6ff',
+                                  color: '#1d4ed8',
+                                  border: '1px solid #bfdbfe',
+                                  fontWeight: 700,
+                                  fontSize: '0.8rem',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}>
+                                  <PackageCheck size={13} /> Bàn Đóng Gói (Packing Station)
+                                </span>
+                                <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>
+                                  Khu vực hoàn thiện đơn hàng (Cross-Docking)
+                                </div>
+                              </div>
+                            ) : selectedOrder.status === 'STORING' ? (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                   <select
@@ -1515,76 +1653,227 @@ const InboundOrders: React.FC = () => {
               </div>
             </div>
 
-            {/* Stepper Action Buttons */}
-            <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem', borderTop: '2px solid #e2e8f0', paddingTop: '1.5rem' }}>
-              {selectedOrder.status === 'PENDING' && (
-                <button 
-                  style={{ padding: '12px 24px', backgroundColor: '#0f766e', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', width: '100%', justifyContent: 'center', boxShadow: '0 4px 10px rgba(15,118,110,0.25)' }} 
-                  onClick={() => advanceState(selectedOrder.id, 'receive')}
-                >
-                  <Download size={20} /> Bắt Đầu Tiếp Nhận Hàng Từ Nhà Cung Cấp
-                </button>
-              )}
+            {/* Stepper Action Buttons & Packaging QC */}
+            {(() => {
+              const isTransfer = detectInboundClassification(selectedOrder) === 'DIEU_CHUYEN';
+              return (
+                <>
+                  {isTransfer && selectedOrder.status !== 'COMPLETED' && selectedOrder.status !== 'STORED' && (
+                    <div style={{
+                      backgroundColor: '#f8fafc',
+                      border: '1.5px solid #cbd5e1',
+                      borderRadius: '12px',
+                      padding: '16px',
+                      marginTop: '1.5rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0f172a', fontWeight: 700, fontSize: '0.95rem' }}>
+                          <PackageCheck size={20} color="#0f766e" />
+                          <span>Kiểm Tra Quy Cách Đóng Gói Kiện Hàng Điều Chuyển</span>
+                        </div>
+                        <span style={{
+                          fontSize: '0.72rem',
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: '#fff7ed',
+                          color: '#c2410c',
+                          border: '1px solid #fed7aa',
+                          fontWeight: 700
+                        }}>
+                          Cross-Docking (Bỏ qua cất kệ lưu kho)
+                        </span>
+                      </div>
 
-              {selectedOrder.status === 'RECEIVING' && (
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                  <button 
-                    style={{ flex: 1, padding: '12px 20px', borderRadius: '10px', background: '#0f766e', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                    onClick={() => setShowScanner(true)}
-                  >
-                    <ScanBarcode size={20} /> Quét mã Barcode
-                  </button>
-                  <button 
-                    style={{ flex: 1, padding: '12px 20px', borderRadius: '10px', background: '#7c3aed', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                    onClick={() => advanceState(selectedOrder.id, 'quality-check')}
-                  >
-                    <ShieldCheck size={20} /> Xác nhận Đủ & Chuyển Kiểm Định (QC) <ArrowRight size={18} />
-                  </button>
-                </div>
-              )}
+                      <div style={{ fontSize: '0.82rem', color: '#475569' }}>
+                        Hàng điều chuyển sau khi tiếp nhận sẽ được chuyển thẳng về <b>Bộ phận Đóng gói</b> để gom đơn xuất đi. Vui lòng kiểm tra tình trạng thực tế kiện hàng:
+                      </div>
 
-              {selectedOrder.status === 'QUALITY_CHECK' && (
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                  <button 
-                    style={{ flex: 1, padding: '12px 24px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', boxShadow: '0 4px 10px rgba(5,150,105,0.25)' }} 
-                    onClick={() => advanceState(selectedOrder.id, 'store')}
-                  >
-                    <CheckCircle2 size={22} /> Kiểm Định Đạt Chuẩn (QC Passed) & Chuyển Lưu Kho
-                  </button>
-                </div>
-              )}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
+                        <label style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '10px',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          border: `1.5px solid ${packageCondition === 'PACKED_OK' ? '#0f766e' : '#e2e8f0'}`,
+                          backgroundColor: packageCondition === 'PACKED_OK' ? '#f0fdfa' : '#ffffff',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}>
+                          <input
+                            type="radio"
+                            name="pkgCondition"
+                            value="PACKED_OK"
+                            checked={packageCondition === 'PACKED_OK'}
+                            onChange={() => setPackageCondition('PACKED_OK')}
+                            style={{ marginTop: '3px' }}
+                          />
+                          <div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>
+                              Đã đóng gói đạt chuẩn (Nguyên kiện)
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                              Hàng đã bọc niêm phong / hộp xốp bảo quản từ kho gửi. Chuyển bàn đóng gói để đối soát & dán tem vận đơn tổng.
+                            </div>
+                          </div>
+                        </label>
 
-              {selectedOrder.status === 'STORING' && (
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                  <button 
-                    style={{ flex: 1, padding: '12px 20px', borderRadius: '10px', background: '#3b82f6', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                    onClick={() => setShowMapModal(selectedOrder.id)}
-                  >
-                    <Warehouse size={20} /> Mở Bản Đồ Kho 3D Xem Vị Trí Kệ
-                  </button>
-                  <button 
-                    style={{ flex: 1, padding: '12px 24px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', boxShadow: '0 4px 10px rgba(5,150,105,0.25)' }} 
-                    onClick={() => advanceState(selectedOrder.id, 'complete')}
-                  >
-                    <CheckCircle2 size={22} /> Hoàn Tất Lưu Kho (Hàng Sẵn Sàng Bán)
-                  </button>
-                </div>
-              )}
+                        <label style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '10px',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          border: `1.5px solid ${packageCondition === 'NEEDS_PACKING' ? '#0f766e' : '#e2e8f0'}`,
+                          backgroundColor: packageCondition === 'NEEDS_PACKING' ? '#f0fdfa' : '#ffffff',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}>
+                          <input
+                            type="radio"
+                            name="pkgCondition"
+                            value="NEEDS_PACKING"
+                            checked={packageCondition === 'NEEDS_PACKING'}
+                            onChange={() => setPackageCondition('NEEDS_PACKING')}
+                            style={{ marginTop: '3px' }}
+                          />
+                          <div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>
+                              Cần đóng gói lại / Gộp đơn (Hàng lẻ)
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                              Kiện hàng chưa bọc hoặc cần đóng thùng chung với các mặt hàng có sẵn tại kho đích.
+                            </div>
+                          </div>
+                        </label>
+                      </div>
 
-              {(selectedOrder.status === 'COMPLETED' || selectedOrder.status === 'STORED') && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: '#f0fdf4', padding: '12px 16px', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
-                  <p style={{ color: '#15803d', fontWeight: 600, margin: 0, fontSize: '0.9rem' }}>
-                    Đơn hàng đã nhập kho thành công và cập nhật tồn kho toàn hệ thống.
-                  </p>
-                  <button
-                    onClick={() => setReceiptOrder(selectedOrder)}
-                    style={{ padding: '8px 16px', background: '#0f766e', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-                  >
-                    <Printer size={16} /> In Phiếu Nhập Kho (Mẫu 01-VT)
-                  </button>
-                </div>
-              )}
-            </div>
+                      <div>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                          Ghi chú kiểm tra quy cách đóng gói (Tùy chọn):
+                        </label>
+                        <input
+                          type="text"
+                          value={packingNote}
+                          onChange={e => setPackingNote(e.target.value)}
+                          placeholder="Ví dụ: Thùng xốp nguyên tem niêm phong, giữ mát 4°C, cần gộp thêm 1 sp tại Gò Vấp..."
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            borderRadius: '6px',
+                            border: '1px solid #cbd5e1',
+                            fontSize: '0.82rem',
+                            color: '#0f172a',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem', borderTop: '2px solid #e2e8f0', paddingTop: '1.5rem' }}>
+                    {selectedOrder.status === 'PENDING' && (
+                      <button 
+                        style={{ padding: '12px 24px', backgroundColor: '#0f766e', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', width: '100%', justifyContent: 'center', boxShadow: '0 4px 10px rgba(15,118,110,0.25)' }} 
+                        onClick={() => advanceState(selectedOrder.id, 'receive')}
+                      >
+                        <Download size={20} /> {isTransfer ? 'Tiếp Nhận Hàng Điều Chuyển Tại Dock Nhập' : 'Bắt Đầu Tiếp Nhận Hàng Từ Nhà Cung Cấp'}
+                      </button>
+                    )}
+
+                    {selectedOrder.status === 'RECEIVING' && (
+                      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        <button 
+                          style={{ flex: 1, padding: '12px 20px', borderRadius: '10px', background: '#0f766e', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                          onClick={() => setShowScanner(true)}
+                        >
+                          <ScanBarcode size={20} /> Quét mã Barcode đối soát
+                        </button>
+                        <button 
+                          style={{ flex: 1, padding: '12px 20px', borderRadius: '10px', background: '#7c3aed', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                          onClick={() => advanceState(selectedOrder.id, 'quality-check')}
+                        >
+                          <ShieldCheck size={20} /> {isTransfer ? 'Xác Nhận Đủ & Chuyển Kiểm Tra Đóng Gói' : 'Xác nhận Đủ & Chuyển Kiểm Định (QC)'} <ArrowRight size={18} />
+                        </button>
+                      </div>
+                    )}
+
+                    {selectedOrder.status === 'QUALITY_CHECK' && (
+                      isTransfer ? (
+                        <button 
+                          style={{ padding: '14px 24px', backgroundColor: '#0f766e', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', width: '100%', justifyContent: 'center', boxShadow: '0 4px 12px rgba(15,118,110,0.25)' }} 
+                          onClick={() => advanceState(selectedOrder.id, 'transfer-packing', { packageCondition, packingNote })}
+                        >
+                          <PackageCheck size={22} /> Xác Nhận & Chuyển Về Bàn Đóng Gói (Packing Station)
+                        </button>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                          <button 
+                            style={{ flex: 1, padding: '12px 24px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', boxShadow: '0 4px 10px rgba(5,150,105,0.25)' }} 
+                            onClick={() => advanceState(selectedOrder.id, 'store')}
+                          >
+                            <CheckCircle2 size={22} /> Kiểm Định Đạt Chuẩn (QC Passed) & Chuyển Lưu Kho
+                          </button>
+                        </div>
+                      )
+                    )}
+
+                    {selectedOrder.status === 'STORING' && (
+                      isTransfer ? (
+                        <button 
+                          style={{ padding: '14px 24px', backgroundColor: '#0f766e', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', width: '100%', justifyContent: 'center', boxShadow: '0 4px 12px rgba(15,118,110,0.25)' }} 
+                          onClick={() => advanceState(selectedOrder.id, 'transfer-packing', { packageCondition, packingNote })}
+                        >
+                          <PackageCheck size={22} /> Hoàn Tất Chuyển Bàn Đóng Gói (Không Cần Cất Kệ)
+                        </button>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                          <button 
+                            style={{ flex: 1, padding: '12px 20px', borderRadius: '10px', background: '#3b82f6', color: '#fff', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                            onClick={() => setShowMapModal(selectedOrder.id)}
+                          >
+                            <Warehouse size={20} /> Mở Bản Đồ Kho 3D Xem Vị Trí Kệ
+                          </button>
+                          <button 
+                            style={{ flex: 1, padding: '12px 24px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', boxShadow: '0 4px 10px rgba(5,150,105,0.25)' }} 
+                            onClick={() => advanceState(selectedOrder.id, 'complete')}
+                          >
+                            <CheckCircle2 size={22} /> Hoàn Tất Lưu Kho (Hàng Sẵn Sàng Bán)
+                          </button>
+                        </div>
+                      )
+                    )}
+
+                    {(selectedOrder.status === 'COMPLETED' || selectedOrder.status === 'STORED') && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: '#f0fdf4', padding: '14px 18px', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
+                        <div>
+                          <p style={{ color: '#15803d', fontWeight: 700, margin: 0, fontSize: '0.92rem' }}>
+                            {isTransfer 
+                              ? 'Đơn hàng điều chuyển đã hoàn tất tiếp nhận và được chuyển về Bàn Đóng Gói.'
+                              : 'Đơn hàng đã nhập kho thành công và cập nhật tồn kho toàn hệ thống.'}
+                          </p>
+                          {isTransfer && selectedOrder.packageCondition && (
+                            <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: '#166534' }}>
+                              Tình trạng: <b>{selectedOrder.packageCondition === 'PACKED_OK' ? 'Đã đóng gói đạt chuẩn' : 'Cần gộp đơn đóng gói lại'}</b>
+                              {selectedOrder.packingNote ? ` — ${selectedOrder.packingNote}` : ''}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => setReceiptOrder(selectedOrder)}
+                          style={{ padding: '8px 16px', background: '#0f766e', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                        >
+                          <Printer size={16} /> In Phiếu Nhập Kho (Mẫu 01-VT)
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
