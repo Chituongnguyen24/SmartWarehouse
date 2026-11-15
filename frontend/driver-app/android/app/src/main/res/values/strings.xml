@@ -3,4 +3,24 @@
   <string name="androidx_startup" translatable="false">androidx.startup</string>
   <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
   <string name="expo_splash_screen_status_bar_translucent" translatable="false">false</string>
+  <string name="catalyst_loading_from_url">Loading from %1$s…</string>
+  <string name="catalyst_change_bundle_location">Change Bundle Location</string>
+  <string name="catalyst_debug">Debug</string>
+  <string name="catalyst_debug_open">Open Debugger</string>
+  <string name="catalyst_dev_menu">Dev Menu</string>
+  <string name="catalyst_heap_capture">Capture Heap</string>
+  <string name="catalyst_hot_reloading">Hot Reloading</string>
+  <string name="catalyst_hot_reloading_auto_disable">Auto Disable Hot Reloading</string>
+  <string name="catalyst_hot_reloading_auto_enable">Auto Enable Hot Reloading</string>
+  <string name="catalyst_hot_reloading_stop">Stop Hot Reloading</string>
+  <string name="catalyst_jsload_error">Unable to download JS bundle</string>
+  <string name="catalyst_jsload_message">Fetching JS bundle</string>
+  <string name="catalyst_jsload_title">Loading…</string>
+  <string name="catalyst_open_debugger_error">Unable to open debugger</string>
+  <string name="catalyst_reload">Reload</string>
+  <string name="catalyst_reload_button">Reload JS</string>
+  <string name="catalyst_reload_error">Unable to reload JS</string>
+  <string name="catalyst_sample_profiler_toggle">Toggle Sample Profiler</string>
+  <string name="catalyst_settings">Settings</string>
+  <string name="catalyst_settings_title">React Native Dev Settings</string>
 </resources>
