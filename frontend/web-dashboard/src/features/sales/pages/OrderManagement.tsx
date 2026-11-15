@@ -188,6 +188,7 @@ export const GOVAP_DRIVERS = [
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode; border: string }> = {
   PENDING: { label: 'Chờ xử lý', color: '#b45309', bg: '#fef3c7', icon: <Clock size={14} />, border: '#fde68a' },
+  WAITING_TRANSFER: { label: 'Chờ nhập điều chuyển', color: '#c2410c', bg: '#fff7ed', icon: <Clock size={14} />, border: '#fed7aa' },
   PROCESSING: { label: 'Đã duyệt', color: '#1d4ed8', bg: '#dbeafe', icon: <CheckCircle size={14} />, border: '#bfdbfe' },
   PICKING: { label: 'Đang gom hàng', color: '#6d28d9', bg: '#ede9fe', icon: <Package size={14} />, border: '#ddd6fe' },
   PACKING: { label: 'Đang đóng gói', color: '#0f766e', bg: '#ccfbf1', icon: <Package size={14} />, border: '#99f6e4' },
@@ -584,7 +585,7 @@ const OrderManagement: React.FC = () => {
       let matchStatus = true;
       if (statusFilter !== 'ALL') {
         if (statusFilter === 'IN_PROGRESS') {
-          matchStatus = ['PROCESSING', 'PICKING', 'PACKING', 'PACKED', 'CONFIRMED', 'READY_FOR_DELIVERY'].includes(o.status);
+          matchStatus = ['PROCESSING', 'PICKING', 'PACKING', 'PACKED', 'CONFIRMED', 'READY_FOR_DELIVERY', 'WAITING_TRANSFER'].includes(o.status);
         } else if (statusFilter === 'PACKED') {
           matchStatus = ['PACKED', 'CONFIRMED', 'READY_FOR_DELIVERY'].includes(o.status);
         } else {
@@ -821,6 +822,7 @@ const OrderManagement: React.FC = () => {
             {[
               { key: 'ALL', label: 'Tất cả' },
               { key: 'PENDING', label: 'Chờ xử lý' },
+              { key: 'WAITING_TRANSFER', label: 'Chờ điều chuyển' },
               { key: 'IN_PROGRESS', label: 'Đang xử lý' },
               { key: 'PACKED', label: 'Đã đóng gói' },
               { key: 'DELIVERING', label: 'Đang giao' },

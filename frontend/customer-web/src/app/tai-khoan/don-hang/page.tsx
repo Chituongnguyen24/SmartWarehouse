@@ -211,7 +211,7 @@ export default function OrderHistoryPage() {
   const getStatusGroup = (status: string) => {
     const s = (status || "").toUpperCase();
     if (s === "PENDING" || s === "ORDERED" || s === "CONFIRMED") return "pending";
-    if (s === "PICKING" || s === "PACKING" || s === "PACKED") return "processing";
+    if (s === "WAITING_TRANSFER" || s === "PICKING" || s === "PACKING" || s === "PACKED") return "processing";
     if (s === "DELIVERING" || s === "SHIPPED") return "delivering";
     if (s === "COMPLETED" || s === "DELIVERED") return "completed";
     if (s === "CANCELLED") return "cancelled";
@@ -237,6 +237,13 @@ export default function OrderHistoryPage() {
           bg: "bg-blue-50 border-blue-200 text-blue-700 animate-pulse",
           icon: Truck,
           color: "#0284c7"
+        };
+      case "WAITING_TRANSFER":
+        return {
+          label: "Chờ điều chuyển liên kho",
+          bg: "bg-orange-50 border-orange-200 text-orange-700",
+          icon: Clock,
+          color: "#c2410c"
         };
       case "PICKING":
       case "PACKING":
@@ -790,9 +797,13 @@ export default function OrderHistoryPage() {
                         {["processing", "delivering", "completed"].includes(getStatusGroup(selectedOrder.status)) ? "✓" : "2"}
                       </div>
                       <div>
-                        <div className="text-xs font-extrabold text-slate-900">2. Kho tiếp nhận & Soạn hàng (FEFO)</div>
+                        <div className="text-xs font-extrabold text-slate-900">
+                          {selectedOrder.status === 'WAITING_TRANSFER' ? '2. Chờ điều chuyển liên kho' : '2. Kho tiếp nhận & Soạn hàng (FEFO)'}
+                        </div>
                         <div className="text-[11px] text-slate-500">
-                          {selectedOrder.assignedWarehouseName || "Kho Hàng Gò Vấp"} đang kiểm duyệt date và đóng thùng
+                          {selectedOrder.status === 'WAITING_TRANSFER'
+                            ? 'Đang vận chuyển bổ sung mặt hàng từ kho vệ tinh về kho xử lý'
+                            : `${selectedOrder.assignedWarehouseName || "Kho Hàng Gò Vấp"} đang kiểm duyệt date và đóng thùng`}
                         </div>
                       </div>
                     </div>
@@ -1031,7 +1042,7 @@ export default function OrderHistoryPage() {
             {/* Modal Body */}
             <div className="p-6 space-y-4">
               {/* Alert if order is in processing/picking/packing */}
-              {['PROCESSING', 'PICKING', 'PACKING', 'PACKED', 'CONFIRMED', 'READY_FOR_DELIVERY'].includes(cancellingOrder.status?.toUpperCase()) && (
+              {['PROCESSING', 'PICKING', 'PACKING', 'PACKED', 'CONFIRMED', 'READY_FOR_DELIVERY', 'WAITING_TRANSFER'].includes(cancellingOrder.status?.toUpperCase()) && (
                 <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 leading-relaxed flex items-start gap-2.5">
                   <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
                   <div>

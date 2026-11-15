@@ -22,7 +22,7 @@ export const OutboundShipping: React.FC = () => {
   const [orders, setOrders] = useState<ApiOutboundOrder[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'PICKING' | 'PACKED' | 'CONFIRMED'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'WAITING_TRANSFER' | 'PICKING' | 'PACKED' | 'CONFIRMED'>('ALL');
   const navigate = useNavigate();
   const { lastEvent, isLockedByOther } = useWebSocketContext();
   const { user } = useAuth();
@@ -72,6 +72,8 @@ export const OutboundShipping: React.FC = () => {
         return { label: 'Chờ Đóng Gói', bg: '#f3e8ff', color: '#9333ea', border: '#d8b4fe' };
       case 'PICKING':
         return { label: 'Đang Lấy Hàng', bg: '#e0f2fe', color: '#0284c7', border: '#7dd3fc' };
+      case 'WAITING_TRANSFER':
+        return { label: 'Chờ Nhập Điều Chuyển', bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' };
       case 'PENDING':
       default:
         return { label: 'Chờ Gom Hàng', bg: '#fef3c7', color: '#b45309', border: '#fcd34d' };
@@ -147,6 +149,7 @@ export const OutboundShipping: React.FC = () => {
           {[
             { key: 'ALL', label: 'Tất cả' },
             { key: 'PENDING', label: 'Chờ gom hàng' },
+            { key: 'WAITING_TRANSFER', label: 'Chờ điều chuyển' },
             { key: 'PICKING', label: 'Đang gom hàng' },
             { key: 'PACKED', label: 'Chờ đóng gói' },
             { key: 'CONFIRMED', label: 'Đã xuất kho' },
@@ -285,6 +288,28 @@ export const OutboundShipping: React.FC = () => {
                       >
                         <Lock size={15} color="#d97706" />
                         <span>Đang được thao tác bởi <b>{lockInfo.userName || (lockInfo as any).lockedByName}</b> ({(lockInfo.role || (lockInfo as any).lockedByRole) === 'WAREHOUSE_STAFF' ? 'Nhân viên Mobile' : 'Quản lý Web'})</span>
+                      </div>
+                    );
+                  }
+
+                  if (order.status === 'WAITING_TRANSFER') {
+                    return (
+                      <div
+                        style={{
+                          backgroundColor: '#fff7ed',
+                          border: '1px solid #fed7aa',
+                          borderRadius: '12px',
+                          padding: '10px 12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          color: '#c2410c',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                        }}
+                      >
+                        <Clock size={16} color="#c2410c" />
+                        <span>Chờ xe chuyển hàng từ kho khác về Dock nhập</span>
                       </div>
                     );
                   }

@@ -18,6 +18,13 @@ export const OrderStatusBadge: React.FC<OrderStatusBadgeProps> = ({ status }) =>
           bg: '#FFF3E0',
           icon: <Clock size={12} color={COLORS.statusPending} />,
         };
+      case 'WAITING_TRANSFER':
+        return {
+          label: 'Chờ điều chuyển liên kho',
+          color: '#c2410c',
+          bg: '#fff7ed',
+          icon: <Clock size={12} color="#c2410c" />,
+        };
       case 'PICKING':
         return {
           label: 'Đang soạn hàng (FEFO)',

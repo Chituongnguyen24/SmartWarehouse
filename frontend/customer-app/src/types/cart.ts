@@ -31,7 +31,7 @@ export interface Address {
 
 export type PaymentMethod = 'COD' | 'MOMO' | 'ZALOPAY' | 'VNPAY' | 'BANK';
 
-export type OrderStatus = 'PENDING' | 'PICKING' | 'PACKED' | 'SHIPPED' | 'CONFIRMED' | 'CANCELLED';
+export type OrderStatus = 'PENDING' | 'WAITING_TRANSFER' | 'PICKING' | 'PACKED' | 'SHIPPED' | 'CONFIRMED' | 'CANCELLED';
 
 export interface Order {
   id: string;

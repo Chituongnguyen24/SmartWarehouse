@@ -34,6 +34,12 @@ export const B2BOrderDetailModal: React.FC<B2BOrderDetailModalProps> = ({ order,
             <PackageCheck size={13} /> Đã Đóng Gói (Chờ Xuất)
           </span>
         );
+      case 'WAITING_TRANSFER':
+        return (
+          <span style={{ padding: '3px 10px', borderRadius: 4, fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <Clock size={13} /> Chờ Nhập Điều Chuyển
+          </span>
+        );
       case 'PICKING':
         return (
           <span style={{ padding: '3px 10px', borderRadius: 4, fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#fffbeb', color: '#92400e', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: 4 }}>

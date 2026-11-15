@@ -1385,7 +1385,7 @@ export default function OrderDispatch() {
   }, [orders, activeWh]);
 
   // Pipeline Counts based on scoped orders
-  const step1Count = useMemo(() => whScopedOrders.filter(o => o.status === 'PENDING' || o.status === 'PROCESSING' || o.status === 'PICKING' || o.status === 'PACKING' || o.status === 'PICKED').length, [whScopedOrders]);
+  const step1Count = useMemo(() => whScopedOrders.filter(o => o.status === 'PENDING' || o.status === 'WAITING_TRANSFER' || o.status === 'PROCESSING' || o.status === 'PICKING' || o.status === 'PACKING' || o.status === 'PICKED').length, [whScopedOrders]);
   const step2Count = useMemo(() => whScopedOrders.filter(o => o.status === 'PACKED' || o.status === 'READY_FOR_DELIVERY' || o.status === 'CONFIRMED').length, [whScopedOrders]);
   const step3Count = useMemo(() => whScopedOrders.filter(o => o.status === 'DELIVERING' || o.status === 'SHIPPED').length, [whScopedOrders]);
   const stepExceptionCount = useMemo(() => whScopedOrders.filter(o => o.status === 'FAILED_DELIVERY' || o.status === 'RETURN_TO_WAREHOUSE').length, [whScopedOrders]);
@@ -1413,7 +1413,7 @@ export default function OrderDispatch() {
       }
 
       if (activePipelineStep === 'STEP_1_PICKING') {
-        return o.status === 'PENDING' || o.status === 'PROCESSING' || o.status === 'PICKING' || o.status === 'PACKING' || o.status === 'PICKED';
+        return o.status === 'PENDING' || o.status === 'WAITING_TRANSFER' || o.status === 'PROCESSING' || o.status === 'PICKING' || o.status === 'PACKING' || o.status === 'PICKED';
       }
       if (activePipelineStep === 'STEP_2_DISPATCH') {
         return o.status === 'PACKED' || o.status === 'READY_FOR_DELIVERY' || o.status === 'CONFIRMED';
@@ -1437,6 +1437,7 @@ export default function OrderDispatch() {
 
       const priority: Record<string, number> = {
         PENDING: 1,
+        WAITING_TRANSFER: 1.5,
         PROCESSING: 2,
         PICKING: 3,
         PACKING: 3.5,
@@ -3327,6 +3328,25 @@ export default function OrderDispatch() {
                   {STATUS_CONFIG[selectedOrder.status]?.label || selectedOrder.status}
                 </span>
               </div>
+
+              {selectedOrder.status === 'WAITING_TRANSFER' && (
+                <div style={{
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  backgroundColor: '#fff7ed',
+                  border: '1px solid #fed7aa',
+                  color: '#c2410c',
+                  fontSize: '11.5px',
+                  fontWeight: 600,
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <RotateCcw size={14} color="#ea580c" style={{ flexShrink: 0 }} />
+                  <span>Đơn hàng đang chờ nhập hàng điều chuyển từ chi nhánh khác về kho Gò Vấp. Khi thủ kho tiếp nhận đủ hàng tại Inbound, hệ thống sẽ tự động chuyển sang đóng gói.</span>
+                </div>
+              )}
 
               {/* Destination Address Card */}
               <div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: '16px', fontSize: '12px' }}>

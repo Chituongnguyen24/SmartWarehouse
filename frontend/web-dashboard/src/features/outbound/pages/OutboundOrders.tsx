@@ -652,7 +652,7 @@ const OutboundOrders: React.FC = () => {
       (status === 'SHIPPED' || status === 'DELIVERING' || status === 'READY_FOR_DELIVERY') ? 'CONFIRMED' :
       (status === 'COMPLETED') ? 'DELIVERED' :
       (status === 'PACKING') ? 'PACKED' :
-      (status === 'PROCESSING') ? 'PENDING' : status;
+      (status === 'PROCESSING' || status === 'WAITING_TRANSFER') ? 'PENDING' : status;
     const currentIndex = STEPS.findIndex(s => s.key === uiStatus);
     
     return (
@@ -872,6 +872,7 @@ const OutboundOrders: React.FC = () => {
             {[
               { key: 'ALL', label: 'Tất cả trạng thái' },
               { key: 'PENDING', label: 'Tạo yêu cầu' },
+              { key: 'WAITING_TRANSFER', label: 'Chờ nhập điều chuyển' },
               { key: 'PICKING', label: 'Soạn hàng' },
               { key: 'PACKED', label: 'Đã đóng gói' },
               { key: 'READY_FOR_DELIVERY', label: 'Chờ giao hàng' },
@@ -1207,6 +1208,17 @@ const OutboundOrders: React.FC = () => {
                   <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
                     Chi tiết phiếu xuất: {selectedOrder.orderCode}
                   </h3>
+                  <span style={{
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    background: (STATUS_CONFIG[selectedOrder.status] || STATUS_CONFIG.PENDING).bg,
+                    color: (STATUS_CONFIG[selectedOrder.status] || STATUS_CONFIG.PENDING).color,
+                    border: `1px solid ${(STATUS_CONFIG[selectedOrder.status] || STATUS_CONFIG.PENDING).border}`,
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                  }}>
+                    {(STATUS_CONFIG[selectedOrder.status] || STATUS_CONFIG.PENDING).label}
+                  </span>
                   <button
                     onClick={() => setReceiptOrder(selectedOrder)}
                     style={{
@@ -1377,6 +1389,27 @@ const OutboundOrders: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {selectedOrder.status === 'WAITING_TRANSFER' && (
+              <div style={{
+                backgroundColor: '#fff7ed',
+                border: '1px solid #fed7aa',
+                borderRadius: '8px',
+                padding: '11px 16px',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                color: '#c2410c',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+              }}>
+                <RotateCcw size={16} color="#ea580c" style={{ flexShrink: 0 }} />
+                <span>
+                  Đơn hàng đang ở trạng thái <b>Chờ nhập điều chuyển</b> từ chi nhánh khác về kho Gò Vấp. Khi thủ kho hoàn tất tiếp nhận phiếu nhập TRF-IMP, hệ thống sẽ tự động chuyển đơn sang khâu đóng gói.
+                </span>
+              </div>
+            )}
 
             {renderStepper(selectedOrder.status)}
 

@@ -35,7 +35,7 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ onNavigateToShop }) 
   };
 
   const filteredOrders = ordersList.filter(o => {
-    if (activeTab === 'PROCESSING') return o.status === 'PENDING' || o.status === 'PICKING' || o.status === 'PACKED' || o.status === 'SHIPPED';
+    if (activeTab === 'PROCESSING') return o.status === 'PENDING' || o.status === 'WAITING_TRANSFER' || o.status === 'PICKING' || o.status === 'PACKED' || o.status === 'SHIPPED';
     if (activeTab === 'COMPLETED') return o.status === 'CONFIRMED' || o.status === 'CANCELLED';
     return true;
   });

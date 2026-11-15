@@ -55,7 +55,7 @@ export interface DispatchOrder {
   deliverySlotText: string;
   paymentMethod: string;
   totalAmount: number;
-  status: 'PENDING' | 'PICKING' | 'PACKED' | 'READY_FOR_DELIVERY' | 'SHIPPED' | 'CONFIRMED';
+  status: 'PENDING' | 'WAITING_TRANSFER' | 'PICKING' | 'PACKED' | 'READY_FOR_DELIVERY' | 'SHIPPED' | 'CONFIRMED';
   createdAt: string;
   items: DispatchOrderItem[];
   assignedDriverId?: string;
@@ -149,7 +149,7 @@ export const WarehouseDispatch = () => {
   };
 
   // Stats calculation
-  const pendingCount = orders.filter(o => o.status === 'PENDING').length;
+  const pendingCount = orders.filter(o => o.status === 'PENDING' || o.status === 'WAITING_TRANSFER').length;
   const pickingCount = orders.filter(o => o.status === 'PICKING').length;
   const packedCount = orders.filter(o => o.status === 'PACKED' || o.status === 'READY_FOR_DELIVERY').length;
   const shippedCount = orders.filter(o => o.status === 'SHIPPED').length;
@@ -160,7 +160,7 @@ export const WarehouseDispatch = () => {
     const matchesSearch = o.orderCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           o.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           o.customerPhone.includes(searchQuery);
-    if (activeTab === 'RECEIVE_PICK') return matchesSearch && (o.status === 'PENDING' || o.status === 'PICKING');
+    if (activeTab === 'RECEIVE_PICK') return matchesSearch && (o.status === 'PENDING' || o.status === 'PICKING' || o.status === 'WAITING_TRANSFER');
     if (activeTab === 'PACKING_QC') return matchesSearch && (o.status === 'PICKING' || o.status === 'PACKED');
     if (activeTab === 'DISPATCH') return matchesSearch && (o.status === 'PACKED' || o.status === 'READY_FOR_DELIVERY' || o.status === 'SHIPPED');
     return matchesSearch;
@@ -520,6 +520,12 @@ export const WarehouseDispatch = () => {
                     <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Layers size={18} color="#008848" /> Danh Sách Mặt Hàng & Gợi Ý Lô Hàng Ưu Tiên
                     </h3>
+
+                    {selectedOrder.status === 'WAITING_TRANSFER' && (
+                      <div style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: '#fff7ed', border: '1px solid #fed7aa', color: '#c2410c', fontSize: '0.8rem', fontWeight: 600 }}>
+                        Đơn hàng đang chờ nhập hàng điều chuyển từ chi nhánh khác về dock nhập.
+                      </div>
+                    )}
 
                     {selectedOrder.status === 'PENDING' && (
                       <button
@@ -892,6 +898,8 @@ const renderStatusBadge = (status: string) => {
   switch (status) {
     case 'PENDING':
       return <span style={{ backgroundColor: '#DBEAFE', color: '#1E40AF', padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 800 }}>Chờ tiếp nhận</span>;
+    case 'WAITING_TRANSFER':
+      return <span style={{ backgroundColor: '#FFF7ED', color: '#C2410C', border: '1px solid #FED7AA', padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 700 }}>Chờ nhập điều chuyển</span>;
     case 'PICKING':
       return <span style={{ backgroundColor: '#FFEDD5', color: '#C2410C', padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 800 }}>Đang soạn hàng</span>;
     case 'PACKED':

@@ -48,9 +48,14 @@ const CustomerOrders: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'PENDING': return '#f59e0b';
+      case 'WAITING_TRANSFER': return '#c2410c';
+      case 'PROCESSING': return '#0284c7';
       case 'PICKING': return '#3b82f6';
+      case 'PACKING': return '#0f766e';
       case 'PACKED': return '#8b5cf6';
-      case 'CONFIRMED': return '#10b981';
+      case 'CONFIRMED':
+      case 'DELIVERING': return '#0284c7';
+      case 'COMPLETED': return '#10b981';
       case 'CANCELLED': return '#ef4444';
       default: return '#64748b';
     }
@@ -59,9 +64,14 @@ const CustomerOrders: React.FC = () => {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'PENDING': return 'Đang xử lý';
+      case 'WAITING_TRANSFER': return 'Chờ nhập điều chuyển';
+      case 'PROCESSING': return 'Đã tiếp nhận';
       case 'PICKING': return 'Đang soạn hàng';
+      case 'PACKING': return 'Đang đóng gói';
       case 'PACKED': return 'Đã đóng gói';
-      case 'CONFIRMED': return 'Đang giao hàng';
+      case 'CONFIRMED': return 'Đã xuất kho';
+      case 'DELIVERING': return 'Đang giao hàng';
+      case 'COMPLETED': return 'Giao thành công';
       case 'CANCELLED': return 'Đã hủy';
       default: return status;
     }
