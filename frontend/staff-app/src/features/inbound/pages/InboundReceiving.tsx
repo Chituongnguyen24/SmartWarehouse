@@ -3,6 +3,7 @@ import {
   Download,
   ScanBarcode,
   CheckCircle2,
+  PackageCheck,
   AlertTriangle,
   Building,
   Thermometer,
@@ -27,6 +28,25 @@ import { CameraScannerModal } from '@/shared';
 import { fetchInboundOrdersApi, updateInboundStatusApi, locateShelfIotApi, chirpShelfIotApi } from '@/shared';
 import { useStaffWebSocket } from '@/features/dashboard';
 import { useAuth } from '@/features/auth';
+
+export const isTransferInbound = (orderCode?: string, supplierName?: string): boolean => {
+  const code = (orderCode || '').toUpperCase().trim();
+  if (
+    code.startsWith('TRF') ||
+    code.includes('TRF-') ||
+    code.includes('TRF_') ||
+    code.startsWith('DC-') ||
+    code.startsWith('CK-') ||
+    code.includes('TRANSFER')
+  ) {
+    return true;
+  }
+  const sup = (supplierName || '').toLowerCase();
+  if (sup.includes('kho tổng') || sup.includes('kho chi nhánh') || sup.includes('wh-') || sup.includes('trung chuyển')) {
+    return true;
+  }
+  return false;
+};
 
 export interface EnrichedInbound extends InboundReceipt {
   riskLevel: 'NORMAL' | 'RISK' | 'CRITICAL';

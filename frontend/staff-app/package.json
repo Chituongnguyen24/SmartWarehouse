@@ -1,6 +1,7 @@
 {
   "name": "citymart-staff-app",
   "version": "1.0.0",
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "start": "expo start --offline --port 8083",
