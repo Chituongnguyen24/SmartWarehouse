@@ -409,8 +409,10 @@ export const PackingStation: React.FC = () => {
     try {
       // Officially update status to PACKED in backend DB and broadcast to Web
       if (selectedOrder.id) {
-        await confirmPickingApi(selectedOrder.id).catch(() => {});
         await updateOutboundStatus(selectedOrder.id, 'PACKED').catch(() => {});
+        if (selectedOrder.orderCode && selectedOrder.orderCode !== selectedOrder.id) {
+          await updateOutboundStatus(selectedOrder.orderCode, 'PACKED').catch(() => {});
+        }
         await unlockOrder(selectedOrder.id, user?.id || 'usr-staff').catch(() => {});
         localStorage.setItem(`citymart_order_packed_${selectedOrder.id}`, 'true');
         if (selectedOrder.orderCode) {

@@ -301,16 +301,34 @@ const OrderManagement: React.FC = () => {
     });
 
     socket.on('order_status_updated', (updatedOrder: any) => {
+      if (!updatedOrder) return;
+      const targetId = (updatedOrder.id || '').toLowerCase().replace(/^ecomm-/, '').replace(/^out-/, '').replace(/^ob-/, '');
+      const targetCode = (updatedOrder.orderCode || '').toLowerCase().replace(/^ecomm-/, '').replace(/^out-/, '').replace(/^ob-/, '');
+
       setOrders(prevOrders => {
-        const clean = (updatedOrder.id || '').toLowerCase().replace(/^ecomm-/, '').replace(/^out-/, '').replace(/^ob-/, '');
-        const existingIdx = prevOrders.findIndex(o => o.id.toLowerCase() === clean || o.id.toLowerCase().startsWith(clean.slice(0, 8)));
+        const existingIdx = prevOrders.findIndex(o => {
+          const oId = (o.id || '').toLowerCase();
+          const cleanOId = oId.replace(/^ecomm-/, '').replace(/^out-/, '').replace(/^ob-/, '');
+          return (
+            (targetId && (oId === targetId || cleanOId === targetId || (targetId.length >= 8 && oId.startsWith(targetId.slice(0, 8))))) ||
+            (targetCode && (oId === targetCode || cleanOId === targetCode || (targetCode.length >= 8 && oId.startsWith(targetCode.slice(0, 8)))))
+          );
+        });
+
         if (existingIdx >= 0) {
           const next = [...prevOrders];
-          next[existingIdx] = { ...next[existingIdx], ...updatedOrder, status: updatedOrder.status };
+          next[existingIdx] = { 
+            ...next[existingIdx], 
+            ...updatedOrder, 
+            id: next[existingIdx].id, // Bảo toàn CustomerOrder ID
+            status: updatedOrder.status || next[existingIdx].status 
+          };
           return next;
         }
         return prevOrders;
       });
+
+      fetchOrders(false);
     });
 
     socket.on('order_cancelled', (data: any) => {

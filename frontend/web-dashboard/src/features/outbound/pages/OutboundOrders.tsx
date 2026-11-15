@@ -338,6 +338,27 @@ const OutboundOrders: React.FC = () => {
 
     const onRealtimeEvent = (payload?: any) => {
       console.log('[WEB OUTBOUND WS] Live event received, refreshing data immediately:', payload);
+      if (payload && (payload.id || payload.orderId || payload.orderCode) && payload.status) {
+        const pId = payload.id || payload.orderId;
+        const pCode = payload.orderCode;
+        const pStatus = payload.status;
+        setOrders(prev => prev.map(o => {
+          const isMatch = (pId && (o.id === pId || o.orderCode === pId)) ||
+                          (pCode && (o.orderCode === pCode || o.id === pCode));
+          if (isMatch) {
+            return {
+              ...o,
+              status: pStatus,
+              assignedDriverId: payload.assignedDriverId || o.assignedDriverId,
+              assignedDriverName: payload.assignedDriverName || o.assignedDriverName,
+              assignedDriverPhone: payload.assignedDriverPhone || o.assignedDriverPhone,
+              assignedDriverPlate: payload.assignedDriverPlate || o.assignedDriverPlate,
+              podPhotoUrl: payload.podPhotoUrl || o.podPhotoUrl,
+            };
+          }
+          return o;
+        }));
+      }
       fetchOrders(false);
     };
 
