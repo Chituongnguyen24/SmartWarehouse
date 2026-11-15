@@ -201,8 +201,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask, onOpenPOD 
   const nextTripBoxes = nextWaveTasks.reduce((sum, t) => sum + (t.packageCount || 1), 0);
   const nextTripItems = nextWaveTasks.reduce((sum, t) => sum + (t.items?.reduce((s, it) => s + (it.quantity || 1), 0) || 1), 0);
 
+  // Đơn hàng điều phối phân công cần ship đi trong chuyến hiện tại (chưa giao xong):
+  const tasksToShip = tasks.filter(t => t.status !== 'DELIVERED');
+  const displayShipOrdersCount = tasksToShip.length > 0 ? tasksToShip.length : tasks.length;
+  const displayShipBoxesCount = tasksToShip.length > 0
+    ? tasksToShip.reduce((sum, t) => sum + (t.packageCount || 1), 0)
+    : totalTripBoxes;
+  const displayShipItemsCount = tasksToShip.length > 0
+    ? tasksToShip.reduce((sum, t) => sum + (t.items?.reduce((s, it) => s + (it.quantity || 1), 0) || 1), 0)
+    : totalTripItems;
+  const displayShipWeightKg = Number((tasksToShip.length > 0
+    ? tasksToShip.reduce((sum, t) => {
+        const itCount = (t.items || []).reduce((qSum, i) => qSum + (i.quantity || 1), 0);
+        return sum + Math.max(1.5, itCount * 1.2);
+      }, 0)
+    : totalCurrentTripWeightKg
+  ).toFixed(1));
+
   // Group pending/in-transit orders that share the exact same location (e.g. 5 orders at Đa Phước)
-  const pendingOrActiveTasks = tasks.filter(t => t.status !== 'DELIVERED');
+  const pendingOrActiveTasks = tasksToShip;
   const clusterMap: Record<string, DeliveryTask[]> = {};
   pendingOrActiveTasks.forEach(t => {
     const rawDest = ((t as any).customerAddress || t.deliveryAddress || t.customerName || '').toLowerCase().trim();
@@ -304,7 +321,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask, onOpenPOD 
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={styles.waitingTitle}>ĐỢT PHÂN BỔ MỚI: CHUYẾN #{currentTripNumber}</Text>
                 <Text style={styles.waitingSub}>
-                  Đợt giao hàng: {tasks.length} đơn ({totalTripBoxes} thùng đóng gói • {totalTripItems} sản phẩm)
+                  Đợt giao hàng: {displayShipOrdersCount} đơn ({displayShipBoxesCount} thùng đóng gói • {displayShipItemsCount} sản phẩm)
                 </Text>
               </View>
             </View>
@@ -314,7 +331,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask, onOpenPOD 
                 Xuất phát: <Text style={{ fontWeight: 'bold', color: '#0f172a' }}>Kho Gò Vấp (WH-006)</Text>
               </Text>
               <Text style={styles.waitingSummaryText}>
-                Điểm dừng giao: <Text style={{ fontWeight: 'bold', color: '#0f172a' }}>{tasks.length} đơn hàng</Text> • Quy cách: <Text style={{ fontWeight: 'bold', color: '#059669' }}>{totalTripBoxes} Thùng đóng gói ({totalTripItems} món • {totalCurrentTripWeightKg} kg)</Text>
+                Điểm dừng giao: <Text style={{ fontWeight: 'bold', color: '#0f172a' }}>{displayShipOrdersCount} đơn hàng</Text> • Quy cách: <Text style={{ fontWeight: 'bold', color: '#059669' }}>{displayShipBoxesCount} Thùng đóng gói ({displayShipItemsCount} món • {displayShipWeightKg} kg)</Text>
               </Text>
             </View>
 
@@ -327,7 +344,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask, onOpenPOD 
             >
               <PackageCheck size={18} color="#fff" style={{ marginRight: 8 }} />
               <Text style={styles.acceptBatchBtnText}>
-                TIẾP NHẬN {tasks.length} ĐƠN HÀNG ({totalTripBoxes} KIỆN HÀNG)
+                TIẾP NHẬN {displayShipOrdersCount} ĐƠN HÀNG ({displayShipBoxesCount} KIỆN HÀNG)
               </Text>
             </TouchableOpacity>
           </View>
@@ -338,7 +355,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask, onOpenPOD 
           <View style={styles.corridorLeft}>
             <Route size={14} color="#0284c7" style={{ marginRight: 6 }} />
             <Text style={styles.corridorText} numberOfLines={1}>
-              Kho Gò Vấp • {tasks.length} Đơn hàng • Tổng {totalTripBoxes} Kiện ({totalTripItems} sản phẩm • {totalCurrentTripWeightKg} kg)
+              Kho Gò Vấp • {displayShipOrdersCount} Đơn hàng • Tổng {displayShipBoxesCount} Kiện ({displayShipItemsCount} sản phẩm • {displayShipWeightKg} kg)
             </Text>
           </View>
           <View style={styles.corridorActions}>
@@ -387,7 +404,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask, onOpenPOD 
           >
             <Layers size={13} color={waveMode === 'CURRENT_BATCH' ? '#0f766e' : '#64748b'} style={{ marginRight: 5 }} />
             <Text style={[styles.waveSegmentText, waveMode === 'CURRENT_BATCH' && styles.waveSegmentTextActive]}>
-              Chuyến #{currentTripNumber}: {tasks.length} Đơn ({totalTripBoxes} Kiện)
+              Chuyến #{currentTripNumber}: {displayShipOrdersCount} Đơn ({displayShipBoxesCount} Kiện)
             </Text>
           </TouchableOpacity>
 
@@ -404,14 +421,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask, onOpenPOD 
         </View>
 
         {/* ── 4. COMPACT LOADING / DEPARTURE ACTION BAR ── */}
-        {waveMode === 'CURRENT_BATCH' && assignedTasks.length > 0 && (
+        {waveMode === 'CURRENT_BATCH' && tasksToShip.length > 0 && (
           <View style={styles.loadingBanner}>
             <View style={{ flex: 1, marginRight: 8 }}>
               <Text style={styles.loadingBannerTitle}>
-                Kiểm đếm xe: {tasks.length} Đơn hàng ({totalTripBoxes} Kiện hàng)
+                Kiểm đếm xe: {displayShipOrdersCount} Đơn hàng ({displayShipBoxesCount} Kiện hàng)
               </Text>
               <Text style={styles.loadingBannerSub} numberOfLines={1}>
-                {assignedTasks.length} đơn chờ nhận • Tổng {totalTripItems} sản phẩm ({totalCurrentTripWeightKg} kg)
+                {assignedTasks.length > 0 ? `${assignedTasks.length} đơn chờ nhận • ` : ''}Tổng {displayShipItemsCount} sản phẩm ({displayShipWeightKg} kg)
               </Text>
             </View>
             {!isLoadedOnVehicle ? (

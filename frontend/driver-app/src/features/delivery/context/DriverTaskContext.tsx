@@ -270,8 +270,23 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (!o) return;
         const code = (o.orderCode || (isOb ? `OB-${(o.id || '').slice(0, 8).toUpperCase()}` : `ECOMM-${(o.id || '').slice(0, 8).toUpperCase()}`)).trim();
         const rawId = String(o.id || code).trim();
-        // Unique key: Preserve each individual order by its unique ID or orderCode
-        const primaryKey = String(o.id || code).toLowerCase().trim();
+        
+        // Canonical Key để chống trùng lặp x2 giữa order-service (:3004) và outbound-service (:3007)
+        let primaryKey = '';
+        if (o.notes) {
+          const matchId = String(o.notes).match(/\[(?:ORDER_)?ID:([^\]]+)\]/i);
+          if (matchId && matchId[1]) {
+            primaryKey = `ECOMM-${matchId[1].slice(0, 8).toUpperCase()}`;
+          }
+        }
+        if (!primaryKey) {
+          const cleanCode = code.toUpperCase().replace(/^ECOMM-/, '').replace(/^OB-/, '');
+          if (cleanCode.length >= 8) {
+            primaryKey = `ORD-${cleanCode.slice(0, 8)}`;
+          } else {
+            primaryKey = (code || rawId).toUpperCase().trim();
+          }
+        }
 
         const saved = savedDriverMap[rawId] || savedDriverMap[code] || savedDriverMap[rawId.slice(0, 8)];
         const rawCode = (code || '').toUpperCase();
@@ -324,7 +339,28 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           shippingLng: isDisposal ? 106.6200 : Number(o.shippingLng || o.longitude || 0),
         };
 
-        // Key by code and rawId
+        const existing = orderMap.get(primaryKey);
+        if (existing) {
+          // Merge thông tin: ưu tiên danh sách sản phẩm và xuất kho của outbound, nhưng giữ thông tin tài xế và trạng thái chuẩn
+          orderMap.set(primaryKey, {
+            ...existing,
+            ...orderObj,
+            id: isOb ? rawId : existing.id,
+            orderCode: existing.orderCode || code,
+            items: (existing.items && existing.items.length > 0) ? existing.items : (orderObj.items || []),
+            assignedDriverId: orderObj.assignedDriverId || existing.assignedDriverId,
+            assignedDriverName: orderObj.assignedDriverName || existing.assignedDriverName,
+            assignedDriverPhone: orderObj.assignedDriverPhone || existing.assignedDriverPhone,
+            assignedDriverPlate: orderObj.assignedDriverPlate || existing.assignedDriverPlate,
+            status: (orderObj.status === 'DELIVERED' || existing.status === 'DELIVERED')
+              ? 'DELIVERED'
+              : (orderObj.status === 'IN_TRANSIT' || existing.status === 'IN_TRANSIT')
+              ? 'IN_TRANSIT'
+              : (existing.status || orderObj.status),
+          });
+          return;
+        }
+
         orderMap.set(primaryKey, orderObj);
       };
 
@@ -512,7 +548,14 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           }
 
           const totalQty = orderItems.reduce((s: number, i: any) => s + (i.quantity || 1), 0);
-          const packingBoxes = calculatePackingBoxes(totalQty, o.packageCount || o.boxCount);
+          let boxCnt = o.packageCount || o.boxCount || o.boxes;
+          if (!boxCnt && (o.notes || o.note)) {
+            const boxMatch = String(o.notes || o.note).match(/(\d+)\s*(?:kiện|thùng|hộp|boxes?|cartons?)/i);
+            if (boxMatch && boxMatch[1]) {
+              boxCnt = parseInt(boxMatch[1], 10);
+            }
+          }
+          const packingBoxes = calculatePackingBoxes(totalQty, boxCnt);
 
           const curLoc = driverLocationRef.current || { lat: 10.8354, lng: 106.6668 };
           const liveNav = calculateLiveDistance(curLoc.lat, curLoc.lng, lat, lng);
@@ -571,7 +614,14 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           });
 
           const totalQty = orderItems.reduce((s: number, i: any) => s + (i.quantity || 1), 0);
-          const packingBoxes = calculatePackingBoxes(totalQty, o.packageCount || o.boxCount);
+          let boxCnt = o.packageCount || o.boxCount || o.boxes;
+          if (!boxCnt && (o.notes || o.note)) {
+            const boxMatch = String(o.notes || o.note).match(/(\d+)\s*(?:kiện|thùng|hộp|boxes?|cartons?)/i);
+            if (boxMatch && boxMatch[1]) {
+              boxCnt = parseInt(boxMatch[1], 10);
+            }
+          }
+          const packingBoxes = calculatePackingBoxes(totalQty, boxCnt);
 
           const curLoc = driverLocationRef.current || { lat: 10.8354, lng: 106.6668 };
           const liveNav = calculateLiveDistance(curLoc.lat, curLoc.lng, lat, lng);
