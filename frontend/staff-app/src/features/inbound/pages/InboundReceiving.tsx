@@ -488,67 +488,138 @@ export const InboundReceiving: React.FC = () => {
         </div>
       </div>
 
-      {/* QC & Putaway Flow Modal/Card */}
-      {selectedInbound && !isCompleted && (
+      {/* QC & Putaway Flow Fixed Overlay Modal */}
+      {selectedInbound && (
         <div
           style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '14px',
-            padding: '16px',
-            border: '1.5px solid #059669',
-            boxShadow: '0 4px 16px rgba(5, 150, 105, 0.1)',
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            zIndex: 9999,
             display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            backdropFilter: 'blur(3px)',
+          }}
+          onClick={() => {
+            if (!isSubmitting) {
+              setSelectedInbound(null);
+              setIsCompleted(false);
+              setModalStep('QC');
+            }
           }}
         >
-          {(() => {
-            const isTransfer = selectedInbound ? isTransferInbound(selectedInbound.orderCode, selectedInbound.supplierName) : false;
-            return (
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '12px',
+              maxWidth: '480px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '18px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+              border: '1px solid #e2e8f0',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {isCompleted ? (
+              /* Completion Banner Inside Modal */
+              <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px 0' }}>
+                <CheckCircle2 size={36} color="#166534" style={{ margin: '0 auto 4px' }} />
+                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#166534' }}>
+                  {isTransferInbound(selectedInbound.orderCode, selectedInbound.supplierName)
+                    ? 'Đã Hoàn Tất Tiếp Nhận & Chuyển Về Bàn Đóng Gói!'
+                    : 'Đã Hoàn Tất Kiểm Định & Cất Hàng Vào Kệ!'}
+                </h3>
+                <p style={{ margin: 0, fontSize: '12px', color: '#14532d' }}>
+                  {isTransferInbound(selectedInbound.orderCode, selectedInbound.supplierName) ? (
+                    <>Vị trí tập kết: <b>Bàn Đóng Gói (Cross-Docking)</b> • Tình trạng: <b>{packageCondition === 'PACKED_OK' ? 'Đã đóng gói chuẩn' : 'Cần đóng gói / gộp đơn'}</b></>
+                  ) : (
+                    <>Vị trí lưu trữ: <b>{suggestedShelf.display}</b> • Mã lô: <b>{lotCodeGenerated}</b></>
+                  )}
+                </p>
+                <p style={{ margin: '0 0 8px 0', fontSize: '11px', color: '#64748b' }}>
+                  {isTransferInbound(selectedInbound.orderCode, selectedInbound.supplierName)
+                    ? 'Hàng đã được chuyển giao cho bộ phận đóng gói để gộp đơn xuất cho khách hàng'
+                    : 'Chứng từ Phiếu Nhập Kho Mẫu 01-VT đã được lưu và đồng bộ lên hệ thống'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedInbound(null);
+                    setIsCompleted(false);
+                    setModalStep('QC');
+                  }}
+                  style={{
+                    backgroundColor: '#166534',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '10px 18px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    width: '100%',
+                    marginTop: '6px',
+                  }}
+                >
+                  Đóng & Tiếp Tục
+                </button>
+              </div>
+            ) : (
               <>
-                {/* Header & Step Indicator */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span
-                      style={{
-                        fontSize: '11px',
-                        backgroundColor: modalStep === 'QC' ? '#ecfdf5' : '#f1f5f9',
-                        color: modalStep === 'QC' ? '#059669' : '#64748b',
-                        padding: '3px 8px',
-                        borderRadius: '6px',
-                        fontWeight: 600,
-                        border: `1px solid ${modalStep === 'QC' ? '#a7f3d0' : '#e2e8f0'}`,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                      }}
-                    >
-                      {modalStep === 'PUTAWAY' || modalStep === 'COMPLETED' ? <Check size={12} color="#059669" /> : null}
-                      {isTransfer ? '1. Tiếp Nhận Tại Dock' : '1. Kiểm Định QC'}
-                    </span>
-                    <ChevronRight size={14} color="#94a3b8" />
-                    <span
-                      style={{
-                        fontSize: '11px',
-                        backgroundColor: (modalStep === 'PUTAWAY' || (isTransfer && modalStep === 'COMPLETED')) ? '#f0f9ff' : '#f8fafc',
-                        color: (modalStep === 'PUTAWAY' || (isTransfer && modalStep === 'COMPLETED')) ? '#0284c7' : '#94a3b8',
-                        padding: '3px 8px',
-                        borderRadius: '6px',
-                        fontWeight: 600,
-                        border: `1px solid ${(modalStep === 'PUTAWAY' || (isTransfer && modalStep === 'COMPLETED')) ? '#bae6fd' : '#e2e8f0'}`,
-                      }}
-                    >
-                      {isTransfer ? '2. Bàn Đóng Gói (Cross-Docking)' : '2. Cất Hàng Vào Kệ (Putaway)'}
-                    </span>
-                  </div>
+                {(() => {
+                  const isTransfer = selectedInbound ? isTransferInbound(selectedInbound.orderCode, selectedInbound.supplierName) : false;
+                  return (
+                    <>
+                      {/* Header & Step Indicator */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              backgroundColor: modalStep === 'QC' ? '#ecfdf5' : '#f1f5f9',
+                              color: modalStep === 'QC' ? '#059669' : '#64748b',
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              fontWeight: 600,
+                              border: `1px solid ${modalStep === 'QC' ? '#a7f3d0' : '#e2e8f0'}`,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            {modalStep === 'PUTAWAY' || modalStep === 'COMPLETED' ? <Check size={12} color="#059669" /> : null}
+                            {isTransfer ? '1. Tiếp Nhận Tại Dock' : '1. Kiểm Định QC'}
+                          </span>
+                          <ChevronRight size={14} color="#94a3b8" />
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              backgroundColor: (modalStep === 'PUTAWAY' || (isTransfer && modalStep === 'COMPLETED')) ? '#f0f9ff' : '#f8fafc',
+                              color: (modalStep === 'PUTAWAY' || (isTransfer && modalStep === 'COMPLETED')) ? '#0284c7' : '#94a3b8',
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              fontWeight: 600,
+                              border: `1px solid ${(modalStep === 'PUTAWAY' || (isTransfer && modalStep === 'COMPLETED')) ? '#bae6fd' : '#e2e8f0'}`,
+                            }}
+                          >
+                            {isTransfer ? '2. Bàn Đóng Gói (Cross-Docking)' : '2. Cất Hàng Vào Kệ (Putaway)'}
+                          </span>
+                        </div>
 
-                  <button
-                    onClick={() => setSelectedInbound(null)}
-                    style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
+                        <button
+                          onClick={() => setSelectedInbound(null)}
+                          style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
 
                 {isTransfer && (
                   <div
@@ -1027,59 +1098,11 @@ export const InboundReceiving: React.FC = () => {
               </div>
             </>
           )}
-        </div>
+        </>
       )}
-
-      {/* Completion Banner */}
-      {isCompleted && (
-        <div
-          style={{
-            backgroundColor: '#f0fdf4',
-            borderRadius: '10px',
-            padding: '16px',
-            border: '1.5px solid #166534',
-            textAlign: 'center',
-          }}
-        >
-          <CheckCircle2 size={32} color="#166534" style={{ margin: '0 auto 8px' }} />
-          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#166534' }}>
-            {selectedInbound && isTransferInbound(selectedInbound.orderCode, selectedInbound.supplierName)
-              ? 'Đã Hoàn Tất Tiếp Nhận & Chuyển Về Bàn Đóng Gói!'
-              : 'Đã Hoàn Tất Kiểm Định & Cất Hàng Vào Kệ!'}
-          </h3>
-          <p style={{ margin: '4px 0 8px 0', fontSize: '12px', color: '#14532d' }}>
-            {selectedInbound && isTransferInbound(selectedInbound.orderCode, selectedInbound.supplierName) ? (
-              <>Vị trí tập kết: <b>Bàn Đóng Gói (Cross-Docking)</b> • Tình trạng: <b>{packageCondition === 'PACKED_OK' ? 'Đã đóng gói chuẩn' : 'Cần đóng gói / gộp đơn'}</b></>
-            ) : (
-              <>Vị trí lưu trữ: <b>{suggestedShelf.display}</b> • Mã lô: <b>{lotCodeGenerated}</b></>
-            )}
-          </p>
-          <p style={{ margin: '0 0 12px 0', fontSize: '11px', color: '#475569' }}>
-            {selectedInbound && isTransferInbound(selectedInbound.orderCode, selectedInbound.supplierName)
-              ? 'Hàng đã được chuyển giao cho bộ phận đóng gói để gộp đơn xuất cho khách hàng'
-              : 'Chứng từ Phiếu Nhập Kho Mẫu 01-VT đã được lưu và đồng bộ lên hệ thống'}
-          </p>
-          <button
-            onClick={() => {
-              setSelectedInbound(null);
-              setIsCompleted(false);
-              setModalStep('QC');
-            }}
-            style={{
-              backgroundColor: '#166534',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '6px',
-              padding: '7px 18px',
-              fontSize: '12px',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            Đóng & Tiếp Tục
-          </button>
-        </div>
-      )}
+    </div>
+  </div>
+)}
 
       {/* Inbound List */}
       <div>
