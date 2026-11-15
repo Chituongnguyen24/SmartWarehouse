@@ -9,7 +9,6 @@ import { useEffect, useState } from "react";
 const SIDEBAR_LINKS = [
   { href: "/tai-khoan", label: "Hồ sơ của tôi", icon: User },
   { href: "/tai-khoan/don-hang", label: "Đơn hàng của tôi", icon: ShoppingBag },
-  { href: "#", label: "Chính sách bảo mật", icon: ShieldCheck },
 ];
 
 export default function AccountLayout({ children }: { children: React.ReactNode }) {

@@ -70,7 +70,9 @@ export default function Home() {
   // Fetch real data
   const [flashSaleProducts, setFlashSaleProducts] = useState<Product[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
-  const [categoriesList, setCategoriesList] = useState<CategoryData[]>([]);
+  const [categoriesList, setCategoriesList] = useState<CategoryData[]>(
+    CATEGORIES.map(c => ({ ...c, count: 0, emoji: '' }))
+  );
   const [vouchersList, setVouchersList] = useState<VoucherItem[]>([]);
 
   // Promo and Best Seller tabs & slider refs

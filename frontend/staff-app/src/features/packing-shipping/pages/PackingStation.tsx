@@ -34,6 +34,7 @@ import {
   cancelOutboundOrderApi,
   updateOutboundStatus,
   ApiOutboundOrder,
+  API_URLS,
 } from '@/shared';
 import { useStaffWebSocket } from '@/features/dashboard';
 import { useAuth } from '@/features/auth';
@@ -212,11 +213,50 @@ export const PackingStation: React.FC = () => {
 
       // Map outbound orders that are ready with their packaging properties
       const mapped: PackOrder[] = packingReadyOrders.map(ord => {
-        const mappedItems: PackItem[] = (ord.items || []).map((it: any) => {
+        // Đồng bộ toàn bộ sản phẩm đã nhặt từ PickingWave qua navigation state
+        const stateItems: any[] = (location.state as any)?.items || [];
+        const stateOrder: any = (location.state as any)?.order;
+        const isTargetStateOrder = (stateOrder && (stateOrder.id === ord.id || stateOrder.orderCode === ord.orderCode)) ||
+                                   (targetOrderId && (targetOrderId === ord.id || targetOrderId === ord.orderCode));
+
+        const matchingStateItems = stateItems.filter((si: any) => 
+          (si.orderId && (si.orderId === ord.id || si.orderId === ord.orderCode)) ||
+          (si.orderCode && (si.orderCode === ord.id || si.orderCode === ord.orderCode)) ||
+          (isTargetStateOrder && stateItems.length > 0)
+        );
+
+        let sourceItems = (ord.items && ord.items.length > 0) ? [...ord.items] : [];
+
+        // Hợp nhất sản phẩm: đảm bảo mọi kiện hàng/mặt hàng đã nhặt đều hiển thị đầy đủ
+        if (matchingStateItems.length > 0) {
+          const itemMap = new Map<string, any>();
+          sourceItems.forEach((it: any) => itemMap.set(it.sku, it));
+          matchingStateItems.forEach((si: any) => {
+            if (!itemMap.has(si.sku)) {
+              itemMap.set(si.sku, {
+                sku: si.sku,
+                productName: si.productName || si.name,
+                requestedQuantity: si.quantity || si.requestedQuantity || 1,
+                pickedQuantity: si.pickedQuantity || si.quantity || 1,
+                slotId: si.shelfLocation,
+                zone: si.zone,
+                lotCode: si.lotCode,
+              });
+            } else {
+              const existing = itemMap.get(si.sku);
+              if (si.pickedQuantity && (!existing.pickedQuantity || existing.pickedQuantity === 0)) {
+                existing.pickedQuantity = si.pickedQuantity;
+              }
+            }
+          });
+          sourceItems = Array.from(itemMap.values());
+        }
+
+        const mappedItems: PackItem[] = sourceItems.map((it: any) => {
           const isCold = it.zone === 'COOL' || it.zone === 'FROZEN' || it.temperatureRequired?.includes('0') || it.temperatureRequired?.includes('-');
           const rawShelf = it.slotId || it.location || it.shelfLocation;
           return {
-            name: it.productName || it.sku || 'Sản phẩm',
+            name: it.productName || it.name || it.sku || 'Sản phẩm',
             qty: Number(it.pickedQuantity || it.quantity || (it as any).requestedQuantity || 1),
             unit: it.unit || 'Đơn vị',
             sku: it.sku,
@@ -369,12 +409,28 @@ export const PackingStation: React.FC = () => {
     try {
       // Officially update status to PACKED in backend DB and broadcast to Web
       if (selectedOrder.id) {
-        await confirmPickingApi(selectedOrder.id);
-        await updateOutboundStatus(selectedOrder.id, 'PACKED');
-        await unlockOrder(selectedOrder.id, user?.id || 'usr-staff');
+        await confirmPickingApi(selectedOrder.id).catch(() => {});
+        await updateOutboundStatus(selectedOrder.id, 'PACKED').catch(() => {});
+        await unlockOrder(selectedOrder.id, user?.id || 'usr-staff').catch(() => {});
         localStorage.setItem(`citymart_order_packed_${selectedOrder.id}`, 'true');
         if (selectedOrder.orderCode) {
           localStorage.setItem(`citymart_order_packed_${selectedOrder.orderCode}`, 'true');
+        }
+
+        // Đồng bộ trực tiếp trạng thái PACKED sang order-service (:3004) để Web Dashboard cập nhật tức thì
+        const cleanId = selectedOrder.id.replace(/^ECOMM-/, '').replace(/^OB-/, '');
+        fetch(`${API_URLS.ORDER}/orders/sync-status/${cleanId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'PACKED' }),
+        }).catch(() => {});
+        if (selectedOrder.orderCode) {
+          const cleanCode = selectedOrder.orderCode.replace(/^ECOMM-/, '').replace(/^OB-/, '');
+          fetch(`${API_URLS.ORDER}/orders/sync-status/${cleanCode}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'PACKED' }),
+          }).catch(() => {});
         }
       }
 

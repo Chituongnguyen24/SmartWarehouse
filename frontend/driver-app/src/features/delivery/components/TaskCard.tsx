@@ -240,6 +240,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 2,
     elevation: 1,
+    overflow: 'hidden',
   },
   headerRow: {
     flexDirection: 'row',

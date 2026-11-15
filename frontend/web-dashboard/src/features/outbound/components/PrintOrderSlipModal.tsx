@@ -53,17 +53,26 @@ export function detectSlipClassification(order: PrintableOrder | null): SlipClas
   if (typeStr.includes('HUY') || typeStr.includes('DISPOSAL') || typeStr.includes('WASTE')) return 'DISPOSAL';
   if (typeStr.includes('TRA') || typeStr.includes('RETURN') || typeStr.includes('HOAN')) return 'RETURN';
   if (typeStr.includes('CHUYEN') || typeStr.includes('TRANSFER') || typeStr.includes('DIEU_CHUYEN')) return 'TRANSFER';
-  if (typeStr.includes('BAN') || typeStr.includes('SALE') || typeStr.includes('ECOMMERCE')) return 'SALE';
+  if (typeStr.includes('BAN') || typeStr.includes('SALE') || typeStr.includes('ECOMMERCE') || typeStr.includes('B2C') || typeStr.includes('B2B')) return 'SALE';
 
-  const text = `${order.orderCode || ''} ${order.notes || ''} ${order.note || ''} ${order.customerName || ''} ${order.requesterName || ''} ${order.destination || ''} ${order.customerAddress || ''}`.toLowerCase();
+  const code = (order.orderCode || '').toUpperCase();
+  if (code.startsWith('DSP-') || code.startsWith('DISP-') || code.startsWith('HUY-')) return 'DISPOSAL';
+  if (code.startsWith('RET-') || code.startsWith('RTN-') || code.startsWith('HOAN-') || code.startsWith('TRA-')) return 'RETURN';
+  if (code.startsWith('TRF-') || code.startsWith('TRANS-') || code.startsWith('CK-') || code.startsWith('DC-')) return 'TRANSFER';
 
-  if (text.includes('tiêu hủy') || text.includes('hết hạn') || text.includes('đa phước') || text.includes('disposal') || text.includes('xuất hủy') || text.includes('chất thải') || text.includes('hỏng mốc')) {
-    return 'DISPOSAL';
-  }
-  if (text.includes('trả hàng') || text.includes('hàng hoàn') || text.includes('ncc') || text.includes('hoàn trả') || text.includes('reverse') || text.includes('lỗi kỹ thuật') || text.includes('trả ncc') || text.includes('nhà cung cấp')) {
+  if (order.status === 'RETURN_TO_WAREHOUSE' || order.status === 'FAILED_DELIVERY') {
     return 'RETURN';
   }
-  if (text.includes('điều chuyển') || text.includes('chuyển kho') || text.includes('transfer') || text.includes('inter-hub') || text.includes('chi nhánh') || text.includes('kho bình thạnh') || text.includes('kho thủ đức') || text.includes('kho tân bình') || text.includes('wh-001') || text.includes('wh-002') || text.includes('wh-003') || text.includes('wh-004') || text.includes('wh-005')) {
+
+  const text = `${order.notes || ''} ${order.note || ''} ${order.customerName || ''} ${order.requesterName || ''} ${order.destination || ''}`.toLowerCase();
+
+  if (text.includes('tiêu hủy') || text.includes('xuất hủy') || text.includes('chất thải') || text.includes('hỏng mốc') || text.includes('hết hạn sử dụng')) {
+    return 'DISPOSAL';
+  }
+  if (text.includes('trả hàng cho ncc') || text.includes('trả ncc') || text.includes('hoàn hàng về kho') || text.includes('trả hàng nhà cung cấp') || text.includes('đơn trả hàng')) {
+    return 'RETURN';
+  }
+  if (text.includes('điều chuyển kho') || text.includes('chuyển kho nội bộ') || text.includes('điều chuyển liên kho') || text.includes('chuyển liên kho')) {
     return 'TRANSFER';
   }
 

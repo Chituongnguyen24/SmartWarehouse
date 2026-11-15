@@ -176,7 +176,7 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // Batch Wave Lifecycle state
   const [currentTripNumber, setCurrentTripNumber] = useState<number>(1);
   const [tripStatus, setTripStatus] = useState<TripStatus>('IN_TRANSIT');
-  const [isLoadedOnVehicle, setIsLoadedOnVehicle] = useState<boolean>(true);
+  const [isLoadedOnVehicle, setIsLoadedOnVehicle] = useState<boolean>(false);
   const [nextBatchQueueCount, setNextBatchQueueCount] = useState<number>(0);
 
   const confirmLoadOntoVehicle = () => {
@@ -345,8 +345,14 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const isNamVanDriver = cleanProfileId === 'NV-VAN01' || profileName.includes('nam') || cleanProfilePhone.includes('0918776655');
         const isTriBikeDriver = cleanProfileId === 'NV-GV05' || profileName.includes('trí') || cleanProfilePhone.includes('0977112233');
 
-        // Match orders strictly assigned to this driver
+        // Match orders strictly assigned to this driver AND already packed/dispatched by warehouse
         let matchedOrders = combinedOrders.filter((o: any) => {
+          const s = (o.status || '').toUpperCase();
+          // QUY TẮC TMS: Tuyệt đối KHÔNG hiển thị đơn chưa đóng gói/chưa xong kho (PENDING, PROCESSING, PICKING, PACKING)
+          if (['PENDING', 'PROCESSING', 'PICKING', 'PACKING', 'CANCELLED'].includes(s)) {
+            return false;
+          }
+
           const oPhone = (o.assignedDriverPhone || '').replace(/\D/g, '');
           const oId = (o.assignedDriverId || '').toUpperCase().trim();
           const oName = (o.assignedDriverName || '').toLowerCase().trim();
@@ -414,7 +420,7 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         matchedOrders.forEach((o: any) => {
           const isServerDelivered = o.status === 'COMPLETED' || o.status === 'DELIVERED';
           const isServerInTransit = o.status === 'DELIVERING' || o.status === 'SHIPPED' || o.status === 'IN_TRANSIT';
-          const isServerAssigned = o.status === 'READY_FOR_DELIVERY' || o.status === 'CONFIRMED' || o.status === 'PROCESSING' || o.status === 'ASSIGNED' || o.status === 'PENDING';
+          const isServerAssigned = o.status === 'READY_FOR_DELIVERY' || o.status === 'CONFIRMED' || o.status === 'PACKED' || o.status === 'ASSIGNED';
 
           const isCurrentTripLocked = currentTripLockedIds.has(o.id) || currentTripLockedIds.has(o.orderCode);
           // Backend DB status is the authoritative source of truth for real-time synchronization
@@ -443,7 +449,7 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             taskStatus = 'DELIVERED';
           } else if (o.status === 'DELIVERING' || o.status === 'SHIPPED' || o.status === 'IN_TRANSIT') {
             taskStatus = 'IN_TRANSIT';
-          } else if (o.status === 'READY_FOR_DELIVERY' || o.status === 'CONFIRMED' || o.status === 'PROCESSING' || o.status === 'ASSIGNED' || o.status === 'PENDING') {
+          } else if (o.status === 'READY_FOR_DELIVERY' || o.status === 'CONFIRMED' || o.status === 'PACKED' || o.status === 'ASSIGNED') {
             taskStatus = 'ASSIGNED';
           } else if (completedTaskIds.has(o.id) || completedTaskIds.has(o.orderCode)) {
             taskStatus = 'DELIVERED';

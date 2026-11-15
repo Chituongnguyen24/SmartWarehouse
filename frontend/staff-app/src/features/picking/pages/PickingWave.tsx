@@ -217,11 +217,11 @@ export const PickingWave: React.FC = () => {
       if (!ord.items || ord.items.length === 0) return [];
       return ord.items.map((it, idx) => {
         const matchingLots = it.sku ? (skuLotsMap.get(it.sku) || []) : [];
-        const dbLot = (it.lotCode ? lotMap.get(it.lotCode) : null) || matchingLots[0] || (it.productId ? lotMap.get(it.productId) : null);
+        const dbLot = (it.lotCode ? lotMap.get(it.lotCode) : null) || matchingLots[0] || ((it as any).productId ? lotMap.get((it as any).productId) : null);
         const dbProd = (it.sku ? prodMap.get(it.sku) : null) || (dbLot?.productId ? prodMap.get(dbLot.productId) : null);
 
         const z = (dbLot?.zone || it.zone || 'DRY').toUpperCase() as 'DRY' | 'COOL' | 'FROZEN';
-        const loc = formatShelfLocation(dbLot?.location || it.slotId || it.location || it.shelfLocation, z, idx + 1);
+        const loc = formatShelfLocation(dbLot?.location || it.slotId || it.location || (it as any).shelfLocation, z, idx + 1);
 
         const exactQty = Number(
           (it as any).requestedQuantity !== undefined
@@ -235,8 +235,8 @@ export const PickingWave: React.FC = () => {
 
         // Retrieve persisted picked progress from localStorage or backend
         const cachedPicked = localStorage.getItem(`citymart_picked_qty_${it.id}`) || localStorage.getItem(`citymart_picked_qty_${ord.orderCode}_${it.sku}`);
-        const currentPicked = Number(it.pickedQuantity > 0 ? it.pickedQuantity : (cachedPicked ? Number(cachedPicked) : 0));
-        const isItemPicked = (currentPicked >= exactQty && exactQty > 0) || it.status === 'PICKED';
+        const currentPicked = Number((it.pickedQuantity || 0) > 0 ? it.pickedQuantity : (cachedPicked ? Number(cachedPicked) : 0));
+        const isItemPicked = (currentPicked >= exactQty && exactQty > 0) || (it as any).status === 'PICKED';
 
         return {
           id: it.id || `pk-${ord.id || ord.orderCode}-${idx + 1}`,
@@ -315,9 +315,10 @@ export const PickingWave: React.FC = () => {
         }
       });
 
-      // Quy tắc FIFO trong vận hành kho (First-In, First-Out): Đơn đặt trước được nhặt trước
+      // Quy tắc vận hành chuẩn WMS: Chỉ hiển thị các đơn đã được Quản lý xuất kho duyệt "Tiếp Nhận & Giao Kho" (PICKING hoặc PROCESSING)
+      // Đơn mới tạo ở trạng thái PENDING phải chờ Quản lý kho duyệt tiếp nhận rồi mới được lấy hàng
       const pendingOrders = orders
-        .filter(o => o.status === 'PENDING' || o.status === 'PICKING')
+        .filter(o => o.status === 'PICKING' || o.status === 'PROCESSING')
         .sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
       setAvailableOrders(pendingOrders);
 
@@ -964,7 +965,7 @@ export const PickingWave: React.FC = () => {
             Hệ thống đang kết nối và chờ đơn xuất kho mới được tạo.
           </p>
           <button
-            onClick={loadLiveData}
+            onClick={() => loadLiveData()}
             style={{
               backgroundColor: '#0284c7',
               color: '#ffffff',
@@ -1624,12 +1625,6 @@ export const PickingWave: React.FC = () => {
       <ShiftHandoverModal
         isOpen={isShiftModalOpen}
         onClose={() => setIsShiftModalOpen(false)}
-        shiftStats={{
-          pickedOrdersCount: pickedCount > 0 ? 1 : 0,
-          totalUnitsPicked: pickedUnits,
-          packedOrdersCount: availableOrders.filter(o => o.status === 'PACKED').length,
-          auditedLotsCount: 14,
-        }}
       />
 
       {/* Enterprise Incident Escalation Modal */}

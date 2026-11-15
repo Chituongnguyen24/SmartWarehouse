@@ -900,20 +900,33 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
 
     try {
       let targetId = orderCode || '';
-      if (typeof order === 'object' && order.notes && order.notes.includes('[ORDER_ID:')) {
-        const match = order.notes.match(/\[ORDER_ID:([^\]]+)\]/);
+      if (typeof order === 'object' && order.notes) {
+        const match = order.notes.match(/\[(?:ORDER_)?ID:([^\]]+)\]/i);
         if (match) targetId = match[1];
       }
       const baseOrderId = targetId.split('-WH')[0].split('-BACKORDER')[0];
+      const cleanOrderId = baseOrderId.replace(/^ECOMM-/, '').replace(/^OB-/, '');
+
+      const syncPayload = JSON.stringify({ 
+        status: orderStatus,
+        destination,
+        customerName: requesterName
+      });
+
       await fetch(`http://localhost:3004/orders/sync-status/${baseOrderId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          status: orderStatus,
-          destination,
-          customerName: requesterName
-        }),
-      });
+        body: syncPayload,
+      }).catch(() => {});
+
+      if (cleanOrderId && cleanOrderId !== baseOrderId) {
+        await fetch(`http://localhost:3004/orders/sync-status/${cleanOrderId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: syncPayload,
+        }).catch(() => {});
+      }
+
       console.log(`[OUTBOUND] Synced status ${orderStatus} to order-service for ${baseOrderId} (dest: ${destination})`);
     } catch (e) {
       console.error('[OUTBOUND] Failed to sync status with order-service', e.message);

@@ -577,11 +577,6 @@ export default function CheckoutPage() {
                             <p className="text-sm font-semibold text-slate-900 mt-1 leading-snug">
                               {customerAddress || savedAddress}
                             </p>
-                            {customerCoordinates && (
-                              <p className="text-[11px] text-slate-500 mt-0.5 font-normal">
-                                Tọa độ giao nhận: {customerCoordinates.lat.toFixed(5)}, {customerCoordinates.lng.toFixed(5)}
-                              </p>
-                            )}
                           </div>
                         </div>
                         <button

@@ -284,7 +284,7 @@ export const OutboundShipping: React.FC = () => {
                         }}
                       >
                         <Lock size={15} color="#d97706" />
-                        <span>Đang được thao tác bởi <b>{lockInfo.lockedByName}</b> ({lockInfo.lockedByRole === 'WAREHOUSE_STAFF' ? 'Nhân viên Mobile' : 'Quản lý Web'})</span>
+                        <span>Đang được thao tác bởi <b>{lockInfo.userName || (lockInfo as any).lockedByName}</b> ({(lockInfo.role || (lockInfo as any).lockedByRole) === 'WAREHOUSE_STAFF' ? 'Nhân viên Mobile' : 'Quản lý Web'})</span>
                       </div>
                     );
                   }

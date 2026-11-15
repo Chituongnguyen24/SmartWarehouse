@@ -677,6 +677,10 @@ export default function OrderDispatch() {
   // 1. Tiếp nhận đơn và chuyển sang trạng thái Đang Soạn Hàng (PROCESSING / PICKING)
   const handleReceiveAndStartPicking = async (order: UnifiedOrder) => {
     try {
+      // Cập nhật lạc quan ngay lập tức trên UI để tránh bị treo giao diện
+      setOrders(prev => prev.map(o => (o.id === order.id || o.orderCode === order.orderCode) ? { ...o, status: 'PROCESSING' } : o));
+      setSelectedOrder(prev => (prev && (prev.id === order.id || prev.orderCode === order.orderCode)) ? { ...prev, status: 'PROCESSING' } : prev);
+
       // 1. Cập nhật status order-service sang PROCESSING (Đang soạn hàng)
       await fetch(`${ORDER_API}/sync-status/${order.id}`, {
         method: 'PUT',
@@ -684,7 +688,7 @@ export default function OrderDispatch() {
         body: JSON.stringify({ status: 'PROCESSING' }),
       }).catch(() => {});
 
-      // 2. Đồng bộ lệnh xuất kho sang outbound-service (:3007) để nhân viên app mobile thấy và đi lấy hàng
+      // 2. Đồng bộ lệnh xuất kho sang outbound-service (:3007) để quản lý kho tiếp nhận & giao việc
       const whCode = order.warehouseCode || 'WH-006';
       await fetch(`${OUTBOUND_API}/outbound-orders`, {
         method: 'POST',
@@ -696,7 +700,7 @@ export default function OrderDispatch() {
           requestedBy: user?.id || 'mgr-govap',
           requesterName: order.customerName,
           destination: order.customerAddress,
-          notes: `Đơn hàng Online: KH ${order.customerName} (${order.customerPhone}) [ID:${order.id}]`,
+          notes: `Đơn hàng Online: KH ${order.customerName} (${order.customerPhone}) [ORDER_ID:${order.id}] [ID:${order.id}]`,
           items: order.items.map(i => ({
             sku: i.sku,
             productName: i.productName,
@@ -705,8 +709,8 @@ export default function OrderDispatch() {
         })
       }).catch(() => {});
 
-      showToast(`Đã tiếp nhận đơn #${order.orderCode}. Đã chuyển sang trạng thái đang soạn hàng.`, 'success');
-      await fetchAllData(true);
+      showToast(`Đã tiếp nhận đơn #${order.orderCode}. Đơn đã chuyển sang Quản lý Xuất Kho để tiếp nhận & giao kho.`, 'success');
+      await fetchAllData(false);
     } catch (e) {
       showToast('Có lỗi khi tiếp nhận đơn', 'error');
     }

@@ -414,18 +414,30 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask, onOpenPOD 
                 {assignedTasks.length} đơn chờ nhận • Tổng {totalTripItems} sản phẩm ({totalCurrentTripWeightKg} kg)
               </Text>
             </View>
-            <TouchableOpacity
-              style={styles.loadingBannerBtn}
-              onPress={async () => {
-                confirmLoadOntoVehicle();
-                await startBatchDelivery();
-                setActiveTab('ACTIVE');
-              }}
-              activeOpacity={0.85}
-            >
-              <CheckCheck size={14} color="#ffffff" style={{ marginRight: 4 }} />
-              <Text style={styles.loadingBannerBtnText}>ĐÃ XẾP LÊN XE</Text>
-            </TouchableOpacity>
+            {!isLoadedOnVehicle ? (
+              <TouchableOpacity
+                style={styles.loadingBannerBtn}
+                onPress={() => {
+                  confirmLoadOntoVehicle();
+                }}
+                activeOpacity={0.85}
+              >
+                <CheckCheck size={14} color="#ffffff" style={{ marginRight: 4 }} />
+                <Text style={styles.loadingBannerBtnText}>ĐÃ XẾP LÊN XE</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.loadingBannerBtn, { backgroundColor: '#0284c7' }]}
+                onPress={async () => {
+                  await startBatchDelivery();
+                  setActiveTab('ACTIVE');
+                }}
+                activeOpacity={0.85}
+              >
+                <Navigation size={14} color="#ffffff" style={{ marginRight: 4 }} />
+                <Text style={styles.loadingBannerBtnText}>BẮT ĐẦU GIAO</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 

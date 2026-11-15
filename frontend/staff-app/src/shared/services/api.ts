@@ -3,6 +3,7 @@ import { PickingItem } from '@/types';
 import { getBackendHost, getServiceBaseUrl } from './networkConfig';
 
 export const API_URLS = {
+  get ORDER() { return getServiceBaseUrl(3004); },
   get OUTBOUND() { return getServiceBaseUrl(3007); },
   get INVENTORY() { return getServiceBaseUrl(3011); },
   get PRODUCT() { return getServiceBaseUrl(3010); },

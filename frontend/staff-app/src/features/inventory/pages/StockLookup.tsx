@@ -590,7 +590,7 @@ export const StockLookup: React.FC = () => {
         countNum,
         auditReason || 'Kiểm kê định kỳ nhân viên',
         auditor,
-        user?.token
+        (user as any)?.token
       );
 
       const record: AuditRecord = {
@@ -1151,7 +1151,7 @@ export const StockLookup: React.FC = () => {
                           </div>
 
                           <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-                            Sổ sách: <b style={{ color: '#0f172a' }}>{lot.quantity} {lot.unit || 'hộp'}</b> • HSD: <b>{new Date(lot.expiryDate).toLocaleDateString('vi-VN')}</b>
+                            Sổ sách: <b style={{ color: '#0f172a' }}>{lot.quantity} {(lot as any).unit || 'hộp'}</b> • HSD: <b>{new Date(lot.expiryDate).toLocaleDateString('vi-VN')}</b>
                           </div>
                         </div>
 

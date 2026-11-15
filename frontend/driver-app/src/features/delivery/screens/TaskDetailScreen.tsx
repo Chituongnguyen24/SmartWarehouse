@@ -163,14 +163,14 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task: initia
         {/* GPS Navigation Map Card */}
         <View style={styles.mapCard}>
           <View style={styles.mapHeaderRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, flexShrink: 1, marginRight: 8 }}>
               <View style={styles.navIconBox}>
                 <Navigation size={14} color="#0284c7" />
               </View>
-              <Text style={styles.mapHeaderTitle}>Dẫn đường giao hàng (Điểm dừng #{task.sequenceOrder})</Text>
+              <Text style={[styles.mapHeaderTitle, { flexShrink: 1 }]} numberOfLines={1}>Dẫn đường (Điểm #{task.sequenceOrder})</Text>
             </View>
             <TouchableOpacity style={styles.googleMapBtn} onPress={handleOpenMap} activeOpacity={0.8}>
-              <Text style={styles.googleMapText}>Mở Google Maps</Text>
+              <Text style={styles.googleMapText}>Mở Maps</Text>
             </TouchableOpacity>
           </View>
 
@@ -212,8 +212,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task: initia
           <Text style={styles.cardSectionTitle}>Thông tin người nhận</Text>
 
           <View style={styles.customerHeaderRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.customerName}>{task.customerName}</Text>
+            <View style={{ flex: 1, marginRight: 8, flexShrink: 1 }}>
+              <Text style={styles.customerName} numberOfLines={1}>{task.customerName}</Text>
               <Text style={styles.customerPhone}>{task.customerPhone}</Text>
             </View>
 
@@ -250,25 +250,25 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task: initia
               {/* Prominent Package Specification Banner: Phân định rõ Đơn hàng & Số lượng Kiện hàng */}
               <View style={{ backgroundColor: '#ecfdf5', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#a7f3d0', marginBottom: 12 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '800', color: '#047857' }}>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: '#047857', flex: 1, flexShrink: 1, marginRight: 6 }}>
                     SỐ LƯỢNG KIỆN HÀNG CẦN GIAO
                   </Text>
-                  <View style={{ backgroundColor: '#0f766e', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}>
+                  <View style={{ backgroundColor: '#0f766e', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, flexShrink: 0 }}>
                     <Text style={{ fontSize: 12.5, fontWeight: '900', color: '#ffffff' }}>
                       {boxCount} KIỆN HÀNG
                     </Text>
                   </View>
                 </View>
                 <Text style={{ fontSize: 11.5, color: '#065f46', lineHeight: 17 }}>
-                  Đơn hàng <Text style={{ fontWeight: '800', color: '#0f172a' }}>#{task.orderCode}</Text> gồm đúng <Text style={{ fontWeight: '800', color: '#0f172a' }}>{boxCount} kiện (thùng)</Text>. Tài xế vui lòng kiểm đếm đủ {boxCount} kiện khi lấy khỏi xe và bàn giao cho khách.
+                  Đơn hàng <Text style={{ fontWeight: '800', color: '#0f172a' }}>#{task.orderCode}</Text> gồm đúng <Text style={{ fontWeight: '800', color: '#0f172a' }}>{boxCount} kiện</Text>. Tài xế kiểm đếm đủ {boxCount} kiện khi bàn giao cho khách.
                 </Text>
               </View>
 
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, borderBottomWidth: 1, borderColor: COLORS.border, paddingBottom: 6 }}>
-                <Text style={[styles.cardSectionTitle, { marginBottom: 0, borderBottomWidth: 0, paddingBottom: 0 }]}>
-                  Chi tiết mặt hàng trong {boxCount} kiện ({task.items.length} loại hàng)
+                <Text style={[styles.cardSectionTitle, { marginBottom: 0, borderBottomWidth: 0, paddingBottom: 0, flex: 1, flexShrink: 1, marginRight: 6 }]}>
+                  Chi tiết mặt hàng ({task.items.length} loại)
                 </Text>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: '#475569' }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#475569', flexShrink: 0 }}>
                   Tổng {totalQty} sản phẩm
                 </Text>
               </View>
@@ -277,20 +277,20 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task: initia
                 const unitName = resolveProductUnit(it.name, it.unit);
                 return (
                   <View key={idx} style={styles.itemRow}>
-                    <View style={{ flex: 1 }}>
+                    <View style={{ flex: 1, marginRight: 8, flexShrink: 1 }}>
                       <Text style={styles.itemName}>{it.name}</Text>
                       <Text style={styles.itemMeta}>Đơn vị tính: {unitName} • Bảo quản: {it.temperatureNote || 'Lạnh 0-4°C'}</Text>
                     </View>
-                    <Text style={styles.itemQty}>x{it.quantity} {unitName}</Text>
+                    <Text style={[styles.itemQty, { flexShrink: 0 }]}>x{it.quantity} {unitName}</Text>
                   </View>
                 );
               })}
 
               {/* COD Summary */}
               <View style={styles.codSummaryRow}>
-                <Text style={styles.codSummaryLabel}>Thu hộ COD:</Text>
-                <Text style={[styles.codSummaryVal, task.codAmount > 0 ? { color: COLORS.danger } : { color: COLORS.primary }]}>
-                  {task.codAmount > 0 ? formatPrice(task.codAmount) : 'Đã thanh toán Online (0đ)'}
+                <Text style={[styles.codSummaryLabel, { flex: 1, flexShrink: 1, marginRight: 8 }]}>Thu hộ COD:</Text>
+                <Text style={[styles.codSummaryVal, task.codAmount > 0 ? { color: COLORS.danger } : { color: COLORS.primary }, { flexShrink: 0 }]}>
+                  {task.codAmount > 0 ? formatPrice(task.codAmount) : 'Đã thanh toán (0đ)'}
                 </Text>
               </View>
 
@@ -313,31 +313,31 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({ task: initia
 
                     {/* Bảng kê COD & Kiện hàng chi tiết của cả 2/các đơn gộp */}
                     <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 10, marginVertical: 8, borderWidth: 1, borderColor: '#bae6fd' }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
-                        <Text style={{ fontSize: 11.5, color: '#0f172a', fontWeight: '700' }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                        <Text style={{ fontSize: 11.5, color: '#0f172a', fontWeight: '700', flex: 1, flexShrink: 1, marginRight: 6 }}>
                           • Đơn #{task.orderCode} (Hiện tại):
                         </Text>
-                        <Text style={{ fontSize: 11.5, fontWeight: '800', color: task.codAmount > 0 ? '#dc2626' : '#15803d' }}>
-                          {task.packageCount || 1} Kiện • {task.codAmount > 0 ? formatPrice(task.codAmount) : '0đ (Đã thanh toán)'}
+                        <Text style={{ fontSize: 11.5, fontWeight: '800', color: task.codAmount > 0 ? '#dc2626' : '#15803d', flexShrink: 0 }}>
+                          {task.packageCount || 1} Kiện • {task.codAmount > 0 ? formatPrice(task.codAmount) : '0đ'}
                         </Text>
                       </View>
 
                       {sameLocationTasks.map(peer => (
-                        <View key={peer.id} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
-                          <Text style={{ fontSize: 11.5, color: '#334155' }}>
+                        <View key={peer.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                          <Text style={{ fontSize: 11.5, color: '#334155', flex: 1, flexShrink: 1, marginRight: 6 }}>
                             • Đơn #{peer.orderCode} (Giao kèm):
                           </Text>
-                          <Text style={{ fontSize: 11.5, fontWeight: '800', color: peer.codAmount > 0 ? '#dc2626' : '#15803d' }}>
-                            {peer.packageCount || 1} Kiện • {peer.codAmount > 0 ? formatPrice(peer.codAmount) : '0đ (Đã thanh toán)'}
+                          <Text style={{ fontSize: 11.5, fontWeight: '800', color: peer.codAmount > 0 ? '#dc2626' : '#15803d', flexShrink: 0 }}>
+                            {peer.packageCount || 1} Kiện • {peer.codAmount > 0 ? formatPrice(peer.codAmount) : '0đ'}
                           </Text>
                         </View>
                       ))}
 
-                      <View style={{ borderTopWidth: 1, borderColor: '#e2e8f0', paddingTop: 6, marginTop: 4, flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ fontSize: 12, fontWeight: '800', color: '#0369a1' }}>
-                          TỔNG THU HỘ ({sameLocationTasks.length + 1} ĐƠN • {batchTotalBoxes} KIỆN):
+                      <View style={{ borderTopWidth: 1, borderColor: '#e2e8f0', paddingTop: 6, marginTop: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 12, fontWeight: '800', color: '#0369a1', flex: 1, flexShrink: 1, marginRight: 6 }}>
+                          TỔNG THU HỘ ({sameLocationTasks.length + 1} ĐƠN):
                         </Text>
-                        <Text style={{ fontSize: 13, fontWeight: '900', color: batchTotalCod > 0 ? '#dc2626' : '#15803d' }}>
+                        <Text style={{ fontSize: 13, fontWeight: '900', color: batchTotalCod > 0 ? '#dc2626' : '#15803d', flexShrink: 0 }}>
                           {batchTotalCod > 0 ? formatPrice(batchTotalCod) : '0đ COD'}
                         </Text>
                       </View>
@@ -574,6 +574,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.03,
     shadowRadius: 8,
     elevation: 2,
+    overflow: 'hidden',
   },
   navIconBox: {
     width: 24,
@@ -698,6 +699,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.03,
     shadowRadius: 8,
     elevation: 2,
+    overflow: 'hidden',
   },
   cardSectionTitle: {
     fontSize: 14,

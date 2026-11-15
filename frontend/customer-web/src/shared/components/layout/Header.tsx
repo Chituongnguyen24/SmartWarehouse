@@ -41,6 +41,8 @@ import {
 } from 'lucide-react';
 import { useCartStore, useAuthStore } from '@/lib/store';
 import { getCategories, CategoryData, getProducts, Product, slugify, encodeProductSlug } from '@/lib/api';
+import ShoppingGuideModal from '../ShoppingGuideModal';
+import { getApiHost } from '@/shared/lib/apiConfig';
 
 function getCategoryIconConfig(name: string) {
   const lower = (name || '').toLowerCase();
@@ -166,6 +168,8 @@ export default function Header() {
   ).slice(0, 7);
 
   const [categoriesList, setCategoriesList] = useState<CategoryData[]>([]);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [loyaltyPoints, setLoyaltyPoints] = useState(0);
 
   useEffect(() => {
     async function loadCats() {
@@ -174,6 +178,48 @@ export default function Header() {
     }
     loadCats();
   }, []);
+
+  // Tính điểm & Hạng thành viên thực tế từ các đơn hàng hoàn tất
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      setLoyaltyPoints(0);
+      return;
+    }
+    let active = true;
+    async function fetchPoints() {
+      try {
+        const q = new URLSearchParams();
+        const currentUser = user as any;
+        if (currentUser?.id) q.set('customerId', currentUser.id);
+        if (currentUser?.phone) q.set('customerPhone', currentUser.phone);
+        const res = await fetch(`${getApiHost(3004)}/orders/my-orders?${q.toString()}`, {
+          signal: AbortSignal.timeout(3500)
+        });
+        if (res.ok) {
+          const orders = await res.json();
+          if (Array.isArray(orders)) {
+            const completed = orders.filter((o: any) => o.status === 'DELIVERED' || o.status === 'COMPLETED');
+            const total = completed.reduce((sum: number, o: any) => sum + (Number(o.totalAmount) || 0), 0);
+            const pts = Math.floor(total / 10000);
+            if (active) setLoyaltyPoints(pts);
+          }
+        }
+      } catch (e) {
+        // fallback
+      }
+    }
+    fetchPoints();
+    return () => { active = false; };
+  }, [isAuthenticated, user?.id, user?.phone]);
+
+  const getTierInfo = (pts: number) => {
+    if (pts >= 2000) return { name: 'HẠNG KIM CƯƠNG', color: 'text-cyan-700 bg-cyan-50 border-cyan-200' };
+    if (pts >= 500) return { name: 'HẠNG VÀNG', color: 'text-amber-700 bg-amber-50 border-amber-200' };
+    if (pts >= 100) return { name: 'HẠNG BẠC', color: 'text-slate-700 bg-slate-100 border-slate-300' };
+    return { name: 'HẠNG ĐỒNG', color: 'text-orange-800 bg-orange-50 border-orange-200' };
+  };
+
+  const currentTier = getTierInfo(loyaltyPoints);
 
   const CategoryDropdown = () => (
     <div className="absolute top-full left-0 mt-2 w-80 bg-white border border-border rounded-2xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 overflow-hidden transform origin-top-left scale-95 group-hover:scale-100 max-h-[420px] overflow-y-auto custom-scrollbar">
@@ -427,15 +473,17 @@ export default function Header() {
                     <div className="p-4 border-b border-border bg-gray-50/50">
                       <div className="flex justify-between items-center mb-3">
                         <div className="font-bold text-base text-gray-800">{user?.name || 'Khách hàng'}</div>
-                        <div className="text-xs font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded">HẠNG VÀNG <span className="text-gray-600 font-normal">{user?.points || 0} điểm</span></div>
+                        <div className={`text-xs font-bold px-2 py-1 rounded border ${currentTier.color}`}>
+                          {currentTier.name} <span className="text-gray-600 font-normal">{loyaltyPoints} điểm</span>
+                        </div>
                       </div>
                     <div className="space-y-0.5">
-                      <Link href="#" className="flex items-center justify-between py-2 hover:text-primary transition-colors group/item">
-                        <div className="flex items-center gap-3"><Ticket size={16} className="text-gray-500 group-hover/item:text-primary" /> Phiếu mua hàng <span className="bg-yellow-400 text-yellow-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1">13</span></div>
+                      <Link href="/khuyen-mai" className="flex items-center justify-between py-2 hover:text-primary transition-colors group/item">
+                        <div className="flex items-center gap-3"><Ticket size={16} className="text-gray-500 group-hover/item:text-primary" /> Phiếu mua hàng & E-Voucher</div>
                         <ChevronRight size={14} className="text-gray-400" />
                       </Link>
-                      <Link href="#" className="flex items-center justify-between py-2 hover:text-primary transition-colors group/item">
-                        <div className="flex items-center gap-3"><Tag size={16} className="text-gray-500 group-hover/item:text-primary" /> Ưu đãi đặc biệt</div>
+                      <Link href="/flash-sale" className="flex items-center justify-between py-2 hover:text-primary transition-colors group/item">
+                        <div className="flex items-center gap-3"><Tag size={16} className="text-gray-500 group-hover/item:text-primary" /> Ưu đãi Flash Sale</div>
                         <ChevronRight size={14} className="text-gray-400" />
                       </Link>
                     </div>
@@ -449,16 +497,12 @@ export default function Header() {
                         <div className="flex items-center gap-3"><User size={16} className="text-gray-500 group-hover/item:text-primary" /> Sửa thông tin cá nhân</div>
                         <ChevronRight size={14} className="text-gray-400" />
                       </Link>
-                      <Link href="/tai-khoan/dia-chi" className="flex items-center justify-between py-2 hover:text-primary transition-colors group/item">
-                        <div className="flex items-center gap-3"><MapPin size={16} className="text-gray-500 group-hover/item:text-primary" /> Địa chỉ nhận hàng (1)</div>
+                      <Link href="/tai-khoan" className="flex items-center justify-between py-2 hover:text-primary transition-colors group/item">
+                        <div className="flex items-center gap-3"><MapPin size={16} className="text-gray-500 group-hover/item:text-primary" /> Địa chỉ nhận hàng</div>
                         <ChevronRight size={14} className="text-gray-400" />
                       </Link>
                       <Link href="/tai-khoan/don-hang" className="flex items-center justify-between py-2 hover:text-primary transition-colors group/item">
                         <div className="flex items-center gap-3"><ShoppingBag size={16} className="text-gray-500 group-hover/item:text-primary" /> Đơn hàng từng mua</div>
-                        <ChevronRight size={14} className="text-gray-400" />
-                      </Link>
-                      <Link href="#" className="flex items-center justify-between py-2 hover:text-primary transition-colors group/item">
-                        <div className="flex items-center gap-3"><ShieldCheck size={16} className="text-gray-500 group-hover/item:text-primary" /> Thay đổi chính sách xử lý dữ liệu...</div>
                         <ChevronRight size={14} className="text-gray-400" />
                       </Link>
                     </div>
@@ -470,24 +514,20 @@ export default function Header() {
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-3 py-2">
                         <Headphones size={16} className="text-gray-500" /> 
-                        <span>Tư vấn: <strong className="text-primary">1900.1908</strong> <span className="text-gray-400 text-xs">(7:30 - 21:00)</span></span>
+                        <span>Tư vấn: <strong className="text-primary">1900 5555 68</strong> <span className="text-gray-400 text-xs">(8:00 - 21:00)</span></span>
                       </div>
                       <div className="flex items-center gap-3 py-2">
                         <AlertCircle size={16} className="text-gray-500" /> 
-                        <span>Khiếu nại: <strong className="text-primary">1800.1067</strong> <span className="text-gray-400 text-xs">Miễn phí</span></span>
+                        <span>Khiếu nại: <strong className="text-primary">1800 1067</strong> <span className="text-gray-400 text-xs">Miễn phí</span></span>
                       </div>
-                      <Link href="#" className="flex items-center justify-between py-2 hover:text-primary transition-colors group/item">
-                        <div className="flex items-center gap-3"><Store size={16} className="text-gray-500 group-hover/item:text-primary" /> Tìm kiếm cửa hàng</div>
-                        <ChevronRight size={14} className="text-gray-400" />
-                      </Link>
-                      <Link href="#" className="flex items-center justify-between py-2 hover:text-primary transition-colors group/item">
-                        <div className="flex items-center gap-3"><Tag size={16} className="text-gray-500 group-hover/item:text-primary" /> Mua phiếu mua hàng</div>
-                        <ChevronRight size={14} className="text-gray-400" />
-                      </Link>
-                      <Link href="#" className="flex items-center justify-between py-2 hover:text-primary transition-colors group/item">
+                      <button
+                        type="button"
+                        onClick={() => setIsGuideOpen(true)}
+                        className="w-full flex items-center justify-between py-2 hover:text-primary transition-colors group/item text-left"
+                      >
                         <div className="flex items-center gap-3"><HelpCircle size={16} className="text-gray-500 group-hover/item:text-primary" /> Hướng dẫn mua hàng</div>
                         <ChevronRight size={14} className="text-gray-400" />
-                      </Link>
+                      </button>
                     </div>
                   </div>
                   
@@ -588,6 +628,7 @@ export default function Header() {
           </Link>
         </div>
       </div>
+      <ShoppingGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
     </>
   );
 }
