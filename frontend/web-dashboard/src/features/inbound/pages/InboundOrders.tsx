@@ -65,9 +65,51 @@ export const INBOUND_TYPE_CONFIG: Record<InboundTransactionType, { label: string
 
 export function detectInboundClassification(order: InboundOrder | null): InboundTransactionType {
   if (!order) return 'NHAP_MUA_NCC';
-  const text = `${order.orderCode || ''} ${order.supplierName || ''} ${order.notes || ''}`.toLowerCase();
+
+  // 1. Kiểm tra trực tiếp theo tiền tố mã phiếu điều chuyển
+  const code = (order.orderCode || '').toUpperCase().trim();
+  if (
+    code.startsWith('TRF-') ||
+    code.startsWith('TRF_') ||
+    code.includes('-TRF-') ||
+    code.startsWith('DC-') ||
+    code.startsWith('CK-') ||
+    code.includes('TRANSFER')
+  ) {
+    return 'DIEU_CHUYEN';
+  }
+
+  // 2. Kiểm tra theo số chứng từ / hóa đơn tham chiếu
+  const invoice = (order.invoiceNumber || '').toUpperCase().trim();
+  if (invoice.startsWith('TRF-') || invoice.startsWith('TRF_') || invoice.includes('-TRF-')) {
+    return 'DIEU_CHUYEN';
+  }
+
+  // 3. Kiểm tra đơn vị xuất / xe trung chuyển / ghi chú
+  const deliverer = (order.delivererName || '').toLowerCase();
+  if (deliverer.includes('trung chuyển') || deliverer.includes('điều chuyển') || deliverer.includes('xe trung chuyển')) {
+    return 'DIEU_CHUYEN';
+  }
+
+  const supplier = (order.supplierName || '').toLowerCase();
+  if (supplier.includes('kho tổng') || supplier.includes('kho chi nhánh') || supplier.includes('wh-')) {
+    return 'DIEU_CHUYEN';
+  }
+
+  const text = `${order.orderCode || ''} ${order.supplierName || ''} ${order.notes || ''} ${order.invoiceNumber || ''} ${order.delivererName || ''}`.toLowerCase();
   if (text.includes('trả lại') || text.includes('hoàn') || text.includes('return') || text.includes('tra hang')) return 'HANG_TRA_LAI';
-  if (text.includes('điều chuyển') || text.includes('chuyển kho') || text.includes('transfer') || text.includes('chi nhánh') || text.includes('trf-') || text.includes('trf_')) return 'DIEU_CHUYEN';
+  if (
+    text.includes('điều chuyển') ||
+    text.includes('chuyển kho') ||
+    text.includes('transfer') ||
+    text.includes('chi nhánh') ||
+    text.includes('trf-') ||
+    text.includes('trf_') ||
+    text.includes('trung chuyển') ||
+    text.includes('liên kho')
+  ) {
+    return 'DIEU_CHUYEN';
+  }
   if (text.includes('kiểm kê') || text.includes('thừa') || text.includes('audit')) return 'KIEM_KE_THUA';
   return 'NHAP_MUA_NCC';
 }

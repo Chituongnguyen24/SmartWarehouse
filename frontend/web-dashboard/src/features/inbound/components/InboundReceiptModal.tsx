@@ -117,8 +117,15 @@ export const InboundReceiptModal: React.FC<InboundReceiptModalProps> = ({ order,
     ? 'Kho Tổng Gò Vấp (WH-006) - 350 Quang Trung, P.10, Gò Vấp, TP.HCM'
     : (order.warehouseName || 'Kho Phân Phối Hàng Hóa - TP.HCM');
 
-  const supplier = order.supplierName || 'CÔNG TY TNHH THỰC PHẨM & NÔNG SẢN VIỆT';
-  const invoiceNum = order.invoiceNumber || 'HĐ-8921/2026';
+  const isTransfer = (order.orderCode || '').toUpperCase().includes('TRF') || 
+                     (order.invoiceNumber || '').toUpperCase().includes('TRF') || 
+                     (order.delivererName || '').includes('Trung Chuyển') ||
+                     (order.notes || '').toLowerCase().includes('điều chuyển') ||
+                     (order.supplierName || '').toLowerCase().includes('kho tổng') ||
+                     (order.supplierName || '').toLowerCase().includes('wh-');
+
+  const supplier = order.supplierName || (isTransfer ? 'Kho Tổng C.T Mart' : 'CÔNG TY TNHH THỰC PHẨM & NÔNG SẢN VIỆT');
+  const invoiceNum = order.invoiceNumber || (isTransfer ? 'TRF-EXP-DEFAULT' : 'HĐ-8921/2026');
 
   const items = order.items || [
     { sku: 'MILK-DALAT-1L', productName: 'Sữa tươi Đà Lạt True Milk 1L', expectedQuantity: 100, receivedQuantity: 100, unit: 'Hộp', unitPrice: 38000 },
@@ -258,7 +265,7 @@ export const InboundReceiptModal: React.FC<InboundReceiptModalProps> = ({ order,
             {/* Document Title */}
             <div style={{ textAlign: 'center', margin: '20px 0 16px 0' }}>
               <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 'bold', letterSpacing: '1px' }}>
-                PHIẾU NHẬP KHO
+                {isTransfer ? 'PHIẾU NHẬP ĐIỀU CHUYỂN CHI NHÁNH' : 'PHIẾU NHẬP KHO'}
               </h2>
               <p style={{ margin: '4px 0 0 0', fontStyle: 'italic', fontSize: '13.5px' }}>
                 Ngày {day} tháng {month} năm {year}
@@ -266,23 +273,23 @@ export const InboundReceiptModal: React.FC<InboundReceiptModalProps> = ({ order,
               <div style={{ display: 'flex', justifyContent: 'space-between', width: '380px', margin: '6px auto 0' }}>
                 <span>Số: <b>{order.orderCode || order.id?.slice(0, 10).toUpperCase()}</b></span>
                 <span>Nợ: <b>1561</b></span>
-                <span>Có: <b>331</b></span>
+                <span>Có: <b>{isTransfer ? '1561 (Kho xuất)' : '331'}</b></span>
               </div>
             </div>
 
             {/* Inbound Metadata Fields */}
             <div style={{ marginBottom: '16px', fontSize: '13.5px' }}>
               <p style={{ margin: '4px 0' }}>
-                - Họ và tên người giao: <b>{order.delivererName || order.requestedBy || 'Nguyễn Văn Giao (Đại diện NCC)'}</b> - Đơn vị: <b>{supplier}</b>
+                - Họ và tên người giao: <b>{order.delivererName || order.requestedBy || (isTransfer ? 'Đội Vận Chuyển Liên Kho' : 'Nguyễn Văn Giao (Đại diện NCC)')}</b> - Đơn vị: <b>{supplier}</b>
               </p>
               <p style={{ margin: '4px 0' }}>
-                - Theo hóa đơn số: <b>{invoiceNum}</b> ngày {day}/{month}/{year} của <b>{supplier}</b>
+                - {isTransfer ? 'Theo lệnh xuất điều chuyển số' : 'Theo hóa đơn số'}: <b>{invoiceNum}</b> ngày {day}/{month}/{year} của <b>{supplier}</b>
               </p>
               <p style={{ margin: '4px 0' }}>
                 - Nhập tại kho: <b>{warehouseTitle}</b>
               </p>
               <p style={{ margin: '4px 0' }}>
-                - Lý do nhập kho: <b>{order.notes || 'Nhập mua hàng hóa lưu kho phục vụ bán lẻ & E-Commerce'}</b>
+                - Lý do nhập kho: <b>{order.notes || (isTransfer ? 'Nhập hàng điều chuyển chi nhánh phục vụ hoàn tất đơn hàng liên kho' : 'Nhập mua hàng hóa lưu kho phục vụ bán lẻ & E-Commerce')}</b>
               </p>
             </div>
 

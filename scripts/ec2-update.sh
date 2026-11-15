@@ -24,6 +24,7 @@ cd backend/services/inventory-service && npm run build && cd ../../..
 cd backend/services/product-service && npm run build && cd ../../..
 cd backend/services/order-service && npm run build && cd ../../..
 cd backend/services/outbound-service && npm run build && cd ../../..
+cd backend/services/inbound-service && npm run build && cd ../../..
 
 echo ">> [3/5] Đóng gói Customer Web (Next.js SSR)..."
 cd frontend/customer-web && npm run build && cd ../..
