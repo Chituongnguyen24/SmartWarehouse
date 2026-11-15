@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Put, Body, Param, Patch, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Patch, Query, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { OrderService } from './order.service';
 import { OrderGateway } from './order.gateway';
@@ -189,5 +190,24 @@ export class OrderController {
     @Body() body: { imageBase64: string; orderId: string; type?: 'POD' | 'RETURN' },
   ) {
     return this.orderService.uploadPodImage(body.imageBase64, body.orderId, body.type);
+  }
+
+  @Get('pod-photo/:folder/:filename')
+  @ApiOperation({ summary: 'Xem hoặc tải ảnh chụp bàn giao POD theo thư mục' })
+  getPodPhotoByFolder(
+    @Param('folder') folder: string,
+    @Param('filename') filename: string,
+    @Res() res: Response,
+  ) {
+    return this.orderService.streamPodPhoto(`${folder}/${filename}`, res);
+  }
+
+  @Get('pod-photo/:filename')
+  @ApiOperation({ summary: 'Xem hoặc tải ảnh chụp bàn giao POD' })
+  getPodPhoto(
+    @Param('filename') filename: string,
+    @Res() res: Response,
+  ) {
+    return this.orderService.streamPodPhoto(filename, res);
   }
 }

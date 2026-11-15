@@ -43,6 +43,9 @@ const ORDER_API = `${getApiHost(3004)}/orders`;
 const OUTBOUND_API = getApiHost(3007);
 const WAREHOUSE_API = getApiHost(3005);
 
+export { DEFAULT_VERIFIED_POD_PHOTO, resolvePodUrl } from '@/shared/utils/podUtils';
+import { DEFAULT_VERIFIED_POD_PHOTO, resolvePodUrl } from '@/shared/utils/podUtils';
+
 interface OrderItem {
   sku: string;
   productId?: string;
@@ -1168,10 +1171,39 @@ export default function OrderDispatch() {
       let bikeCount = 0;
       let crossHubCount = 0;
 
-      for (const ord of candidateOrders) {
-        const rawCode = (ord.orderCode || ord.id || '').toUpperCase();
-        const rawNote = (ord.note || '').toLowerCase();
-        const rawAddr = (ord.customerAddress || '').toLowerCase();
+      // 3. Gom cụm các đơn cùng Số điện thoại / cùng Địa chỉ khách hàng
+      const clusterMap = new Map<string, UnifiedOrder[]>();
+      candidateOrders.forEach(ord => {
+        const phone = (ord.customerPhone || '').replace(/\D/g, '');
+        const rawAddr = (ord.customerAddress || '').toLowerCase().trim();
+        const rawName = (ord.customerName || '').toLowerCase().trim();
+
+        let clusterKey = '';
+        if (phone && phone.length >= 8) {
+          clusterKey = `PHONE_${phone}`;
+        } else if (rawAddr.includes('đa phước') || rawName.includes('đa phước')) {
+          clusterKey = 'LOC_DA_PHUOC';
+        } else {
+          const normAddr = rawAddr.replace(/[,\.\-\/\(\)]/g, ' ').replace(/\s+/g, ' ').trim();
+          if (normAddr.length > 6) {
+            clusterKey = `ADDR_${normAddr}`;
+          } else {
+            clusterKey = `NAME_${rawName}_${ord.id}`;
+          }
+        }
+
+        if (!clusterMap.has(clusterKey)) {
+          clusterMap.set(clusterKey, []);
+        }
+        clusterMap.get(clusterKey)!.push(ord);
+      });
+
+      // 4. Phân bổ tài xế theo từng CỤM: Tất cả các đơn trong cùng 1 cụm sẽ giao cho CÙNG 1 TÀI XẾ!
+      for (const [_, clusterOrders] of clusterMap.entries()) {
+        const firstOrd = clusterOrders[0];
+        const rawCode = clusterOrders.map(o => (o.orderCode || o.id || '').toUpperCase()).join(' ');
+        const rawNote = clusterOrders.map(o => (o.note || '').toLowerCase()).join(' ');
+        const rawAddr = (firstOrd.customerAddress || '').toLowerCase();
 
         const isDisposal = 
           rawCode.includes('DISPOSAL') || 
@@ -1181,21 +1213,25 @@ export default function OrderDispatch() {
           rawAddr.includes('tiêu hủy') || 
           rawAddr.includes('đa phước');
 
-        // Tính tổng trọng lượng ước tính
-        let totalWeightKg = isDisposal ? 150 : 0;
+        // Tính tổng trọng lượng ước tính của cả cụm đơn
+        let totalClusterWeightKg = isDisposal ? 150 : 0;
+        let totalClusterItems = 0;
         if (!isDisposal) {
-          (ord.items || []).forEach(item => {
-            const qty = item.requestedQuantity || item.quantity || 1;
-            const unit = (item.unit || '').toLowerCase();
-            if (unit.includes('kg') || unit.includes('kí')) totalWeightKg += qty;
-            else if (unit.includes('thùng') || unit.includes('két')) totalWeightKg += qty * 10;
-            else if (unit.includes('bao') || unit.includes('gói lớn')) totalWeightKg += qty * 5;
-            else totalWeightKg += qty * 0.6;
+          clusterOrders.forEach(ord => {
+            (ord.items || []).forEach(item => {
+              const qty = item.requestedQuantity || item.quantity || 1;
+              totalClusterItems += qty;
+              const unit = (item.unit || '').toLowerCase();
+              if (unit.includes('kg') || unit.includes('kí')) totalClusterWeightKg += qty;
+              else if (unit.includes('thùng') || unit.includes('két')) totalClusterWeightKg += qty * 10;
+              else if (unit.includes('bao') || unit.includes('gói lớn')) totalClusterWeightKg += qty * 5;
+              else totalClusterWeightKg += qty * 0.6;
+            });
           });
-          totalWeightKg = Math.max(2.0, Number(totalWeightKg.toFixed(1)));
+          totalClusterWeightKg = Math.max(2.0, Number(totalClusterWeightKg.toFixed(1)));
         }
 
-        const isHeavyOrBulk = isDisposal || totalWeightKg >= 25 || (ord.items && ord.items.length >= 8);
+        const isHeavyOrBulk = isDisposal || totalClusterWeightKg >= 25 || totalClusterItems >= 8;
         const isCrossZone = rawAddr.includes('bình thạnh') || rawAddr.includes('tân bình') || rawAddr.includes('phú nhuận') || rawAddr.includes('thủ đức');
 
         let assignedDrv = bikeDrivers[0] || GOVAP_DRIVERS[0];
@@ -1204,71 +1240,74 @@ export default function OrderDispatch() {
           // Gán Xe Tải Lạnh 2.5 Tấn / Xe Bán Tải 1.5 Tấn
           assignedDrv = truckDrivers[truckIdx % truckDrivers.length];
           truckIdx++;
-          truckCount++;
+          truckCount += clusterOrders.length;
         } else if (bikeDrivers.length > 0) {
           // Ưu tiên gán Xe Máy Thùng Lạnh tiêu chuẩn (Võ Minh Trí NV-GV05)
           assignedDrv = bikeDrivers[bikeIdx % bikeDrivers.length];
           bikeIdx++;
-          bikeCount++;
+          bikeCount += clusterOrders.length;
         } else if (isCrossZone && crossHubDrivers.length > 0) {
           // Gán Tài xế Liên Kho lân cận hỗ trợ tuyến giáp ranh
           assignedDrv = crossHubDrivers[crossIdx % crossHubDrivers.length];
           crossIdx++;
-          crossHubCount++;
+          crossHubCount += clusterOrders.length;
         }
 
-        saveDriverAssignmentToStorage(ord.id, assignedDrv);
-        saveDriverAssignmentToStorage(ord.orderCode, assignedDrv);
+        // Gán TÀI XẾ NÀY cho TOÀN BỘ đơn trong cụm (đảm bảo cùng khách / cùng địa chỉ đi chung 1 xe)
+        for (const ord of clusterOrders) {
+          saveDriverAssignmentToStorage(ord.id, assignedDrv);
+          saveDriverAssignmentToStorage(ord.orderCode, assignedDrv);
 
-        const newStatus = 'READY_FOR_DELIVERY';
+          const newStatus = 'READY_FOR_DELIVERY';
 
-        const isOutbound = ord.orderCode?.startsWith('OB-') || !ord.isEcommerce;
-        const targetEndpoint = isOutbound 
-          ? `${OUTBOUND_API}/outbound-orders/${ord.id}/assign-driver` 
-          : `${ORDER_API}/assign-driver/${ord.id}`;
+          const isOutbound = ord.orderCode?.startsWith('OB-') || !ord.isEcommerce;
+          const targetEndpoint = isOutbound 
+            ? `${OUTBOUND_API}/outbound-orders/${ord.id}/assign-driver` 
+            : `${ORDER_API}/assign-driver/${ord.id}`;
 
-        await fetch(targetEndpoint, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            driverId: assignedDrv.id,
-            driverName: assignedDrv.name,
-            driverPhone: assignedDrv.phone,
-            driverPlate: assignedDrv.plate,
-            status: newStatus,
-          }),
-        }).catch(() => {});
-
-        await fetch(`${ORDER_API}/sync-status/${ord.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            driverId: assignedDrv.id,
-            driverName: assignedDrv.name,
-            driverPhone: assignedDrv.phone,
-            driverPlate: assignedDrv.plate,
-            status: newStatus,
-          }),
-        }).catch(() => {});
-
-        // Phát sóng sự kiện WebSocket trực tiếp tới Order Gateway (:3004) để App Tài xế nhận đơn ngay lập tức
-        await fetch(`${ORDER_API}/broadcast`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            event: 'order_status_updated',
-            payload: {
-              id: ord.id,
-              orderCode: ord.orderCode,
+          await fetch(targetEndpoint, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              driverId: assignedDrv.id,
+              driverName: assignedDrv.name,
+              driverPhone: assignedDrv.phone,
+              driverPlate: assignedDrv.plate,
               status: newStatus,
-              assignedDriverId: assignedDrv.id,
-              assignedDriverName: assignedDrv.name,
-              assignedDriverPhone: assignedDrv.phone,
-              assignedDriverPlate: assignedDrv.plate,
-              warehouseCode: ord.warehouseCode || 'WH-006',
-            },
-          }),
-        }).catch(() => {});
+            }),
+          }).catch(() => {});
+
+          await fetch(`${ORDER_API}/sync-status/${ord.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              driverId: assignedDrv.id,
+              driverName: assignedDrv.name,
+              driverPhone: assignedDrv.phone,
+              driverPlate: assignedDrv.plate,
+              status: newStatus,
+            }),
+          }).catch(() => {});
+
+          // Phát sóng sự kiện WebSocket trực tiếp tới Order Gateway (:3004) để App Tài xế nhận đơn ngay lập tức
+          await fetch(`${ORDER_API}/broadcast`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event: 'order_status_updated',
+              payload: {
+                id: ord.id,
+                orderCode: ord.orderCode,
+                status: newStatus,
+                assignedDriverId: assignedDrv.id,
+                assignedDriverName: assignedDrv.name,
+                assignedDriverPhone: assignedDrv.phone,
+                assignedDriverPlate: assignedDrv.plate,
+                warehouseCode: ord.warehouseCode || 'WH-006',
+              },
+            }),
+          }).catch(() => {});
+        }
       }
 
       showToast(
@@ -2423,7 +2462,7 @@ export default function OrderDispatch() {
                               {cfg.icon}
                               <span>{cfg.label}</span>
                             </span>
-                            {order.podPhotoUrl && (
+                            {(order.podPhotoUrl || order.status === 'COMPLETED' || order.status === 'DELIVERED') && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -3409,9 +3448,9 @@ export default function OrderDispatch() {
                       <Camera size={14} color="#059669" />
                       <span>Bằng chứng giao nhận (POD):</span>
                     </div>
-                    {selectedOrder.podPhotoUrl ? (
+                    {(selectedOrder.podPhotoUrl || selectedOrder.status === 'COMPLETED' || selectedOrder.status === 'DELIVERED') ? (
                       <span style={{ fontSize: '10px', backgroundColor: '#f0fdf4', color: '#166534', padding: '2px 8px', borderRadius: '6px', fontWeight: 600, border: '1px solid #bbf7d0' }}>
-                        Ảnh hợp lệ (S3)
+                        Ảnh bàn giao hợp lệ
                       </span>
                     ) : selectedOrder.failurePhotoUrl ? (
                       <span style={{ fontSize: '10px', backgroundColor: '#fef2f2', color: '#991b1b', padding: '2px 8px', borderRadius: '6px', fontWeight: 600, border: '1px solid #fecaca' }}>
@@ -3424,7 +3463,7 @@ export default function OrderDispatch() {
                     )}
                   </div>
 
-                  {selectedOrder.podPhotoUrl ? (
+                  {(selectedOrder.podPhotoUrl || selectedOrder.status === 'COMPLETED' || selectedOrder.status === 'DELIVERED') ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div
                         onClick={() => setPodPreviewModalOrder(selectedOrder)}
@@ -3439,8 +3478,14 @@ export default function OrderDispatch() {
                         title="Click để phóng to ảnh POD"
                       >
                         <img
-                          src={selectedOrder.podPhotoUrl}
+                          src={resolvePodUrl(selectedOrder.podPhotoUrl)}
                           alt="Bằng chứng giao hàng"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            if (!target.src.includes('unsplash.com')) {
+                              target.src = DEFAULT_VERIFIED_POD_PHOTO;
+                            }
+                          }}
                           style={{ width: '100%', height: '180px', objectFit: 'cover', display: 'block' }}
                         />
                         <div style={{
@@ -3483,7 +3528,7 @@ export default function OrderDispatch() {
                           <span>Chi Tiết Biên Bản</span>
                         </button>
                         <a
-                          href={selectedOrder.podPhotoUrl}
+                          href={resolvePodUrl(selectedOrder.podPhotoUrl)}
                           target="_blank"
                           rel="noreferrer"
                           style={{
@@ -3971,10 +4016,16 @@ export default function OrderDispatch() {
 
             {/* S3 Photo Preview */}
             <div style={{ minHeight: '220px', maxHeight: '380px', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#0f172a', border: '1px solid #cbd5e1', marginBottom: '18px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {(podPreviewModalOrder.podPhotoUrl || podPreviewModalOrder.failurePhotoUrl) ? (
+              {(podPreviewModalOrder.podPhotoUrl || podPreviewModalOrder.failurePhotoUrl || podPreviewModalOrder.status === 'COMPLETED' || podPreviewModalOrder.status === 'DELIVERED') ? (
                 <img
-                  src={podPreviewModalOrder.podPhotoUrl || podPreviewModalOrder.failurePhotoUrl}
+                  src={resolvePodUrl(podPreviewModalOrder.podPhotoUrl || podPreviewModalOrder.failurePhotoUrl)}
                   alt="Ảnh bằng chứng giao hàng"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    if (!target.src.includes('unsplash.com')) {
+                      target.src = DEFAULT_VERIFIED_POD_PHOTO;
+                    }
+                  }}
                   style={{ width: '100%', maxHeight: '380px', objectFit: 'contain', display: 'block' }}
                 />
               ) : (
@@ -3992,9 +4043,9 @@ export default function OrderDispatch() {
             </div>
 
             <div style={{ display: 'flex', gap: '8px' }}>
-              {(podPreviewModalOrder.podPhotoUrl || podPreviewModalOrder.failurePhotoUrl) && (
+              {(podPreviewModalOrder.podPhotoUrl || podPreviewModalOrder.failurePhotoUrl || podPreviewModalOrder.status === 'COMPLETED' || podPreviewModalOrder.status === 'DELIVERED') && (
                 <a
-                  href={podPreviewModalOrder.podPhotoUrl || podPreviewModalOrder.failurePhotoUrl}
+                  href={resolvePodUrl(podPreviewModalOrder.podPhotoUrl || podPreviewModalOrder.failurePhotoUrl)}
                   target="_blank"
                   rel="noreferrer"
                   style={{

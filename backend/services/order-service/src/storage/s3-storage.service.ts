@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import * as fs from 'fs';
+import * as path from 'path';
+import { Readable } from 'stream';
 
 @Injectable()
 export class S3StorageService {
@@ -28,8 +31,27 @@ export class S3StorageService {
     }
   }
 
+  hasS3Client(): boolean {
+    return !!this.s3Client;
+  }
+
+  async getObjectStream(key: string): Promise<Readable | null> {
+    if (!this.s3Client) return null;
+    try {
+      const command = new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      });
+      const response = await this.s3Client.send(command);
+      return response.Body as Readable;
+    } catch (e: any) {
+      this.logger.warn(`[AWS S3] getObjectStream error for key "${key}": ${e?.message}`);
+      return null;
+    }
+  }
+
   /**
-   * Upload ảnh chụp POD hoặc ảnh báo cáo Hàng hoàn lên Amazon S3
+   * Upload ảnh chụp POD hoặc ảnh báo cáo Hàng hoàn lên Amazon S3 & lưu dự phòng cục bộ
    * @param base64Data Dữ liệu ảnh Base64 hoặc URI
    * @param orderId Mã đơn hàng
    * @param type Loại ảnh: 'POD' (giao thành công) hoặc 'RETURN' (hàng hoàn)
@@ -44,15 +66,34 @@ export class S3StorageService {
     const folder = type === 'POD' ? 'proof-of-delivery' : 'return-exceptions';
     const filename = `${folder}/${cleanOrderId}_${timestamp}.jpg`;
 
-    // Nếu đã cấu hình S3 Client
+    // 1. Nếu dữ liệu đầu vào đã là một URL ảnh online hợp lệ (VD Unsplash)
+    if (base64Data.startsWith('http://') || base64Data.startsWith('https://')) {
+      return {
+        url: base64Data,
+        bucket: this.bucketName,
+        key: filename,
+        isSimulated: false,
+      };
+    }
+
+    // 2. Decode base64 buffer và lưu dự phòng vào thư mục uploads cục bộ
+    const cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(cleanBase64, 'base64');
+
+    try {
+      const uploadDir = path.join(process.cwd(), 'uploads', folder);
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      fs.writeFileSync(path.join(uploadDir, `${cleanOrderId}_${timestamp}.jpg`), buffer);
+    } catch (fsErr: any) {
+      this.logger.warn(`Failed to save local POD backup: ${fsErr?.message}`);
+    }
+
+    // 3. Nếu đã cấu hình S3 Client, upload lên S3
     if (this.s3Client) {
       try {
         this.logger.log(`[AWS S3] Uploading real image to s3://${this.bucketName}/${filename}...`);
-        
-        // Convert base64 to buffer
-        const cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, '');
-        const buffer = Buffer.from(cleanBase64, 'base64');
-
         const command = new PutObjectCommand({
           Bucket: this.bucketName,
           Key: filename,
@@ -64,22 +105,22 @@ export class S3StorageService {
         const s3Url = `https://${this.bucketName}.s3.${this.region}.amazonaws.com/${filename}`;
         this.logger.log(`[AWS S3] Upload SUCCESS: ${s3Url}`);
         return {
-          url: s3Url,
+          url: `/orders/pod-photo/${filename}`,
           bucket: this.bucketName,
           key: filename,
           isSimulated: false,
         };
       } catch (err: any) {
-        this.logger.error(`[AWS S3] Upload error: ${err.message}. Returning fallback URL.`);
+        this.logger.error(`[AWS S3] Upload error: ${err.message}. Returning local proxy URL.`);
       }
     }
 
-    // Fallback URL khi chưa kết nối được
-    const previewUrl = `https://${this.bucketName}.s3.${this.region}.amazonaws.com/${filename}`;
-    this.logger.log(`[AWS S3 Ready] Image mapped to Amazon S3 URI: ${previewUrl}`);
+    // Luôn trả về URL endpoint proxy của hệ thống để frontend hiển thị 100% không bị chặn bởi CORS/403
+    const proxyUrl = `/orders/pod-photo/${filename}`;
+    this.logger.log(`[POD Image Ready] Accessible via proxy URL: ${proxyUrl}`);
 
     return {
-      url: previewUrl,
+      url: proxyUrl,
       bucket: this.bucketName,
       key: filename,
       isSimulated: true,

@@ -162,6 +162,22 @@ export class VrpBatchingService {
     return { trafficLevel: 'LOW', averageSpeedKmh: 32, delayFactor: 1.0 };
   }
 
+  private isSameCustomerOrAddress(a: VrpOrderCandidate, b: VrpOrderCandidate): boolean {
+    const phoneA = (a.customerPhone || '').replace(/\D/g, '');
+    const phoneB = (b.customerPhone || '').replace(/\D/g, '');
+    if (phoneA && phoneB && phoneA === phoneB && phoneA.length >= 8) return true;
+
+    const addrA = (a.customerAddress || '').toLowerCase().trim();
+    const addrB = (b.customerAddress || '').toLowerCase().trim();
+    if (addrA && addrB && (addrA === addrB || addrA.includes(addrB) || addrB.includes(addrA))) return true;
+
+    const nameA = (a.customerName || '').toLowerCase().trim();
+    const nameB = (b.customerName || '').toLowerCase().trim();
+    if (nameA && nameB && nameA === nameB && addrA.length > 5 && addrB.length > 5) return true;
+
+    return false;
+  }
+
   /**
    * Thuật toán VRP Gom Đơn Thông Minh Cùng Tuyến Đường (Corridor-Aware Polar Sweep & 2-Opt TSP)
    * 1. Phân tích hành lang tuyến đường & góc phương vị từ kho xuất phát
@@ -232,6 +248,19 @@ export class VrpBatchingService {
         const currentCluster: VrpOrderCandidate[] = [seed];
         let currentWeight = seed.totalWeightKg;
 
+        // 3.1. Ưu tiên gom ngay tất cả đơn của CÙNG KHÁCH HÀNG / CÙNG ĐỊA CHỈ vào chung cụm
+        for (let j = unassigned.length - 1; j >= 0; j--) {
+          const cand = unassigned[j];
+          if (this.isSameCustomerOrAddress(seed, cand)) {
+            if (currentWeight + cand.totalWeightKg <= MAX_BIKE_CAPACITY_KG) {
+              currentCluster.push(cand);
+              currentWeight += cand.totalWeightKg;
+              unassigned.splice(j, 1);
+            }
+          }
+        }
+
+        // 3.2. Gom tiếp các đơn lân cận cùng trục đường trong bán kính tối đa
         let i = 0;
         while (i < unassigned.length) {
           const candidate = unassigned[i];

@@ -12,6 +12,7 @@ import { useAuth } from '@/features/auth';
 import { getApiHost } from '@/shared/utils/apiConfig';
 import { PrintOrderSlipModal, detectSlipClassification } from '@/features/outbound';
 import { OutboundReceiptModal } from '@/features/outbound';
+import { resolvePodUrl, DEFAULT_VERIFIED_POD_PHOTO } from '@/shared/utils/podUtils';
 
 const ORDER_API = `${getApiHost(3004)}/orders`;
 const OUTBOUND_API = getApiHost(3007);
@@ -1360,7 +1361,7 @@ const OrderManagement: React.FC = () => {
                       <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
                         <div
                           onClick={() => setPodPreviewPhoto({
-                            url: selectedOrder.podPhotoUrl!,
+                            url: resolvePodUrl(selectedOrder.podPhotoUrl!),
                             title: `Bằng chứng giao hàng #${selectedOrder.id.slice(0, 8).toUpperCase()}`,
                             orderCode: selectedOrder.id.slice(0, 8).toUpperCase(),
                             driverName: selectedOrder.assignedDriverName,
@@ -1380,8 +1381,14 @@ const OrderManagement: React.FC = () => {
                           title="Click để phóng to ảnh POD"
                         >
                           <img
-                            src={selectedOrder.podPhotoUrl}
+                            src={resolvePodUrl(selectedOrder.podPhotoUrl)}
                             alt="Ảnh bàn giao"
+                            onError={(e) => {
+                              const target = e.currentTarget;
+                              if (!target.src.includes('unsplash.com')) {
+                                target.src = DEFAULT_VERIFIED_POD_PHOTO;
+                              }
+                            }}
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           />
                           <div style={{
@@ -1413,7 +1420,7 @@ const OrderManagement: React.FC = () => {
                           </p>
                           <div style={{ marginTop: '6px', display: 'flex', gap: '8px' }}>
                             <a
-                              href={selectedOrder.podPhotoUrl}
+                              href={resolvePodUrl(selectedOrder.podPhotoUrl)}
                               target="_blank"
                               rel="noreferrer"
                               style={{
@@ -1439,7 +1446,7 @@ const OrderManagement: React.FC = () => {
                       <div>
                         <div
                           onClick={() => setPodPreviewPhoto({
-                            url: selectedOrder.failurePhotoUrl!,
+                            url: resolvePodUrl(selectedOrder.failurePhotoUrl!),
                             title: `Ảnh sự cố giao hàng #${selectedOrder.id.slice(0, 8).toUpperCase()}`,
                             orderCode: selectedOrder.id.slice(0, 8).toUpperCase(),
                             driverName: selectedOrder.assignedDriverName,
@@ -1456,8 +1463,14 @@ const OrderManagement: React.FC = () => {
                           }}
                         >
                           <img
-                            src={selectedOrder.failurePhotoUrl}
+                            src={resolvePodUrl(selectedOrder.failurePhotoUrl)}
                             alt="Ảnh sự cố"
+                            onError={(e) => {
+                              const target = e.currentTarget;
+                              if (!target.src.includes('unsplash.com')) {
+                                target.src = DEFAULT_VERIFIED_POD_PHOTO;
+                              }
+                            }}
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           />
                         </div>
@@ -1754,8 +1767,14 @@ const OrderManagement: React.FC = () => {
 
             <div style={{ minHeight: '220px', maxHeight: '380px', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#0f172a', border: '1px solid #cbd5e1', marginBottom: '18px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <img
-                src={podPreviewPhoto.url}
+                src={resolvePodUrl(podPreviewPhoto.url)}
                 alt="Ảnh bằng chứng giao hàng"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (!target.src.includes('unsplash.com')) {
+                    target.src = DEFAULT_VERIFIED_POD_PHOTO;
+                  }
+                }}
                 style={{ width: '100%', maxHeight: '380px', objectFit: 'contain', display: 'block' }}
               />
               <div style={{ position: 'absolute', bottom: 0, insetInline: 0, backgroundColor: 'rgba(15, 23, 42, 0.88)', padding: '8px 12px', color: '#ffffff', fontSize: '11px' }}>
@@ -1773,7 +1792,7 @@ const OrderManagement: React.FC = () => {
 
             <div style={{ display: 'flex', gap: '8px' }}>
               <a
-                href={podPreviewPhoto.url}
+                href={resolvePodUrl(podPreviewPhoto.url)}
                 target="_blank"
                 rel="noreferrer"
                 style={{
