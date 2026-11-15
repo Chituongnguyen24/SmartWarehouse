@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, MapPin, Truck, Store, CreditCard, Banknote, ShieldCheck, Ticket, ChevronLeft, Loader2, Navigation, Edit2, CheckCircle2, Info, Tag, AlertCircle, X } from 'lucide-react';
+import { ChevronRight, MapPin, Truck, Store, CreditCard, Banknote, ShieldCheck, Ticket, ChevronLeft, Loader2, Navigation, Edit2, CheckCircle2, Info, Tag, AlertCircle, X, Clock, AlertTriangle } from 'lucide-react';
 import { useCartStore, useAuthStore } from '@/lib/store';
 import { getVouchers, validateVoucherCode, VoucherItem, getApiHost } from '@/lib/api';
 import { PaymentSimulatorModal } from '@/features/checkout';
@@ -48,6 +48,32 @@ export default function CheckoutPage() {
       if (Array.isArray(list)) setAvailableVouchers(list);
     }).catch(() => {});
   }, []);
+
+  // Tra cứu tồn kho các kho thực tế để phát hiện hàng cần điều chuyển liên kho
+  const [warehouseStockMap, setWarehouseStockMap] = useState<Record<string, Record<string, number>>>({});
+  const [hasConfirmedTransferDelay, setHasConfirmedTransferDelay] = useState(false);
+
+  useEffect(() => {
+    if (items.length === 0) return;
+    const skus = Array.from(new Set(items.map(i => i.sku || i.productId))).join(',');
+    fetch(`${getApiHost(3011)}/inventory/warehouse-stock?skus=${encodeURIComponent(skus)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && typeof data === 'object') {
+          setWarehouseStockMap(data);
+        }
+      })
+      .catch(() => {});
+  }, [items]);
+
+  // Kiểm tra xem đơn hàng có món nào cần điều chuyển từ Kho Tổng (WH-001) về Kho Gò Vấp (WH-006) không
+  const transferItems = items.filter(item => {
+    const sku = item.sku || item.productId;
+    const stockInPrimary = warehouseStockMap?.['WH-006']?.[sku] ?? 0;
+    const isExplicitTransfer = (item as any).isTransferRequired;
+    return isExplicitTransfer || (Object.keys(warehouseStockMap).length > 0 && stockInPrimary < item.quantity);
+  });
+  const hasTransferItems = transferItems.length > 0;
 
   // Form State
   const [customerName, setCustomerName] = useState('');
@@ -338,6 +364,12 @@ export default function CheckoutPage() {
         return;
       }
     }
+
+    // Bắt buộc xác nhận đồng ý với thời gian giao hàng nếu đơn có sản phẩm điều chuyển
+    if (hasTransferItems && !hasConfirmedTransferDelay) {
+      setErrorMsg("Đơn hàng có sản phẩm cần điều chuyển từ Kho Tổng. Quý khách vui lòng tích chọn đồng ý với thời gian giao hàng dự kiến (24 - 48 giờ) để tiếp tục!");
+      return;
+    }
     
     setErrorMsg('');
 
@@ -355,6 +387,12 @@ export default function CheckoutPage() {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
+      let combinedNote = extraNote ? `${customerNote ? customerNote + ' | ' : ''}${extraNote}` : customerNote;
+      if (hasTransferItems) {
+        const transferTag = `[KHÁCH ĐÃ XÁC NHẬN CHỜ ĐIỀU CHUYỂN 24-48H]`;
+        combinedNote = combinedNote ? `${transferTag} ${combinedNote}` : transferTag;
+      }
+
       const orderPayload = {
         idempotencyKey: idempotencyKeyRef.current,
         transactionId: transactionId || null,
@@ -364,7 +402,7 @@ export default function CheckoutPage() {
         customerAddress: deliveryMethod === 'home' ? customerAddress : 'Nhận tại cửa hàng',
         shippingLat: customerCoordinates?.lat || null,
         shippingLng: customerCoordinates?.lng || null,
-        note: extraNote ? `${customerNote ? customerNote + ' | ' : ''}${extraNote}` : customerNote,
+        note: combinedNote,
         deliveryMethod,
         paymentMethod: activePaymentMethod,
         voucherCode: isVoucherApplied ? voucherCode : null,
@@ -946,16 +984,53 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
+              {/* Thông báo điều chuyển liên kho & Checkbox cam kết thời gian giao hàng */}
+              {hasTransferItems && (
+                <div className="bg-amber-50/90 border-2 border-amber-300 rounded-xl p-4 mb-5 text-left">
+                  <div className="flex items-start gap-2.5">
+                    <Clock size={18} className="text-amber-700 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="font-bold text-amber-950 text-xs uppercase tracking-wider">
+                        Đơn hàng cần điều chuyển từ Kho Tổng (24 - 48h)
+                      </h4>
+                      <p className="text-xs text-amber-900 mt-1 leading-relaxed">
+                        Đơn có <strong>{transferItems.length} sản phẩm</strong> ({transferItems.map(i => i.name).join(', ')}) tạm hết tại <strong>Kho Gò Vấp</strong> và đang được điều phối từ <strong>Kho Tổng C.T Mart</strong>.
+                      </p>
+                      <p className="text-xs font-semibold text-amber-900 mt-1">
+                        Thời gian giao hàng dự kiến: <strong>24 - 48 giờ</strong>.
+                      </p>
+
+                      <label className="flex items-start gap-2.5 mt-3 pt-2.5 border-t border-amber-200 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={hasConfirmedTransferDelay}
+                          onChange={(e) => setHasConfirmedTransferDelay(e.target.checked)}
+                          className="mt-0.5 w-4 h-4 text-emerald-800 border-amber-400 rounded focus:ring-emerald-700 accent-emerald-800"
+                        />
+                        <span className="text-xs font-bold text-amber-950 select-none">
+                          Tôi xác nhận đồng ý chờ nhận hàng sau 24 - 48 giờ đối với sản phẩm điều chuyển liên kho.
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Submit CTA Button */}
               <button
                 onClick={handlePlaceOrder}
-                disabled={isSubmitting || cartItems.length === 0}
+                disabled={isSubmitting || cartItems.length === 0 || (hasTransferItems && !hasConfirmedTransferDelay)}
                 className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 size={18} className="animate-spin" />
                     <span>Đang xử lý đơn hàng...</span>
+                  </>
+                ) : hasTransferItems && !hasConfirmedTransferDelay ? (
+                  <>
+                    <Clock size={18} />
+                    <span>Vui lòng tích đồng ý thời gian giao hàng</span>
                   </>
                 ) : (
                   <>

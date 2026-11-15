@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ChevronRight, Trash2, Plus, Minus, Ticket, ShoppingBag, ShoppingCart } from 'lucide-react';
+import { ChevronRight, Trash2, Plus, Minus, Ticket, ShoppingBag, ShoppingCart, Clock } from 'lucide-react';
 import { useCartStore, useAuthStore } from '@/lib/store';
 import { encodeProductSlug } from '@/lib/api';
 
@@ -88,6 +88,12 @@ export default function CartPage() {
                               Loại: {item.variant}
                             </div>
                           )}
+                          {(item as any).isTransferRequired && (
+                            <div className="text-[11px] font-semibold text-amber-850 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded inline-flex items-center gap-1 w-fit mb-2 text-amber-800">
+                              <Clock size={12} className="text-amber-700" />
+                              Hàng điều chuyển từ Kho Tổng (24 - 48h)
+                            </div>
+                          )}
                           <button 
                             onClick={() => removeFromCart(item.id)}
                             className="text-sm text-red-500 font-medium flex items-center gap-1 w-fit mt-auto md:hidden"
@@ -167,6 +173,18 @@ export default function CartPage() {
                     Bạn có <strong>Mã giảm giá / Voucher</strong>? Đừng lo, bạn sẽ được nhập ở bước Thanh toán nhé!
                   </div>
                 </div>
+
+                {cartItems.some(i => (i as any).isTransferRequired) && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-xs text-amber-900 flex items-start gap-2.5">
+                    <Clock size={16} className="text-amber-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Đơn hàng cần điều chuyển liên kho:</span>
+                      <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
+                        Đơn có sản phẩm cần chuyển từ Kho Tổng về trạm Gò Vấp. Thời gian nhận hàng dự kiến: <strong>24 - 48 giờ</strong>.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <Link 
                   href={isAuthenticated ? "/thanh-toan" : "/dang-nhap?redirect=/thanh-toan"} 

@@ -279,11 +279,15 @@ export class OrderService {
     const hasTransaction = Boolean(createOrderDto.transactionId || (orderData as any).transactionId);
     const isPaid = isOnlineMethod && hasTransaction;
 
+    const primaryAllocWh = assignedWarehouseCode || assignedWarehouseId || 'WH-006';
+    const otherWarehousesInvolved = Array.from(warehouseAllocations.keys()).filter(k => k !== primaryAllocWh);
+    const isTransferRequired = otherWarehousesInvolved.length > 0;
+
     let finalNote = orderData.note || '';
-    if (warehouseAllocations.size > 1) {
-      const whList = Array.from(warehouseAllocations.keys()).join(', ');
-      const splitNotice = `[SPLIT_ORDER:${whList}] Đơn hàng được tách thành ${warehouseAllocations.size} kiện từ các kho (${whList})`;
-      finalNote = finalNote ? `${splitNotice} - ${finalNote}` : splitNotice;
+    if (isTransferRequired) {
+      const whList = otherWarehousesInvolved.join(', ');
+      const transferNotice = `[ĐIỀU CHUYỂN KHO: ${whList} ➔ ${primaryAllocWh}] (Dự kiến giao sau 24-48 giờ)`;
+      finalNote = finalNote ? `${transferNotice} - ${finalNote}` : transferNotice;
     }
 
     const order = this.orderRepository.create({
@@ -315,56 +319,59 @@ export class OrderService {
     } catch (e) {}
 
     // Tự động tạo yêu cầu xuất kho OutboundOrder sang outbound-service (port 3007)
+    // Áp dụng mô hình Chuỗi cung ứng Gộp đơn điều chuyển (Transfer & Consolidate / Cross-Docking)
     try {
       const cleanId = savedOrder.id.slice(0, 8).toUpperCase();
-      if (warehouseAllocations.size <= 1) {
-        const primaryAllocWh = Array.from(warehouseAllocations.keys())[0] || savedOrder.assignedWarehouseCode || 'WH-006';
-        const outboundPayload = {
-          orderCode: `ECOMM-${cleanId}`,
-          requestedBy: savedOrder.customerId || 'customer-web',
-          requesterName: savedOrder.customerName || 'Khách hàng',
-          customerPhone: savedOrder.customerPhone || '0909000111',
-          destination: savedOrder.customerAddress || 'TP.HCM',
-          latitude: savedOrder.shippingLat ? Number(savedOrder.shippingLat) : undefined,
-          longitude: savedOrder.shippingLng ? Number(savedOrder.shippingLng) : undefined,
-          warehouseCode: primaryAllocWh,
-          warehouseId: primaryAllocWh,
-          notes: `[ORDER_ID:${savedOrder.id}] Đơn hàng TMĐT C.T Mart #${cleanId}${savedOrder.note ? ' - ' + savedOrder.note : ''}`,
-          totalAmount: Number(savedOrder.totalAmount || 0),
-          items: (savedOrder.items || []).map((item) => ({
-            sku: item.sku || item.productId,
-            productName: item.productName,
-            requestedQuantity: item.quantity,
-            price: Number(item.price || 0),
-          })),
-        };
 
-        await fetch('http://localhost:3007/outbound-orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(outboundPayload),
-        }).catch((err) => {
-          this.logger.warn(`[OrderService -> OutboundService] Lỗi tạo đơn xuất kho: ${err.message}`);
-        });
-      } else {
-        // Tách đơn tự động theo kho (Multi-warehouse Split Order)
-        const totalSplits = warehouseAllocations.size;
-        let splitIdx = 1;
-        for (const [whCode, whItems] of warehouseAllocations.entries()) {
-          const splitCode = `ECOMM-${cleanId}-${whCode}`;
-          const splitPayload = {
-            orderCode: splitCode,
-            requestedBy: savedOrder.customerId || 'customer-web',
-            requesterName: savedOrder.customerName || 'Khách hàng',
-            customerPhone: savedOrder.customerPhone || '0909000111',
-            destination: savedOrder.customerAddress || 'TP.HCM',
-            latitude: savedOrder.shippingLat ? Number(savedOrder.shippingLat) : undefined,
-            longitude: savedOrder.shippingLng ? Number(savedOrder.shippingLng) : undefined,
-            warehouseCode: whCode,
-            warehouseId: whCode,
-            notes: `[ORDER_ID:${savedOrder.id}] [KIỆN ${splitIdx}/${totalSplits} - KHO ${whCode}] Đơn hàng TMĐT C.T Mart #${cleanId}${savedOrder.note ? ' - ' + savedOrder.note : ''}`,
-            totalAmount: whItems.reduce((sum, i) => sum + (Number(i.itemDto.price || 0) * i.quantity), 0),
-            items: whItems.map((i) => ({
+      // 1. Luôn tạo đơn xuất kho chính tại kho phục vụ đích (WH-006)
+      const outboundPayload = {
+        orderCode: `ECOMM-${cleanId}`,
+        requestedBy: savedOrder.customerId || 'customer-web',
+        requesterName: savedOrder.customerName || 'Khách hàng',
+        customerPhone: savedOrder.customerPhone || '0909000111',
+        destination: savedOrder.customerAddress || 'TP.HCM',
+        latitude: savedOrder.shippingLat ? Number(savedOrder.shippingLat) : undefined,
+        longitude: savedOrder.shippingLng ? Number(savedOrder.shippingLng) : undefined,
+        warehouseCode: primaryAllocWh,
+        warehouseId: primaryAllocWh,
+        status: isTransferRequired ? 'PROCESSING' : 'PENDING',
+        notes: `[ORDER_ID:${savedOrder.id}] ${isTransferRequired ? '[CHỜ HÀNG ĐIỀU CHUYỂN TỪ ' + otherWarehousesInvolved.join(', ') + '] ' : ''}Đơn hàng TMĐT C.T Mart #${cleanId}${savedOrder.note ? ' - ' + savedOrder.note : ''}`,
+        totalAmount: Number(savedOrder.totalAmount || 0),
+        items: (savedOrder.items || []).map((item) => ({
+          sku: item.sku || item.productId,
+          productName: item.productName,
+          requestedQuantity: item.quantity,
+          price: Number(item.price || 0),
+        })),
+      };
+
+      await fetch('http://localhost:3007/outbound-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(outboundPayload),
+      }).catch((err) => {
+        this.logger.warn(`[OrderService -> OutboundService] Lỗi tạo đơn xuất kho: ${err.message}`);
+      });
+
+      // 2. Nếu cần điều chuyển liên kho: Tự động sinh Lệnh Xuất Điều Chuyển ở Kho Nguồn và Phiếu Nhập Điều Chuyển ở Kho Đích
+      if (isTransferRequired) {
+        for (const sourceWh of otherWarehousesInvolved) {
+          const transferItems = warehouseAllocations.get(sourceWh) || [];
+          if (transferItems.length === 0) continue;
+
+          // A. Lệnh Xuất Điều Chuyển tại Kho Nguồn (sourceWh)
+          const trfOutboundPayload = {
+            orderCode: `TRF-EXP-${cleanId}-${sourceWh}`,
+            requestedBy: 'system-transfer',
+            requesterName: `Điều chuyển phục vụ đơn #${cleanId}`,
+            customerPhone: '0909000111',
+            destination: `Kho Phân Phối ${primaryAllocWh} - Trạm Đóng Gói TMĐT`,
+            warehouseCode: sourceWh,
+            warehouseId: sourceWh,
+            status: 'PROCESSING',
+            notes: `[LỆNH XUẤT ĐIỀU CHUYỂN] Chuyển hàng sang kho ${primaryAllocWh} phục vụ đơn TMĐT #${cleanId}`,
+            totalAmount: transferItems.reduce((sum, i) => sum + (Number(i.itemDto.price || 0) * i.quantity), 0),
+            items: transferItems.map((i) => ({
               sku: i.sku,
               productName: i.itemDto.productName,
               requestedQuantity: i.quantity,
@@ -375,12 +382,40 @@ export class OrderService {
           await fetch('http://localhost:3007/outbound-orders', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(splitPayload),
+            body: JSON.stringify(trfOutboundPayload),
           }).catch((err) => {
-            this.logger.warn(`[OrderService -> OutboundService] Lỗi tạo kiện xuất kho ${splitCode}: ${err.message}`);
+            this.logger.warn(`[OrderService -> OutboundService] Lỗi tạo phiếu xuất điều chuyển: ${err.message}`);
           });
 
-          splitIdx++;
+          // B. Phiếu Nhập Điều Chuyển tại Kho Đích (primaryAllocWh)
+          const trfInboundPayload = {
+            orderCode: `TRF-IMP-${cleanId}-${sourceWh}`,
+            warehouseCode: primaryAllocWh,
+            warehouseId: primaryAllocWh,
+            supplierId: sourceWh,
+            supplierName: `Kho Tổng C.T Mart (${sourceWh})`,
+            delivererName: `Xe Trung Chuyển Tuyến ${sourceWh} ➔ ${primaryAllocWh}`,
+            invoiceNumber: `TRF-EXP-${cleanId}-${sourceWh}`,
+            status: 'PENDING',
+            notes: `[ĐIỀU CHUYỂN LIÊN KHO] Nhập hàng về trạm đệm/đóng gói phục vụ đơn hàng #${cleanId}`,
+            expectedDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            items: transferItems.map((i) => ({
+              sku: i.sku,
+              productName: i.itemDto.productName,
+              expectedQuantity: i.quantity,
+              unit: 'Cái',
+              unitPrice: Number(i.itemDto.price || 0),
+              expiryDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+            })),
+          };
+
+          await fetch('http://localhost:3006/inbound-orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(trfInboundPayload),
+          }).catch((err) => {
+            this.logger.warn(`[OrderService -> InboundService] Lỗi tạo phiếu nhập điều chuyển: ${err.message}`);
+          });
         }
       }
     } catch (err: any) {

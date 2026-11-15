@@ -431,7 +431,7 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         matchedOrders.forEach((o: any) => {
           const isServerDelivered = o.status === 'COMPLETED' || o.status === 'DELIVERED';
           const isServerInTransit = o.status === 'DELIVERING' || o.status === 'SHIPPED' || o.status === 'IN_TRANSIT';
-          const isServerAssigned = o.status === 'READY_FOR_DELIVERY' || o.status === 'CONFIRMED' || o.status === 'PACKED' || o.status === 'ASSIGNED';
+          const isServerAssigned = o.status === 'READY_FOR_DELIVERY' || o.status === 'CONFIRMED' || o.status === 'ASSIGNED';
 
           const isCurrentTripLocked = currentTripLockedIds.has(o.id) || currentTripLockedIds.has(o.orderCode);
           // Backend DB status is the authoritative source of truth for real-time synchronization

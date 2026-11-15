@@ -64,7 +64,7 @@ export function detectSlipClassification(order: PrintableOrder | null): SlipClas
 
   if (code.startsWith('DSP-') || code.startsWith('DISP-') || code.startsWith('HUY-')) return 'DISPOSAL';
   if (code.startsWith('RET-') || code.startsWith('RTN-') || code.startsWith('HOAN-') || code.startsWith('TRA-')) return 'RETURN';
-  if (!isEcom && (code.startsWith('TRF-') || code.startsWith('TRANS-') || code.startsWith('TRANSFER-') || code.startsWith('DIEUCHUYEN-'))) {
+  if (code.startsWith('TRF-') || code.startsWith('TRANS-') || code.startsWith('TRANSFER-') || code.startsWith('DIEUCHUYEN-')) {
     return 'TRANSFER';
   }
 
@@ -76,7 +76,7 @@ export function detectSlipClassification(order: PrintableOrder | null): SlipClas
   if (text.includes('trả hàng cho ncc') || text.includes('trả ncc') || text.includes('hoàn hàng về kho') || text.includes('trả hàng nhà cung cấp') || text.includes('đơn trả hàng')) {
     return 'RETURN';
   }
-  if (!isEcom && (text.includes('điều chuyển kho') || text.includes('chuyển kho nội bộ') || text.includes('điều chuyển liên kho') || text.includes('chuyển liên kho'))) {
+  if (text.includes('điều chuyển kho') || text.includes('chuyển kho nội bộ') || text.includes('điều chuyển liên kho') || text.includes('chuyển liên kho') || text.includes('chờ hàng điều chuyển') || text.includes('chờ điều chuyển')) {
     return 'TRANSFER';
   }
 

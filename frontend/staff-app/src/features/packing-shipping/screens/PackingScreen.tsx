@@ -20,7 +20,7 @@ import {
   MapPin,
 } from 'lucide-react-native';
 import { useAuth } from '@/features/auth';
-import { fetchPackingOrdersApi, confirmPackingApi } from '@/shared';
+import { fetchPackingOrdersApi, confirmPackingApi, markOrderPackedApi } from '@/shared';
 import { COLORS } from '@/shared';
 
 export const PackingScreen: React.FC = () => {
@@ -67,6 +67,22 @@ export const PackingScreen: React.FC = () => {
     setRefreshing(false);
   };
 
+  const handleCompletePacking = async (order: any) => {
+    if (!order) return;
+    try {
+      await markOrderPackedApi(order.id);
+      setSelectedOrder((prev: any) => prev ? { ...prev, status: 'PACKED' } : null);
+      setPackingOrders((prev) => prev.map(o => o.id === order.id ? { ...o, status: 'PACKED' } : o));
+      Alert.alert(
+        'Đóng gói hoàn tất!',
+        `Đơn hàng ${order.orderCode} đã chuyển sang trạng thái ĐÃ ĐÓNG GÓI. Web Controller và Xuất kho đã nhận diện hoàn tất.`
+      );
+      loadPackingOrders();
+    } catch (e: any) {
+      Alert.alert('Lỗi', e.message || 'Không thể cập nhật trạng thái đóng gói');
+    }
+  };
+
   const handleConfirmExport = async (order: any) => {
     if (!order) return;
     const staffName = user?.name || 'Lê Thị Hoa (Kho WH-006)';
@@ -76,11 +92,11 @@ export const PackingScreen: React.FC = () => {
       setConfirmedOrderIds(prev => [...prev, order.id]);
       Alert.alert(
         'Xuất kho thành công!',
-        `Đơn hàng ${order.orderCode} đã được đóng gói và xác nhận chuyển sang khu vực chờ tài xế lấy hàng.`
+        `Đơn hàng ${order.orderCode} đã được bàn giao và chuyển sang khu vực chờ tài xế lấy hàng.`
       );
       loadPackingOrders();
     } else {
-      Alert.alert('Thông báo', `Đã ghi nhận hoàn tất đóng gói đơn ${order.orderCode}.`);
+      Alert.alert('Thông báo', `Đã ghi nhận hoàn tất xuất kho đơn ${order.orderCode}.`);
       setConfirmedOrderIds(prev => [...prev, order.id]);
     }
   };
@@ -200,7 +216,7 @@ export const PackingScreen: React.FC = () => {
             </Text>
           </View>
 
-          {/* Action Button: In tem & Xác nhận xuất kho */}
+          {/* Action Button: In tem & Xác nhận đóng gói / xuất kho */}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
             <TouchableOpacity
               style={styles.printLabelBtn}
@@ -211,22 +227,34 @@ export const PackingScreen: React.FC = () => {
               <Text style={styles.printLabelBtnText}>In Tem QR</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.exportBtn,
-                { flex: 1 },
-                (confirmedOrderIds.includes(selectedOrder.id) || selectedOrder.status === 'CONFIRMED') && styles.exportBtnDone,
-              ]}
-              onPress={() => handleConfirmExport(selectedOrder)}
-              activeOpacity={0.85}
-            >
-              <Truck size={18} color="#ffffff" />
-              <Text style={styles.exportBtnText}>
-                {confirmedOrderIds.includes(selectedOrder.id) || selectedOrder.status === 'CONFIRMED'
-                  ? 'ĐÃ XUẤT KHO'
-                  : 'XUẤT KHO'}
-              </Text>
-            </TouchableOpacity>
+            {selectedOrder.status === 'PACKING' ? (
+              <TouchableOpacity
+                style={[styles.exportBtn, { flex: 1, backgroundColor: '#059669' }]}
+                onPress={() => handleCompletePacking(selectedOrder)}
+                activeOpacity={0.85}
+              >
+                <PackageCheck size={18} color="#ffffff" />
+                <Text style={styles.exportBtnText}>HOÀN TẤT ĐÓNG GÓI</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.exportBtn,
+                  { flex: 1, backgroundColor: '#0f766e' },
+                  (confirmedOrderIds.includes(selectedOrder.id) || selectedOrder.status === 'CONFIRMED') && styles.exportBtnDone,
+                ]}
+                onPress={() => handleConfirmExport(selectedOrder)}
+                activeOpacity={0.85}
+                disabled={confirmedOrderIds.includes(selectedOrder.id) || selectedOrder.status === 'CONFIRMED'}
+              >
+                <Truck size={18} color="#ffffff" />
+                <Text style={styles.exportBtnText}>
+                  {confirmedOrderIds.includes(selectedOrder.id) || selectedOrder.status === 'CONFIRMED'
+                    ? 'ĐÃ BÀN GIAO SHIPPER'
+                    : 'BÀN GIAO SHIPPER / XUẤT KHO'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}

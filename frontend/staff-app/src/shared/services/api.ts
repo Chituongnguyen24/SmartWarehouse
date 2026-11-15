@@ -309,7 +309,12 @@ export const cancelOutboundOrderApi = async (orderId: string, token?: string | n
 };
 
 export const fetchPackingOrdersApi = async (warehouseCode?: string, token?: string | null) => {
-  return fetchOutboundOrders(warehouseCode, token);
+  const orders = await fetchOutboundOrders(warehouseCode, token);
+  return orders.filter(o => o.status === 'PACKING' || o.status === 'PACKED');
+};
+
+export const markOrderPackedApi = async (orderId: string, token?: string | null) => {
+  return updateOutboundStatus(orderId, 'PACKED', token);
 };
 
 export const confirmPackingApi = async (orderId: string, performedBy?: string, token?: string | null) => {

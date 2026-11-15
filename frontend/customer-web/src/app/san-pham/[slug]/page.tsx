@@ -4,7 +4,8 @@ import { use, useState, useEffect, useRef } from 'react';
 import { notFound } from 'next/navigation';
 import { CATEGORIES } from '@/lib/mockData';
 import { getProductById, Product, getCategories, CategoryData } from '@/lib/api';
-import { ChevronRight, Heart, Share2, Plus, Minus, CheckCircle2, ChevronDown, Store, Star, ShoppingCart } from 'lucide-react';
+import { getApiHost } from '@/shared/lib/apiConfig';
+import { ChevronRight, Heart, Share2, Plus, Minus, CheckCircle2, ChevronDown, Store, Star, ShoppingCart, Clock, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { useCartStore, useAuthStore } from '@/lib/store';
 import { AuthPromptModal } from '@/features/auth';
@@ -71,12 +72,43 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const formatPrice = (p: number) => p.toLocaleString('vi-VN') + 'đ';
 
   const addToCart = useCartStore(state => state.addToCart);
-  const isOutOfStock = !product || (product.totalStock ?? 0) <= 0;
+
+  // Tra cứu tồn kho chi tiết tại từng kho (Đặc biệt: Kho Gò Vấp WH-006 vs Kho Tổng WH-001)
+  const [warehouseStock, setWarehouseStock] = useState<Record<string, Record<string, number>> | null>(null);
+
+  useEffect(() => {
+    if (!product) return;
+    const sku = (product as any).sku || product.id;
+    fetch(`${getApiHost(3011)}/inventory/warehouse-stock?skus=${encodeURIComponent(sku)}`)
+      .then(res => res.json())
+      .then(stockData => {
+        if (stockData && typeof stockData === 'object') {
+          setWarehouseStock(stockData);
+        }
+      })
+      .catch(() => {});
+  }, [product]);
+
+  const skuKey = (product as any)?.sku || product?.id || '';
+  const primaryStock = warehouseStock?.['WH-006']?.[skuKey] ?? (warehouseStock?.['WH-006']?.[product?.id || ''] ?? 0);
+
+  // Tính tổng tồn kho khả dụng trên toàn bộ hệ thống
+  let computedTotalStock = 0;
+  if (warehouseStock) {
+    for (const wh of Object.keys(warehouseStock)) {
+      computedTotalStock += (warehouseStock[wh]?.[skuKey] || warehouseStock[wh]?.[product?.id || ''] || 0);
+    }
+  } else {
+    computedTotalStock = product?.totalStock ?? 0;
+  }
+
+  const isOutOfStock = computedTotalStock <= 0;
+  const isTransferRequired = !isOutOfStock && primaryStock <= 0 && computedTotalStock > 0;
   
   const handleAddToCart = () => {
     if (!product) return;
     if (isOutOfStock) {
-      alert('Sản phẩm hiện đang tạm hết hàng, quý khách vui lòng chọn sản phẩm khác!');
+      alert('Sản phẩm hiện đang tạm hết hàng trên toàn hệ thống, quý khách vui lòng chọn sản phẩm khác!');
       return;
     }
 
@@ -93,16 +125,22 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       oldPrice: product.oldPrice,
       quantity,
       image: activeImage,
-      variant: currentVariant?.name || null
-    });
+      variant: currentVariant?.name || null,
+      isTransferRequired,
+      estimatedDelivery: isTransferRequired ? '24 - 48 giờ' : '1 - 2 giờ'
+    } as any);
     // Visual feedback
-    alert('Đã thêm sản phẩm vào giỏ hàng!');
+    if (isTransferRequired) {
+      alert('Đã thêm sản phẩm vào giỏ hàng! Lưu ý: Sản phẩm cần điều chuyển từ Kho Tổng nên thời gian giao dự kiến là 24 - 48 giờ.');
+    } else {
+      alert('Đã thêm sản phẩm vào giỏ hàng!');
+    }
   };
 
   const handleBuyNow = () => {
     if (!product) return;
     if (isOutOfStock) {
-      alert('Sản phẩm hiện đang tạm hết hàng, quý khách vui lòng chọn sản phẩm khác!');
+      alert('Sản phẩm hiện đang tạm hết hàng trên toàn hệ thống, quý khách vui lòng chọn sản phẩm khác!');
       return;
     }
 
@@ -119,8 +157,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       oldPrice: product.oldPrice,
       quantity,
       image: activeImage,
-      variant: currentVariant?.name || null
-    });
+      variant: currentVariant?.name || null,
+      isTransferRequired,
+      estimatedDelivery: isTransferRequired ? '24 - 48 giờ' : '1 - 2 giờ'
+    } as any);
 
     router.push('/gio-hang');
   };
@@ -289,15 +329,35 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                 <div className="text-sm">
                   {isOutOfStock ? (
                     <span className="text-red-500 font-semibold bg-red-50 px-2.5 py-1 rounded border border-red-200">
-                      Tạm hết hàng
+                      Tạm hết hàng trên toàn hệ thống
+                    </span>
+                  ) : isTransferRequired ? (
+                    <span className="text-amber-800 font-semibold bg-amber-50 px-2.5 py-1 rounded border border-amber-200">
+                      Tạm hết tại Kho Gò Vấp - Có sẵn tại Kho Tổng ({computedTotalStock} {product.unit || 'sp'})
                     </span>
                   ) : (
                     <span className="text-emerald-700 font-medium bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
-                      Còn {product.totalStock} {product.unit || 'sản phẩm'} trong kho
+                      Còn {primaryStock} {product.unit || 'sản phẩm'} tại Kho Gò Vấp (Giao nhanh 1-2h)
                     </span>
                   )}
                 </div>
               </div>
+
+              {/* Thông báo điều chuyển liên kho nếu hàng ở Kho Gò Vấp hết nhưng Kho Tổng còn */}
+              {isTransferRequired && (
+                <div className="bg-amber-50/90 border border-amber-200 rounded-lg p-3.5 mb-6">
+                  <div className="flex items-start gap-2.5">
+                    <Clock size={18} className="text-amber-700 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-bold text-amber-900 text-sm">Lưu ý: Hàng cần điều chuyển từ Kho Tổng</div>
+                      <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                        Sản phẩm hiện tạm hết tại <strong>Kho Gò Vấp</strong>. Hệ thống sẽ điều phối xe trung chuyển lấy hàng từ <strong>Kho Tổng C.T Mart</strong> về trạm đóng gói.
+                        Thời gian giao hàng dự kiến: <span className="font-bold text-amber-950">24 - 48 giờ</span>.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div ref={mainBuySectionRef} className="flex flex-col sm:flex-row gap-4 mb-8">
                 <button 
@@ -306,11 +366,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                   className={`flex-1 font-bold py-3.5 px-6 rounded-lg transition-all flex items-center justify-center gap-2 ${
                     isOutOfStock
                       ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed shadow-none'
+                      : isTransferRequired
+                      ? 'border-2 border-amber-600 text-amber-800 hover:bg-amber-50 bg-white'
                       : 'border-2 border-primary text-primary hover:bg-primary/5 bg-white'
                   }`}
                 >
-                  <ShoppingCart size={20} />
-                  {isOutOfStock ? 'Tạm hết hàng' : 'Thêm vào giỏ hàng'}
+                  {isTransferRequired ? <Clock size={20} /> : <ShoppingCart size={20} />}
+                  {isOutOfStock ? 'Tạm hết hàng' : isTransferRequired ? 'Đặt hàng điều chuyển (24-48h)' : 'Thêm vào giỏ hàng'}
                 </button>
                 <button 
                   disabled={isOutOfStock}
@@ -318,10 +380,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                   className={`flex-1 font-bold py-3.5 px-6 rounded-lg transition-all ${
                     isOutOfStock
                       ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+                      : isTransferRequired
+                      ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-md hover:shadow-lg'
                       : 'bg-orange-500 hover:bg-orange-600 text-white shadow-md hover:shadow-lg'
                   }`}
                 >
-                  {isOutOfStock ? 'Hết hàng' : 'Mua ngay'}
+                  {isOutOfStock ? 'Hết hàng' : isTransferRequired ? 'Mua hàng điều chuyển (24-48h)' : 'Mua ngay'}
                 </button>
               </div>
 

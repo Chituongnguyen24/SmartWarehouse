@@ -67,7 +67,7 @@ export function detectInboundClassification(order: InboundOrder | null): Inbound
   if (!order) return 'NHAP_MUA_NCC';
   const text = `${order.orderCode || ''} ${order.supplierName || ''} ${order.notes || ''}`.toLowerCase();
   if (text.includes('trả lại') || text.includes('hoàn') || text.includes('return') || text.includes('tra hang')) return 'HANG_TRA_LAI';
-  if (text.includes('điều chuyển') || text.includes('chuyển kho') || text.includes('transfer') || text.includes('chi nhánh')) return 'DIEU_CHUYEN';
+  if (text.includes('điều chuyển') || text.includes('chuyển kho') || text.includes('transfer') || text.includes('chi nhánh') || text.includes('trf-') || text.includes('trf_')) return 'DIEU_CHUYEN';
   if (text.includes('kiểm kê') || text.includes('thừa') || text.includes('audit')) return 'KIEM_KE_THUA';
   return 'NHAP_MUA_NCC';
 }
