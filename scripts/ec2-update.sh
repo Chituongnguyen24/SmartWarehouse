@@ -19,6 +19,9 @@ echo ">> [2/5] Dọn dẹp tiến trình cũ và build Web Dashboard..."
 rm -rf frontend/web-dashboard/dist
 cd frontend/web-dashboard && npx vite build && cd ../..
 
+echo ">> Rebuild outbound-service backend..."
+cd backend/services/outbound-service && npm run build && cd ../../..
+
 echo ">> [3/5] Đóng gói Customer Web (Next.js SSR)..."
 cd frontend/customer-web && npm run build && cd ../..
 
