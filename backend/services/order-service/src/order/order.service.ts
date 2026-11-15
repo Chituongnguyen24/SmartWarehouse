@@ -731,6 +731,16 @@ export class OrderService {
         }
       }
 
+      // Khóa đổi tài xế nếu đơn hàng đang giao hoặc đã hoàn tất
+      if (body?.driverId && order.assignedDriverId && body.driverId !== order.assignedDriverId) {
+        const curStatus = (order.status || '').toUpperCase();
+        if (['DELIVERING', 'SHIPPED', 'IN_TRANSIT', 'COMPLETED', 'DELIVERED'].includes(curStatus)) {
+          throw new BadRequestException(
+            `Đơn hàng #${order.id.slice(0, 8).toUpperCase()} đang ở trạng thái ${curStatus} (đang trên đường giao hoặc đã hoàn tất), đã khóa không thể thay đổi tài xế!`,
+          );
+        }
+      }
+
       if (status) order.status = status;
       if (body?.driverId) order.assignedDriverId = body.driverId;
       if (body?.driverName) order.assignedDriverName = body.driverName;
@@ -785,6 +795,15 @@ export class OrderService {
     id: string,
     dto: { driverId?: string; driverName?: string; driverPhone?: string; driverPlate?: string; status?: OrderStatus },
   ): Promise<Order> {
+    const existing = await this.findOne(id).catch(() => null);
+    if (existing) {
+      const curStatus = (existing.status || '').toUpperCase();
+      if (['DELIVERING', 'SHIPPED', 'IN_TRANSIT', 'COMPLETED', 'DELIVERED'].includes(curStatus)) {
+        throw new BadRequestException(
+          `Đơn hàng #${existing.id.slice(0, 8).toUpperCase()} đang ở trạng thái ${curStatus} (đang trên đường giao hoặc đã hoàn tất), đã khóa không thể thay đổi tài xế!`,
+        );
+      }
+    }
     return this.updateStatus(id, dto.status || OrderStatus.DELIVERING, dto);
   }
 

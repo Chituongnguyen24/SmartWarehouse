@@ -654,6 +654,12 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     status?: string 
   }): Promise<OutboundOrder> {
     const order = await this.findOne(id);
+    const curStatus = (order.status || '').toUpperCase();
+    if (['DELIVERING', 'SHIPPED', 'IN_TRANSIT', 'COMPLETED', 'DELIVERED'].includes(curStatus)) {
+      throw new BadRequestException(
+        `Đơn hàng xuất kho #${order.orderCode || order.id} đang ở trạng thái ${curStatus} (đang trên đường giao hoặc đã hoàn tất), đã khóa không thể thay đổi tài xế!`,
+      );
+    }
     const dId = body.assignedDriverId || body.driverId;
     const dName = body.assignedDriverName || body.driverName;
     const dPhone = body.assignedDriverPhone || body.driverPhone;

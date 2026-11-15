@@ -484,6 +484,16 @@ const OrderManagement: React.FC = () => {
 
   const handleAssignDriverSubmit = useCallback(async (orderId: string, driver: any) => {
     try {
+      const targetOrd = orders.find(o => o.id === orderId);
+      if (targetOrd) {
+        const curStatus = (targetOrd.status || '').toUpperCase();
+        if (['DELIVERING', 'SHIPPED', 'IN_TRANSIT', 'COMPLETED', 'DELIVERED'].includes(curStatus)) {
+          showToast(`Đơn hàng #${orderId.slice(0, 8).toUpperCase()} đang ở trạng thái ${curStatus} (đang giao hoặc đã giao), đã khóa không thể thay đổi tài xế!`, 'warning');
+          setDispatchOrderModal(null);
+          return;
+        }
+      }
+
       // 1. Optimistic local update
       setOrders(prev => prev.map(o => o.id === orderId ? {
         ...o,
@@ -1156,8 +1166,28 @@ const OrderManagement: React.FC = () => {
                     <FileText size={14} color="#99f6e4" /> In Phiếu 02-VT
                   </button>
 
-                  {/* Always show Dispatch/Assign Driver button for active orders */}
-                  {selectedOrder.status !== 'CANCELLED' && selectedOrder.status !== 'COMPLETED' && (
+                  {/* Show locked indicator if order is delivering or delivered, otherwise allow dispatch */}
+                  {['DELIVERING', 'SHIPPED', 'IN_TRANSIT', 'COMPLETED', 'DELIVERED'].includes(selectedOrder.status) ? (
+                    <div
+                      title="Đơn hàng đang trong quá trình vận chuyển hoặc đã giao thành công, đã khóa không thể thay đổi tài xế"
+                      style={{
+                        padding: '8px 14px',
+                        background: '#f8fafc',
+                        color: '#475569',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '8px',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '0.82rem',
+                        cursor: 'not-allowed',
+                      }}
+                    >
+                      <Lock size={15} color="#64748b" />
+                      <span>{selectedOrder.status === 'COMPLETED' || selectedOrder.status === 'DELIVERED' ? 'Đã giao (Khóa xe)' : 'Đang giao (Đã khóa xe)'}</span>
+                    </div>
+                  ) : selectedOrder.status !== 'CANCELLED' && (
                     <button
                       onClick={() => setDispatchOrderModal(selectedOrder)}
                       style={{

@@ -1340,6 +1340,13 @@ export default function OrderDispatch() {
   // 3. Manual Single Driver Assign
   const handleAssignSingleDriver = async () => {
     if (!manualDriverModalOrder || !selectedDriverForAssign) return;
+    const curStatus = (manualDriverModalOrder.status || '').toUpperCase();
+    if (['DELIVERING', 'SHIPPED', 'IN_TRANSIT', 'COMPLETED', 'DELIVERED'].includes(curStatus)) {
+      showToast(`Đơn hàng #${manualDriverModalOrder.orderCode || manualDriverModalOrder.id} đang ở trạng thái ${curStatus} (đang trên đường giao hoặc đã hoàn tất), đã khóa không thể thay đổi tài xế!`, 'warning');
+      setManualDriverModalOrder(null);
+      return;
+    }
+
     saveDriverAssignmentToStorage(manualDriverModalOrder.id, selectedDriverForAssign);
     if (manualDriverModalOrder.orderCode) {
       saveDriverAssignmentToStorage(manualDriverModalOrder.orderCode, selectedDriverForAssign);
@@ -3707,6 +3714,29 @@ export default function OrderDispatch() {
                       <Truck size={14} />
                       <span>Gán Xe</span>
                     </button>
+                  )}
+
+                  {(selectedOrder.status === 'DELIVERING' || selectedOrder.status === 'SHIPPED' || selectedOrder.status === 'IN_TRANSIT') && (
+                    <div
+                      title="Đơn hàng đang trên đường giao, đã khóa không thể đổi tài xế"
+                      style={{
+                        padding: '10px 14px',
+                        backgroundColor: '#f1f5f9',
+                        color: '#64748b',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        border: '1px solid #cbd5e1',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        cursor: 'not-allowed',
+                      }}
+                    >
+                      <Lock size={14} color="#64748b" />
+                      <span>Đang Giao Hàng (Đã Khóa Xe)</span>
+                    </div>
                   )}
                 </>
               )}
