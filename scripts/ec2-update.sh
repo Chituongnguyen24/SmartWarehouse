@@ -15,9 +15,12 @@ chmod +x scripts/*.sh 2>/dev/null || true
 echo ">> Commit mới nhất trên EC2:"
 git log -1 --oneline
 
-echo ">> [2/5] Dọn dẹp tiến trình cũ và build Web Dashboard..."
+echo ">> [2/5] Dọn dẹp tiến trình cũ và build Web Dashboard & Staff App..."
 rm -rf frontend/web-dashboard/dist
 cd frontend/web-dashboard && npx vite build && cd ../..
+
+rm -rf frontend/staff-app/dist
+cd frontend/staff-app && npx vite build && cd ../..
 
 echo ">> Rebuild updated backend services..."
 cd backend/services/inventory-service && npm run build && cd ../../..
@@ -46,6 +49,7 @@ echo ""
 echo ">> =================================================================="
 echo ">> CẬP NHẬT HOÀN TẤT THÀNH CÔNG!"
 echo ">> Web Dashboard (Quản trị): http://smartwarehouse-kltn.duckdns.org"
+echo ">> Staff App (Nhân viên): http://smartwarehouse-kltn.duckdns.org/staff/"
 echo ">> Customer Web (Khách hàng): http://smartwarehouse-kltn.duckdns.org/store/"
 echo ">> =================================================================="
 pm2 status

@@ -1440,12 +1440,16 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
             );
           }
 
-          // 3. Fallback to any lot in that warehouse or global lot
-          if (!matchedLot && order.warehouseCode) {
-            matchedLot = allLots.find(l => l.warehouseCode === order.warehouseCode);
-          }
+          // 3. Nếu không tìm thấy lô khớp với SKU: KHÔNG ĐƯỢC gán lô ngẫu nhiên khác loại sản phẩm!
+          // Giữ ở trạng thái chờ xe trung chuyển và không gán mã lô
           if (!matchedLot) {
-            matchedLot = allLots[0];
+            item.lotId = null;
+            item.lotCode = null;
+            item.slotId = 'TRANSFER_DOCK';
+            await this.itemRepository.save(item);
+            orderModified = true;
+            updatedItemsCount++;
+            continue;
           }
 
           if (matchedLot) {

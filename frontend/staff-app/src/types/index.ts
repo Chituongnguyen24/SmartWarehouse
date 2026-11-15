@@ -43,6 +43,9 @@ export interface InboundReceipt {
   temperatureRequired: string;
   qcPassed?: boolean;
   notes?: string;
+  packageCondition?: 'PACKED_OK' | 'NEEDS_PACKING' | null;
+  destinationStation?: string;
+  packingNote?: string;
 }
 
 export interface StockInfo {

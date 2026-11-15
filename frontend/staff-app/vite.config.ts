@@ -31,6 +31,7 @@ function terminalOtpLoggerPlugin(): Plugin {
 }
 
 export default defineConfig({
+  base: './',
   plugins: [react(), terminalOtpLoggerPlugin()],
   resolve: {
     alias: {

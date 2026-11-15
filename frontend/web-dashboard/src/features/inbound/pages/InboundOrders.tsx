@@ -70,11 +70,11 @@ export function detectInboundClassification(order: InboundOrder | null): Inbound
   if (!order) return 'NHAP_MUA_NCC';
 
   // 1. Kiểm tra trực tiếp theo tiền tố mã phiếu điều chuyển
-  const code = (order.orderCode || '').toUpperCase().trim();
+  const code = (order.orderCode || (order as any).order_code || '').toUpperCase().trim();
   if (
-    code.startsWith('TRF-') ||
-    code.startsWith('TRF_') ||
-    code.includes('-TRF-') ||
+    code.startsWith('TRF') ||
+    code.includes('TRF-') ||
+    code.includes('TRF_') ||
     code.startsWith('DC-') ||
     code.startsWith('CK-') ||
     code.includes('TRANSFER')
@@ -83,31 +83,30 @@ export function detectInboundClassification(order: InboundOrder | null): Inbound
   }
 
   // 2. Kiểm tra theo số chứng từ / hóa đơn tham chiếu
-  const invoice = (order.invoiceNumber || '').toUpperCase().trim();
-  if (invoice.startsWith('TRF-') || invoice.startsWith('TRF_') || invoice.includes('-TRF-')) {
+  const invoice = (order.invoiceNumber || (order as any).invoice_number || '').toUpperCase().trim();
+  if (invoice.startsWith('TRF') || invoice.includes('TRF-') || invoice.includes('TRF_')) {
     return 'DIEU_CHUYEN';
   }
 
   // 3. Kiểm tra đơn vị xuất / xe trung chuyển / ghi chú
-  const deliverer = (order.delivererName || '').toLowerCase();
+  const deliverer = (order.delivererName || (order as any).deliverer_name || '').toLowerCase();
   if (deliverer.includes('trung chuyển') || deliverer.includes('điều chuyển') || deliverer.includes('xe trung chuyển')) {
     return 'DIEU_CHUYEN';
   }
 
-  const supplier = (order.supplierName || '').toLowerCase();
-  if (supplier.includes('kho tổng') || supplier.includes('kho chi nhánh') || supplier.includes('wh-')) {
+  const supplier = (order.supplierName || (order as any).supplier_name || '').toLowerCase();
+  if (supplier.includes('kho tổng') || supplier.includes('kho chi nhánh') || supplier.includes('wh-') || supplier.includes('trung chuyển')) {
     return 'DIEU_CHUYEN';
   }
 
-  const text = `${order.orderCode || ''} ${order.supplierName || ''} ${order.notes || ''} ${order.invoiceNumber || ''} ${order.delivererName || ''}`.toLowerCase();
+  const text = `${order.orderCode || (order as any).order_code || ''} ${order.supplierName || (order as any).supplier_name || ''} ${order.notes || ''} ${order.invoiceNumber || ''} ${order.delivererName || ''}`.toLowerCase();
   if (text.includes('trả lại') || text.includes('hoàn') || text.includes('return') || text.includes('tra hang')) return 'HANG_TRA_LAI';
   if (
     text.includes('điều chuyển') ||
     text.includes('chuyển kho') ||
     text.includes('transfer') ||
     text.includes('chi nhánh') ||
-    text.includes('trf-') ||
-    text.includes('trf_') ||
+    text.includes('trf') ||
     text.includes('trung chuyển') ||
     text.includes('liên kho')
   ) {

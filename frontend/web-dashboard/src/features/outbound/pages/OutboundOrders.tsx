@@ -470,11 +470,13 @@ const OutboundOrders: React.FC = () => {
             }
           }
 
+          const isTransferPending = it.slotId === 'TRANSFER_DOCK' || target.notes?.includes('[CHỜ HÀNG ĐIỀU CHUYỂN]') || target.status === 'WAITING_TRANSFER';
+
           return {
             itemId: it.id,
-            lotId: matchedLot?.lotId || it.lotId || `lot-${it.sku}`,
-            lotCode: matchedLot?.lotCode || it.lotCode || `LOT-${it.sku}`,
-            slotId: matchedLot?.slotId || it.slotId || 'dry-shelf-10-slot-1',
+            lotId: isTransferPending ? null : (matchedLot?.lotId || it.lotId || `lot-${it.sku}`),
+            lotCode: isTransferPending ? null : (matchedLot?.lotCode || it.lotCode || `LOT-${it.sku}`),
+            slotId: isTransferPending ? 'TRANSFER_DOCK' : (matchedLot?.slotId || it.slotId || 'dry-shelf-10-slot-1'),
             expiryDate: matchedLot?.expiryDate || it.expiryDate || new Date(Date.now() + 30 * 86400000).toISOString(),
             riskScore: matchedLot?.riskScore || it.riskScore || 0,
             priorityScore: matchedLot?.priorityScore || 0,
@@ -1495,51 +1497,66 @@ const OutboundOrders: React.FC = () => {
                         </tr>
                       ))
                     ) : (
-                      selectedOrder.items?.map((item, idx) => (
-                        <tr key={item.id || idx} style={{ borderTop: idx > 0 ? '1px solid #f1f5f9' : 'none', backgroundColor: item.lotCode ? 'rgba(59, 130, 246, 0.03)' : 'transparent' }}>
-                          <td style={{ padding: '12px 14px' }}>
-                            <div style={{ fontWeight: 700, color: '#0f172a' }}>{item.productName}</div>
-                            <div style={{ fontSize: '0.75rem', color: '#64748b', fontFamily: 'monospace' }}>{item.sku}</div>
-                          </td>
-                          <td style={{ padding: '12px 14px', fontWeight: 700 }}>{item.requestedQuantity} sp</td>
-                          <td style={{ padding: '12px 14px' }}>
-                            {item.lotCode ? (
-                              <span style={{ padding: '3px 8px', borderRadius: '6px', backgroundColor: '#dcfce7', color: '#166534', fontWeight: 700, fontSize: '0.75rem', border: '1px solid #bbf7d0' }}>
-                                {item.lotCode} ({item.pickedQuantity || item.requestedQuantity} sp)
+                      selectedOrder.items?.map((item, idx) => {
+                        const isMismatchBogusLot = Boolean(
+                          item.lotCode &&
+                          item.lotCode.includes('TOMATO') &&
+                          !item.sku?.toUpperCase().includes('TOMATO') &&
+                          !item.productName?.toLowerCase().includes('cà chua')
+                        );
+                        const isTransferWaiting = item.slotId === 'TRANSFER_DOCK' ||
+                          selectedOrder.status === 'WAITING_TRANSFER' ||
+                          selectedOrder.notes?.includes('[CHỜ HÀNG ĐIỀU CHUYỂN]') ||
+                          isMismatchBogusLot;
+
+                        return (
+                          <tr key={item.id || idx} style={{ borderTop: idx > 0 ? '1px solid #f1f5f9' : 'none', backgroundColor: (item.lotCode && !isTransferWaiting) ? 'rgba(59, 130, 246, 0.03)' : 'transparent' }}>
+                            <td style={{ padding: '12px 14px' }}>
+                              <div style={{ fontWeight: 700, color: '#0f172a' }}>{item.productName}</div>
+                              <div style={{ fontSize: '0.75rem', color: '#64748b', fontFamily: 'monospace' }}>{item.sku}</div>
+                            </td>
+                            <td style={{ padding: '12px 14px', fontWeight: 700 }}>{item.requestedQuantity} sp</td>
+                            <td style={{ padding: '12px 14px' }}>
+                              {isTransferWaiting ? (
+                                <span style={{ padding: '3px 8px', borderRadius: '6px', backgroundColor: '#fff7ed', color: '#c2410c', fontWeight: 700, fontSize: '0.75rem', border: '1px solid #fed7aa' }}>
+                                  Chờ xe trung chuyển
+                                </span>
+                              ) : item.lotCode ? (
+                                <span style={{ padding: '3px 8px', borderRadius: '6px', backgroundColor: '#dcfce7', color: '#166534', fontWeight: 700, fontSize: '0.75rem', border: '1px solid #bbf7d0' }}>
+                                  {item.lotCode} ({item.pickedQuantity || item.requestedQuantity} sp)
+                                </span>
+                              ) : (
+                                <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.75rem' }}>Chưa cấp lô</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '12px 14px' }}>
+                              <span style={{ 
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                gap: '4px',
+                                padding: '4px 9px', 
+                                borderRadius: '6px', 
+                                backgroundColor: isTransferWaiting ? '#fff7ed' : item.slotId ? '#f0fdf4' : '#f1f5f9', 
+                                color: isTransferWaiting ? '#c2410c' : item.slotId ? '#15803d' : '#64748b', 
+                                fontWeight: 600, 
+                                fontSize: '0.8rem', 
+                                border: isTransferWaiting ? '1px solid #fed7aa' : item.slotId ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
+                              }}>
+                                <MapPin size={12} /> {isTransferWaiting ? 'Khu nhận hàng điều chuyển' : formatShelfLocation(item.slotId)}
                               </span>
-                            ) : (item.slotId === 'TRANSFER_DOCK' || selectedOrder.notes?.includes('[CHỜ HÀNG ĐIỀU CHUYỂN]')) ? (
-                              <span style={{ padding: '3px 8px', borderRadius: '6px', backgroundColor: '#fff7ed', color: '#c2410c', fontWeight: 700, fontSize: '0.75rem', border: '1px solid #fed7aa' }}>
-                                Chờ xe trung chuyển
-                              </span>
-                            ) : (
-                              <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.75rem' }}>Chưa cấp lô</span>
-                            )}
-                          </td>
-                          <td style={{ padding: '12px 14px' }}>
-                            <span style={{ 
-                              display: 'inline-flex', 
-                              alignItems: 'center', 
-                              gap: '4px',
-                              padding: '4px 9px', 
-                              borderRadius: '6px', 
-                              backgroundColor: (item.slotId === 'TRANSFER_DOCK' || (!item.lotCode && selectedOrder.notes?.includes('[CHỜ HÀNG ĐIỀU CHUYỂN]'))) ? '#fff7ed' : item.slotId ? '#f0fdf4' : '#f1f5f9', 
-                              color: (item.slotId === 'TRANSFER_DOCK' || (!item.lotCode && selectedOrder.notes?.includes('[CHỜ HÀNG ĐIỀU CHUYỂN]'))) ? '#c2410c' : item.slotId ? '#15803d' : '#64748b', 
-                              fontWeight: 600, 
-                              fontSize: '0.8rem', 
-                              border: (item.slotId === 'TRANSFER_DOCK' || (!item.lotCode && selectedOrder.notes?.includes('[CHỜ HÀNG ĐIỀU CHUYỂN]'))) ? '1px solid #fed7aa' : item.slotId ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
-                            }}>
-                              <MapPin size={12} /> {item.slotId === 'TRANSFER_DOCK' || (!item.lotCode && selectedOrder.notes?.includes('[CHỜ HÀNG ĐIỀU CHUYỂN]')) ? 'Khu nhận hàng điều chuyển' : formatShelfLocation(item.slotId)}
-                            </span>
-                          </td>
-                          <td style={{ padding: '12px 14px', color: '#64748b' }}>
-                            {item.lotCode && item.expiryDate 
-                              ? new Date(item.expiryDate).toLocaleDateString('vi-VN') 
-                              : (item.slotId === 'TRANSFER_DOCK' || selectedOrder.notes?.includes('[CHỜ HÀNG ĐIỀU CHUYỂN]'))
-                              ? <span style={{ color: '#c2410c', fontStyle: 'italic', fontSize: '0.75rem' }}>Theo phiếu nhập TRF</span>
-                              : '15/09/2026'}
-                          </td>
-                        </tr>
-                      ))
+                            </td>
+                            <td style={{ padding: '12px 14px', color: '#64748b' }}>
+                              {isTransferWaiting ? (
+                                <span style={{ color: '#c2410c', fontStyle: 'italic', fontSize: '0.75rem' }}>Theo phiếu nhập TRF</span>
+                              ) : item.lotCode && item.expiryDate ? (
+                                new Date(item.expiryDate).toLocaleDateString('vi-VN')
+                              ) : (
+                                '15/09/2026'
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>

@@ -51,6 +51,10 @@ export const InboundReceiving: React.FC = () => {
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
+  // Transfer Inbound Packaging QC State
+  const [packageCondition, setPackageCondition] = useState<'PACKED_OK' | 'NEEDS_PACKING'>('PACKED_OK');
+  const [packingNote, setPackingNote] = useState<string>('');
+
   // Putaway Flow State
   const [modalStep, setModalStep] = useState<'QC' | 'PUTAWAY' | 'COMPLETED'>('QC');
   const [suggestedShelf, setSuggestedShelf] = useState<{ code: string; display: string; zone: 'COOL' | 'DRY' | 'FROZEN' }>({
@@ -99,6 +103,9 @@ export const InboundReceiving: React.FC = () => {
             itemsCount: d.items ? d.items.length : 2,
             totalQuantity: d.totalQuantity || (d.items ? d.items.reduce((sum: number, it: any) => sum + (it.quantity || 0), 0) : 60),
             temperatureRequired: tempReq,
+            packageCondition: d.packageCondition,
+            destinationStation: d.destinationStation,
+            packingNote: d.packingNote,
             riskLevel,
             riskReason,
           };
@@ -159,6 +166,8 @@ export const InboundReceiving: React.FC = () => {
     setIsExpiryValid(true);
     setIsSealIntact(inb.riskLevel !== 'CRITICAL');
     setQcNotes('');
+    setPackageCondition((inb.packageCondition as any) || 'PACKED_OK');
+    setPackingNote(inb.packingNote || '');
     setIsCompleted(false);
     setModalStep('QC');
     setIsShelfVerified(false);
@@ -262,6 +271,43 @@ export const InboundReceiving: React.FC = () => {
       setIsCompleted(true);
     } catch (e) {
       console.warn('Confirm putaway error:', e);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleTransferToPacking = async () => {
+    if (!selectedInbound) return;
+
+    setIsSubmitting(true);
+    try {
+      await updateInboundStatusApi(selectedInbound.id, 'COMPLETED', true, null, {
+        packageCondition,
+        destinationStation: 'PACKING_STATION',
+        packingNote: packingNote || qcNotes,
+      });
+
+      setInbounds(prev =>
+        prev.map(it => {
+          if (it.id === selectedInbound.id) {
+            return {
+              ...it,
+              status: 'STORED',
+              qcPassed: true,
+              packageCondition,
+              destinationStation: 'PACKING_STATION',
+              packingNote: packingNote || qcNotes,
+              riskLevel: 'NORMAL',
+            };
+          }
+          return it;
+        })
+      );
+
+      setModalStep('COMPLETED');
+      setIsCompleted(true);
+    } catch (e) {
+      console.warn('Transfer to packing error:', e);
     } finally {
       setIsSubmitting(false);
     }
@@ -427,212 +473,344 @@ export const InboundReceiving: React.FC = () => {
             gap: '12px',
           }}
         >
-          {/* Header & Step Indicator */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span
-                style={{
-                  fontSize: '11px',
-                  backgroundColor: modalStep === 'QC' ? '#ecfdf5' : '#f1f5f9',
-                  color: modalStep === 'QC' ? '#059669' : '#64748b',
-                  padding: '3px 8px',
-                  borderRadius: '6px',
-                  fontWeight: 600,
-                  border: `1px solid ${modalStep === 'QC' ? '#a7f3d0' : '#e2e8f0'}`,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
-              >
-                {modalStep === 'PUTAWAY' ? <Check size={12} color="#059669" /> : null}
-                1. Kiểm Định QC
-              </span>
-              <ChevronRight size={14} color="#94a3b8" />
-              <span
-                style={{
-                  fontSize: '11px',
-                  backgroundColor: modalStep === 'PUTAWAY' ? '#f0f9ff' : '#f8fafc',
-                  color: modalStep === 'PUTAWAY' ? '#0284c7' : '#94a3b8',
-                  padding: '3px 8px',
-                  borderRadius: '6px',
-                  fontWeight: 600,
-                  border: `1px solid ${modalStep === 'PUTAWAY' ? '#bae6fd' : '#e2e8f0'}`,
-                }}
-              >
-                2. Cất Hàng Vào Kệ (Putaway)
-              </span>
-            </div>
-
-            <button
-              onClick={() => setSelectedInbound(null)}
-              style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
-            >
-              <X size={18} />
-            </button>
-          </div>
-
-          <div>
-            <h3 style={{ margin: '0 0 2px 0', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>
-              {selectedInbound.supplierName}
-            </h3>
-            <div style={{ fontSize: '11.5px', color: '#64748b' }}>
-              Phiếu: <b style={{ color: '#0284c7' }}>{selectedInbound.orderCode}</b> • Yêu cầu: <b style={{ color: '#059669' }}>{selectedInbound.temperatureRequired}</b> • {selectedInbound.totalQuantity} sp
-            </div>
-          </div>
-
-          {/* STEP 1: QC INSPECTION */}
-          {modalStep === 'QC' && (
-            <>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                {/* Field 1: Measured Temp */}
-                <div>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '11.5px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
-                    <Thermometer size={14} /> Nhiệt Độ Thùng Lạnh Thực Đo (°C) *
-                  </label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <input
-                      type="text"
-                      value={measuredTemp}
-                      onChange={e => setMeasuredTemp(e.target.value)}
+          {(() => {
+            const isTransfer = selectedInbound ? isTransferInbound(selectedInbound.orderCode, selectedInbound.supplierName) : false;
+            return (
+              <>
+                {/* Header & Step Indicator */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span
                       style={{
-                        backgroundColor: '#ffffff',
-                        border: '1.5px solid #cbd5e1',
-                        color: '#0f172a',
-                        padding: '8px 12px',
+                        fontSize: '11px',
+                        backgroundColor: modalStep === 'QC' ? '#ecfdf5' : '#f1f5f9',
+                        color: modalStep === 'QC' ? '#059669' : '#64748b',
+                        padding: '3px 8px',
                         borderRadius: '6px',
-                        fontSize: '14px',
-                        fontWeight: 700,
-                        width: '80px',
-                        textAlign: 'center',
+                        fontWeight: 600,
+                        border: `1px solid ${modalStep === 'QC' ? '#a7f3d0' : '#e2e8f0'}`,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
                       }}
-                    />
-                    {(() => {
-                      const t = parseFloat(measuredTemp);
-                      if (isNaN(t)) return null;
-                      if (t <= 4.0 && t >= 0.0) {
-                        return <span style={{ fontSize: '11.5px', color: '#059669', fontWeight: 600 }}>Chuẩn chuỗi lạnh</span>;
-                      } else if (t <= 5.0) {
-                        return <span style={{ fontSize: '11.5px', color: '#d97706', fontWeight: 600 }}>Tiệm cận trần nhiệt độ</span>;
-                      } else {
-                        return <span style={{ fontSize: '11.5px', color: '#dc2626', fontWeight: 600 }}>Vi phạm dải nhiệt lạnh!</span>;
-                      }
-                    })()}
+                    >
+                      {modalStep === 'PUTAWAY' || modalStep === 'COMPLETED' ? <Check size={12} color="#059669" /> : null}
+                      {isTransfer ? '1. Tiếp Nhận Tại Dock' : '1. Kiểm Định QC'}
+                    </span>
+                    <ChevronRight size={14} color="#94a3b8" />
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        backgroundColor: (modalStep === 'PUTAWAY' || (isTransfer && modalStep === 'COMPLETED')) ? '#f0f9ff' : '#f8fafc',
+                        color: (modalStep === 'PUTAWAY' || (isTransfer && modalStep === 'COMPLETED')) ? '#0284c7' : '#94a3b8',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        fontWeight: 600,
+                        border: `1px solid ${(modalStep === 'PUTAWAY' || (isTransfer && modalStep === 'COMPLETED')) ? '#bae6fd' : '#e2e8f0'}`,
+                      }}
+                    >
+                      {isTransfer ? '2. Bàn Đóng Gói (Cross-Docking)' : '2. Cất Hàng Vào Kệ (Putaway)'}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => setSelectedInbound(null)}
+                    style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {isTransfer && (
+                  <div
+                    style={{
+                      backgroundColor: '#ecfdf5',
+                      border: '1px solid #a7f3d0',
+                      borderRadius: '8px',
+                      padding: '10px 12px',
+                      fontSize: '12px',
+                      color: '#065f46',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '8px',
+                      lineHeight: '1.4',
+                    }}
+                  >
+                    <PackageCheck size={18} color="#059669" style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <div>
+                      <div style={{ fontWeight: 700, marginBottom: '2px' }}>Quy trình tiếp nhận Điều Chuyển Liên Kho (Cross-Docking)</div>
+                      <div>Hàng hóa phục vụ gộp đơn TMĐT. Bỏ qua cất kệ lưu kho - chuyển thẳng về <b>Bàn Đóng Gói (Packing Station)</b> sau khi kiểm tra quy cách.</div>
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <h3 style={{ margin: '0 0 2px 0', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>
+                    {selectedInbound.supplierName}
+                  </h3>
+                  <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                    Phiếu: <b style={{ color: '#0284c7' }}>{selectedInbound.orderCode}</b> • Yêu cầu: <b style={{ color: '#059669' }}>{selectedInbound.temperatureRequired}</b> • {selectedInbound.totalQuantity} sp
                   </div>
                 </div>
 
-                {/* Field 2: Seal intact */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
-                  <span style={{ fontSize: '12px', color: '#334155', fontWeight: 600 }}>
-                    Tem niêm phong & Seal xe nguyên vẹn
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsSealIntact(!isSealIntact)}
-                    style={{
-                      backgroundColor: isSealIntact ? '#059669' : '#dc2626',
-                      color: '#ffffff',
-                      border: 'none',
-                      padding: '5px 12px',
-                      borderRadius: '6px',
-                      fontSize: '11.5px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {isSealIntact ? 'Đạt QC' : 'Rách/Mất'}
-                  </button>
-                </div>
+                {/* STEP 1: QC INSPECTION */}
+                {modalStep === 'QC' && (
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      {/* Field 1: Measured Temp */}
+                      <div>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '11.5px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
+                          <Thermometer size={14} /> Nhiệt Độ Thùng Lạnh Thực Đo (°C) *
+                        </label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <input
+                            type="text"
+                            value={measuredTemp}
+                            onChange={e => setMeasuredTemp(e.target.value)}
+                            style={{
+                              backgroundColor: '#ffffff',
+                              border: '1.5px solid #cbd5e1',
+                              color: '#0f172a',
+                              padding: '8px 12px',
+                              borderRadius: '6px',
+                              fontSize: '14px',
+                              fontWeight: 700,
+                              width: '80px',
+                              textAlign: 'center',
+                            }}
+                          />
+                          {(() => {
+                            const t = parseFloat(measuredTemp);
+                            if (isNaN(t)) return null;
+                            if (t <= 4.0 && t >= 0.0) {
+                              return <span style={{ fontSize: '11.5px', color: '#059669', fontWeight: 600 }}>Chuẩn chuỗi lạnh</span>;
+                            } else if (t <= 5.0) {
+                              return <span style={{ fontSize: '11.5px', color: '#d97706', fontWeight: 600 }}>Tiệm cận trần nhiệt độ</span>;
+                            } else {
+                              return <span style={{ fontSize: '11.5px', color: '#dc2626', fontWeight: 600 }}>Vi phạm dải nhiệt lạnh!</span>;
+                            }
+                          })()}
+                        </div>
+                      </div>
 
-                {/* Field 3: Packaging intact */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
-                  <span style={{ fontSize: '12px', color: '#334155', fontWeight: 600 }}>
-                    Bao bì & Quy cách đóng gói chuẩn
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsPackagingIntact(!isPackagingIntact)}
-                    style={{
-                      backgroundColor: isPackagingIntact ? '#059669' : '#dc2626',
-                      color: '#ffffff',
-                      border: 'none',
-                      padding: '5px 12px',
-                      borderRadius: '6px',
-                      fontSize: '11.5px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {isPackagingIntact ? 'Đạt QC' : 'Móp/Bể'}
-                  </button>
-                </div>
+                      {/* Field 2: Seal intact */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
+                        <span style={{ fontSize: '12px', color: '#334155', fontWeight: 600 }}>
+                          Tem niêm phong & Seal xe nguyên vẹn
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsSealIntact(!isSealIntact)}
+                          style={{
+                            backgroundColor: isSealIntact ? '#059669' : '#dc2626',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '5px 12px',
+                            borderRadius: '6px',
+                            fontSize: '11.5px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {isSealIntact ? 'Đạt QC' : 'Rách/Mất'}
+                        </button>
+                      </div>
 
-                {/* Field 4: Expiry Check */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
-                  <span style={{ fontSize: '12px', color: '#334155', fontWeight: 600 }}>
-                    Hạn dùng còn &gt; 80% thời hạn
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsExpiryValid(!isExpiryValid)}
-                    style={{
-                      backgroundColor: isExpiryValid ? '#059669' : '#dc2626',
-                      color: '#ffffff',
-                      border: 'none',
-                      padding: '5px 12px',
-                      borderRadius: '6px',
-                      fontSize: '11.5px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {isExpiryValid ? 'Đạt Chuẩn' : 'Cận Date'}
-                  </button>
-                </div>
-              </div>
+                      {/* Field 3: Packaging intact */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
+                        <span style={{ fontSize: '12px', color: '#334155', fontWeight: 600 }}>
+                          Bao bì & Quy cách đóng gói chuẩn
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsPackagingIntact(!isPackagingIntact)}
+                          style={{
+                            backgroundColor: isPackagingIntact ? '#059669' : '#dc2626',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '5px 12px',
+                            borderRadius: '6px',
+                            fontSize: '11.5px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {isPackagingIntact ? 'Đạt QC' : 'Móp/Bể'}
+                        </button>
+                      </div>
 
-              {/* Action Buttons for Step 1 */}
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  disabled={isSubmitting}
-                  onClick={handleRejectReceiving}
-                  style={{
-                    flex: 1,
-                    backgroundColor: '#fef2f2',
-                    color: '#991b1b',
-                    border: '1px solid #fecaca',
-                    padding: '10px',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Từ Chối Nhận (Lỗi QC)
-                </button>
-                <button
-                  onClick={() => setModalStep('PUTAWAY')}
-                  style={{
-                    flex: 2,
-                    backgroundColor: '#059669',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '10px',
-                    borderRadius: '8px',
-                    fontSize: '12.5px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                  }}
-                >
-                  <ShieldCheck size={16} />
-                  <span>Đạt Chuẩn QC &rarr; Chuyển Cất Kệ</span>
-                </button>
-              </div>
-            </>
-          )}
+                      {/* Field 4: Expiry Check */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
+                        <span style={{ fontSize: '12px', color: '#334155', fontWeight: 600 }}>
+                          Hạn dùng còn &gt; 80% thời hạn
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsExpiryValid(!isExpiryValid)}
+                          style={{
+                            backgroundColor: isExpiryValid ? '#059669' : '#dc2626',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '5px 12px',
+                            borderRadius: '6px',
+                            fontSize: '11.5px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {isExpiryValid ? 'Đạt Chuẩn' : 'Cận Date'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Packaging Condition Check for Transfer Inbound Orders */}
+                    {isTransfer && (
+                      <div style={{ backgroundColor: '#ffffff', borderRadius: '8px', padding: '12px', border: '1px solid #cbd5e1', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>
+                          Kiểm Tra Tình Trạng Kiện Hàng Điều Chuyển *
+                        </div>
+
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '8px 10px',
+                            borderRadius: '6px',
+                            border: `1.5px solid ${packageCondition === 'PACKED_OK' ? '#059669' : '#e2e8f0'}`,
+                            backgroundColor: packageCondition === 'PACKED_OK' ? '#f0fdf4' : '#ffffff',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            color: packageCondition === 'PACKED_OK' ? '#166534' : '#334155',
+                            fontWeight: packageCondition === 'PACKED_OK' ? 700 : 500,
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="pkgCondition"
+                            checked={packageCondition === 'PACKED_OK'}
+                            onChange={() => setPackageCondition('PACKED_OK')}
+                          />
+                          <span>Đã đóng gói đạt chuẩn (Nguyên kiện - Chuyển thẳng xuất kho)</span>
+                        </label>
+
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '8px 10px',
+                            borderRadius: '6px',
+                            border: `1.5px solid ${packageCondition === 'NEEDS_PACKING' ? '#b45309' : '#e2e8f0'}`,
+                            backgroundColor: packageCondition === 'NEEDS_PACKING' ? '#fffbeb' : '#ffffff',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            color: packageCondition === 'NEEDS_PACKING' ? '#92400e' : '#334155',
+                            fontWeight: packageCondition === 'NEEDS_PACKING' ? 700 : 500,
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="pkgCondition"
+                            checked={packageCondition === 'NEEDS_PACKING'}
+                            onChange={() => setPackageCondition('NEEDS_PACKING')}
+                          />
+                          <span>Cần đóng gói lại / Gộp đơn lẻ tại Bàn Đóng Gói</span>
+                        </label>
+
+                        <div style={{ marginTop: '4px' }}>
+                          <label style={{ fontSize: '11px', fontWeight: 600, color: '#475569', marginBottom: '3px', display: 'block' }}>
+                            Ghi chú tình trạng đóng gói (Tùy chọn)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="VD: Thùng nguyên vẹn, bao bì sạch sẽ, nhãn mã vạch rõ..."
+                            value={packingNote}
+                            onChange={e => setPackingNote(e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '7px 10px',
+                              borderRadius: '6px',
+                              border: '1px solid #cbd5e1',
+                              fontSize: '12px',
+                              boxSizing: 'border-box',
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Action Buttons for Step 1 */}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        disabled={isSubmitting}
+                        onClick={handleRejectReceiving}
+                        style={{
+                          flex: 1,
+                          backgroundColor: '#fef2f2',
+                          color: '#991b1b',
+                          border: '1px solid #fecaca',
+                          padding: '10px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Từ Chối Nhận (Lỗi QC)
+                      </button>
+                      {isTransfer ? (
+                        <button
+                          disabled={isSubmitting}
+                          onClick={handleTransferToPacking}
+                          style={{
+                            flex: 2,
+                            backgroundColor: '#0f766e',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '10px',
+                            borderRadius: '8px',
+                            fontSize: '12.5px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                          }}
+                        >
+                          <PackageCheck size={16} />
+                          <span>{isSubmitting ? 'Đang Xử Lý...' : 'Xác Nhận & Chuyển Về Bàn Đóng Gói'}</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setModalStep('PUTAWAY')}
+                          style={{
+                            flex: 2,
+                            backgroundColor: '#059669',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '10px',
+                            borderRadius: '8px',
+                            fontSize: '12.5px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                          }}
+                        >
+                          <ShieldCheck size={16} />
+                          <span>Đạt Chuẩn QC &rarr; Chuyển Cất Kệ</span>
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </>
+            );
+          })()}
 
           {/* STEP 2: PUTAWAY TO SHELF */}
           {modalStep === 'PUTAWAY' && (
@@ -836,13 +1014,21 @@ export const InboundReceiving: React.FC = () => {
         >
           <CheckCircle2 size={32} color="#166534" style={{ margin: '0 auto 8px' }} />
           <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#166534' }}>
-            Đã Hoàn Tất Kiểm Định & Cất Hàng Vào Kệ!
+            {selectedInbound && isTransferInbound(selectedInbound.orderCode, selectedInbound.supplierName)
+              ? 'Đã Hoàn Tất Tiếp Nhận & Chuyển Về Bàn Đóng Gói!'
+              : 'Đã Hoàn Tất Kiểm Định & Cất Hàng Vào Kệ!'}
           </h3>
           <p style={{ margin: '4px 0 8px 0', fontSize: '12px', color: '#14532d' }}>
-            Vị trí lưu trữ: <b>{suggestedShelf.display}</b> • Mã lô: <b>{lotCodeGenerated}</b>
+            {selectedInbound && isTransferInbound(selectedInbound.orderCode, selectedInbound.supplierName) ? (
+              <>Vị trí tập kết: <b>Bàn Đóng Gói (Cross-Docking)</b> • Tình trạng: <b>{packageCondition === 'PACKED_OK' ? 'Đã đóng gói chuẩn' : 'Cần đóng gói / gộp đơn'}</b></>
+            ) : (
+              <>Vị trí lưu trữ: <b>{suggestedShelf.display}</b> • Mã lô: <b>{lotCodeGenerated}</b></>
+            )}
           </p>
           <p style={{ margin: '0 0 12px 0', fontSize: '11px', color: '#475569' }}>
-            Chứng từ Phiếu Nhập Kho Mẫu 01-VT đã được lưu và đồng bộ lên hệ thống
+            {selectedInbound && isTransferInbound(selectedInbound.orderCode, selectedInbound.supplierName)
+              ? 'Hàng đã được chuyển giao cho bộ phận đóng gói để gộp đơn xuất cho khách hàng'
+              : 'Chứng từ Phiếu Nhập Kho Mẫu 01-VT đã được lưu và đồng bộ lên hệ thống'}
           </p>
           <button
             onClick={() => {
@@ -882,6 +1068,7 @@ export const InboundReceiving: React.FC = () => {
             filteredInbounds.map(it => {
               const isDone = it.status === 'STORED';
               const isRejected = it.status === 'REJECTED';
+              const isTransfer = isTransferInbound(it.orderCode, it.supplierName);
               const badge = getRiskBadge(it.riskLevel);
 
               return (
@@ -891,7 +1078,7 @@ export const InboundReceiving: React.FC = () => {
                     backgroundColor: '#ffffff',
                     borderRadius: '8px',
                     padding: '14px',
-                    border: `1.5px solid ${isDone ? '#86efac' : isRejected ? '#fca5a5' : it.riskLevel === 'CRITICAL' ? '#fca5a5' : it.riskLevel === 'RISK' ? '#fcd34d' : '#e2e8f0'}`,
+                    border: `1.5px solid ${isDone ? '#86efac' : isRejected ? '#fca5a5' : isTransfer ? '#7dd3fc' : it.riskLevel === 'CRITICAL' ? '#fca5a5' : it.riskLevel === 'RISK' ? '#fcd34d' : '#e2e8f0'}`,
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
@@ -900,9 +1087,14 @@ export const InboundReceiving: React.FC = () => {
                   <div style={{ flex: 1, marginRight: '10px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
                       <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#0284c7' }}>{it.orderCode}</span>
+                      {isTransfer && (
+                        <span style={{ fontSize: '9px', backgroundColor: '#e0f2fe', color: '#0369a1', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, border: '1px solid #bae6fd' }}>
+                          ĐIỀU CHUYỂN CHI NHÁNH
+                        </span>
+                      )}
                       {isDone ? (
                         <span style={{ fontSize: '9.5px', backgroundColor: '#dcfce7', color: '#059669', padding: '1px 6px', borderRadius: '4px', fontWeight: 600, border: '1px solid #bbf7d0' }}>
-                          Đã Lưu Kho
+                          {isTransfer ? 'Đã Chuyển Bàn Đóng Gói' : 'Đã Lưu Kho'}
                         </span>
                       ) : isRejected ? (
                         <span style={{ fontSize: '9.5px', backgroundColor: '#fee2e2', color: '#dc2626', padding: '1px 6px', borderRadius: '4px', fontWeight: 600, border: '1px solid #fecaca' }}>
@@ -941,7 +1133,7 @@ export const InboundReceiving: React.FC = () => {
                     <button
                       onClick={() => handleOpenQC(it)}
                       style={{
-                        backgroundColor: it.riskLevel === 'CRITICAL' ? '#dc2626' : '#059669',
+                        backgroundColor: isTransfer ? '#0f766e' : it.riskLevel === 'CRITICAL' ? '#dc2626' : '#059669',
                         color: '#ffffff',
                         border: 'none',
                         padding: '8px 14px',
@@ -953,7 +1145,7 @@ export const InboundReceiving: React.FC = () => {
                         boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
                       }}
                     >
-                      Kiểm QC
+                      {isTransfer ? 'Tiếp Nhận Dock' : 'Kiểm QC'}
                     </button>
                   )}
                 </div>

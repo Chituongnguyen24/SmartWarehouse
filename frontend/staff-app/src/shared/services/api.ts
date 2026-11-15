@@ -340,7 +340,13 @@ export const fetchInboundOrdersApi = async (warehouseCode?: string, token?: stri
   return [];
 };
 
-export const updateInboundStatusApi = async (orderId: string, status: string, qualityCheckPassed?: boolean, token?: string | null) => {
+export const updateInboundStatusApi = async (
+  orderId: string,
+  status: string,
+  qualityCheckPassed?: boolean,
+  token?: string | null,
+  extraData?: { packageCondition?: string; destinationStation?: string; packingNote?: string }
+) => {
   try {
     const res = await fetch(`${API_URLS.INBOUND}/inbound-orders/${orderId}/status`, {
       method: 'PATCH',
@@ -351,6 +357,9 @@ export const updateInboundStatusApi = async (orderId: string, status: string, qu
       body: JSON.stringify({
         status,
         qualityCheckPassed: qualityCheckPassed !== undefined ? qualityCheckPassed : status === 'STORED',
+        packageCondition: extraData?.packageCondition,
+        destinationStation: extraData?.destinationStation,
+        packingNote: extraData?.packingNote,
       }),
     });
     if (res.ok) return await res.json();
