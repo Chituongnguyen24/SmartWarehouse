@@ -142,6 +142,9 @@ const Inventory = () => {
       if (urlType === 'lot') {
         setLotsSearch(urlSearch);
         setLotsPage(1);
+        setSelectedRiskFilter('ALL');
+        setSelectedZoneFilter('ALL');
+        setHideDepletedLots(false);
       } else {
         setStockSearch(urlSearch);
         setStockPage(1);
@@ -1754,7 +1757,8 @@ const Inventory = () => {
                   const isHighlighted = Boolean(
                     highlightCode && (
                       lot.lotCode.toLowerCase() === highlightCode.toLowerCase() ||
-                      (lot.sku && lot.sku.toLowerCase() === highlightCode.toLowerCase())
+                      (lot.sku && lot.sku.toLowerCase() === highlightCode.toLowerCase()) ||
+                      (lot.displaySku && lot.displaySku.toLowerCase() === highlightCode.toLowerCase())
                     )
                   );
                   const isDanger = lot.riskLevel === 'DANGER';

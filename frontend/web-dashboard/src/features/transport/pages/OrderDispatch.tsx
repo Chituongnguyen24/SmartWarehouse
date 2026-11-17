@@ -160,6 +160,7 @@ export default function OrderDispatch() {
     if (urlSearch) {
       setSearchQuery(urlSearch);
       setActivePipelineStep('ALL');
+      setClassificationFilter('ALL');
     }
   }, [urlSearch]);
 
