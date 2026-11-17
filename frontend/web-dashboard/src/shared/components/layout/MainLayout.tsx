@@ -1,8 +1,108 @@
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import { useAuth } from '@/features/auth';
+import { useNotifications } from '@/shared';
 import { AICoPilotAssistant } from '@/features/reports';
+import { ShoppingBag, Truck, MessageSquare, AlertTriangle, Info, X } from 'lucide-react';
+
+const GlobalRealtimeToast = () => {
+  const { recentToast, dismissToast, markAsRead } = useNotifications();
+  const navigate = useNavigate();
+
+  if (!recentToast) return null;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: '70px',
+        right: '24px',
+        zIndex: 9999,
+        backgroundColor: '#ffffff',
+        borderRadius: '8px',
+        border: '1px solid #cbd5e1',
+        boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)',
+        padding: '12px 16px',
+        maxWidth: '360px',
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '12px',
+        cursor: 'pointer',
+      }}
+      onClick={() => {
+        markAsRead(recentToast.id);
+        if (recentToast.link) navigate(recentToast.link);
+        dismissToast();
+      }}
+    >
+      <div
+        style={{
+          width: '32px',
+          height: '32px',
+          borderRadius: '6px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          backgroundColor:
+            recentToast.type === 'ORDER' ? '#eff6ff'
+            : recentToast.type === 'OUTBOUND' ? '#f0fdfa'
+            : recentToast.type === 'CHAT' ? '#faf5ff'
+            : recentToast.type === 'IOT_ALERT' ? '#fef2f2'
+            : '#f8fafc',
+          border: `1px solid ${
+            recentToast.type === 'ORDER' ? '#bfdbfe'
+            : recentToast.type === 'OUTBOUND' ? '#ccfbf1'
+            : recentToast.type === 'CHAT' ? '#e9d5ff'
+            : recentToast.type === 'IOT_ALERT' ? '#fecaca'
+            : '#e2e8f0'
+          }`,
+        }}
+      >
+        {recentToast.type === 'ORDER' ? <ShoppingBag size={16} color="#2563eb" />
+          : recentToast.type === 'OUTBOUND' ? <Truck size={16} color="#0f766e" />
+          : recentToast.type === 'CHAT' ? <MessageSquare size={16} color="#9333ea" />
+          : recentToast.type === 'IOT_ALERT' ? <AlertTriangle size={16} color="#dc2626" />
+          : <Info size={16} color="#64748b" />}
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#0f172a' }}>
+          {recentToast.title}
+        </div>
+        <div style={{ fontSize: '11.5px', color: '#475569', marginTop: '2px', lineHeight: 1.35 }}>
+          {recentToast.message}
+        </div>
+        <div style={{ fontSize: '10.5px', color: '#0f766e', fontWeight: 600, marginTop: '4px' }}>
+          Nhấp để xem chi tiết →
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          dismissToast();
+        }}
+        style={{
+          border: 'none',
+          background: 'transparent',
+          color: '#94a3b8',
+          cursor: 'pointer',
+          padding: '2px',
+          borderRadius: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        title="Đóng thông báo"
+      >
+        <X size={15} />
+      </button>
+    </div>
+  );
+};
 
 const getPageTitle = (pathname: string) => {
   switch (pathname) {
@@ -47,6 +147,9 @@ const MainLayout = () => {
 
       {/* Floating AI Operations Co-Pilot Assistant */}
       <AICoPilotAssistant />
+
+      {/* Global Realtime Operational Toast */}
+      <GlobalRealtimeToast />
     </div>
   );
 };

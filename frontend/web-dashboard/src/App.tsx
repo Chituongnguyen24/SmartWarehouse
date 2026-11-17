@@ -26,7 +26,7 @@ import {
   CustomerProfile,
   WebCartProvider,
 } from '@/features/customer';
-import { WarehouseProvider } from '@/shared';
+import { WarehouseProvider, NotificationProvider } from '@/shared';
 import './styles/global.css';
 import './styles/layout.css';
 import './styles/components.css';
@@ -47,7 +47,8 @@ function App() {
   return (
     <AuthProvider>
       <WarehouseProvider>
-        <BrowserRouter
+        <NotificationProvider>
+          <BrowserRouter
           future={{
             v7_startTransition: true,
             v7_relativeSplatPath: true,
@@ -219,6 +220,7 @@ function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+        </NotificationProvider>
       </WarehouseProvider>
     </AuthProvider>
   );

@@ -4,6 +4,7 @@ export { globalDataCache } from './utils/dataCache';
 
 // Shared Contexts
 export * from './contexts/WarehouseContext';
+export * from './contexts/NotificationContext';
 
 // Layout Components
 export { default as MainLayout } from './components/layout/MainLayout';
