@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { io, Socket } from 'socket.io-client';
 import { getApiHost } from '../utils/apiConfig';
 import { useAuth } from '@/features/auth';
-import { useWarehouse } from './WarehouseContext';
 
 // Chuyên biệt cho 3 nhóm công việc cốt lõi của menu: Đơn hàng, Xuất kho, Tư vấn chat
 export type NotificationType = 'ORDER' | 'OUTBOUND' | 'CHAT';
@@ -77,7 +76,6 @@ const DEFAULT_INITIAL_NOTIFICATIONS: AppNotification[] = [
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const { selectedWarehouseCode } = useWarehouse();
 
   // Notifications List State (Filtered strictly to ORDER, OUTBOUND, CHAT)
   const [notifications, setNotifications] = useState<AppNotification[]>(() => {
@@ -218,79 +216,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return notifications.filter(n => !n.isRead).length;
   }, [notifications]);
 
-  // Determine active warehouse scope for API queries
-  const activeWh = useMemo(() => {
-    if (!user) return 'WH-006';
-    if (user.role === 'ADMIN') return selectedWarehouseCode || 'ALL';
-    if (user.role === 'SALES_STAFF') return 'ALL';
-    return user.warehouseCode || 'WH-006';
-  }, [user, selectedWarehouseCode]);
-
-  // Fetch real counts across order-service, outbound-service, and chat-sessions
-  // readChatSessionIds must be in deps so the closure always has the LATEST read set
-  const refreshPendingCounts = useCallback(async () => {
-    try {
-      // 1. Pending Orders (Đơn hàng chưa tiếp nhận - status = PENDING, WAITING_TRANSFER)
-      const orderWhParam = activeWh && activeWh !== 'ALL' ? `?warehouseCode=${encodeURIComponent(activeWh)}` : '';
-      const ordersRes = await fetch(`${getApiHost(3004)}/orders${orderWhParam}`);
-      if (ordersRes.ok) {
-        const orderData = await ordersRes.json();
-        const ordersList = Array.isArray(orderData) ? orderData : (orderData.items || orderData.data || []);
-        const pendingOrders = ordersList.filter((o: any) => {
-          const s = String(o.status || '').toUpperCase();
-          return s === 'PENDING' || s === 'WAITING_TRANSFER' || s === 'WAITING_ACCEPT';
-        });
-        setPendingOrdersCount(pendingOrders.length);
-      }
-
-      // 2. Pending Outbound Orders (Đơn xuất kho chưa tiếp nhận - status = PENDING, CREATED, DRAFT)
-      const obWhParam = activeWh && activeWh !== 'ALL' ? `?warehouseCode=${encodeURIComponent(activeWh)}&limit=100` : '?limit=100';
-      const outboundRes = await fetch(`${getApiHost(3007)}/outbound-orders${obWhParam}`);
-      if (outboundRes.ok) {
-        const obData = await outboundRes.json();
-        const obList = Array.isArray(obData) ? obData : (obData.items || obData.data || []);
-        const pendingObs = obList.filter((ob: any) => {
-          const s = String(ob.status || '').toUpperCase();
-          return s === 'PENDING' || s === 'CREATED' || s === 'DRAFT' || s === 'WAITING_TRANSFER';
-        });
-        setPendingOutboundsCount(pendingObs.length);
-      }
-
-      // 3. Pending Chat & Customer Inquiries (Khách hàng cần tư vấn / chưa được trả lời)
-      // Uses React state `readChatSessionIds` from closure (always fresh) instead of re-reading localStorage
-      try {
-        const chatRes = await fetch(`${getApiHost(3004)}/chat/sessions?status=ALL`);
-        if (chatRes.ok) {
-          const sessions = await chatRes.json();
-          if (Array.isArray(sessions)) {
-            const unanswered = sessions.filter((s: any) => {
-              // Skip sessions staff have already opened and read
-              if (readChatSessionIds.has(s.id)) return false;
-              const status = String(s.status || '').toUpperCase();
-              const hasUnread = Number(s.unreadCount || 0) > 0;
-              const isWaiting = status === 'WAITING_FOR_STAFF' || status === 'PENDING';
-              const isStaffConnectedWithUnread = status === 'STAFF_CONNECTED' && hasUnread;
-              return isWaiting || isStaffConnectedWithUnread;
-            });
-            setPendingChatsCount(unanswered.length);
-          }
-        }
-      } catch (chatErr) {
-        // Chat endpoint fallback — do not reset count on transient errors
-      }
-    } catch (err) {
-      console.warn('[NOTIF CONTEXT] Error refreshing pending counts:', err);
-    }
-  }, [activeWh, readChatSessionIds]);
-
-  // Periodic Polling Fallback (every 8 seconds for real-time badge accuracy)
-  useEffect(() => {
-    refreshPendingCounts();
-    const interval = setInterval(() => {
-      refreshPendingCounts();
-    }, 8000);
-    return () => clearInterval(interval);
-  }, [refreshPendingCounts]);
+  // No-op for operational badge polling (disabled per user instruction)
+  const refreshPendingCounts = useCallback(async () => {}, []);
 
   // Real-time WebSocket Gateway Integration
   useEffect(() => {

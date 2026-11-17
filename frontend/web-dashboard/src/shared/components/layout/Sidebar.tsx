@@ -32,7 +32,6 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { useAuth, ROLE_LABELS, type UserRole } from '@/features/auth';
-import { useNotifications } from '@/shared';
 
 interface MenuItem {
   path: string;
@@ -86,33 +85,6 @@ const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const currentRole = user?.role || 'ADMIN';
-  const { pendingOrdersCount, pendingOutboundsCount, pendingChatsCount } = useNotifications();
-
-  // Dynamic Badge resolver for operational menus
-  const getItemBadge = (itemPath: string): string | undefined => {
-    // 1. Tiếp nhận & Điều phối Đơn (/orders)
-    if (itemPath === '/orders') {
-      return pendingOrdersCount > 0 ? (pendingOrdersCount > 99 ? '99+' : String(pendingOrdersCount)) : undefined;
-    }
-
-    // 2. Xuất kho (/outbound)
-    if (itemPath === '/outbound') {
-      return pendingOutboundsCount > 0 ? (pendingOutboundsCount > 99 ? '99+' : String(pendingOutboundsCount)) : undefined;
-    }
-
-    // 3. Đơn hàng Online & Tư vấn (/sales)
-    if (itemPath === '/sales') {
-      const totalSalesPending = pendingOrdersCount + pendingChatsCount;
-      return totalSalesPending > 0 ? (totalSalesPending > 99 ? '99+' : String(totalSalesPending)) : undefined;
-    }
-
-    // 4. Hỗ trợ & Chat Khách hàng (/sales?tab=chat)
-    if (itemPath === '/sales?tab=chat') {
-      return pendingChatsCount > 0 ? (pendingChatsCount > 99 ? '99+' : String(pendingChatsCount)) : undefined;
-    }
-
-    return undefined;
-  };
 
   // Filter items by role — each role sees only its own section
   const visibleItems = menuItems.filter(item => item.allowedRoles.includes(currentRole));
@@ -155,35 +127,16 @@ const Sidebar = () => {
       {Object.entries(sections).map(([section, items]) => (
         <div className="nav-section" key={section}>
           <div className="nav-section-title">{section}</div>
-          {items.map((item) => {
-            const badgeValue = getItemBadge(item.path) || item.badge;
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={() => `nav-item ${isItemActive(item.path) ? 'active' : ''}`}
-              >
-                {item.icon}
-                <span>{item.label}</span>
-                {badgeValue && (
-                  <span
-                    className="nav-badge"
-                    style={{
-                      fontVariantNumeric: 'tabular-nums',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      minWidth: '18px',
-                      height: '18px',
-                      padding: '0 5px',
-                    }}
-                  >
-                    {badgeValue}
-                  </span>
-                )}
-              </NavLink>
-            );
-          })}
+          {items.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={() => `nav-item ${isItemActive(item.path) ? 'active' : ''}`}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
         </div>
       ))}
 
