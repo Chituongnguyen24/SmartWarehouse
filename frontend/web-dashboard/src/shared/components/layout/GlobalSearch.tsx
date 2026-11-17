@@ -4,6 +4,7 @@ import {
   Search,
   X,
   Package,
+  Boxes,
   FileText,
   Compass,
   ArrowRight,
@@ -60,6 +61,7 @@ export const GlobalSearch: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [outbounds, setOutbounds] = useState<any[]>([]);
+  const [lots, setLots] = useState<any[]>([]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -102,10 +104,11 @@ export const GlobalSearch: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const [prodRes, orderRes, obRes] = await Promise.allSettled([
+      const [prodRes, orderRes, obRes, lotRes] = await Promise.allSettled([
         fetch(`${getApiHost(3010)}/products?limit=500`).then(r => r.ok ? r.json() : null),
         fetch(`${getApiHost(3004)}/orders?limit=300`).then(r => r.ok ? r.json() : null),
         fetch(`${getApiHost(3007)}/outbound-orders?limit=300`).then(r => r.ok ? r.json() : null),
+        fetch(`${getApiHost(3011)}/inventory/lots?limit=300`).then(r => r.ok ? r.json() : null),
       ]);
 
       if (prodRes.status === 'fulfilled' && prodRes.value) {
@@ -119,6 +122,10 @@ export const GlobalSearch: React.FC = () => {
       if (obRes.status === 'fulfilled' && obRes.value) {
         const obList = obRes.value.items || obRes.value.data || obRes.value;
         if (Array.isArray(obList)) setOutbounds(obList);
+      }
+      if (lotRes.status === 'fulfilled' && lotRes.value) {
+        const lList = Array.isArray(lotRes.value) ? lotRes.value : (lotRes.value.items || lotRes.value.data || []);
+        if (Array.isArray(lList)) setLots(lList);
       }
     } catch (err) {
       console.warn('Error loading global search cache:', err);
@@ -163,7 +170,19 @@ export const GlobalSearch: React.FC = () => {
     }).slice(0, 5);
   }, [normalizedQuery, products]);
 
-  // Filter 3: Orders & Outbound slips matches
+  // Filter 3: Lots (Lô hàng & Hạn dùng FEFO) matches
+  const matchedLots = useMemo(() => {
+    if (!normalizedQuery || normalizedQuery.length < 2) return [];
+    return lots.filter(l => {
+      const codeMatch = removeAccents(l.lotCode || '').includes(normalizedQuery);
+      const nameMatch = removeAccents(l.productName || l.displayName || '').includes(normalizedQuery);
+      const skuMatch = removeAccents(l.sku || '').includes(normalizedQuery);
+      const locMatch = removeAccents(l.location || '').includes(normalizedQuery);
+      return codeMatch || nameMatch || skuMatch || locMatch;
+    }).slice(0, 4);
+  }, [normalizedQuery, lots]);
+
+  // Filter 4: Orders & Outbound slips matches
   const matchedOrders = useMemo(() => {
     if (!normalizedQuery || normalizedQuery.length < 2) return [];
 
@@ -180,7 +199,7 @@ export const GlobalSearch: React.FC = () => {
       phone: o.customerPhone,
       amount: Number(o.totalAmount || 0),
       status: String(o.status || 'PENDING').toUpperCase(),
-      link: `/orders?search=${encodeURIComponent(o.orderCode || o.id)}`,
+      link: `/orders?search=${encodeURIComponent(o.orderCode || o.id)}&highlight=${encodeURIComponent(o.orderCode || o.id)}`,
     }));
 
     const outboundMatches = outbounds.filter(ob => {
@@ -196,13 +215,13 @@ export const GlobalSearch: React.FC = () => {
       phone: ob.customerPhone,
       amount: Number(ob.totalQuantity || 0),
       status: String(ob.status || 'PENDING').toUpperCase(),
-      link: `/outbound?search=${encodeURIComponent(ob.orderCode || ob.slipCode || ob.id)}`,
+      link: `/outbound?search=${encodeURIComponent(ob.orderCode || ob.slipCode || ob.id)}&highlight=${encodeURIComponent(ob.orderCode || ob.slipCode || ob.id)}`,
     }));
 
     return [...orderMatches, ...outboundMatches].slice(0, 5);
   }, [normalizedQuery, orders, outbounds]);
 
-  const hasAnyResults = matchedNavs.length > 0 || matchedProducts.length > 0 || matchedOrders.length > 0;
+  const hasAnyResults = matchedNavs.length > 0 || matchedProducts.length > 0 || matchedLots.length > 0 || matchedOrders.length > 0;
 
   const handleSelectNav = (path: string) => {
     setIsOpen(false);
@@ -213,7 +232,14 @@ export const GlobalSearch: React.FC = () => {
   const handleSelectProduct = (p: any) => {
     setIsOpen(false);
     setQuery('');
-    navigate(`/inventory?search=${encodeURIComponent(p.sku || p.name)}`);
+    const target = p.sku || p.name;
+    navigate(`/inventory?search=${encodeURIComponent(target)}&highlight=${encodeURIComponent(target)}&type=product`);
+  };
+
+  const handleSelectLot = (lot: any) => {
+    setIsOpen(false);
+    setQuery('');
+    navigate(`/inventory?search=${encodeURIComponent(lot.lotCode)}&highlight=${encodeURIComponent(lot.lotCode)}&type=lot`);
   };
 
   const handleSelectOrder = (link: string) => {
@@ -486,6 +512,91 @@ export const GlobalSearch: React.FC = () => {
                     </div>
                     <div style={{ fontSize: '0.7rem', color: '#16a34a', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                       {Number(p.price || 0).toLocaleString('vi-VN')} đ
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 3. Lots & Expiry (FEFO) Matches */}
+          {matchedLots.length > 0 && (
+            <div style={{ borderBottom: '1px solid #f1f5f9' }}>
+              <div
+                style={{
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  color: '#64748b',
+                  backgroundColor: '#f8fafc',
+                  padding: '6px 14px',
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Lô hàng & Hạn dùng FEFO ({matchedLots.length})
+              </div>
+              {matchedLots.map(lot => (
+                <div
+                  key={lot.id}
+                  onClick={() => handleSelectLot(lot)}
+                  style={{
+                    padding: '9px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.12s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                    <div
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '6px',
+                        backgroundColor: '#fffbeb',
+                        border: '1px solid #fde68a',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Boxes size={16} color="#d97706" />
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div
+                        style={{
+                          fontSize: '0.84rem',
+                          fontWeight: 700,
+                          color: '#0f172a',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {lot.lotCode}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>{lot.productName || lot.displayName || lot.sku}</span>
+                        {lot.location && (
+                          <>
+                            <span>•</span>
+                            <span style={{ color: '#0f766e', fontWeight: 600 }}>Kệ: {lot.location}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '12px' }}>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
+                      {Number(lot.remainingQty || 0).toLocaleString('vi-VN')} {lot.unit || 'món'}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>
+                      HSD: {lot.expiryDate ? new Date(lot.expiryDate).toLocaleDateString('vi-VN') : 'N/A'}
                     </div>
                   </div>
                 </div>

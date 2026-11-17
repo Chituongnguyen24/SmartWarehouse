@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Inbox,
   PackageCheck,
@@ -139,6 +140,28 @@ export default function OrderDispatch() {
   const [searchQuery, setSearchQuery] = useState('');
   const [, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // URL Search & Highlight synchronization from GlobalSearch
+  const [searchParams] = useSearchParams();
+  const urlSearch = searchParams.get('search') || '';
+  const urlHighlight = searchParams.get('highlight') || '';
+
+  const [highlightCode, setHighlightCode] = useState<string>(urlHighlight);
+
+  useEffect(() => {
+    if (urlHighlight) {
+      setHighlightCode(urlHighlight);
+      const timer = setTimeout(() => setHighlightCode(''), 7000);
+      return () => clearTimeout(timer);
+    }
+  }, [urlHighlight]);
+
+  useEffect(() => {
+    if (urlSearch) {
+      setSearchQuery(urlSearch);
+      setActivePipelineStep('ALL');
+    }
+  }, [urlSearch]);
 
   const isManager = user?.role === 'WAREHOUSE_MANAGER' || user?.role === 'WAREHOUSE_STAFF';
   const isSaler = user?.role === 'SALES_STAFF';
@@ -2503,32 +2526,43 @@ export default function OrderDispatch() {
                 <tbody>
                   {paginatedOrders.map((order, idx) => {
                     const cfg = getOrderStatusConfig(order.status, order.assignedDriverName);
+                    const isTargetHighlight = Boolean(highlightCode && (
+                      order.orderCode.toLowerCase().includes(highlightCode.toLowerCase()) ||
+                      order.id === highlightCode
+                    ));
                     return (
                       <tr
                         key={order.id}
+                        ref={isTargetHighlight ? (el) => { if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } : undefined}
                         onClick={() => setSelectedOrder(order)}
                         style={{
                           borderBottom: idx !== paginatedOrders.length - 1 ? '1px solid #f1f5f9' : 'none',
                           cursor: 'pointer',
-                          backgroundColor: '#ffffff',
-                          transition: 'background-color 0.15s ease',
+                          backgroundColor: isTargetHighlight ? '#f0fdf4' : '#ffffff',
+                          boxShadow: isTargetHighlight ? 'inset 0 0 0 2px #0f766e' : undefined,
+                          transition: 'all 0.25s ease',
                         }}
                         onMouseEnter={e => {
-                          e.currentTarget.style.backgroundColor = '#f8fafc';
+                          e.currentTarget.style.backgroundColor = isTargetHighlight ? '#ecfdf5' : '#f8fafc';
                           const stickyTd = e.currentTarget.querySelector('.sticky-action-col') as HTMLElement;
-                          if (stickyTd) stickyTd.style.backgroundColor = '#f8fafc';
+                          if (stickyTd) stickyTd.style.backgroundColor = isTargetHighlight ? '#ecfdf5' : '#f8fafc';
                         }}
                         onMouseLeave={e => {
-                          e.currentTarget.style.backgroundColor = '#ffffff';
+                          e.currentTarget.style.backgroundColor = isTargetHighlight ? '#f0fdf4' : '#ffffff';
                           const stickyTd = e.currentTarget.querySelector('.sticky-action-col') as HTMLElement;
-                          if (stickyTd) stickyTd.style.backgroundColor = '#ffffff';
+                          if (stickyTd) stickyTd.style.backgroundColor = isTargetHighlight ? '#f0fdf4' : '#ffffff';
                         }}
                       >
                         {/* Order Code & Warehouse */}
                         <td style={{ padding: '12px 16px', verticalAlign: 'middle', whiteSpace: 'nowrap', width: `${colWidths.code}px`, overflow: 'hidden' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                            <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#1d4ed8', fontSize: '12.5px' }}>
+                            <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#1d4ed8', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                               #{order.orderCode}
+                              {isTargetHighlight && (
+                                <span style={{ backgroundColor: '#0f766e', color: '#fff', fontSize: '10px', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>
+                                  Đang tìm
+                                </span>
+                              )}
                             </span>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                               <span style={{
@@ -2931,21 +2965,26 @@ export default function OrderDispatch() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px', marginBottom: '20px' }}>
               {paginatedOrders.map(order => {
                 const cfg = getOrderStatusConfig(order.status, order.assignedDriverName);
+                const isTargetHighlight = Boolean(highlightCode && (
+                  order.orderCode.toLowerCase().includes(highlightCode.toLowerCase()) ||
+                  order.id === highlightCode
+                ));
                 return (
                   <div
                     key={order.id}
+                    ref={isTargetHighlight ? (el) => { if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } : undefined}
                     onClick={() => setSelectedOrder(order)}
                     style={{
-                      backgroundColor: '#ffffff',
+                      backgroundColor: isTargetHighlight ? '#f0fdf4' : '#ffffff',
                       borderRadius: '16px',
-                      border: '1px solid #e2e8f0',
+                      border: isTargetHighlight ? '2px solid #0f766e' : '1px solid #e2e8f0',
                       padding: '16px',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                      boxShadow: isTargetHighlight ? '0 0 0 4px rgba(15, 118, 110, 0.2), 0 8px 16px rgba(0,0,0,0.06)' : '0 2px 8px rgba(0,0,0,0.03)',
                       cursor: 'pointer',
                       display: 'flex',
                       flexDirection: 'column',
                       justifyContent: 'space-between',
-                      transition: 'all 0.15s ease',
+                      transition: 'all 0.25s ease',
                     }}
                   >
                     <div>

@@ -230,6 +230,25 @@ const OutboundOrders: React.FC = () => {
   const [searchParams] = useSearchParams();
   const targetId = searchParams.get('selectedId') || searchParams.get('id');
   const targetCode = searchParams.get('orderCode');
+  const urlSearch = searchParams.get('search') || '';
+  const urlHighlight = searchParams.get('highlight') || '';
+
+  const [highlightCode, setHighlightCode] = useState<string>(urlHighlight);
+
+  useEffect(() => {
+    if (urlHighlight) {
+      setHighlightCode(urlHighlight);
+      const timer = setTimeout(() => setHighlightCode(''), 7000);
+      return () => clearTimeout(timer);
+    }
+  }, [urlHighlight]);
+
+  useEffect(() => {
+    if (urlSearch) {
+      setSearchQuery(urlSearch);
+      setStatusTab('ALL');
+    }
+  }, [urlSearch]);
 
   const startEditOrder = (order: OutboundOrder) => {
     setEditFormData({
@@ -1020,10 +1039,31 @@ const OutboundOrders: React.FC = () => {
                   : cls === 'TRANSFER' ? OUTBOUND_TYPE_CONFIG.DIEU_CHUYEN
                   : OUTBOUND_TYPE_CONFIG.XUAT_BAN_FEFO;
 
+                const isTargetHighlight = Boolean(highlightCode && (
+                  o.orderCode.toLowerCase().includes(highlightCode.toLowerCase()) ||
+                  o.id === highlightCode
+                ));
+
                 return (
-                  <tr key={o.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <tr
+                    key={o.id}
+                    ref={isTargetHighlight ? (el) => { if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } : undefined}
+                    style={{
+                      borderBottom: '1px solid #f1f5f9',
+                      backgroundColor: isTargetHighlight ? '#f0fdf4' : undefined,
+                      boxShadow: isTargetHighlight ? 'inset 0 0 0 2px #0f766e' : undefined,
+                      transition: 'all 0.25s ease',
+                    }}
+                  >
                     <td style={{ padding: '14px 18px' }}>
-                      <div style={{ fontWeight: 800, color: '#0f172a' }}>{o.orderCode}</div>
+                      <div style={{ fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>{o.orderCode}</span>
+                        {isTargetHighlight && (
+                          <span style={{ backgroundColor: '#0f766e', color: '#fff', fontSize: '10px', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>
+                            Đang tìm
+                          </span>
+                        )}
+                      </div>
                       <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
                         {new Date(o.createdAt).toLocaleDateString('vi-VN')}
                       </div>

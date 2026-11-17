@@ -122,6 +122,33 @@ const Inventory = () => {
   const [hideDepletedLots, setHideDepletedLots] = useState(true);
   const [selectedZoneFilter, setSelectedZoneFilter] = useState<'ALL' | 'COLD' | 'FROZEN' | 'DRY'>('ALL');
 
+  // URL Search & Highlight synchronization from GlobalSearch
+  const urlSearch = searchParams.get('search') || '';
+  const urlHighlight = searchParams.get('highlight') || '';
+  const urlType = searchParams.get('type') || '';
+
+  const [highlightCode, setHighlightCode] = useState<string>(urlHighlight);
+
+  useEffect(() => {
+    if (urlHighlight) {
+      setHighlightCode(urlHighlight);
+      const timer = setTimeout(() => setHighlightCode(''), 7000);
+      return () => clearTimeout(timer);
+    }
+  }, [urlHighlight]);
+
+  useEffect(() => {
+    if (urlSearch) {
+      if (urlType === 'lot') {
+        setLotsSearch(urlSearch);
+        setLotsPage(1);
+      } else {
+        setStockSearch(urlSearch);
+        setStockPage(1);
+      }
+    }
+  }, [urlSearch, urlType]);
+
   // Map of lotCode -> existing Outbound Order (To prevent duplicate disposal / outbound orders)
   const [outboundLotMap, setOutboundLotMap] = useState<Record<string, { orderCode: string; status: string; isDisposal: boolean; id: string; orderedQty: number }>>({});
 
@@ -1402,13 +1429,37 @@ const Inventory = () => {
                 </tr>
               </thead>
               <tbody>
-                {paginatedStock.map((item) => (
-                  <tr key={item.sku} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td className="font-semibold" style={{ color: '#0f766e', padding: '10px 14px' }}>{item.sku}</td>
-                    <td className="font-medium" style={{ padding: '10px 14px' }}>{item.productName}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 800, color: '#1e293b', fontSize: '0.95rem', padding: '10px 14px' }}>{item.qty?.toLocaleString('vi-VN')}</td>
-                  </tr>
-                ))}
+                {paginatedStock.map((item) => {
+                  const isHighlighted = Boolean(
+                    highlightCode && (
+                      item.sku.toLowerCase() === highlightCode.toLowerCase() ||
+                      item.productName.toLowerCase().includes(highlightCode.toLowerCase())
+                    )
+                  );
+                  return (
+                    <tr
+                      key={item.sku}
+                      ref={isHighlighted ? (el) => { if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } : undefined}
+                      style={{
+                        borderBottom: '1px solid #f1f5f9',
+                        backgroundColor: isHighlighted ? '#f0fdf4' : undefined,
+                        boxShadow: isHighlighted ? 'inset 0 0 0 2px #0f766e' : undefined,
+                        transition: 'all 0.3s ease',
+                      }}
+                    >
+                      <td className="font-semibold" style={{ color: '#0f766e', padding: '10px 14px' }}>
+                        {item.sku}
+                        {isHighlighted && (
+                          <span style={{ backgroundColor: '#0f766e', color: '#fff', fontSize: '0.65rem', padding: '1px 6px', borderRadius: '4px', marginLeft: '6px', fontWeight: 700 }}>
+                            Đang tìm
+                          </span>
+                        )}
+                      </td>
+                      <td className="font-medium" style={{ padding: '10px 14px', fontWeight: isHighlighted ? 700 : undefined }}>{item.productName}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 800, color: '#1e293b', fontSize: '0.95rem', padding: '10px 14px' }}>{item.qty?.toLocaleString('vi-VN')}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
 
@@ -1700,12 +1751,18 @@ const Inventory = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '1rem' }}>
                 {paginatedLots.map((lot) => {
+                  const isHighlighted = Boolean(
+                    highlightCode && (
+                      lot.lotCode.toLowerCase() === highlightCode.toLowerCase() ||
+                      (lot.sku && lot.sku.toLowerCase() === highlightCode.toLowerCase())
+                    )
+                  );
                   const isDanger = lot.riskLevel === 'DANGER';
                   const isWarning = lot.riskLevel === 'WARNING';
 
-                  const cardBg = isDanger ? '#fff8f8' : isWarning ? '#fffdf7' : '#ffffff';
-                  const cardBorder = isDanger ? '2px solid #f87171' : isWarning ? '1.5px solid #fde047' : '1px solid #e2e8f0';
-                  const shadow = isDanger ? '0 4px 12px rgba(239, 68, 68, 0.12)' : isWarning ? '0 4px 10px rgba(234, 179, 8, 0.08)' : '0 2px 4px rgba(0,0,0,0.02)';
+                  const cardBg = isHighlighted ? '#f0fdf4' : (isDanger ? '#fff8f8' : isWarning ? '#fffdf7' : '#ffffff');
+                  const cardBorder = isHighlighted ? '2.5px solid #0f766e' : (isDanger ? '2px solid #f87171' : isWarning ? '1.5px solid #fde047' : '1px solid #e2e8f0');
+                  const shadow = isHighlighted ? '0 0 0 4px rgba(15, 118, 110, 0.25), 0 8px 20px rgba(0,0,0,0.08)' : (isDanger ? '0 4px 12px rgba(239, 68, 68, 0.12)' : isWarning ? '0 4px 10px rgba(234, 179, 8, 0.08)' : '0 2px 4px rgba(0,0,0,0.02)');
 
                   const badgeBg = isDanger ? '#fee2e2' : isWarning ? '#fefce8' : '#f0fdf4';
                   const badgeColor = isDanger ? '#b91c1c' : isWarning ? '#b45309' : '#15803d';
@@ -1735,6 +1792,7 @@ const Inventory = () => {
                   return (
                     <div 
                       key={lot.id} 
+                      ref={isHighlighted ? (el) => { if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } : undefined}
                       style={{ 
                         backgroundColor: cardBg, 
                         border: cardBorder, 
@@ -1763,8 +1821,13 @@ const Inventory = () => {
 
                       {/* Row 2: Lot Code + Product Name */}
                       <div>
-                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#0f766e', letterSpacing: '0.3px' }}>
-                          Mã lô: {lot.lotCode}
+                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#0f766e', letterSpacing: '0.3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>Mã lô: {lot.lotCode}</span>
+                          {isHighlighted && (
+                            <span style={{ backgroundColor: '#0f766e', color: '#fff', fontSize: '0.65rem', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                              Đang tìm
+                            </span>
+                          )}
                         </div>
                         <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', marginTop: '3px', lineHeight: 1.3 }}>
                           {lot.displayName || 'Sản phẩm'}
