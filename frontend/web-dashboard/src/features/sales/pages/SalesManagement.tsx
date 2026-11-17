@@ -37,6 +37,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
+import { useNotifications } from '@/shared';
 import {
   B2BCustomersPanel,
   CreateB2BCustomerModal,
@@ -173,6 +174,7 @@ const INITIAL_CONVERSATIONS: ChatConversation[] = [
 
 export const SalesManagement = () => {
   const { user, token } = useAuth();
+  const { markChatSessionAsRead } = useNotifications();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'CREATE_ORDER' | 'ORDER_LIST' | 'FEFO_INSIGHTS' | 'CUSTOMERS' | 'LIVE_CHAT'>(
     searchParams.get('tab') === 'orders' ? 'ORDER_LIST' :
@@ -218,6 +220,14 @@ export const SalesManagement = () => {
   const [conversations, setConversations] = useState<ChatConversation[]>(INITIAL_CONVERSATIONS);
   const [selectedConvId, setSelectedConvId] = useState<string>('conv-1');
   const [chatInputText, setChatInputText] = useState('');
+
+  // Auto-mark conversation as read when viewing chat
+  useEffect(() => {
+    if (activeTab === 'LIVE_CHAT' && selectedConvId) {
+      markChatSessionAsRead(selectedConvId);
+      setConversations(prev => prev.map(c => c.id === selectedConvId ? { ...c, unreadCount: 0 } : c));
+    }
+  }, [activeTab, selectedConvId, markChatSessionAsRead]);
   const [selectedMediaPreview, setSelectedMediaPreview] = useState<{ url: string; file: File; isVideo: boolean } | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
@@ -1109,6 +1119,7 @@ export const SalesManagement = () => {
         onClick={() => {
           setSelectedConvId(conv.id);
           setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unreadCount: 0 } : c));
+          markChatSessionAsRead(conv.id);
         }}
         style={{
           padding: '10px 12px',

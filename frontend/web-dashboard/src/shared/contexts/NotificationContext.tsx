@@ -4,7 +4,8 @@ import { getApiHost } from '../utils/apiConfig';
 import { useAuth } from '@/features/auth';
 import { useWarehouse } from './WarehouseContext';
 
-export type NotificationType = 'ORDER' | 'OUTBOUND' | 'CHAT' | 'INVENTORY' | 'IOT_ALERT' | 'SYSTEM';
+// Chuyên biệt cho 3 nhóm công việc cốt lõi của menu: Đơn hàng, Xuất kho, Tư vấn chat
+export type NotificationType = 'ORDER' | 'OUTBOUND' | 'CHAT';
 export type NotificationLevel = 'info' | 'success' | 'warning' | 'danger';
 
 export interface AppNotification {
@@ -31,32 +32,45 @@ export interface NotificationContextType {
   clearAll: () => void;
   dismissToast: () => void;
   refreshPendingCounts: () => Promise<void>;
+  markChatSessionAsRead: (sessionId?: string) => void;
+  markAllChatsAsRead: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-const NOTIF_STORAGE_KEY = 'sfwms_app_notifications_v1';
+const NOTIF_STORAGE_KEY = 'sfwms_menu_notifications_v2';
+const READ_CHATS_STORAGE_KEY = 'sfwms_read_chat_sessions_v1';
 
-// Seed initial notifications if none exist in localStorage
+// Seed initial notifications focused exclusively on menu actionable tasks
 const DEFAULT_INITIAL_NOTIFICATIONS: AppNotification[] = [
   {
-    id: 'init-notif-1',
-    title: 'Hệ thống vận hành sẵn sàng',
-    message: 'Kết nối mạng lưới đa kho và các dịch vụ vi mô thời gian thực thành công.',
-    type: 'SYSTEM',
-    level: 'success',
-    link: '/',
-    createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+    id: 'init-notif-order',
+    title: 'Đơn hàng trực tuyến chờ tiếp nhận',
+    message: 'Có đơn hàng mới từ khách hàng đang chờ điều phối và phân tuyến.',
+    type: 'ORDER',
+    level: 'info',
+    link: '/orders',
+    createdAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
     isRead: false,
   },
   {
-    id: 'init-notif-2',
-    title: 'Giám sát nhiệt độ kho lạnh',
-    message: 'Toàn bộ cảm biến nhiệt độ & độ ẩm tại Kho Gò Vấp (WH-006) đang hoạt động trong ngưỡng an toàn.',
-    type: 'IOT_ALERT',
+    id: 'init-notif-outbound',
+    title: 'Phiếu xuất kho chờ tiếp nhận',
+    message: 'Phiếu xuất kho mới đang chờ bộ phận kho mở lệnh và soạn hàng từ kệ.',
+    type: 'OUTBOUND',
     level: 'info',
-    link: '/inventory',
-    createdAt: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
+    link: '/outbound',
+    createdAt: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+    isRead: false,
+  },
+  {
+    id: 'init-notif-chat',
+    title: 'Khách hàng cần tư vấn',
+    message: 'Có yêu cầu hỗ trợ và tư vấn sản phẩm đang chờ nhân viên bán hàng phản hồi.',
+    type: 'CHAT',
+    level: 'info',
+    link: '/sales?tab=chat',
+    createdAt: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
     isRead: false,
   },
 ];
@@ -65,13 +79,16 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const { user } = useAuth();
   const { selectedWarehouseCode } = useWarehouse();
 
-  // Notifications List State
+  // Notifications List State (Filtered strictly to ORDER, OUTBOUND, CHAT)
   const [notifications, setNotifications] = useState<AppNotification[]>(() => {
     try {
       const saved = localStorage.getItem(NOTIF_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const filtered = parsed.filter(n => n.type === 'ORDER' || n.type === 'OUTBOUND' || n.type === 'CHAT');
+          if (filtered.length > 0) return filtered;
+        }
       }
     } catch (e) {
       console.warn('Failed to load notifications from localStorage:', e);
@@ -79,7 +96,17 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return DEFAULT_INITIAL_NOTIFICATIONS;
   });
 
-  // Save to localStorage when notifications update
+  // Track Chat sessions that staff have already opened and read
+  const [readChatSessionIds, setReadChatSessionIds] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(READ_CHATS_STORAGE_KEY);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch (e) {
+      return new Set();
+    }
+  });
+
+  // Save notifications to localStorage
   useEffect(() => {
     try {
       localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(notifications.slice(0, 50)));
@@ -111,6 +138,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   const addNotification = useCallback((newNotif: Omit<AppNotification, 'id' | 'createdAt' | 'isRead'> & { id?: string; createdAt?: string }) => {
+    // Only accept notification types matching menu operations
+    if (newNotif.type !== 'ORDER' && newNotif.type !== 'OUTBOUND' && newNotif.type !== 'CHAT') {
+      return;
+    }
+
     const completeNotif: AppNotification = {
       id: newNotif.id || `notif-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       title: newNotif.title,
@@ -139,6 +171,39 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setNotifications([]);
   }, []);
 
+  // When staff opens and views a chat session -> mark as read & immediately decrement pending badge!
+  const markChatSessionAsRead = useCallback((sessionId?: string) => {
+    if (!sessionId) return;
+    setReadChatSessionIds(prev => {
+      const next = new Set(prev);
+      next.add(sessionId);
+      try {
+        localStorage.setItem(READ_CHATS_STORAGE_KEY, JSON.stringify(Array.from(next)));
+      } catch (e) {}
+      return next;
+    });
+
+    // Mark matching chat notifications as read
+    setNotifications(prev =>
+      prev.map(n => {
+        if (n.type === 'CHAT' && (n.metadata?.sessionId === sessionId || n.metadata?.id === sessionId || n.metadata?.convId === sessionId)) {
+          return { ...n, isRead: true };
+        }
+        return n;
+      })
+    );
+
+    // Immediately decrement pendingChatsCount
+    setPendingChatsCount(prev => Math.max(0, prev - 1));
+  }, []);
+
+  const markAllChatsAsRead = useCallback(() => {
+    setPendingChatsCount(0);
+    setNotifications(prev =>
+      prev.map(n => (n.type === 'CHAT' ? { ...n, isRead: true } : n))
+    );
+  }, []);
+
   const unreadCount = useMemo(() => {
     return notifications.filter(n => !n.isRead).length;
   }, [notifications]);
@@ -154,7 +219,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Fetch real counts across order-service, outbound-service, and chat-sessions
   const refreshPendingCounts = useCallback(async () => {
     try {
-      // 1. Pending Orders (Đơn hàng chưa tiếp nhận - status = PENDING)
+      // 1. Pending Orders (Đơn hàng chưa tiếp nhận - status = PENDING, WAITING_TRANSFER)
       const orderWhParam = activeWh && activeWh !== 'ALL' ? `?warehouseCode=${encodeURIComponent(activeWh)}` : '';
       const ordersRes = await fetch(`${getApiHost(3004)}/orders${orderWhParam}`);
       if (ordersRes.ok) {
@@ -180,13 +245,17 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setPendingOutboundsCount(pendingObs.length);
       }
 
-      // 3. Pending Chat & Customer Inquiries (Phiên tư vấn chưa trả lời / chờ nhân viên)
+      // 3. Pending Chat & Customer Inquiries (Khách hàng cần tư vấn / chưa được trả lời)
       try {
         const chatRes = await fetch(`${getApiHost(3004)}/chat/sessions?status=ALL`);
         if (chatRes.ok) {
           const sessions = await chatRes.json();
           if (Array.isArray(sessions)) {
+            const savedReadIds = new Set<string>(
+              JSON.parse(localStorage.getItem(READ_CHATS_STORAGE_KEY) || '[]')
+            );
             const unanswered = sessions.filter((s: any) => {
+              if (savedReadIds.has(s.id)) return false;
               const status = String(s.status || '').toUpperCase();
               const hasUnread = Number(s.unreadCount || 0) > 0;
               const isWaiting = status === 'WAITING_FOR_STAFF' || status === 'PENDING';
@@ -220,10 +289,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       reconnectionDelay: 1500,
     });
 
-    socket.on('connect', () => {
-      console.log('[NOTIF WS] Connected to realtime Gateway');
-    });
-
     // 1. New Order Event
     socket.on('new_order', (data: any) => {
       console.log('[NOTIF WS] new_order:', data);
@@ -231,7 +296,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const amount = Number(data.totalAmount || 0);
       addNotification({
         title: 'Đơn hàng trực tuyến mới',
-        message: `Đơn hàng #${code} vừa được đặt thành công (${amount > 0 ? amount.toLocaleString('vi-VN') + ' đ' : 'Chờ xác nhận'}).`,
+        message: `Đơn hàng #${code} vừa được đặt thành công (${amount > 0 ? amount.toLocaleString('vi-VN') + ' đ' : 'Chờ tiếp nhận'}).`,
         type: 'ORDER',
         level: 'info',
         link: '/orders',
@@ -292,9 +357,21 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     socket.on('chat_message', (data: any) => {
       console.log('[NOTIF WS] chat_message:', data);
       if (data.senderRole === 'CUSTOMER' || !data.senderRole) {
+        // Customer sent a new message -> unmark from read list so badge triggers!
+        if (data.sessionId) {
+          setReadChatSessionIds(prev => {
+            const next = new Set(prev);
+            next.delete(data.sessionId);
+            try {
+              localStorage.setItem(READ_CHATS_STORAGE_KEY, JSON.stringify(Array.from(next)));
+            } catch (e) {}
+            return next;
+          });
+        }
+
         addNotification({
           title: 'Khách hàng gửi tin nhắn tư vấn',
-          message: `${data.senderName || 'Khách hàng'}: "${data.text?.slice(0, 50) || 'Đã gửi một tin nhắn'}"`,
+          message: `${data.senderName || 'Khách hàng'}: "${data.text?.slice(0, 50) || 'Đã gửi một tin nhắn mới'}"`,
           type: 'CHAT',
           level: 'info',
           link: '/sales?tab=chat',
@@ -302,32 +379,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         });
         refreshPendingCounts();
       }
-    });
-
-    // 6. Sensor Anomaly Event (IoT)
-    socket.on('sensor_anomaly', (data: any) => {
-      console.log('[NOTIF WS] sensor_anomaly:', data);
-      addNotification({
-        title: 'Cảnh báo nhiệt độ / độ ẩm kho',
-        message: data.message || `Cảm biến tại khu vực ${data.zone || 'Kho Lạnh'} ghi nhận giá trị vượt ngưỡng an toàn!`,
-        type: 'IOT_ALERT',
-        level: 'danger',
-        link: '/inventory',
-        metadata: data,
-      });
-    });
-
-    // 7. Spoilage Risk High Event (AI Prediction)
-    socket.on('spoilage_risk_high', (data: any) => {
-      console.log('[NOTIF WS] spoilage_risk_high:', data);
-      addNotification({
-        title: 'Cảnh báo rủi ro hư hỏng nông sản',
-        message: data.message || `Lô hàng ${data.lotNumber || ''} có nguy cơ suy giảm chất lượng bảo quản.`,
-        type: 'IOT_ALERT',
-        level: 'warning',
-        link: '/inventory',
-        metadata: data,
-      });
     });
 
     return () => {
@@ -347,6 +398,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     clearAll,
     dismissToast,
     refreshPendingCounts,
+    markChatSessionAsRead,
+    markAllChatsAsRead,
   }), [
     notifications,
     unreadCount,
@@ -359,6 +412,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     clearAll,
     dismissToast,
     refreshPendingCounts,
+    markChatSessionAsRead,
+    markAllChatsAsRead,
   ]);
 
   return (

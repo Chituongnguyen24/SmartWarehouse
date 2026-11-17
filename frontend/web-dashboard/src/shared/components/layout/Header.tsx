@@ -49,7 +49,7 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
 
   // Notification Popover State
   const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const [notifTab, setNotifTab] = useState<'ALL' | 'ORDER' | 'OUTBOUND' | 'CHAT' | 'IOT_ALERT'>('ALL');
+  const [notifTab, setNotifTab] = useState<'ALL' | 'ORDER' | 'OUTBOUND' | 'CHAT'>('ALL');
   const notifDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns on outside click
@@ -485,8 +485,7 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
                     { key: 'ALL', label: 'Tất Cả' },
                     { key: 'ORDER', label: 'Đơn Hàng' },
                     { key: 'OUTBOUND', label: 'Xuất Kho' },
-                    { key: 'CHAT', label: 'Tư Vấn' },
-                    { key: 'IOT_ALERT', label: 'Cảnh Báo' },
+                    { key: 'CHAT', label: 'Tư Vấn & Chat' },
                   ].map(tab => (
                     <button
                       key={tab.key}
