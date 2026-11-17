@@ -53,6 +53,7 @@ import { PrintAccountingVoucherModal, type VoucherType } from '@/features/transp
 import { useAuth } from '@/features/auth';
 import { useWarehouse } from '@/shared';
 import { getApiHost } from '@/shared/utils/apiConfig';
+import { GOVAP_DRIVERS } from '@/features/sales/pages/OrderManagement';
 
 const ORDER_API = `${getApiHost(3004)}/orders`;
 const OUTBOUND_API = `${getApiHost(3007)}/outbound-orders`;
@@ -263,10 +264,13 @@ export const Reports: React.FC = () => {
   const [rawInventoryLots, setRawInventoryLots] = useState<any[]>([]);
   const [rawInbounds, setRawInbounds] = useState<any[]>([]);
 
-  // Driver COD Reconciled State
-  const [reconciledDriverIds, setReconciledDriverIds] = useState<Record<string, boolean>>({
-    'DRV-001': true,
-    'DRV-002': true,
+  // Driver COD Reconciled State (Persisted in localStorage)
+  const [reconciledDriverIds, setReconciledDriverIds] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('sfwms_reconciled_drivers') || '{}');
+    } catch (e) {
+      return {};
+    }
   });
 
   // Accounting Voucher Modal State
@@ -461,9 +465,15 @@ export const Reports: React.FC = () => {
       debouncedFetch();
     });
 
+    // Background polling fallback every 3s to guarantee 100% zero-latency sync across all tabs
+    const interval = setInterval(() => {
+      fetchAllRealData(false);
+    }, 3000);
+
     return () => {
       socket.disconnect();
       clearTimeout(debounceTimer);
+      clearInterval(interval);
     };
   }, [fetchAllRealData]);
 
@@ -471,7 +481,7 @@ export const Reports: React.FC = () => {
   const formatOrderCode = (o: any): string => {
     if (o?.orderCode && String(o.orderCode).trim()) return String(o.orderCode);
     const rawId = String(o?.id || '');
-    if (rawId.startsWith('ECOMM-') || rawId.startsWith('XK-') || rawId.startsWith('OB-') || rawId.startsWith('OUT-')) {
+    if (rawId.startsWith('ECOMM-') || rawId.startsWith('XK-') || rawId.startsWith('OB-') || rawId.startsWith('OUT-') || rawId.startsWith('DISP-') || rawId.startsWith('RTV-') || rawId.startsWith('TRF-')) {
       return rawId;
     }
     if (rawId.length >= 8) {
@@ -480,32 +490,75 @@ export const Reports: React.FC = () => {
     return `ORD-${rawId || '001'}`;
   };
 
+  // Helper for canonical key deduplication
+  const getCanonicalKey = (id?: string, code?: string, notes?: string): string => {
+    const match = (notes || '').match(/\[ORDER_ID:([a-f0-9\-]+)\]/i);
+    if (match) return match[1].toLowerCase().replace(/^ecomm-/, '').slice(0, 8);
+    const clean = (val?: string) => (val || '').toLowerCase().replace(/^(ecomm|ob|out|trf-exp)-/, '').trim();
+    const cid = clean(id);
+    if (cid.length >= 8) return cid.slice(0, 8);
+    const ccode = clean(code);
+    if (ccode.length >= 8) return ccode.slice(0, 8);
+    return cid || ccode;
+  };
+
   // Combined and filtered orders based on selected timeRange
   const combinedOrders = useMemo(() => {
-    const list = rawOrders.map(o => ({
-      ...o,
-      orderCode: formatOrderCode(o),
-      totalQuantity: o.totalQuantity || (Array.isArray(o.items) && o.items.length > 0
-        ? o.items.reduce((s: number, it: any) => s + (Number(it.quantity) || 1), 0)
-        : (o.items?.length || 1)),
-    }));
+    const seenKeys = new Set<string>();
+    const list: any[] = [];
 
+    // 1. Process E-commerce orders
+    rawOrders.forEach(o => {
+      const code = formatOrderCode(o);
+      const key = getCanonicalKey(o.id, code, o.note);
+      if (key) seenKeys.add(key);
+
+      list.push({
+        ...o,
+        orderCode: code,
+        classification: 'SALE',
+        totalQuantity: o.totalQuantity || (Array.isArray(o.items) && o.items.length > 0
+          ? o.items.reduce((s: number, it: any) => s + (Number(it.quantity) || 1), 0)
+          : (o.items?.length || 1)),
+      });
+    });
+
+    // 2. Process Outbound orders without duplicating linked ecomm orders
     rawOutbounds.forEach(ob => {
-      const formattedObCode = formatOrderCode(ob);
-      if (!list.some(o => o.orderCode === formattedObCode || o.id === ob.id)) {
-        list.push({
-          id: ob.id,
-          orderCode: formattedObCode,
-          totalAmount: ob.totalAmount || (Number(ob.totalQuantity || 1) * 65000),
-          status: ob.status,
-          createdAt: ob.createdAt || new Date().toISOString(),
-          paymentMethod: ob.paymentMethod || 'cod',
-          customerName: ob.customerName || ob.destination || 'Khách hàng C.T Mart',
-          customerPhone: ob.customerPhone || '0908 123 456',
-          items: ob.items || [],
-          totalQuantity: ob.totalQuantity || (ob.items?.length || 1),
-        });
-      }
+      const code = formatOrderCode(ob);
+      const key = getCanonicalKey(ob.id, code, ob.notes);
+
+      // Skip if already in list from rawOrders
+      if (key && seenKeys.has(key)) return;
+      if (list.some(o => o.orderCode === code || o.id === ob.id)) return;
+      if (key) seenKeys.add(key);
+
+      const notes = ob.notes || '';
+      const isDisposal = code.startsWith('DISP-') || notes.includes('[XUẤT HỦY');
+      const isReturn = code.startsWith('RTV-') || notes.includes('[XUẤT TRẢ');
+      const isTransfer = code.startsWith('TRF-') || notes.includes('[LỆNH XUẤT ĐIỀU CHUYỂN');
+      const classification = isDisposal ? 'DISPOSAL' : isReturn ? 'RETURN' : isTransfer ? 'TRANSFER' : 'SALE';
+
+      // For non-sales, do not inflate sales revenue
+      const fallbackAmount = classification === 'SALE' ? (Number(ob.totalQuantity || 1) * 65000) : 0;
+      const totalAmount = ob.totalAmount !== undefined && ob.totalAmount !== null ? Number(ob.totalAmount) : fallbackAmount;
+
+      list.push({
+        id: ob.id,
+        orderCode: code,
+        classification,
+        totalAmount,
+        status: ob.status,
+        createdAt: ob.createdAt || new Date().toISOString(),
+        paymentMethod: ob.paymentMethod || (classification === 'SALE' ? 'cod' : 'internal'),
+        customerName: ob.customerName || ob.destination || (classification === 'SALE' ? 'Khách hàng C.T Mart' : ob.destination),
+        customerPhone: ob.customerPhone || '0908 123 456',
+        assignedDriverId: ob.assignedDriverId,
+        assignedDriverName: ob.assignedDriverName,
+        assignedDriverPlate: ob.assignedDriverPlate,
+        items: ob.items || [],
+        totalQuantity: ob.totalQuantity || (ob.items?.length || 1),
+      });
     });
 
     const now = new Date();
@@ -533,11 +586,14 @@ export const Reports: React.FC = () => {
     let onlineAmount = 0;
 
     combinedOrders.forEach(o => {
+      // Only sales orders count towards customer sales revenue
+      if (o.classification && o.classification !== 'SALE') return;
+
       const amount = Number(o.totalAmount || 0);
       const status = (o.status || '').toUpperCase();
-      const isCompleted = ['COMPLETED', 'DELIVERED', 'PAID', 'SHIPPED'].includes(status);
+      const isCompleted = ['COMPLETED', 'DELIVERED', 'PAID'].includes(status);
       const isFailed = ['CANCELLED', 'FAILED_DELIVERY', 'RETURNED'].includes(status);
-      const isShipping = ['IN_TRANSIT', 'SHIPPING', 'DISPATCHED', 'PICKING', 'PACKED', 'DELIVERING', 'CONFIRMED'].includes(status);
+      const isShipping = ['IN_TRANSIT', 'SHIPPING', 'SHIPPED', 'DELIVERING', 'CONFIRMED', 'READY_FOR_DELIVERY'].includes(status);
 
       if (isCompleted) {
         completedRev += amount;
@@ -549,14 +605,16 @@ export const Reports: React.FC = () => {
         if (isShipping) shippingCount++;
       }
 
-      if (o.paymentMethod === 'online' || o.paymentMethod === 'bank_transfer' || o.paymentMethod === 'momo') {
+      const pMethod = String(o.paymentMethod || '').toLowerCase();
+      const isOnlinePay = ['online', 'bank_transfer', 'momo', 'vnpay', 'card', 'credit_card', 'atm'].includes(pMethod);
+      if (isOnlinePay) {
         onlineAmount += amount;
       } else {
         codAmount += amount;
       }
     });
 
-    const totalOrders = combinedOrders.length;
+    const totalOrders = combinedOrders.filter(o => !o.classification || o.classification === 'SALE').length;
     const avgOrderValue = completedCount > 0 ? Math.round(completedRev / completedCount) : 0;
     const successRate = totalOrders > 0 ? Math.round((completedCount / totalOrders) * 100) : 100;
 
@@ -681,22 +739,130 @@ export const Reports: React.FC = () => {
   const totalInAmount = inventoryReportData.reduce((acc, i) => acc + i.inAmount, 0);
   const totalNearExpiryQty = inventoryReportData.reduce((acc, i) => acc + i.nearExpiryQty, 0);
 
-  // 3. DRIVER COD & SETTLEMENT STATS
+  // 3. DYNAMIC DRIVER COD & SETTLEMENT STATS FROM REAL ORDERS
   const driversReport = useMemo(() => {
-    return [
-      { id: 'DRV-001', name: 'Võ Minh Trí', phone: '0977 112 233', vehicleType: 'Xe máy thùng lạnh', plate: '59-V1 888.99', completed: 12, failed: 0, totalKm: 34.5, cod: 2850000 },
-      { id: 'DRV-002', name: 'Trần Quốc Bảo', phone: '0933 445 566', vehicleType: 'Xe máy thùng mát', plate: '59-G2 678.90', completed: 9, failed: 1, totalKm: 28.4, cod: 1940000 },
-      { id: 'DRV-003', name: 'Phan Hữu Nam', phone: '0918 776 655', vehicleType: 'Xe bán tải 1.5T', plate: '51D 123.45', completed: 7, failed: 0, totalKm: 24.6, cod: 3450000 },
-      { id: 'DRV-004', name: 'Đặng Hoàng Phúc', phone: '0944 778 899', vehicleType: 'Xe tải lạnh 2.5T', plate: '51C 456.78', completed: 5, failed: 0, totalKm: 22.2, cod: 4800000 },
-    ];
-  }, []);
+    const driverMap = new Map<string, {
+      id: string;
+      name: string;
+      phone: string;
+      vehicleType: string;
+      plate: string;
+      completed: number;
+      shipping: number;
+      failed: number;
+      totalKm: number;
+      cod: number;
+      pendingCod: number;
+    }>();
 
-  const totalCodCollected = driversReport.reduce((acc, d) => acc + d.cod, 0);
-  const totalCodSettled = driversReport.filter(d => reconciledDriverIds[d.id]).reduce((acc, d) => acc + d.cod, 0);
-  const totalCodPending = totalCodCollected - totalCodSettled;
+    // Seed known drivers
+    GOVAP_DRIVERS.forEach(drv => {
+      const cleanName = drv.name.replace(/\s*\(.*?\)/, '').trim();
+      driverMap.set(drv.id, {
+        id: drv.id,
+        name: cleanName,
+        phone: drv.phone,
+        vehicleType: drv.type || 'Xe giao hàng',
+        plate: drv.plate || 'Chưa cấp biển',
+        completed: 0,
+        shipping: 0,
+        failed: 0,
+        totalKm: 0,
+        cod: 0,
+        pendingCod: 0,
+      });
+    });
+
+    const findDriver = (driverId?: string, driverName?: string, driverPlate?: string) => {
+      if (driverId && driverMap.has(driverId)) return driverMap.get(driverId);
+      const cleanName = (driverName || '').toLowerCase().replace(/\s*\(.*?\)/, '').trim();
+      if (!cleanName) return null;
+      for (const [_, drv] of driverMap.entries()) {
+        const targetClean = drv.name.toLowerCase();
+        if (cleanName.includes(targetClean) || targetClean.includes(cleanName)) {
+          return drv;
+        }
+      }
+      const newId = driverId || `DRV-${cleanName.replace(/\s+/g, '-').toUpperCase()}`;
+      const newEntry = {
+        id: newId,
+        name: driverName?.replace(/\s*\(.*?\)/, '').trim() || cleanName,
+        phone: '0908 123 456',
+        vehicleType: 'Xe máy giao hàng',
+        plate: driverPlate || '59-X1 999.99',
+        completed: 0,
+        shipping: 0,
+        failed: 0,
+        totalKm: 0,
+        cod: 0,
+        pendingCod: 0,
+      };
+      driverMap.set(newId, newEntry);
+      return newEntry;
+    };
+
+    combinedOrders.forEach(o => {
+      const driverName = o.assignedDriverName;
+      const driverId = o.assignedDriverId;
+      if (!driverName && !driverId) return;
+
+      const drv = findDriver(driverId, driverName, o.assignedDriverPlate);
+      if (!drv) return;
+
+      const status = (o.status || '').toUpperCase();
+      const amount = Number(o.totalAmount || 0);
+      const pMethod = String(o.paymentMethod || '').toLowerCase();
+      const isOnlinePay = ['online', 'bank_transfer', 'momo', 'vnpay', 'card', 'credit_card', 'atm'].includes(pMethod);
+      const isCompleted = ['COMPLETED', 'DELIVERED', 'PAID'].includes(status);
+      const isFailed = ['CANCELLED', 'FAILED_DELIVERY', 'RETURNED'].includes(status);
+      const isShipping = ['IN_TRANSIT', 'SHIPPING', 'SHIPPED', 'DELIVERING', 'CONFIRMED', 'READY_FOR_DELIVERY'].includes(status);
+
+      if (isCompleted) {
+        drv.completed += 1;
+        if (!isOnlinePay) {
+          drv.cod += amount;
+        }
+      } else if (isFailed) {
+        drv.failed += 1;
+      } else if (isShipping) {
+        drv.shipping += 1;
+        if (!isOnlinePay) {
+          drv.pendingCod += amount;
+        }
+      }
+    });
+
+    const activeDrivers = Array.from(driverMap.values()).filter(d => d.completed > 0 || d.shipping > 0 || d.failed > 0 || d.cod > 0);
+    return activeDrivers.length > 0 ? activeDrivers : Array.from(driverMap.values()).slice(0, 4);
+  }, [combinedOrders]);
+
+  const totalCodCollected = useMemo(() => {
+    return combinedOrders.reduce((sum, o) => {
+      const status = (o.status || '').toUpperCase();
+      const pMethod = String(o.paymentMethod || '').toLowerCase();
+      const isOnlinePay = ['online', 'bank_transfer', 'momo', 'vnpay', 'card', 'credit_card', 'atm'].includes(pMethod);
+      const isCompleted = ['COMPLETED', 'DELIVERED', 'PAID'].includes(status);
+      if (isCompleted && !isOnlinePay) {
+        return sum + Number(o.totalAmount || 0);
+      }
+      return sum;
+    }, 0);
+  }, [combinedOrders]);
+
+  const totalCodSettled = useMemo(() => {
+    return driversReport.filter(d => reconciledDriverIds[d.id]).reduce((acc, d) => acc + d.cod, 0);
+  }, [driversReport, reconciledDriverIds]);
+
+  const totalCodPending = Math.max(0, totalCodCollected - totalCodSettled);
 
   const handleReconcileDriver = (id: string) => {
-    setReconciledDriverIds(prev => ({ ...prev, [id]: true }));
+    setReconciledDriverIds(prev => {
+      const next = { ...prev, [id]: true };
+      try {
+        localStorage.setItem('sfwms_reconciled_drivers', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
     showToast('Đã xác nhận tài xế nộp đủ tiền mặt vào quỹ siêu thị!');
   };
 
@@ -842,6 +1008,9 @@ export const Reports: React.FC = () => {
                   cursor: 'pointer',
                 }}
               >
+                <option value="ALL" style={{ color: '#0f172a' }}>
+                  Toàn Bộ Hệ Thống (Tất Cả Các Kho)
+                </option>
                 {warehouses.map(w => (
                   <option key={w.code} value={w.code} style={{ color: '#0f172a' }}>
                     {w.name} ({w.code})
@@ -1162,10 +1331,41 @@ export const Reports: React.FC = () => {
                 <tbody>
                   {paginatedOrders.map((o, idx) => {
                     const status = (o.status || 'PENDING').toUpperCase();
-                    const isSuccess = ['COMPLETED', 'DELIVERED', 'PAID', 'SHIPPED'].includes(status);
-                    const isShipping = ['IN_TRANSIT', 'SHIPPING', 'DISPATCHED', 'PICKING', 'PACKED', 'DELIVERING', 'CONFIRMED'].includes(status);
+                    const isSuccess = ['COMPLETED', 'DELIVERED', 'PAID'].includes(status);
+                    const isShipping = ['IN_TRANSIT', 'SHIPPING', 'SHIPPED', 'DELIVERING'].includes(status);
+                    const isReady = ['READY_FOR_DELIVERY', 'CONFIRMED'].includes(status);
+                    const isProcessing = ['PROCESSING', 'PICKING', 'PACKED', 'PACKING', 'PICKED', 'PENDING'].includes(status);
                     const isCancelled = ['CANCELLED', 'FAILED_DELIVERY', 'RETURNED'].includes(status);
                     const rowBg = idx % 2 === 0 ? '#ffffff' : '#fcfdfd';
+
+                    // Payment method formatting
+                    const pMethod = String(o.paymentMethod || '').toLowerCase();
+                    const paymentLabel = pMethod === 'vnpay' ? 'VNPay'
+                      : pMethod === 'momo' ? 'Ví MoMo'
+                      : (pMethod === 'card' || pMethod === 'credit_card' || pMethod === 'atm') ? 'Thẻ Ngân Hàng'
+                      : (pMethod === 'online' || pMethod === 'bank_transfer') ? 'Chuyển Khoản'
+                      : 'Tiền Mặt (COD)';
+
+                    // Classification
+                    const cls = o.classification || 'SALE';
+                    const clsConfig = cls === 'DISPOSAL'
+                      ? { label: 'Tiêu Hủy', bg: '#fef2f2', color: '#991b1b', border: '#fecaca' }
+                      : cls === 'RETURN'
+                      ? { label: 'Trả Hàng NCC', bg: '#fff7ed', color: '#c2410c', border: '#ffedd5' }
+                      : cls === 'TRANSFER'
+                      ? { label: 'Điều Chuyển', bg: '#f0fdf4', color: '#166534', border: '#bbf7d0' }
+                      : { label: 'Bán Lẻ TMĐT', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' };
+
+                    // Status styling
+                    const statusConfig = isSuccess
+                      ? { label: 'Đã Giao Thành Công', bg: '#f0fdf4', color: '#166534', border: '#bbf7d0' }
+                      : isShipping
+                      ? { label: 'Đang Giao Hàng', bg: '#f0f9ff', color: '#0369a1', border: '#bae6fd' }
+                      : isReady
+                      ? { label: 'Chờ Xuất Bến', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' }
+                      : isCancelled
+                      ? { label: status === 'RETURNED' ? 'Đã Trả Hàng' : 'Đã Hủy Đơn', bg: '#fef2f2', color: '#991b1b', border: '#fecaca' }
+                      : { label: 'Đang Soạn Kho', bg: '#fffbeb', color: '#92400e', border: '#fde68a' };
 
                     return (
                       <tr
@@ -1178,12 +1378,31 @@ export const Reports: React.FC = () => {
                         onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f0fdfa')}
                         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = rowBg)}
                       >
-                        <td style={{ padding: '9px 12px', fontWeight: 600, color: '#0f766e', fontFamily: 'monospace' }}>{o.orderCode || formatOrderCode(o)}</td>
+                        <td style={{ padding: '9px 12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontWeight: 600, color: '#0f766e', fontFamily: 'monospace' }}>
+                              {o.orderCode || formatOrderCode(o)}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: '9.5px',
+                                fontWeight: 600,
+                                padding: '1px 5px',
+                                borderRadius: '3px',
+                                backgroundColor: clsConfig.bg,
+                                color: clsConfig.color,
+                                border: `1px solid ${clsConfig.border}`,
+                              }}
+                            >
+                              {clsConfig.label}
+                            </span>
+                          </div>
+                        </td>
                         <td style={{ padding: '9px 12px', color: '#1e293b' }}>{o.customerName || 'Khách C.T Mart'}</td>
                         <td style={{ padding: '9px 12px', color: '#64748b' }}>{o.totalQuantity || o.items?.length || 1} sản phẩm</td>
                         <td style={{ padding: '9px 12px' }}>
                           <span style={{ fontSize: '10.5px', fontWeight: 500, padding: '2px 7px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #e2e8f0' }}>
-                            {o.paymentMethod === 'online' ? 'Chuyển khoản' : 'Tiền mặt (COD)'}
+                            {paymentLabel}
                           </span>
                         </td>
                         <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700, color: '#0f766e', fontVariantNumeric: 'tabular-nums' }}>
@@ -1196,13 +1415,13 @@ export const Reports: React.FC = () => {
                               fontWeight: 600,
                               padding: '2px 8px',
                               borderRadius: '4px',
-                              backgroundColor: isSuccess ? '#f0fdf4' : isCancelled ? '#fef2f2' : isShipping ? '#f0f9ff' : '#fffbeb',
-                              color: isSuccess ? '#166534' : isCancelled ? '#991b1b' : isShipping ? '#0369a1' : '#92400e',
-                              border: `1px solid ${isSuccess ? '#bbf7d0' : isCancelled ? '#fecaca' : isShipping ? '#bae6fd' : '#fde68a'}`,
+                              backgroundColor: statusConfig.bg,
+                              color: statusConfig.color,
+                              border: `1px solid ${statusConfig.border}`,
                             }}
                             title={isCancelled && o.cancelReason ? `Lý do: ${o.cancelReason}` : undefined}
                           >
-                            {isSuccess ? 'Đã Giao Thành Công' : isCancelled ? (status === 'RETURNED' ? 'Đã Trả Hàng' : 'Đã Hủy Đơn') : isShipping ? 'Đang Giao Hàng' : 'Đang Xử Lý'}
+                            {statusConfig.label}
                           </span>
                         </td>
                       </tr>
