@@ -404,86 +404,63 @@ export default function OrderDispatch() {
         }
       }
 
-      const combinedMap = new Map<string, UnifiedOrder>();
+      const statusRanks: Record<string, number> = {
+        PENDING: 1,
+        PROCESSING: 2,
+        PICKING: 3,
+        PACKING: 3.5,
+        PICKED: 3.5,
+        PACKED: 4,
+        CONFIRMED: 5,
+        READY_FOR_DELIVERY: 6,
+        SHIPPED: 7,
+        DELIVERING: 8,
+        DELIVERED: 9,
+        COMPLETED: 10,
+      };
 
-      // 1. Index E-commerce orders by their unique orderCode and their short UUID
-      const ecomByShortId = new Map<string, UnifiedOrder>();
+      const finalMap = new Map<string, UnifiedOrder>();
+
+      // 1. Process E-commerce orders indexed by their canonical shortId
       ecomOrders.forEach(o => {
-        const fullId = (o.id || '').toLowerCase();
+        const fullId = (o.id || '').toLowerCase().trim();
         const shortId = fullId.length >= 8 ? fullId.slice(0, 8).toUpperCase() : fullId.toUpperCase();
-        const code = (o.orderCode || `ECOMM-${shortId}`).toUpperCase();
-        
-        combinedMap.set(code, o);
-        if (shortId) ecomByShortId.set(shortId, o);
+        const canonicalKey = shortId || fullId;
+
+        finalMap.set(canonicalKey, o);
       });
 
-      // 2. Process Outbound orders: merge with corresponding E-commerce order if same, else keep as distinct order
+      // 2. Process Outbound orders and merge into corresponding E-commerce order if same
       obOrders.forEach(o => {
         const rawCode = (o.orderCode || '').toUpperCase().trim();
         const rawId = (o.id || '').toLowerCase().trim();
         const shortId = rawId.length >= 8 ? rawId.slice(0, 8).toUpperCase() : rawId.toUpperCase();
 
-        const normCode = rawCode.replace(/^ECOMM-/, '').replace(/^OB-/, '').trim();
-        const normId = rawId.replace(/^ECOMM-/, '').replace(/^OB-/, '').trim();
-
-        let matchingEcomKey: string | null = null;
-        if (rawCode && combinedMap.has(rawCode)) {
-          matchingEcomKey = rawCode;
-        } else if (normCode && combinedMap.has(normCode)) {
-          matchingEcomKey = normCode;
-        } else if (normCode && combinedMap.has(`ECOMM-${normCode}`)) {
-          matchingEcomKey = `ECOMM-${normCode}`;
-        } else if (normCode && combinedMap.has(`OB-${normCode}`)) {
-          matchingEcomKey = `OB-${normCode}`;
-        } else if (rawId && combinedMap.has(rawId)) {
-          matchingEcomKey = rawId;
-        } else if (normId && combinedMap.has(normId)) {
-          matchingEcomKey = normId;
-        } else if (normId && combinedMap.has(`ECOMM-${normId}`)) {
-          matchingEcomKey = `ECOMM-${normId}`;
-        } else if (rawCode.startsWith('ECOMM-')) {
-          const extractedShort = rawCode.replace('ECOMM-', '').slice(0, 8);
-          if (ecomByShortId.has(extractedShort)) {
-            matchingEcomKey = `ECOMM-${extractedShort}`;
+        // Check if this outbound slip links to an existing ecom order via notes [ORDER_ID:uuid] or code ECOMM-xxxx
+        let ecomShortKey: string | null = null;
+        const match = `${o.notes || ''} ${o.note || ''}`.match(/\[(?:ORDER_)?ID:([^\]]+)\]/i);
+        if (match) {
+          const extractedUuid = match[1].toLowerCase().trim().replace(/-/g, '');
+          const extractedShort = extractedUuid.slice(0, 8).toUpperCase();
+          if (finalMap.has(extractedShort)) {
+            ecomShortKey = extractedShort;
           }
-        } else if (shortId && ecomByShortId.has(shortId)) {
-          matchingEcomKey = `ECOMM-${shortId}`;
         }
 
-        if (!matchingEcomKey && (o.notes || o.note)) {
-          const match = `${o.notes || ''} ${o.note || ''}`.match(/\[(?:ORDER_)?ID:([^\]]+)\]/i);
-          if (match) {
-            const extractedOrderId = match[1].toLowerCase().trim();
-            const extractedShort = extractedOrderId.replace(/-/g, '').slice(0, 8).toUpperCase();
-            if (ecomByShortId.has(extractedShort)) {
-              matchingEcomKey = `ECOMM-${extractedShort}`;
-            } else if (combinedMap.has(extractedOrderId)) {
-              matchingEcomKey = extractedOrderId;
-            }
+        if (!ecomShortKey && rawCode.startsWith('ECOMM-')) {
+          const extracted = rawCode.replace('ECOMM-', '').slice(0, 8).toUpperCase();
+          if (finalMap.has(extracted)) {
+            ecomShortKey = extracted;
           }
         }
 
         const isDeliveredThis = 
           o.status === 'DELIVERED' || o.status === 'COMPLETED' ||
-          completedIds.has(rawId) || completedIds.has(normId) ||
-          completedIds.has(rawCode.toLowerCase()) || completedIds.has(normCode.toLowerCase());
+          completedIds.has(rawId) ||
+          completedIds.has(rawCode.toLowerCase());
 
-        if (matchingEcomKey && combinedMap.has(matchingEcomKey)) {
-          const existing = combinedMap.get(matchingEcomKey)!;
-          const statusRanks: Record<string, number> = {
-            PENDING: 1,
-            PROCESSING: 2,
-            PICKING: 3,
-            PACKING: 3.5,
-            PICKED: 3.5,
-            PACKED: 4,
-            CONFIRMED: 5,
-            READY_FOR_DELIVERY: 6,
-            SHIPPED: 7,
-            DELIVERING: 8,
-            DELIVERED: 9,
-            COMPLETED: 10,
-          };
+        if (ecomShortKey && finalMap.has(ecomShortKey)) {
+          const existing = finalMap.get(ecomShortKey)!;
           const isDeliveredMerged = isDeliveredThis || existing.status === 'DELIVERED' || existing.status === 'COMPLETED';
           const isMoreAdvanced = (statusRanks[o.status] || 0) > (statusRanks[existing.status] || 0);
 
@@ -491,75 +468,48 @@ export default function OrderDispatch() {
             ? 'COMPLETED'
             : isMoreAdvanced ? (o.status === 'DELIVERED' ? 'COMPLETED' : o.status) : existing.status;
 
-          const mergedOrder: UnifiedOrder = {
+          finalMap.set(ecomShortKey, {
             ...existing,
-            orderCode: (o.orderCode && !o.orderCode.startsWith('ECOMM-')) ? o.orderCode : existing.orderCode,
             status: finalMergedStatus,
             assignedDriverId: o.assignedDriverId || existing.assignedDriverId,
             assignedDriverName: o.assignedDriverName || existing.assignedDriverName,
             assignedDriverPhone: o.assignedDriverPhone || existing.assignedDriverPhone,
             assignedDriverPlate: o.assignedDriverPlate || existing.assignedDriverPlate,
             podPhotoUrl: o.podPhotoUrl || existing.podPhotoUrl,
-          };
-
-          combinedMap.set(matchingEcomKey, mergedOrder);
-          if (normCode) combinedMap.set(normCode, mergedOrder);
-          if (rawCode) combinedMap.set(rawCode, mergedOrder);
-        } else {
-          // Distinct outbound order
-          const distinctOrder: UnifiedOrder = {
-            ...o,
-            status: isDeliveredThis ? 'DELIVERED' : o.status,
-          };
-          const uniqueKey = normCode || rawCode || (rawId ? `OB-${rawId}` : `OB-${Math.random()}`);
-          combinedMap.set(uniqueKey, distinctOrder);
-          if (normCode) combinedMap.set(normCode, distinctOrder);
-        }
-      });
-
-      // Deduplicate orders by their normalized code so duplicate ECOMM- vs base orders show as 1 row
-      const dedupedMap = new Map<string, UnifiedOrder>();
-      Array.from(combinedMap.values()).forEach(order => {
-        const primaryCode = (order.orderCode || order.id || '').toUpperCase();
-        const baseCode = primaryCode.replace(/^ECOMM-/, '').replace(/^OB-/, '').trim();
-        const dedupKey = baseCode || primaryCode;
-        if (!dedupedMap.has(dedupKey)) {
-          dedupedMap.set(dedupKey, order);
-        } else {
-          const existing = dedupedMap.get(dedupKey)!;
-          const statusRanks: Record<string, number> = {
-            PENDING: 1,
-            PROCESSING: 2,
-            PICKING: 3,
-            PACKING: 3.5,
-            PICKED: 3.5,
-            PACKED: 4,
-            CONFIRMED: 5,
-            READY_FOR_DELIVERY: 6,
-            SHIPPED: 7,
-            DELIVERING: 8,
-            DELIVERED: 9,
-            COMPLETED: 10,
-          };
-          const isDelivered = 
-            order.status === 'COMPLETED' || order.status === 'DELIVERED' ||
-            existing.status === 'COMPLETED' || existing.status === 'DELIVERED';
-          const isMoreAdvanced = (statusRanks[order.status] || 0) > (statusRanks[existing.status] || 0);
-
-          dedupedMap.set(dedupKey, {
-            ...existing,
-            status: isDelivered ? 'COMPLETED' : (isMoreAdvanced ? order.status : existing.status),
-            assignedDriverId: order.assignedDriverId || existing.assignedDriverId,
-            assignedDriverName: order.assignedDriverName || existing.assignedDriverName,
-            assignedDriverPhone: order.assignedDriverPhone || existing.assignedDriverPhone,
-            assignedDriverPlate: order.assignedDriverPlate || existing.assignedDriverPlate,
-            podPhotoUrl: order.podPhotoUrl || existing.podPhotoUrl,
-            rawCreatedAt: order.rawCreatedAt || existing.rawCreatedAt,
+            failureReason: o.failureReason || existing.failureReason,
+            failurePhotoUrl: o.failurePhotoUrl || existing.failurePhotoUrl,
           });
+        } else {
+          // Distinct Outbound order (e.g. RTV, DISPOSAL, Transfer)
+          const baseCode = rawCode.replace(/^ECOMM-/, '').replace(/^OB-/, '').trim() || shortId;
+          const canonicalKey = baseCode || rawCode || rawId;
+
+          if (finalMap.has(canonicalKey)) {
+            const existing = finalMap.get(canonicalKey)!;
+            const isDelivered = isDeliveredThis || existing.status === 'DELIVERED' || existing.status === 'COMPLETED';
+            const isMoreAdvanced = (statusRanks[o.status] || 0) > (statusRanks[existing.status] || 0);
+
+            finalMap.set(canonicalKey, {
+              ...existing,
+              status: isDelivered ? 'COMPLETED' : (isMoreAdvanced ? o.status : existing.status),
+              assignedDriverId: o.assignedDriverId || existing.assignedDriverId,
+              assignedDriverName: o.assignedDriverName || existing.assignedDriverName,
+              assignedDriverPhone: o.assignedDriverPhone || existing.assignedDriverPhone,
+              assignedDriverPlate: o.assignedDriverPlate || existing.assignedDriverPlate,
+              podPhotoUrl: o.podPhotoUrl || existing.podPhotoUrl,
+              failureReason: o.failureReason || existing.failureReason,
+              failurePhotoUrl: o.failurePhotoUrl || existing.failurePhotoUrl,
+            });
+          } else {
+            finalMap.set(canonicalKey, {
+              ...o,
+              status: isDeliveredThis ? 'DELIVERED' : o.status,
+            });
+          }
         }
       });
 
-      setOrders(Array.from(dedupedMap.values()));
+      setOrders(Array.from(finalMap.values()));
     } catch (err) {
     } finally {
       setLoading(false);
@@ -1527,12 +1477,12 @@ export default function OrderDispatch() {
         fetch(`${ORDER_API}/sync-status/${cleanId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'READY_FOR_DELIVERY', note: 'Đã xếp vào hàng đợi giao lại lần 2' }),
+          body: JSON.stringify({ status: 'READY_FOR_DELIVERY', note: 'Đã xếp vào hàng đợi giao lại lần 2', failureReason: null, failurePhotoUrl: null }),
         }).catch(() => {}),
         fetch(`${OUTBOUND_API}/outbound-orders/${cleanId}/status`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'READY_FOR_DELIVERY', notes: 'Đã xếp vào hàng đợi giao lại lần 2' }),
+          body: JSON.stringify({ status: 'READY_FOR_DELIVERY', notes: 'Đã xếp vào hàng đợi giao lại lần 2', failureReason: null, failurePhotoUrl: null }),
         }).catch(() => {}),
       ]);
       showToast('Đã đưa đơn hàng vào hàng đợi chuyến tiếp theo.', 'success');
@@ -1556,11 +1506,15 @@ export default function OrderDispatch() {
   }, [orders, activeWh]);
 
   // Pipeline Criteria Definitions (100% Mutually Exclusive)
-  const isStepException = (o: UnifiedOrder) =>
-    o.status === 'FAILED_DELIVERY' ||
-    o.status === 'RETURN_TO_WAREHOUSE' ||
-    o.status === 'CANCELLED' ||
-    Boolean(o.failureReason);
+  const isStepException = (o: UnifiedOrder) => {
+    if (o.status === 'FAILED_DELIVERY' || o.status === 'RETURN_TO_WAREHOUSE' || o.status === 'CANCELLED') {
+      return true;
+    }
+    if (['READY_FOR_DELIVERY', 'CONFIRMED', 'DELIVERING', 'SHIPPED', 'COMPLETED', 'DELIVERED'].includes(o.status)) {
+      return false;
+    }
+    return Boolean(o.failureReason);
+  };
 
   const isStep1 = (o: UnifiedOrder) =>
     !isStepException(o) && (

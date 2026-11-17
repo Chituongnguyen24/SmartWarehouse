@@ -7,7 +7,7 @@ import {
   Download, PackageCheck, AlertCircle, ArrowRight, CheckCircle2, 
   Layers, Plus, X, Search, FileText, ScanBarcode, Printer,
   ChevronLeft, ChevronRight, RefreshCw, Warehouse, ShieldCheck,
-  MapPin, Check, Box, Truck
+  MapPin, Check, Box, Truck, DollarSign
 } from 'lucide-react';
 import { WarehouseMap3D } from '@/features/warehouse';
 import { InboundReceiptModal } from '../components/InboundReceiptModal';
@@ -45,6 +45,7 @@ interface InboundOrder {
   status: string;
   expectedDate: string;
   receivedDate?: string;
+  totalAmount?: number;
   totalItems: number;
   totalQuantity: number;
   qualityCheckPassed: boolean;
@@ -53,6 +54,7 @@ interface InboundOrder {
   packingNote?: string;
   rejectionReason?: string;
   rejectionLiability?: 'CUSTOMER' | 'DRIVER' | 'WAREHOUSE' | string;
+  rejectionAction?: string;
   measuredTemperature?: number | null;
   evidencePhotoUrl?: string;
   disposalOrderCode?: string;
@@ -768,8 +770,9 @@ const InboundOrders: React.FC = () => {
     const qc = relevant.filter(o => o.status === 'QUALITY_CHECK').length;
     const storing = relevant.filter(o => o.status === 'STORING').length;
     const completed = relevant.filter(o => o.status === 'COMPLETED' || o.status === 'STORED').length;
+    const totalAmount = relevant.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
 
-    return { total, pending, receiving, qc, storing, completed };
+    return { total, pending, receiving, qc, storing, completed, totalAmount };
   }, [orders, activeWh]);
 
   // Memoized Filtered Orders
@@ -989,6 +992,20 @@ const InboundOrders: React.FC = () => {
           <p style={{ fontSize: '1.6rem', fontWeight: 800, color: '#1e293b', margin: '8px 0 0 0' }}>{kpiStats.total}</p>
         </div>
 
+        <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #cbd5e1' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#334155', fontSize: '0.8rem', fontWeight: 700 }}>
+            <span>TỔNG TIỀN NHẬP KHO</span>
+            <DollarSign size={16} color="#0f766e" />
+          </div>
+          <p style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f766e', margin: '8px 0 0 0', fontVariantNumeric: 'tabular-nums' }}>
+            {kpiStats.totalAmount >= 1000000000 
+              ? `${(kpiStats.totalAmount / 1000000000).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} Tỷ ₫`
+              : kpiStats.totalAmount >= 1000000
+              ? `${(kpiStats.totalAmount / 1000000).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} Tr ₫`
+              : `${kpiStats.totalAmount.toLocaleString('vi-VN')} ₫`}
+          </p>
+        </div>
+
         <div style={{ background: '#fffbeb', padding: '16px', borderRadius: '14px', border: '1px solid #fde68a' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#b45309', fontSize: '0.8rem', fontWeight: 700 }}>
             <span>CHỜ TIẾP NHẬN</span>
@@ -1124,6 +1141,7 @@ const InboundOrders: React.FC = () => {
               <th style={{ padding: '12px 18px', color: '#64748b', fontWeight: 700 }}>Kho Nhận Hàng</th>
               <th style={{ padding: '12px 18px', color: '#64748b', fontWeight: 700 }}>Nhà Cung Cấp / HĐ</th>
               <th style={{ padding: '12px 18px', color: '#64748b', fontWeight: 700 }}>Tổng Hàng</th>
+              <th style={{ padding: '12px 18px', color: '#64748b', fontWeight: 700, textAlign: 'right' }}>Tổng Tiền Hàng</th>
               <th style={{ padding: '12px 18px', color: '#64748b', fontWeight: 700 }}>Trạng Thái</th>
               <th style={{ padding: '12px 18px', color: '#64748b', fontWeight: 700, textAlign: 'right' }}>Thao Tác</th>
             </tr>
@@ -1131,14 +1149,14 @@ const InboundOrders: React.FC = () => {
           <tbody>
             {initialLoading ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+                <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
                   <RefreshCw size={22} className="animate-spin" style={{ margin: '0 auto 8px' }} />
                   Đang tải danh sách phiếu nhập kho...
                 </td>
               </tr>
             ) : paginatedOrders.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+                <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
                   <PackageCheck size={36} color="#cbd5e1" style={{ margin: '0 auto 10px' }} />
                   <p style={{ margin: 0, fontWeight: 600 }}>Không tìm thấy phiếu nhập kho nào</p>
                 </td>
@@ -1186,6 +1204,22 @@ const InboundOrders: React.FC = () => {
                       <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>
                         SL: {o.totalQuantity || o.items?.reduce((s, i) => s + (i.expectedQuantity || 1), 0) || 1} sp
                       </div>
+                    </td>
+
+                    <td style={{ padding: '14px 18px', textAlign: 'right', fontWeight: 700, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
+                      {Number(o.totalAmount || 0) > 0 ? (
+                        <div>
+                          <div>{Number(o.totalAmount).toLocaleString('vi-VN')} ₫</div>
+                          <div style={{ fontSize: '0.72rem', color: '#0f766e', fontWeight: 500 }}>Tiền hàng nhập</div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div style={{ color: '#475569' }}>
+                            {((o.items || []).reduce((s, it) => s + ((it.receivedQuantity || it.expectedQuantity || 0) * (Number(it.unitPrice) || 0)), 0)).toLocaleString('vi-VN')} ₫
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Ước tính theo SP</div>
+                        </div>
+                      )}
                     </td>
 
                     <td style={{ padding: '14px 18px' }}>
@@ -1419,6 +1453,8 @@ const InboundOrders: React.FC = () => {
                       <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700 }}>Mã & Tên Sản Phẩm</th>
                       <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700, textAlign: 'center' }}>SL Chứng Từ</th>
                       <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700, textAlign: 'center' }}>SL Thực Nhập</th>
+                      <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700, textAlign: 'right' }}>Đơn Giá Nhập</th>
+                      <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700, textAlign: 'right' }}>Thành Tiền</th>
                       <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700 }}>Vị Trí Kệ Lưu Kho</th>
                       <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700 }}>HSD / Lô</th>
                     </tr>
@@ -1432,6 +1468,9 @@ const InboundOrders: React.FC = () => {
                         slotLabel: item.assignedSlotId || `${recShelf.id.replace('shelf-', '')}-01`,
                         lotCode: item.lotCode || `LOT-2026-${(idx + 1).toString().padStart(3, '0')}`
                       };
+                      const unitPrice = Number(item.unitPrice || 0);
+                      const actualQty = item.receivedQuantity || item.expectedQuantity || 0;
+                      const lineTotal = actualQty * unitPrice;
 
                       return (
                         <tr key={item.id || idx} style={{ borderTop: idx > 0 ? '1px solid #f1f5f9' : 'none' }}>
@@ -1455,6 +1494,12 @@ const InboundOrders: React.FC = () => {
                           <td style={{ padding: '12px 14px', textAlign: 'center' }}>{item.expectedQuantity}</td>
                           <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 800, color: '#0f766e' }}>
                             {item.receivedQuantity || item.expectedQuantity}
+                          </td>
+                          <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 600, color: '#334155', fontVariantNumeric: 'tabular-nums' }}>
+                            {unitPrice > 0 ? `${unitPrice.toLocaleString('vi-VN')} ₫` : '—'}
+                          </td>
+                          <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
+                            {lineTotal > 0 ? `${lineTotal.toLocaleString('vi-VN')} ₫` : '—'}
                           </td>
                           <td style={{ padding: '12px 14px', fontWeight: 600, color: '#0f766e' }}>
                             {detectInboundClassification(selectedOrder) === 'DIEU_CHUYEN' ? (
@@ -1671,6 +1716,23 @@ const InboundOrders: React.FC = () => {
                       );
                     })}
                   </tbody>
+                  <tfoot style={{ background: '#f8fafc', borderTop: '2px solid #e2e8f0' }}>
+                    <tr>
+                      <td colSpan={4} style={{ padding: '12px 14px', fontWeight: 700, color: '#334155', textAlign: 'right' }}>
+                        Tổng Giá Trị Lô Hàng Nhập Kho:
+                      </td>
+                      <td style={{ padding: '12px 14px', fontWeight: 800, color: '#0f766e', fontSize: '0.95rem', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                        {(() => {
+                          const itemsTotal = (selectedOrder.items || []).reduce((sum, it) => sum + ((it.receivedQuantity || it.expectedQuantity || 0) * (Number(it.unitPrice) || 0)), 0);
+                          const totalVal = Number(selectedOrder.totalAmount || itemsTotal || 0);
+                          return totalVal > 0 ? `${totalVal.toLocaleString('vi-VN')} ₫` : '—';
+                        })()}
+                      </td>
+                      <td colSpan={2} style={{ padding: '12px 14px', fontSize: '0.75rem', color: '#64748b' }}>
+                        (Giá vốn nhập khẩu / NCC, chưa VAT)
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>

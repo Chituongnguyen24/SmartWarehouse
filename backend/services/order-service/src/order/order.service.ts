@@ -747,8 +747,17 @@ export class OrderService {
       if (body?.driverName) order.assignedDriverName = body.driverName;
       if (body?.driverPhone) order.assignedDriverPhone = body.driverPhone;
       if (body?.driverPlate) order.assignedDriverPlate = body.driverPlate;
-      if (body?.failureReason) order.failureReason = body.failureReason;
-      if (body?.failurePhotoUrl) order.failurePhotoUrl = body.failurePhotoUrl;
+      if (body?.failureReason !== undefined) {
+        order.failureReason = body.failureReason;
+      } else if (status === OrderStatus.READY_FOR_DELIVERY || status === OrderStatus.DELIVERING) {
+        order.failureReason = null as any;
+      }
+
+      if (body?.failurePhotoUrl !== undefined) {
+        order.failurePhotoUrl = body.failurePhotoUrl;
+      } else if (status === OrderStatus.READY_FOR_DELIVERY || status === OrderStatus.DELIVERING) {
+        order.failurePhotoUrl = null as any;
+      }
       if (body?.podPhotoUrl) order.podPhotoUrl = body.podPhotoUrl;
       if (body?.podSignature) order.podSignature = body.podSignature;
       if (body?.temperature) order.currentTemperature = body.temperature;
