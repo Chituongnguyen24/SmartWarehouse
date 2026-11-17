@@ -5,7 +5,7 @@ import {
   Package, PackageCheck, MapPin, Truck, CheckCircle2, XCircle, 
   DollarSign, Copy, ChevronLeft, ChevronRight,
   Phone, CreditCard, X, Printer, FileText, Check,
-  Camera, ExternalLink
+  Camera, ExternalLink, Lock
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { useAuth } from '@/features/auth';

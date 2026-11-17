@@ -3547,7 +3547,7 @@ export default function OrderDispatch() {
                   <span>Mặt hàng bảo quản mát:</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {selectedOrder.items.map((item, i) => (
+                  {(selectedOrder.items || []).map((item, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px', borderRadius: '10px', backgroundColor: '#ffffff', border: '1px solid #e2e8f0' }}>
                       <div>
                         <div style={{ fontWeight: 800, color: '#0f172a' }}>{item.productName}</div>

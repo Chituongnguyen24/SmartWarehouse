@@ -7,7 +7,7 @@ import {
   Download, PackageCheck, AlertCircle, ArrowRight, CheckCircle2, 
   Layers, Plus, X, Search, FileText, ScanBarcode, Printer,
   ChevronLeft, ChevronRight, RefreshCw, Warehouse, ShieldCheck,
-  MapPin, Check, Box, Truck, DollarSign
+  MapPin, Check, Box, Truck, DollarSign, AlertTriangle
 } from 'lucide-react';
 import { WarehouseMap3D } from '@/features/warehouse';
 import { InboundReceiptModal } from '../components/InboundReceiptModal';
