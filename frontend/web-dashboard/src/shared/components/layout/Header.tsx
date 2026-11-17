@@ -20,6 +20,7 @@ import { useAuth, ROLE_LABELS } from '@/features/auth';
 import { useWarehouse } from '../../contexts/WarehouseContext';
 import { useNotifications } from '@/shared';
 import { WarehouseConfigModal, WarehouseManageModal } from '@/features/warehouse';
+import { GlobalSearch } from './GlobalSearch';
 
 interface HeaderProps {
   title: string;
@@ -324,10 +325,8 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
         </div>
 
         <div className="header-actions">
-          <div className="search-bar">
-            <Search size={18} className="text-muted" />
-            <input type="text" placeholder="Tìm sản phẩm, lô hàng..." />
-          </div>
+          {/* Universal Global Search */}
+          <GlobalSearch />
 
           {/* Notification Center Popover */}
           <div ref={notifDropdownRef} style={{ position: 'relative' }}>

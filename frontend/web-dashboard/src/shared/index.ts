@@ -10,6 +10,7 @@ export * from './contexts/NotificationContext';
 export { default as MainLayout } from './components/layout/MainLayout';
 export { default as Sidebar } from './components/layout/Sidebar';
 export { default as Header } from './components/layout/Header';
+export { GlobalSearch } from './components/layout/GlobalSearch';
 export { default as CustomerLayout } from './components/layout/CustomerLayout';
 
 // Core Security & Routing
