@@ -26,7 +26,7 @@ interface WhStats {
 const Inventory = () => {
   const { user, token } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
-  const isManager = user?.role === 'WAREHOUSE_MANAGER';
+  const isManager = user?.role === 'WAREHOUSE_MANAGER' || user?.role === 'ADMIN' || user?.role === 'WAREHOUSE_STAFF';
   const myWarehouseCode = user?.warehouseCode;
 
   const {
@@ -126,6 +126,8 @@ const Inventory = () => {
   const urlSearch = searchParams.get('search') || '';
   const urlHighlight = searchParams.get('highlight') || '';
   const urlType = searchParams.get('type') || '';
+  const urlWarehouseCode = searchParams.get('warehouseCode') || '';
+  const detectedWhCode = urlWarehouseCode || (urlType === 'lot' ? (urlSearch.match(/WH-\d{3}/i)?.[0]?.toUpperCase() ?? '') : '');
 
   const [highlightCode, setHighlightCode] = useState<string>(urlHighlight);
 
@@ -145,9 +147,23 @@ const Inventory = () => {
         setSelectedRiskFilter('ALL');
         setSelectedZoneFilter('ALL');
         setHideDepletedLots(false);
+        // Scroll smoothly to the Lot section
+        setTimeout(() => {
+          const lotSec = document.getElementById('lot-inventory-section');
+          if (lotSec) {
+            lotSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 350);
       } else {
         setStockSearch(urlSearch);
         setStockPage(1);
+        // Scroll smoothly to the Product Stock section
+        setTimeout(() => {
+          const prodSec = document.getElementById('product-stock-section');
+          if (prodSec) {
+            prodSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 200);
       }
     }
   }, [urlSearch, urlType]);
@@ -156,14 +172,17 @@ const Inventory = () => {
   const [outboundLotMap, setOutboundLotMap] = useState<Record<string, { orderCode: string; status: string; isDisposal: boolean; id: string; orderedQty: number }>>({});
 
   useEffect(() => {
-    const targetCode = isManager ? myWarehouseCode : selectedWarehouseCode;
+    const targetCode = (urlType === 'lot' && detectedWhCode)
+      ? detectedWhCode
+      : (isManager && myWarehouseCode ? myWarehouseCode : selectedWarehouseCode);
+
     if (targetCode && warehouses.length > 0) {
-      const wh = warehouses.find(w => w.code === targetCode) || warehouses[0];
+      const wh = warehouses.find(w => w.code.toUpperCase() === targetCode.toUpperCase()) || warehouses[0];
       if (wh) {
         handleViewStock(wh);
       }
     }
-  }, [warehouses, isManager, myWarehouseCode, selectedWarehouseCode]);
+  }, [warehouses, isManager, myWarehouseCode, selectedWarehouseCode, detectedWhCode, urlType]);
 
   const handleViewStock = async (wh: Warehouse, forceRefresh = false) => {
     setViewingWh(wh);
@@ -480,6 +499,29 @@ const Inventory = () => {
         setWhStock(sortedStock);
         setWhLots(lotMapped);
         setWhStats(stats);
+
+        // Fallback: If searching for a lot and it wasn't found in the current warehouse, find which warehouse has it
+        if (urlType === 'lot' && urlSearch) {
+          const matchFound = lotMapped.some((l: any) => 
+            (l.lotCode || '').toLowerCase().includes(urlSearch.toLowerCase())
+          );
+          if (!matchFound && warehouses.length > 1) {
+            fetch(`${INVENTORY_API}/inventory/lots?limit=300`, { headers: { 'Authorization': `Bearer ${token}` } })
+              .then(r => r.ok ? r.json() : null)
+              .then(allLotsData => {
+                if (!allLotsData) return;
+                const allLotsList = Array.isArray(allLotsData) ? allLotsData : (allLotsData.items || []);
+                const found = allLotsList.find((l: any) => (l.lotCode || '').toLowerCase().includes(urlSearch.toLowerCase()));
+                if (found && found.warehouseCode && found.warehouseCode !== wh.code) {
+                  const targetWarehouse = warehouses.find(w => w.code.toUpperCase() === found.warehouseCode.toUpperCase());
+                  if (targetWarehouse) {
+                    handleViewStock(targetWarehouse);
+                  }
+                }
+              })
+              .catch(e => console.warn('Cross-warehouse lot fallback failed:', e));
+          }
+        }
       }
     } catch (err) {
       console.error('Failed to fetch stock for warehouse:', err);
@@ -1401,7 +1443,7 @@ const Inventory = () => {
       </div>
 
       {/* Table of Products Stock */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <div id="product-stock-section" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
           <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
             Danh sách Sản phẩm tồn kho ({filteredWhStock.length})
@@ -1521,7 +1563,7 @@ const Inventory = () => {
       </div>
 
       {isManager && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', marginTop: '1.25rem' }}>
+        <div id="lot-inventory-section" style={{ flex: 1, display: 'flex', flexDirection: 'column', marginTop: '1.25rem' }}>
           
           {/* Section Header & Filter Controls */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', flexWrap: 'wrap', gap: '10px' }}>

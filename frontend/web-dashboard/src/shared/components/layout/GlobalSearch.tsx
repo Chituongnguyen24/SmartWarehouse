@@ -59,6 +59,7 @@ export const GlobalSearch: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
+  const [inbounds, setInbounds] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [outbounds, setOutbounds] = useState<any[]>([]);
   const [lots, setLots] = useState<any[]>([]);
@@ -104,16 +105,21 @@ export const GlobalSearch: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const [prodRes, orderRes, obRes, lotRes] = await Promise.allSettled([
+      const [prodRes, inbRes, orderRes, obRes, lotRes] = await Promise.allSettled([
         fetch(`${getApiHost(3010)}/products?limit=500`).then(r => r.ok ? r.json() : null),
+        fetch(`${getApiHost(3006)}/inbound-orders?limit=300`).then(r => r.ok ? r.json() : null),
         fetch(`${getApiHost(3004)}/orders?limit=300`).then(r => r.ok ? r.json() : null),
         fetch(`${getApiHost(3007)}/outbound-orders?limit=300`).then(r => r.ok ? r.json() : null),
-        fetch(`${getApiHost(3011)}/inventory/lots?limit=300`).then(r => r.ok ? r.json() : null),
+        fetch(`${getApiHost(3011)}/inventory/lots?limit=500`).then(r => r.ok ? r.json() : null),
       ]);
 
       if (prodRes.status === 'fulfilled' && prodRes.value) {
         const pList = prodRes.value.items || prodRes.value.data || prodRes.value;
         if (Array.isArray(pList)) setProducts(pList);
+      }
+      if (inbRes.status === 'fulfilled' && inbRes.value) {
+        const inbList = inbRes.value.items || inbRes.value.data || inbRes.value;
+        if (Array.isArray(inbList)) setInbounds(inbList);
       }
       if (orderRes.status === 'fulfilled' && orderRes.value) {
         const oList = orderRes.value.items || orderRes.value.data || orderRes.value;
@@ -182,31 +188,33 @@ export const GlobalSearch: React.FC = () => {
     }).slice(0, 4);
   }, [normalizedQuery, lots]);
 
-  // Filter 4: Orders & Outbound slips matches
+  // Filter 4: Inbound, Outbound slips & Online orders matches
   const matchedOrders = useMemo(() => {
     if (!normalizedQuery || normalizedQuery.length < 2) return [];
 
-    const orderMatches = orders.filter(o => {
-      const codeMatch = removeAccents(o.orderCode || o.id || '').includes(normalizedQuery);
-      const nameMatch = removeAccents(o.customerName || '').includes(normalizedQuery);
-      const phoneMatch = o.customerPhone ? String(o.customerPhone).includes(normalizedQuery) : false;
-      return codeMatch || nameMatch || phoneMatch;
-    }).map(o => ({
-      type: 'ORDER',
-      id: o.id,
-      code: o.orderCode || (o.id ? `ORD-${String(o.id).slice(0, 8).toUpperCase()}` : 'Đơn hàng'),
-      name: o.customerName || 'Khách hàng trực tuyến',
-      phone: o.customerPhone,
-      amount: Number(o.totalAmount || 0),
-      status: String(o.status || 'PENDING').toUpperCase(),
-      link: `/orders?search=${encodeURIComponent(o.orderCode || o.id)}&highlight=${encodeURIComponent(o.orderCode || o.id)}`,
+    const inboundMatches = inbounds.filter(inb => {
+      const codeMatch = removeAccents(inb.orderCode || inb.invoiceNumber || inb.id || '').includes(normalizedQuery);
+      const suppMatch = removeAccents(inb.supplierName || '').includes(normalizedQuery);
+      const delivMatch = removeAccents(inb.delivererName || '').includes(normalizedQuery);
+      const itemMatch = inb.items?.some((i: any) => removeAccents(i.sku || '').includes(normalizedQuery) || removeAccents(i.productName || '').includes(normalizedQuery));
+      return codeMatch || suppMatch || delivMatch || itemMatch;
+    }).map(inb => ({
+      type: 'INBOUND',
+      id: inb.id,
+      code: inb.orderCode || (inb.id ? `INB-${String(inb.id).slice(0, 8).toUpperCase()}` : 'Phiếu nhập'),
+      name: inb.supplierName || inb.delivererName || 'Phiếu nhập kho',
+      phone: inb.invoiceNumber ? `HĐ: ${inb.invoiceNumber}` : undefined,
+      amount: Number(inb.totalQuantity || inb.totalItems || 0),
+      status: String(inb.status || 'PENDING').toUpperCase(),
+      link: `/inbound?search=${encodeURIComponent(inb.orderCode || inb.id)}&highlight=${encodeURIComponent(inb.orderCode || inb.id)}`,
     }));
 
     const outboundMatches = outbounds.filter(ob => {
       const codeMatch = removeAccents(ob.orderCode || ob.slipCode || ob.id || '').includes(normalizedQuery);
       const reqMatch = removeAccents(ob.requesterName || '').includes(normalizedQuery);
       const destMatch = removeAccents(ob.destination || '').includes(normalizedQuery);
-      return codeMatch || reqMatch || destMatch;
+      const itemMatch = ob.items?.some((i: any) => removeAccents(i.sku || '').includes(normalizedQuery) || removeAccents(i.productName || '').includes(normalizedQuery));
+      return codeMatch || reqMatch || destMatch || itemMatch;
     }).map(ob => ({
       type: 'OUTBOUND',
       id: ob.id,
@@ -218,8 +226,25 @@ export const GlobalSearch: React.FC = () => {
       link: `/outbound?search=${encodeURIComponent(ob.orderCode || ob.slipCode || ob.id)}&highlight=${encodeURIComponent(ob.orderCode || ob.slipCode || ob.id)}`,
     }));
 
-    return [...orderMatches, ...outboundMatches].slice(0, 5);
-  }, [normalizedQuery, orders, outbounds]);
+    const orderMatches = orders.filter(o => {
+      const codeMatch = removeAccents(o.orderCode || o.id || '').includes(normalizedQuery);
+      const nameMatch = removeAccents(o.customerName || '').includes(normalizedQuery);
+      const phoneMatch = o.customerPhone ? String(o.customerPhone).includes(normalizedQuery) : false;
+      return codeMatch || nameMatch || phoneMatch;
+    }).map(o => ({
+      type: 'ORDER',
+      id: o.id,
+      code: o.orderCode || (o.id ? `ORD-${String(o.id).slice(0, 8).toUpperCase()}` : 'Đơn hàng'),
+      name: o.customerName || 'Đơn hàng trực tuyến',
+      phone: o.customerPhone,
+      amount: Number(o.totalAmount || 0),
+      status: String(o.status || 'PENDING').toUpperCase(),
+      link: `/orders?search=${encodeURIComponent(o.orderCode || o.id)}&highlight=${encodeURIComponent(o.orderCode || o.id)}`,
+    }));
+
+    // Prioritize Inbound and Outbound warehouse slips as per user requirements
+    return [...inboundMatches, ...outboundMatches, ...orderMatches].slice(0, 7);
+  }, [normalizedQuery, inbounds, outbounds, orders]);
 
   const hasAnyResults = matchedNavs.length > 0 || matchedProducts.length > 0 || matchedLots.length > 0 || matchedOrders.length > 0;
 
@@ -239,7 +264,8 @@ export const GlobalSearch: React.FC = () => {
   const handleSelectLot = (lot: any) => {
     setIsOpen(false);
     setQuery('');
-    navigate(`/inventory?search=${encodeURIComponent(lot.lotCode)}&highlight=${encodeURIComponent(lot.lotCode)}&type=lot`);
+    const wh = lot.warehouseCode ? `&warehouseCode=${encodeURIComponent(lot.warehouseCode)}` : '';
+    navigate(`/inventory?search=${encodeURIComponent(lot.lotCode)}&highlight=${encodeURIComponent(lot.lotCode)}&type=lot${wh}`);
   };
 
   const handleSelectOrder = (link: string) => {
@@ -253,19 +279,25 @@ export const GlobalSearch: React.FC = () => {
       case 'DELIVERED':
       case 'COMPLETED':
       case 'CONFIRMED':
-        return { label: 'Đã hoàn thành', bg: '#f0fdf4', color: '#166534', border: '#bbf7d0' };
+      case 'STORED':
+        return { label: 'Đã hoàn tất', bg: '#f0fdf4', color: '#166534', border: '#bbf7d0' };
       case 'DELIVERING':
       case 'PICKING':
       case 'PACKING':
       case 'PROCESSING':
+      case 'RECEIVING':
+      case 'STORING':
         return { label: 'Đang xử lý', bg: '#f0f9ff', color: '#075985', border: '#bae6fd' };
+      case 'QUALITY_CHECK':
+        return { label: 'Kiểm tra QC', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' };
       case 'PENDING':
       case 'WAITING_TRANSFER':
       case 'WAITING_ACCEPT':
-        return { label: 'Chờ tiếp nhận', bg: '#fffbeb', color: '#92400e', border: '#fde68a' };
+        return { label: 'Chờ xử lý', bg: '#fffbeb', color: '#92400e', border: '#fde68a' };
       case 'CANCELLED':
       case 'FAILED_DELIVERY':
-        return { label: 'Sự cố / Hủy', bg: '#fef2f2', color: '#991b1b', border: '#fecaca' };
+      case 'REJECTED':
+        return { label: 'Từ chối / Hủy', bg: '#fef2f2', color: '#991b1b', border: '#fecaca' };
       default:
         return { label: status, bg: '#f8fafc', color: '#334155', border: '#e2e8f0' };
     }
@@ -618,10 +650,17 @@ export const GlobalSearch: React.FC = () => {
                   textTransform: 'uppercase',
                 }}
               >
-                Đơn hàng & Phiếu xuất kho ({matchedOrders.length})
+                Đơn hàng & Phiếu nhập / xuất kho ({matchedOrders.length})
               </div>
               {matchedOrders.map(o => {
                 const badge = getOrderStatusBadge(o.status);
+                const isItemInbound = o.type === 'INBOUND';
+                const isItemOutbound = o.type === 'OUTBOUND';
+                const itemBg = isItemInbound ? '#f0fdfa' : isItemOutbound ? '#faf5ff' : '#eff6ff';
+                const itemColor = isItemInbound ? '#0f766e' : isItemOutbound ? '#9333ea' : '#2563eb';
+                const itemBorder = isItemInbound ? '#ccfbf1' : isItemOutbound ? '#e9d5ff' : '#bfdbfe';
+                const typeLabel = isItemInbound ? 'Nhập kho' : isItemOutbound ? 'Xuất kho' : 'Đơn online';
+
                 return (
                   <div
                     key={`${o.type}-${o.id}`}
@@ -643,21 +682,33 @@ export const GlobalSearch: React.FC = () => {
                           width: '28px',
                           height: '28px',
                           borderRadius: '6px',
-                          backgroundColor: o.type === 'ORDER' ? '#eff6ff' : '#faf5ff',
-                          color: o.type === 'ORDER' ? '#2563eb' : '#9333ea',
+                          backgroundColor: itemBg,
+                          color: itemColor,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          border: o.type === 'ORDER' ? '1px solid #bfdbfe' : '1px solid #e9d5ff',
+                          border: `1px solid ${itemBorder}`,
                           flexShrink: 0,
                         }}
                       >
-                        {o.type === 'ORDER' ? <FileText size={15} /> : <ArrowUpRight size={15} />}
+                        {isItemInbound ? <ArrowDownLeft size={15} /> : isItemOutbound ? <ArrowUpRight size={15} /> : <FileText size={15} />}
                       </div>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#0f172a' }}>
                             #{o.code}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '0.62rem',
+                              fontWeight: 700,
+                              padding: '1px 5px',
+                              borderRadius: '3px',
+                              backgroundColor: `${itemColor}15`,
+                              color: itemColor,
+                            }}
+                          >
+                            {typeLabel}
                           </span>
                           <span
                             style={{

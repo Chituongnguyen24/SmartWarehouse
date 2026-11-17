@@ -631,7 +631,7 @@ const OutboundOrders: React.FC = () => {
 
       // Warehouse filter
       let matchWh = true;
-      if (activeWh && activeWh !== 'ALL') {
+      if (activeWh && activeWh !== 'ALL' && !q) {
         matchWh = o.warehouseCode === activeWh;
       }
 
