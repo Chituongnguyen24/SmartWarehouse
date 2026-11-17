@@ -22,6 +22,8 @@ import {
   Building2,
   Loader2,
 } from 'lucide-react';
+import { useAuth } from '@/features/auth';
+import { useWarehouse } from '../../contexts/WarehouseContext';
 import { getApiHost } from '../../utils/apiConfig';
 
 // Quick system navigation targets
@@ -55,6 +57,31 @@ const NAV_SHORTCUTS: NavShortcut[] = [
 
 export const GlobalSearch: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { selectedWarehouseCode, selectedWarehouse } = useWarehouse();
+
+  const isAdmin = user?.role === 'ADMIN';
+  const isSaler = user?.role === 'SALES_STAFF';
+  const isWarehouseBound = !isAdmin && !isSaler;
+
+  const myWarehouseCode = user?.warehouseCode || (
+    user?.email?.includes('001') || user?.email?.includes('q12') ? 'WH-001' :
+    user?.email?.includes('002') ? 'WH-002' :
+    user?.email?.includes('005') ? 'WH-005' :
+    (user?.email?.includes('govap') || user?.email?.includes('006')) ? 'WH-006' :
+    undefined
+  );
+
+  // Active warehouse code:
+  // For warehouse staff/manager: strictly bound to myWarehouseCode (or WH-006)
+  // For admin/saler: selectedWarehouseCode if not ALL, or null if ALL
+  const activeWhCode = useMemo(() => {
+    if (isWarehouseBound) {
+      return myWarehouseCode || selectedWarehouseCode || 'WH-006';
+    }
+    return (selectedWarehouseCode && selectedWarehouseCode !== 'ALL') ? selectedWarehouseCode : null;
+  }, [isWarehouseBound, myWarehouseCode, selectedWarehouseCode]);
+
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -67,6 +94,18 @@ export const GlobalSearch: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dataFetchedRef = useRef(false);
+  const prevWhRef = useRef<string | null>(activeWhCode);
+
+  // Invalidate cache and refetch if warehouse scope changes
+  useEffect(() => {
+    if (prevWhRef.current !== activeWhCode) {
+      prevWhRef.current = activeWhCode;
+      dataFetchedRef.current = false;
+      if (isOpen) {
+        prefetchData();
+      }
+    }
+  }, [activeWhCode, isOpen]);
 
   // Shortcut Ctrl + K or Cmd + K listener
   useEffect(() => {
@@ -98,19 +137,20 @@ export const GlobalSearch: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Pre-fetch search corpus once user interacts or focuses
+  // Pre-fetch search corpus scoped strictly to active warehouse
   const prefetchData = useCallback(async () => {
     if (dataFetchedRef.current) return;
     dataFetchedRef.current = true;
     setIsLoading(true);
 
     try {
+      const whParam = activeWhCode ? `&warehouseCode=${encodeURIComponent(activeWhCode)}` : '';
       const [prodRes, inbRes, orderRes, obRes, lotRes] = await Promise.allSettled([
         fetch(`${getApiHost(3010)}/products?limit=500`).then(r => r.ok ? r.json() : null),
-        fetch(`${getApiHost(3006)}/inbound-orders?limit=300`).then(r => r.ok ? r.json() : null),
-        fetch(`${getApiHost(3004)}/orders?limit=300`).then(r => r.ok ? r.json() : null),
-        fetch(`${getApiHost(3007)}/outbound-orders?limit=300`).then(r => r.ok ? r.json() : null),
-        fetch(`${getApiHost(3011)}/inventory/lots?limit=500`).then(r => r.ok ? r.json() : null),
+        fetch(`${getApiHost(3006)}/inbound-orders?limit=300${whParam}`).then(r => r.ok ? r.json() : null),
+        fetch(`${getApiHost(3004)}/orders?limit=300${whParam}`).then(r => r.ok ? r.json() : null),
+        fetch(`${getApiHost(3007)}/outbound-orders?limit=300${whParam}`).then(r => r.ok ? r.json() : null),
+        fetch(`${getApiHost(3011)}/inventory/lots?limit=1000${whParam}`).then(r => r.ok ? r.json() : null),
       ]);
 
       let pList: any[] = [];
@@ -119,20 +159,38 @@ export const GlobalSearch: React.FC = () => {
         if (Array.isArray(pList)) setProducts(pList);
       }
       if (inbRes.status === 'fulfilled' && inbRes.value) {
-        const inbList = inbRes.value.items || inbRes.value.data || inbRes.value;
-        if (Array.isArray(inbList)) setInbounds(inbList);
+        let inbList = inbRes.value.items || inbRes.value.data || inbRes.value;
+        if (Array.isArray(inbList)) {
+          if (activeWhCode) {
+            inbList = inbList.filter((x: any) => !x.warehouseCode || x.warehouseCode.toUpperCase() === activeWhCode.toUpperCase());
+          }
+          setInbounds(inbList);
+        }
       }
       if (orderRes.status === 'fulfilled' && orderRes.value) {
-        const oList = orderRes.value.items || orderRes.value.data || orderRes.value;
-        if (Array.isArray(oList)) setOrders(oList);
+        let oList = orderRes.value.items || orderRes.value.data || orderRes.value;
+        if (Array.isArray(oList)) {
+          if (activeWhCode) {
+            oList = oList.filter((x: any) => !x.warehouseCode || x.warehouseCode.toUpperCase() === activeWhCode.toUpperCase());
+          }
+          setOrders(oList);
+        }
       }
       if (obRes.status === 'fulfilled' && obRes.value) {
-        const obList = obRes.value.items || obRes.value.data || obRes.value;
-        if (Array.isArray(obList)) setOutbounds(obList);
+        let obList = obRes.value.items || obRes.value.data || obRes.value;
+        if (Array.isArray(obList)) {
+          if (activeWhCode) {
+            obList = obList.filter((x: any) => !x.warehouseCode || x.warehouseCode.toUpperCase() === activeWhCode.toUpperCase());
+          }
+          setOutbounds(obList);
+        }
       }
       if (lotRes.status === 'fulfilled' && lotRes.value) {
-        const lList = Array.isArray(lotRes.value) ? lotRes.value : (lotRes.value.items || lotRes.value.data || []);
+        let lList = Array.isArray(lotRes.value) ? lotRes.value : (lotRes.value.items || lotRes.value.data || []);
         if (Array.isArray(lList)) {
+          if (activeWhCode) {
+            lList = lList.filter((x: any) => !x.warehouseCode || x.warehouseCode.toUpperCase() === activeWhCode.toUpperCase());
+          }
           const prodMap = new Map<string, any>();
           pList.forEach(p => {
             if (p.id) prodMap.set(p.id, p);
@@ -154,7 +212,7 @@ export const GlobalSearch: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [activeWhCode]);
 
   const handleFocus = () => {
     setIsOpen(true);
@@ -192,23 +250,30 @@ export const GlobalSearch: React.FC = () => {
     }).slice(0, 5);
   }, [normalizedQuery, products]);
 
-  // Filter 3: Lots (Lô hàng & Hạn dùng FEFO) matches
+  // Filter 3: Lots (Lô hàng & Hạn dùng FEFO) matches - Strictly scoped by active warehouse
   const matchedLots = useMemo(() => {
     if (!normalizedQuery || normalizedQuery.length < 2) return [];
     return lots.filter(l => {
+      // Strict Warehouse Scope Filter: manager/staff only see lots in their managed warehouse
+      if (activeWhCode && l.warehouseCode && l.warehouseCode.toUpperCase() !== activeWhCode.toUpperCase()) {
+        return false;
+      }
       const codeMatch = removeAccents(l.lotCode || '').includes(normalizedQuery);
       const nameMatch = removeAccents(l.productName || l.displayName || '').includes(normalizedQuery);
       const skuMatch = removeAccents(l.sku || '').includes(normalizedQuery);
       const locMatch = removeAccents(l.location || '').includes(normalizedQuery);
       return codeMatch || nameMatch || skuMatch || locMatch;
-    }).slice(0, 4);
-  }, [normalizedQuery, lots]);
+    }).slice(0, 5);
+  }, [normalizedQuery, lots, activeWhCode]);
 
-  // Filter 4: Inbound, Outbound slips & Online orders matches
+  // Filter 4: Inbound, Outbound slips & Online orders matches - Strictly scoped by active warehouse
   const matchedOrders = useMemo(() => {
     if (!normalizedQuery || normalizedQuery.length < 2) return [];
 
     const inboundMatches = inbounds.filter(inb => {
+      if (activeWhCode && inb.warehouseCode && inb.warehouseCode.toUpperCase() !== activeWhCode.toUpperCase()) {
+        return false;
+      }
       const codeMatch = removeAccents(inb.orderCode || inb.invoiceNumber || inb.id || '').includes(normalizedQuery);
       const suppMatch = removeAccents(inb.supplierName || '').includes(normalizedQuery);
       const delivMatch = removeAccents(inb.delivererName || '').includes(normalizedQuery);
@@ -226,6 +291,9 @@ export const GlobalSearch: React.FC = () => {
     }));
 
     const outboundMatches = outbounds.filter(ob => {
+      if (activeWhCode && ob.warehouseCode && ob.warehouseCode.toUpperCase() !== activeWhCode.toUpperCase()) {
+        return false;
+      }
       const codeMatch = removeAccents(ob.orderCode || ob.slipCode || ob.id || '').includes(normalizedQuery);
       const reqMatch = removeAccents(ob.requesterName || '').includes(normalizedQuery);
       const destMatch = removeAccents(ob.destination || '').includes(normalizedQuery);
@@ -243,6 +311,9 @@ export const GlobalSearch: React.FC = () => {
     }));
 
     const orderMatches = orders.filter(o => {
+      if (activeWhCode && o.warehouseCode && o.warehouseCode.toUpperCase() !== activeWhCode.toUpperCase()) {
+        return false;
+      }
       const codeMatch = removeAccents(o.orderCode || o.id || '').includes(normalizedQuery);
       const nameMatch = removeAccents(o.customerName || '').includes(normalizedQuery);
       const phoneMatch = o.customerPhone ? String(o.customerPhone).includes(normalizedQuery) : false;
@@ -260,7 +331,7 @@ export const GlobalSearch: React.FC = () => {
 
     // Prioritize Inbound and Outbound warehouse slips as per user requirements
     return [...inboundMatches, ...outboundMatches, ...orderMatches].slice(0, 7);
-  }, [normalizedQuery, inbounds, outbounds, orders]);
+  }, [normalizedQuery, inbounds, outbounds, orders, activeWhCode]);
 
   const hasAnyResults = matchedNavs.length > 0 || matchedProducts.length > 0 || matchedLots.length > 0 || matchedOrders.length > 0;
 
@@ -274,14 +345,16 @@ export const GlobalSearch: React.FC = () => {
     setIsOpen(false);
     setQuery('');
     const target = p.sku || p.name;
-    navigate(`/inventory?search=${encodeURIComponent(target)}&highlight=${encodeURIComponent(target)}&type=product`);
+    const whParam = activeWhCode ? `&warehouseCode=${encodeURIComponent(activeWhCode)}` : '';
+    navigate(`/inventory?search=${encodeURIComponent(target)}&highlight=${encodeURIComponent(target)}&type=product${whParam}`);
   };
 
   const handleSelectLot = (lot: any) => {
     setIsOpen(false);
     setQuery('');
-    const wh = lot.warehouseCode ? `&warehouseCode=${encodeURIComponent(lot.warehouseCode)}` : '';
-    navigate(`/inventory?search=${encodeURIComponent(lot.lotCode)}&highlight=${encodeURIComponent(lot.lotCode)}&type=lot${wh}`);
+    const targetWh = activeWhCode || lot.warehouseCode;
+    const whParam = targetWh ? `&warehouseCode=${encodeURIComponent(targetWh)}` : '';
+    navigate(`/inventory?search=${encodeURIComponent(lot.lotCode)}&highlight=${encodeURIComponent(lot.lotCode)}&type=lot${whParam}`);
   };
 
   const handleSelectOrder = (link: string) => {
@@ -351,7 +424,11 @@ export const GlobalSearch: React.FC = () => {
             if (!isOpen) setIsOpen(true);
           }}
           onFocus={handleFocus}
-          placeholder="Tìm sản phẩm, SKU, đơn hàng..."
+          placeholder={
+            activeWhCode
+              ? `Tìm trong ${selectedWarehouse?.name || activeWhCode}... (Ctrl+K)`
+              : "Tìm sản phẩm, lô hàng, phiếu nhập/xuất... (Ctrl+K)"
+          }
           style={{
             border: 'none',
             outline: 'none',
@@ -419,6 +496,30 @@ export const GlobalSearch: React.FC = () => {
             zIndex: 1000,
           }}
         >
+          {/* Active Warehouse Scope Indicator */}
+          {activeWhCode && (
+            <div
+              style={{
+                padding: '7px 14px',
+                backgroundColor: '#f0fdf4',
+                borderBottom: '1px solid #bbf7d0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '0.72rem',
+                color: '#166534',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+                <Building2 size={13} color="#16a34a" />
+                <span>Phạm vi tìm kiếm: <strong>{selectedWarehouse?.name || activeWhCode}</strong></span>
+              </div>
+              <span style={{ fontSize: '0.68rem', color: '#15803d', fontWeight: 500 }}>
+                {isWarehouseBound ? 'Phân quyền kho' : 'Kho đang xem'}
+              </span>
+            </div>
+          )}
+
           {/* 1. Quick Navigation Shortcuts */}
           {matchedNavs.length > 0 && (
             <div style={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -764,10 +865,12 @@ export const GlobalSearch: React.FC = () => {
                 <Search size={24} style={{ margin: '0 auto' }} />
               </div>
               <div style={{ fontSize: '0.84rem', fontWeight: 600, color: '#1e293b' }}>
-                Không tìm thấy kết quả phù hợp
+                Không tìm thấy kết quả phù hợp {activeWhCode ? `tại ${selectedWarehouse?.name || activeWhCode}` : ''}
               </div>
               <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>
-                Thử tìm theo tên sản phẩm, mã SKU, mã đơn hàng hoặc từ khóa nghiệp vụ
+                {activeWhCode
+                  ? `Tìm kiếm đang giới hạn trong kho ${selectedWarehouse?.name || activeWhCode}. Kiểm tra lại từ khóa hoặc mã lô.`
+                  : 'Thử tìm theo tên sản phẩm, mã SKU, mã lô hàng hoặc mã đơn hàng'}
               </div>
             </div>
           )}

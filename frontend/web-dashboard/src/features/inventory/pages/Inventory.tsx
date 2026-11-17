@@ -26,8 +26,16 @@ interface WhStats {
 const Inventory = () => {
   const { user, token } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
+  const isSaler = user?.role === 'SALES_STAFF';
+  const isWarehouseBound = !isAdmin && !isSaler;
   const isManager = user?.role === 'WAREHOUSE_MANAGER' || user?.role === 'ADMIN' || user?.role === 'WAREHOUSE_STAFF';
-  const myWarehouseCode = user?.warehouseCode;
+  const myWarehouseCode = user?.warehouseCode || (
+    user?.email?.includes('001') || user?.email?.includes('q12') ? 'WH-001' :
+    user?.email?.includes('002') ? 'WH-002' :
+    user?.email?.includes('005') ? 'WH-005' :
+    (user?.email?.includes('govap') || user?.email?.includes('006')) ? 'WH-006' :
+    undefined
+  );
 
   const {
     warehouses,
@@ -143,8 +151,15 @@ const Inventory = () => {
     }
   }, [urlHighlight]);
 
-  // Cross-warehouse lot discovery when 0 results found in current warehouse
+  // Cross-warehouse lot discovery when 0 results found in current warehouse (Admin only)
   useEffect(() => {
+    // Only search cross-warehouse if user is ADMIN (Admins have permissions to view and switch between all warehouses)
+    if (!isAdmin) {
+      setCrossWhLots([]);
+      setIsSearchingCrossWh(false);
+      return;
+    }
+
     const q = lotsSearch.trim();
     if (!q || q.length < 2) {
       setCrossWhLots([]);
@@ -220,9 +235,9 @@ const Inventory = () => {
   const [outboundLotMap, setOutboundLotMap] = useState<Record<string, { orderCode: string; status: string; isDisposal: boolean; id: string; orderedQty: number }>>({});
 
   useEffect(() => {
-    const targetCode = (urlType === 'lot' && detectedWhCode)
-      ? detectedWhCode
-      : (isManager && myWarehouseCode ? myWarehouseCode : selectedWarehouseCode);
+    const targetCode = isWarehouseBound
+      ? (myWarehouseCode || 'WH-006')
+      : ((urlType === 'lot' && detectedWhCode) ? detectedWhCode : selectedWarehouseCode);
 
     if (targetCode && warehouses.length > 0) {
       const wh = warehouses.find(w => w.code.toUpperCase() === targetCode.toUpperCase()) || warehouses[0];
@@ -230,7 +245,7 @@ const Inventory = () => {
         handleViewStock(wh);
       }
     }
-  }, [warehouses, isManager, myWarehouseCode, selectedWarehouseCode, detectedWhCode, urlType]);
+  }, [warehouses, isWarehouseBound, myWarehouseCode, selectedWarehouseCode, detectedWhCode, urlType]);
 
   const handleViewStock = async (wh: Warehouse, forceRefresh = false) => {
     setViewingWh(wh);
@@ -1918,22 +1933,32 @@ const Inventory = () => {
                 </div>
               </div>
             ) : (
-              <div style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
+              <div style={{ padding: '2.5rem 1.5rem', textAlign: 'center', color: '#64748b', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
                 <Boxes size={32} color="#94a3b8" style={{ margin: '0 auto 10px' }} />
-                <div style={{ fontWeight: 700, color: '#1e293b', fontSize: '0.9rem' }}>
-                  {lotsSearch ? `Không tìm thấy lô hàng nào phù hợp với từ khóa "${lotsSearch}"` : 'Không có lô hàng nào phù hợp với bộ lọc đã chọn'}
+                <div style={{ fontWeight: 700, color: '#1e293b', fontSize: '0.92rem' }}>
+                  {lotsSearch
+                    ? `Không tìm thấy lô hàng "${lotsSearch}" trong ${viewingWh?.name || 'kho hiện tại'}`
+                    : 'Không có lô hàng nào phù hợp với bộ lọc đã chọn'}
                 </div>
-                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '4px' }}>
-                  Đang tìm trong: <strong>{viewingWh?.name || 'Kho hiện tại'}</strong>. Hãy thử kiểm tra lại mã lô hoặc xóa bộ lọc.
+                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '6px', maxWidth: '520px', margin: '6px auto 0', lineHeight: 1.5 }}>
+                  {lotsSearch ? (
+                    <span>
+                      Tài khoản quản lý kho được phân quyền kiểm kê độc lập tại <strong>{viewingWh?.name || viewingWh?.code}</strong>. Không có lô hàng nào có mã hoặc tên khớp với từ khóa này trong kho trực thuộc.
+                    </span>
+                  ) : (
+                    <span>
+                      Đang hiển thị tại: <strong>{viewingWh?.name || 'Kho hiện tại'}</strong>. Hãy thử kiểm tra lại mã lô hoặc đổi bộ lọc trạng thái.
+                    </span>
+                  )}
                 </div>
                 {lotsSearch && (
-                  <div style={{ marginTop: '14px', display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                  <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center', gap: '8px' }}>
                     <button
                       type="button"
-                      onClick={() => { setLotsSearch(''); setSelectedRiskFilter('ALL'); setSelectedZoneFilter('ALL'); }}
-                      style={{ padding: '6px 14px', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 600, color: '#334155', cursor: 'pointer' }}
+                      onClick={() => { setLotsSearch(''); setSelectedRiskFilter('ALL'); setSelectedZoneFilter('ALL'); setLotsPage(1); }}
+                      style={{ padding: '7px 16px', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, color: '#0f766e', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
                     >
-                      Xóa tìm kiếm & xem tất cả lô
+                      Xóa tìm kiếm & xem tất cả ({whLots.length}) lô hàng trong kho
                     </button>
                   </div>
                 )}

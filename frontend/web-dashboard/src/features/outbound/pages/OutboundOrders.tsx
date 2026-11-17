@@ -153,7 +153,13 @@ const OutboundOrders: React.FC = () => {
   const isManager = user?.role === 'WAREHOUSE_MANAGER' || user?.role === 'WAREHOUSE_STAFF';
   const isSaler = user?.role === 'SALES_STAFF';
   const canOperateWarehouse = user?.role === 'ADMIN' || user?.role === 'WAREHOUSE_MANAGER' || user?.role === 'WAREHOUSE_STAFF';
-  const myWarehouseCode = user?.warehouseCode || (user?.email?.includes('govap') ? 'WH-006' : 'WH-006');
+  const myWarehouseCode = user?.warehouseCode || (
+    user?.email?.includes('001') || user?.email?.includes('q12') ? 'WH-001' :
+    user?.email?.includes('002') ? 'WH-002' :
+    user?.email?.includes('005') ? 'WH-005' :
+    (user?.email?.includes('govap') || user?.email?.includes('006')) ? 'WH-006' :
+    'WH-006'
+  );
 
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -631,7 +637,7 @@ const OutboundOrders: React.FC = () => {
 
       // Warehouse filter
       let matchWh = true;
-      if (activeWh && activeWh !== 'ALL' && !q) {
+      if (activeWh && activeWh !== 'ALL') {
         matchWh = o.warehouseCode === activeWh;
       }
 

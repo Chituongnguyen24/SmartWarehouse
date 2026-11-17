@@ -321,7 +321,13 @@ const InboundOrders: React.FC = () => {
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
 
   const isManager = user?.role === 'WAREHOUSE_MANAGER' || user?.role === 'WAREHOUSE_STAFF';
-  const myWarehouseCode = user?.warehouseCode || (user?.email?.includes('govap') ? 'WH-006' : 'WH-006');
+  const myWarehouseCode = user?.warehouseCode || (
+    user?.email?.includes('001') || user?.email?.includes('q12') ? 'WH-001' :
+    user?.email?.includes('002') ? 'WH-002' :
+    user?.email?.includes('005') ? 'WH-005' :
+    (user?.email?.includes('govap') || user?.email?.includes('006')) ? 'WH-006' :
+    'WH-006'
+  );
 
   // URL Search & Highlight synchronization from GlobalSearch
   const [searchParams] = useSearchParams();
@@ -815,7 +821,7 @@ const InboundOrders: React.FC = () => {
 
       // Warehouse filter
       let matchWh = true;
-      if (activeWh && activeWh !== 'ALL' && !q) {
+      if (activeWh && activeWh !== 'ALL') {
         matchWh = o.warehouseCode === activeWh;
       }
 
