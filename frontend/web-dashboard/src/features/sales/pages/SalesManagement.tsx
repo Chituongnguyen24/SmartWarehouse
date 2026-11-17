@@ -119,58 +119,7 @@ export interface ChatConversation {
 
 
 
-const INITIAL_CONVERSATIONS: ChatConversation[] = [
-  {
-    id: 'conv-1',
-    customerName: 'Khách hàng Test',
-    customerPhone: '0909 888 999',
-    customerType: 'Khách lẻ Web',
-    orderCode: 'ORD-WEB-4921',
-    orderStatus: 'PENDING',
-    orderTotal: 102000,
-    destination: '227 Nguyễn Văn Cừ, Phường 4, Quận 5, TP.HCM',
-    unreadCount: 1,
-    isOnline: true,
-    messages: [
-      { id: 'm1', sender: 'CUSTOMER', text: 'Chào shop, mình vừa đặt đơn hàng #ORD-WEB-4921, không biết khoảng bao lâu nữa giao tới Quận 5 vậy ạ?', timestamp: '10:15' },
-      { id: 'm2', sender: 'SALES_STAFF', text: 'Dạ em chào anh Test! Đơn hàng của anh đã được ghi nhận trên hệ thống. Nhân viên kho đang tiến hành soạn hàng và sẽ giao trong vòng 2h tới ạ!', timestamp: '10:16' },
-      { id: 'm3', sender: 'CUSTOMER', text: 'Dạ cảm ơn shop, nhớ đóng gói cẩn thận hàng rau củ giúp mình nhé!', timestamp: '10:18' }
-    ]
-  },
-  {
-    id: 'conv-2',
-    customerName: 'Chuỗi Nhà Hàng Biển Đông',
-    customerPhone: '0903 111 222',
-    customerType: 'Nhà hàng B2B',
-    orderCode: 'ORD-884921',
-    orderStatus: 'PICKING',
-    orderTotal: 1334000,
-    destination: '150 Trần Hưng Đạo, Quận 1, TP.HCM',
-    unreadCount: 2,
-    isOnline: true,
-    messages: [
-      { id: 'm201', sender: 'CUSTOMER', text: 'Bên em duyệt giúp anh chiết khấu 8% cho đơn hải sản hôm nay với nhé.', timestamp: '09:40' },
-      { id: 'm202', sender: 'SALES_STAFF', text: 'Dạ anh, em đã áp mã chiết khấu B2B 8% và gửi đơn sang kho chuẩn bị hàng rồi ạ!', timestamp: '09:45' },
-      { id: 'm203', sender: 'CUSTOMER', text: 'OK em, chuyển sớm trước 11h30 để nhà hàng chuẩn bị bữa trưa nha.', timestamp: '09:50' }
-    ]
-  },
-  {
-    id: 'conv-3',
-    customerName: 'Hệ Thống Minimart FreshMarket Q3',
-    customerPhone: '0918 444 555',
-    customerType: 'Siêu thị B2B',
-    orderCode: 'ORD-884925',
-    orderStatus: 'CONFIRMED',
-    orderTotal: 2880000,
-    destination: '88 Nguyễn Đình Chiểu, Quận 3, TP.HCM',
-    unreadCount: 0,
-    isOnline: false,
-    messages: [
-      { id: 'm301', sender: 'CUSTOMER', text: 'Shop ơi đợt thịt heo C.P đợt này HSD còn dài không?', timestamp: 'Hôm qua' },
-      { id: 'm302', sender: 'SALES_STAFF', text: 'Dạ lô thịt heo C.P đợt này còn hạn trên 6 ngày, bảo quản kho lạnh 0-4°C đạt chuẩn CityMart ạ!', timestamp: 'Hôm qua' }
-    ]
-  }
-];
+const INITIAL_CONVERSATIONS: ChatConversation[] = [];
 
 export const SalesManagement = () => {
   const { user, token } = useAuth();
@@ -218,7 +167,7 @@ export const SalesManagement = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [conversations, setConversations] = useState<ChatConversation[]>(INITIAL_CONVERSATIONS);
-  const [selectedConvId, setSelectedConvId] = useState<string>('conv-1');
+  const [selectedConvId, setSelectedConvId] = useState<string>('');
   const [chatInputText, setChatInputText] = useState('');
 
   // Auto-mark conversation as read when viewing chat
