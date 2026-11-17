@@ -29,6 +29,9 @@ import {
   ExternalLink,
   Lock,
   Eye,
+  User,
+  AlertCircle,
+  DollarSign,
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { useAuth } from '@/features/auth';
@@ -180,6 +183,14 @@ export default function OrderDispatch() {
   const [autoDispatchLoading, setAutoDispatchLoading] = useState(false);
   const [toast, setToast] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
 
+  // Modal xác nhận thao tác xuất bến / giao hàng (Tránh bấm nhầm 1-chạm)
+  const [confirmDispatchModal, setConfirmDispatchModal] = useState<{
+    type: 'CONFIRM_DELIVERY' | 'HANDOVER_SINGLE' | 'HANDOVER_BATCH' | 'AUTO_DISPATCH';
+    order?: UnifiedOrder;
+    orders?: UnifiedOrder[];
+  } | null>(null);
+  const [confirmActionLoading, setConfirmActionLoading] = useState(false);
+
   const showToast = useCallback((text: string, type: 'success' | 'info' | 'error' = 'success') => {
     setToast({ text, type });
     setTimeout(() => setToast(null), 3500);
@@ -189,6 +200,7 @@ export default function OrderDispatch() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (confirmDispatchModal) setConfirmDispatchModal(null);
         if (selectedOrder) setSelectedOrder(null);
         if (manualDriverModalOrder) setManualDriverModalOrder(null);
         if (reverseLogisticsModalOrder) setReverseLogisticsModalOrder(null);
@@ -197,7 +209,7 @@ export default function OrderDispatch() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedOrder, manualDriverModalOrder, reverseLogisticsModalOrder, podPreviewModalOrder]);
+  }, [confirmDispatchModal, selectedOrder, manualDriverModalOrder, reverseLogisticsModalOrder, podPreviewModalOrder]);
 
   const LOCAL_DRIVER_KEY = 'sfwms_assigned_drivers_map';
 
@@ -1083,6 +1095,36 @@ export default function OrderDispatch() {
     }
   };
 
+  // Thực thi thao tác xuất bến / giao hàng sau khi người dùng bấm xác nhận trên Modal
+  const handleExecuteConfirmModal = async () => {
+    if (!confirmDispatchModal) return;
+    setConfirmActionLoading(true);
+    try {
+      if (confirmDispatchModal.type === 'CONFIRM_DELIVERY' && confirmDispatchModal.order) {
+        await handleConfirmDelivered(confirmDispatchModal.order);
+        setConfirmDispatchModal(null);
+      } else if (confirmDispatchModal.type === 'HANDOVER_SINGLE' && confirmDispatchModal.order) {
+        const targetOrd = confirmDispatchModal.order;
+        await handleHandoverToShipper(targetOrd);
+        if (selectedOrder && (selectedOrder.id === targetOrd.id || selectedOrder.orderCode === targetOrd.orderCode)) {
+          setSelectedOrder(prev => prev ? { ...prev, status: 'READY_FOR_DELIVERY' } : null);
+        }
+        setConfirmDispatchModal(null);
+      } else if (confirmDispatchModal.type === 'HANDOVER_BATCH') {
+        await handleBatchHandoverToShipper();
+        setConfirmDispatchModal(null);
+      } else if (confirmDispatchModal.type === 'AUTO_DISPATCH') {
+        setConfirmDispatchModal(null);
+        await handleAIAutoDispatch();
+      }
+    } catch (err) {
+      console.error('Lỗi khi thực hiện thao tác:', err);
+      showToast('Có lỗi xảy ra khi xử lý thao tác', 'error');
+    } finally {
+      setConfirmActionLoading(false);
+    }
+  };
+
   // 1. SMART AUTOMATION: Tiếp Nhận & Soạn Hàng Loạt (Auto-FEFO Picking)
   const handleAutoFEFOPicking = async () => {
     const pendingOrders = whScopedOrders.filter(o => o.status === 'PENDING');
@@ -1922,7 +1964,17 @@ export default function OrderDispatch() {
               {/* Bàn Giao Hàng Loạt Cho Shipper */}
               {whScopedOrders.filter(o => o.status === 'PACKED').length > 0 && (
                 <button
-                  onClick={handleBatchHandoverToShipper}
+                  onClick={() => {
+                    const packedOrders = whScopedOrders.filter(o => o.status === 'PACKED');
+                    if (packedOrders.length === 0) {
+                      showToast('Không có đơn hàng nào đang ở trạng thái Đã đóng gói (PACKED) để bàn giao.', 'info');
+                      return;
+                    }
+                    setConfirmDispatchModal({
+                      type: 'HANDOVER_BATCH',
+                      orders: packedOrders,
+                    });
+                  }}
                   style={{
                     backgroundColor: '#0f766e',
                     color: '#ffffff',
@@ -1946,7 +1998,20 @@ export default function OrderDispatch() {
 
               {/* 1-Chạm Gom Tuyến */}
               <button
-                onClick={handleAIAutoDispatch}
+                onClick={() => {
+                  const candidateOrders = whScopedOrders.filter(o => {
+                    const isWaitingOrReady = o.status === 'WAITING_DISPATCH' || o.status === 'READY_FOR_DELIVERY' || o.status === 'PACKED';
+                    return isWaitingOrReady && !o.assignedDriverId;
+                  });
+                  if (candidateOrders.length === 0) {
+                    showToast('Không có đơn hàng nào chờ gán xe hoặc đã gán hết.', 'info');
+                    return;
+                  }
+                  setConfirmDispatchModal({
+                    type: 'AUTO_DISPATCH',
+                    orders: candidateOrders,
+                  });
+                }}
                 disabled={autoDispatchLoading}
                 style={{
                   backgroundColor: '#059669',
@@ -2680,7 +2745,7 @@ export default function OrderDispatch() {
 
                                 {order.status === 'PACKED' && (
                                   <button
-                                    onClick={() => handleHandoverToShipper(order)}
+                                    onClick={() => setConfirmDispatchModal({ type: 'HANDOVER_SINGLE', order })}
                                     disabled={handoverLoadingId === order.id}
                                     style={{
                                       backgroundColor: '#0f766e',
@@ -2731,7 +2796,7 @@ export default function OrderDispatch() {
 
                                 {(order.status === 'SHIPPED' || order.status === 'DELIVERING' || order.status === 'IN_TRANSIT') && (
                                   <button
-                                    onClick={() => handleConfirmDelivered(order)}
+                                    onClick={() => setConfirmDispatchModal({ type: 'CONFIRM_DELIVERY', order })}
                                     style={{
                                       backgroundColor: '#0f766e',
                                       color: '#ffffff',
@@ -3066,7 +3131,7 @@ export default function OrderDispatch() {
 
                             {order.status === 'PACKED' && (
                               <button
-                                onClick={() => handleHandoverToShipper(order)}
+                                onClick={() => setConfirmDispatchModal({ type: 'HANDOVER_SINGLE', order })}
                                 disabled={handoverLoadingId === order.id}
                                 style={{
                                   backgroundColor: '#0f766e',
@@ -3117,7 +3182,7 @@ export default function OrderDispatch() {
 
                             {(order.status === 'SHIPPED' || order.status === 'DELIVERING' || order.status === 'IN_TRANSIT') && (
                               <button
-                                onClick={() => handleConfirmDelivered(order)}
+                                onClick={() => setConfirmDispatchModal({ type: 'CONFIRM_DELIVERY', order })}
                                 style={{
                                   backgroundColor: '#0f766e',
                                   color: '#ffffff',
@@ -3770,7 +3835,7 @@ export default function OrderDispatch() {
                 <>
                   {(selectedOrder.status === 'SHIPPED' || selectedOrder.status === 'DELIVERING' || selectedOrder.status === 'IN_TRANSIT') && (
                     <button
-                      onClick={() => handleConfirmDelivered(selectedOrder)}
+                      onClick={() => setConfirmDispatchModal({ type: 'CONFIRM_DELIVERY', order: selectedOrder })}
                       style={{
                         padding: '11px 14px',
                         backgroundColor: '#0f766e',
@@ -3793,10 +3858,7 @@ export default function OrderDispatch() {
 
                   {selectedOrder.status === 'PACKED' && (
                     <button
-                      onClick={async () => {
-                        await handleHandoverToShipper(selectedOrder);
-                        setSelectedOrder(prev => prev ? { ...prev, status: 'READY_FOR_DELIVERY' } : null);
-                      }}
+                      onClick={() => setConfirmDispatchModal({ type: 'HANDOVER_SINGLE', order: selectedOrder })}
                       disabled={handoverLoadingId === selectedOrder.id}
                       style={{
                         flex: 1,
@@ -4305,6 +4367,346 @@ export default function OrderDispatch() {
           order={receiptModalOrder}
           onClose={() => setReceiptModalOrder(null)}
         />
+      )}
+
+      {/* ── MODAL XÁC NHẬN THAO TÁC XUẤT BẾN & GIAO HÀNG (TRÁNH BẤM NHẦM 1-CHẠM) ── */}
+      {confirmDispatchModal && (
+        <div
+          onClick={() => !confirmActionLoading && setConfirmDispatchModal(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 3500,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(15, 23, 42, 0.45)',
+            backdropFilter: 'blur(3px)',
+            padding: '16px',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              cursor: 'default',
+              backgroundColor: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '14px',
+              maxWidth: '500px',
+              width: '100%',
+              padding: '24px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                {confirmDispatchModal.type === 'CONFIRM_DELIVERY' && (
+                  <>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <CheckCircle2 size={16} color="#166534" />
+                    </div>
+                    <span>Xác Nhận Đã Giao Thành Công</span>
+                  </>
+                )}
+                {confirmDispatchModal.type === 'HANDOVER_SINGLE' && (
+                  <>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <PackageCheck size={16} color="#0369a1" />
+                    </div>
+                    <span>Xác Nhận Bàn Giao Cho Shipper</span>
+                  </>
+                )}
+                {confirmDispatchModal.type === 'HANDOVER_BATCH' && (
+                  <>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <PackageCheck size={16} color="#0f766e" />
+                    </div>
+                    <span>Xác Nhận Bàn Giao Hàng Loạt</span>
+                  </>
+                )}
+                {confirmDispatchModal.type === 'AUTO_DISPATCH' && (
+                  <>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Route size={16} color="#059669" />
+                    </div>
+                    <span>Tự Động Phân Tuyến & Gán Xe (AI VRP)</span>
+                  </>
+                )}
+              </h3>
+              <button
+                type="button"
+                onClick={() => !confirmActionLoading && setConfirmDispatchModal(null)}
+                style={{ color: '#94a3b8', border: 'none', background: 'none', cursor: 'pointer', padding: '4px' }}
+                title="Đóng (Esc)"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content Details */}
+            {confirmDispatchModal.type === 'CONFIRM_DELIVERY' && confirmDispatchModal.order && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>
+                      #{confirmDispatchModal.order.orderCode}
+                    </span>
+                    <span style={{ fontSize: '11px', fontWeight: 500, padding: '2px 8px', borderRadius: '4px', backgroundColor: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0' }}>
+                      Chờ hoàn tất
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '11px', color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>
+                    {confirmDispatchModal.order.warehouseCode || 'Kho Gò Vấp'}
+                  </span>
+                </div>
+
+                <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                    <User size={14} color="#64748b" style={{ marginTop: '2px', flexShrink: 0 }} />
+                    <div style={{ color: '#334155' }}>
+                      <strong style={{ color: '#0f172a' }}>{confirmDispatchModal.order.customerName || 'Khách vãng lai'}</strong>
+                      {confirmDispatchModal.order.customerPhone && (
+                        <span style={{ color: '#64748b', marginLeft: '6px' }}>• {confirmDispatchModal.order.customerPhone}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                    <MapPin size={14} color="#64748b" style={{ marginTop: '2px', flexShrink: 0 }} />
+                    <div style={{ color: '#475569', lineHeight: 1.4 }}>
+                      {confirmDispatchModal.order.customerAddress || 'Giao tại quầy'}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px dashed #e2e8f0', paddingTop: '8px' }}>
+                    <Truck size={14} color="#64748b" style={{ flexShrink: 0 }} />
+                    <div style={{ color: '#334155' }}>
+                      Tài xế giao: <strong style={{ color: '#0f172a' }}>{confirmDispatchModal.order.assignedDriverName || 'Đội xe điều phối'}</strong>
+                      {confirmDispatchModal.order.assignedDriverPlate && (
+                        <span style={{ color: '#64748b', marginLeft: '6px' }}>({confirmDispatchModal.order.assignedDriverPlate})</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px dashed #e2e8f0', paddingTop: '8px' }}>
+                    <span style={{ color: '#475569', fontWeight: 500 }}>Tiền thu hộ COD:</span>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
+                        {((confirmDispatchModal.order.paymentMethod === 'COD' || confirmDispatchModal.order.paymentMethod === 'TIỀN MẶT')
+                          ? (confirmDispatchModal.order.totalAmount || confirmDispatchModal.order.codAmount || 0)
+                          : 0
+                        ).toLocaleString('vi-VN')} đ
+                      </span>
+                      <div style={{ fontSize: '10px', color: confirmDispatchModal.order.paymentMethod === 'VNPAY' || confirmDispatchModal.order.paymentMethod === 'ONLINE' ? '#0284c7' : '#92400e', fontWeight: 600 }}>
+                        {confirmDispatchModal.order.paymentMethod === 'VNPAY' || confirmDispatchModal.order.paymentMethod === 'ONLINE'
+                          ? 'Đã thanh toán qua VNPay'
+                          : 'Thu tiền mặt khi nhận hàng'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '10px 12px', marginBottom: '20px', display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px', color: '#166534', lineHeight: 1.45 }}>
+                  <AlertCircle size={15} color="#166534" style={{ marginTop: '2px', flexShrink: 0 }} />
+                  <span>
+                    Xác nhận đơn hàng đã giao tận tay người mua thành công và đã hoàn tất thu tiền COD (nếu có). Trạng thái đơn sẽ được cập nhật sang <strong>HOÀN TẤT</strong>.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {confirmDispatchModal.type === 'HANDOVER_SINGLE' && confirmDispatchModal.order && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>
+                    #{confirmDispatchModal.order.orderCode}
+                  </span>
+                  <span style={{ fontSize: '11px', fontWeight: 500, padding: '2px 8px', borderRadius: '4px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd' }}>
+                    Đã đóng gói (PACKED)
+                  </span>
+                </div>
+
+                <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                    <User size={14} color="#64748b" style={{ marginTop: '2px', flexShrink: 0 }} />
+                    <div style={{ color: '#334155' }}>
+                      <strong style={{ color: '#0f172a' }}>{confirmDispatchModal.order.customerName || 'Khách lẻ'}</strong>
+                      {confirmDispatchModal.order.customerPhone && (
+                        <span style={{ color: '#64748b', marginLeft: '6px' }}>• {confirmDispatchModal.order.customerPhone}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                    <MapPin size={14} color="#64748b" style={{ marginTop: '2px', flexShrink: 0 }} />
+                    <div style={{ color: '#475569', lineHeight: 1.4 }}>
+                      {confirmDispatchModal.order.customerAddress || 'Giao tại quầy'}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px dashed #e2e8f0', paddingTop: '8px' }}>
+                    <span style={{ color: '#475569' }}>Số mặt hàng:</span>
+                    <strong style={{ color: '#0f172a' }}>{confirmDispatchModal.order.items?.length || 1} sản phẩm</strong>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#475569' }}>Tổng giá trị:</span>
+                    <strong style={{ color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
+                      {(confirmDispatchModal.order.totalAmount || 0).toLocaleString('vi-VN')} đ
+                    </strong>
+                  </div>
+                </div>
+
+                <div style={{ backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '6px', padding: '10px 12px', marginBottom: '20px', display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px', color: '#0369a1', lineHeight: 1.45 }}>
+                  <AlertCircle size={15} color="#0369a1" style={{ marginTop: '2px', flexShrink: 0 }} />
+                  <span>
+                    Xác nhận kiện hàng đã kiểm tra đầy đủ và bàn giao cho shipper tại cửa xuất bến. Đơn hàng sẽ chuyển sang trạng thái <strong>CHỜ XUẤT BẾN & GÁN XE</strong>.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {confirmDispatchModal.type === 'HANDOVER_BATCH' && (
+              <div>
+                <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{ color: '#475569', fontWeight: 500 }}>Số lượng đơn bàn giao:</span>
+                    <strong style={{ color: '#0f766e', fontSize: '13px', fontVariantNumeric: 'tabular-nums' }}>
+                      {confirmDispatchModal.orders?.length || 0} đơn hàng
+                    </strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <span style={{ color: '#475569', fontWeight: 500 }}>Kho xuất hàng:</span>
+                    <span style={{ color: '#0f172a', fontWeight: 600 }}>
+                      {activeWh !== 'ALL' ? activeWh : 'Kho Gò Vấp (WH-006)'}
+                    </span>
+                  </div>
+
+                  <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>Danh sách mã đơn:</div>
+                  <div style={{ maxHeight: '90px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '4px', padding: '6px', backgroundColor: '#ffffff', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    {confirmDispatchModal.orders?.map(o => (
+                      <span key={o.id} style={{ fontSize: '11px', fontWeight: 600, backgroundColor: '#f1f5f9', color: '#0f172a', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>
+                        #{o.orderCode}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '10px 12px', marginBottom: '20px', display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px', color: '#92400e', lineHeight: 1.45 }}>
+                  <AlertCircle size={15} color="#92400e" style={{ marginTop: '2px', flexShrink: 0 }} />
+                  <span>
+                    Toàn bộ {confirmDispatchModal.orders?.length || 0} đơn hàng đã đóng gói (PACKED) sẽ được chuyển đồng loạt sang trạng thái <strong>CHỜ XUẤT BẾN & GÁN XE</strong> để sẵn sàng phân tuyến.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {confirmDispatchModal.type === 'AUTO_DISPATCH' && (
+              <div>
+                <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{ color: '#475569', fontWeight: 500 }}>Đơn hàng chờ gán xe:</span>
+                    <strong style={{ color: '#059669', fontSize: '13px', fontVariantNumeric: 'tabular-nums' }}>
+                      {confirmDispatchModal.orders?.length || 0} đơn hàng
+                    </strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{ color: '#475569', fontWeight: 500 }}>Đội ngũ tài xế khả dụng:</span>
+                    <strong style={{ color: '#0f172a' }}>{GOVAP_DRIVERS.length} tài xế (Xe máy & Xe tải)</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#475569', fontWeight: 500 }}>Cơ chế tối ưu:</span>
+                    <span style={{ color: '#0f172a', fontWeight: 500 }}>Gom cụm tọa độ + Tối ưu lộ trình VRP</span>
+                  </div>
+                </div>
+
+                <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '10px 12px', marginBottom: '20px', display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px', color: '#166534', lineHeight: 1.45 }}>
+                  <AlertCircle size={15} color="#166534" style={{ marginTop: '2px', flexShrink: 0 }} />
+                  <span>
+                    Hệ thống sẽ chạy thuật toán AI phân bổ tuyến đường tối ưu và tự động gán tài xế phù hợp cho các đơn hàng đã bàn giao. Bạn có muốn bắt đầu không?
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Footer Buttons */}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => !confirmActionLoading && setConfirmDispatchModal(null)}
+                disabled={confirmActionLoading}
+                style={{
+                  padding: '9px 16px',
+                  backgroundColor: '#ffffff',
+                  color: '#475569',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  cursor: confirmActionLoading ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Hủy Bỏ
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExecuteConfirmModal}
+                disabled={confirmActionLoading}
+                style={{
+                  padding: '9px 18px',
+                  backgroundColor:
+                    confirmDispatchModal.type === 'CONFIRM_DELIVERY' ? '#0f766e' :
+                    confirmDispatchModal.type === 'HANDOVER_SINGLE' ? '#0284c7' :
+                    confirmDispatchModal.type === 'HANDOVER_BATCH' ? '#0f766e' : '#059669',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: confirmActionLoading ? 'not-allowed' : 'pointer',
+                  opacity: confirmActionLoading ? 0.7 : 1,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                }}
+              >
+                {confirmActionLoading ? (
+                  <span>Đang xử lý...</span>
+                ) : (
+                  <>
+                    {confirmDispatchModal.type === 'CONFIRM_DELIVERY' && (
+                      <>
+                        <CheckCircle2 size={14} color="#ffffff" />
+                        <span>Xác Nhận Đã Giao</span>
+                      </>
+                    )}
+                    {confirmDispatchModal.type === 'HANDOVER_SINGLE' && (
+                      <>
+                        <Truck size={14} color="#ffffff" />
+                        <span>Xác Nhận Bàn Giao</span>
+                      </>
+                    )}
+                    {confirmDispatchModal.type === 'HANDOVER_BATCH' && (
+                      <>
+                        <PackageCheck size={14} color="#ffffff" />
+                        <span>Bàn Giao Tất Cả ({confirmDispatchModal.orders?.length || 0})</span>
+                      </>
+                    )}
+                    {confirmDispatchModal.type === 'AUTO_DISPATCH' && (
+                      <>
+                        <Route size={14} color="#ffffff" />
+                        <span>Bắt Đầu Phân Tuyến</span>
+                      </>
+                    )}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>
