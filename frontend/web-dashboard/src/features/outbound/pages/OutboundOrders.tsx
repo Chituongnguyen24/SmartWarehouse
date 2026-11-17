@@ -9,7 +9,7 @@ import {
   PackageMinus, Search, ArrowRight, CheckCircle2, FileText, 
   Layers, Box, Truck, Plus, X, ScanBarcode, Printer,
   ChevronLeft, ChevronRight, RefreshCw, Edit2, Save, RotateCcw,
-  Lock, Wifi, WifiOff, Building2, MapPin, Calendar, Tag, Check, User, Eye
+  Lock, Wifi, WifiOff, Building2, MapPin, Calendar, Tag, Check, User, Eye, AlertCircle
 } from 'lucide-react';
 import { OutboundReceiptModal } from '../components/OutboundReceiptModal';
 import { CreateOutboundModal } from '../components/CreateOutboundModal';
@@ -143,6 +143,10 @@ const OutboundOrders: React.FC = () => {
   const [receiptOrder, setReceiptOrder] = useState<OutboundOrder | null>(null);
   const [printSlipOrder, setPrintSlipOrder] = useState<OutboundOrder | null>(null);
   
+  // Modal xác nhận an toàn khi bấm Giao hàng (Tránh bấm nhầm 1-chạm)
+  const [confirmDeliveryOrder, setConfirmDeliveryOrder] = useState<OutboundOrder | null>(null);
+  const [isDelivering, setIsDelivering] = useState<boolean>(false);
+  
   // Toast state
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
 
@@ -189,7 +193,9 @@ const OutboundOrders: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (selectedOrderId) {
+        if (confirmDeliveryOrder) {
+          setConfirmDeliveryOrder(null);
+        } else if (selectedOrderId) {
           setSelectedOrderId(null);
           setIsEditingOrder(false);
         }
@@ -198,7 +204,7 @@ const OutboundOrders: React.FC = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedOrderId]);
+  }, [confirmDeliveryOrder, selectedOrderId]);
   const [isSavingEdit, setIsSavingEdit] = useState<boolean>(false);
   const [editFormData, setEditFormData] = useState<{
     requesterName: string;
@@ -1126,7 +1132,7 @@ const OutboundOrders: React.FC = () => {
                                   gap: '4px',
                                   cursor: 'pointer',
                                 }}
-                                onClick={() => advanceState(o.id, 'deliver')}
+                                onClick={() => setConfirmDeliveryOrder(o)}
                                 title="Xác nhận giao hàng thành công"
                               >
                                 <CheckCircle2 size={13} /> Giao hàng
@@ -1682,7 +1688,7 @@ const OutboundOrders: React.FC = () => {
                     </button>
                     {canOperateWarehouse && (
                       <button
-                        onClick={() => advanceState(selectedOrder.id, 'deliver')}
+                        onClick={() => setConfirmDeliveryOrder(selectedOrder)}
                         style={{ flex: 1, padding: '10px 14px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.85rem' }}
                       >
                         <CheckCircle2 size={16} /> Xác nhận Giao Thành Công
@@ -1767,6 +1773,174 @@ const OutboundOrders: React.FC = () => {
           }}
           onClose={() => setPrintSlipOrder(null)}
         />
+      )}
+
+      {/* ── MODAL XÁC NHẬN GIAO HÀNG THÀNH CÔNG (TRÁNH BẤM NHẦM 1-CHẠM) ── */}
+      {confirmDeliveryOrder && (
+        <div
+          onClick={() => !isDelivering && setConfirmDeliveryOrder(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 3500,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(15, 23, 42, 0.45)',
+            backdropFilter: 'blur(3px)',
+            padding: '16px',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              cursor: 'default',
+              backgroundColor: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '14px',
+              maxWidth: '480px',
+              width: '100%',
+              padding: '24px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CheckCircle2 size={16} color="#166534" />
+                </div>
+                <span>Xác Nhận Đã Giao Hàng Thành Công</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => !isDelivering && setConfirmDeliveryOrder(null)}
+                style={{ color: '#94a3b8', border: 'none', background: 'none', cursor: 'pointer', padding: '4px' }}
+                title="Đóng (Esc)"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Order Code & Status */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>
+                  #{confirmDeliveryOrder.orderCode}
+                </span>
+                <span style={{ fontSize: '11px', fontWeight: 500, padding: '2px 8px', borderRadius: '4px', backgroundColor: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa' }}>
+                  {STATUS_CONFIG[confirmDeliveryOrder.status]?.label || confirmDeliveryOrder.status}
+                </span>
+              </div>
+              <span style={{ fontSize: '11px', color: '#64748b' }}>
+                {confirmDeliveryOrder.warehouseCode || 'Kho Gò Vấp WH-006'}
+              </span>
+            </div>
+
+            {/* Info Card */}
+            <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                <User size={14} color="#64748b" style={{ marginTop: '2px', flexShrink: 0 }} />
+                <div style={{ color: '#334155' }}>
+                  Đơn vị / Người nhận: <strong style={{ color: '#0f172a' }}>{confirmDeliveryOrder.requesterName || confirmDeliveryOrder.requestedBy || 'Khách hàng'}</strong>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                <MapPin size={14} color="#64748b" style={{ marginTop: '2px', flexShrink: 0 }} />
+                <div style={{ color: '#475569', lineHeight: 1.4 }}>
+                  Điểm đến: {confirmDeliveryOrder.destination || 'Giao tại quầy'}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px dashed #e2e8f0', paddingTop: '8px' }}>
+                <Truck size={14} color="#64748b" style={{ flexShrink: 0 }} />
+                <div style={{ color: '#334155' }}>
+                  Tài xế giao: <strong style={{ color: '#0f172a' }}>{confirmDeliveryOrder.assignedDriverName || 'Đội xe giao vận'}</strong>
+                  {confirmDeliveryOrder.assignedDriverPlate && (
+                    <span style={{ color: '#64748b', marginLeft: '6px' }}>({confirmDeliveryOrder.assignedDriverPlate})</span>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px dashed #e2e8f0', paddingTop: '8px' }}>
+                <span style={{ color: '#475569' }}>Số lượng sản phẩm:</span>
+                <strong style={{ color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
+                  {confirmDeliveryOrder.totalQuantity || confirmDeliveryOrder.totalItems || confirmDeliveryOrder.items?.length || 0} sản phẩm
+                </strong>
+              </div>
+            </div>
+
+            {/* Notice Callout */}
+            <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '10px 12px', marginBottom: '20px', display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px', color: '#166534', lineHeight: 1.45 }}>
+              <AlertCircle size={15} color="#166534" style={{ marginTop: '2px', flexShrink: 0 }} />
+              <span>
+                Thao tác này xác nhận đơn hàng xuất kho đã được giao hoàn tất đến người nhận. Trạng thái đơn sẽ được cập nhật sang <strong>ĐÃ GIAO HÀNG (DELIVERED)</strong>.
+              </span>
+            </div>
+
+            {/* Footer Buttons */}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => !isDelivering && setConfirmDeliveryOrder(null)}
+                disabled={isDelivering}
+                style={{
+                  padding: '9px 16px',
+                  backgroundColor: '#ffffff',
+                  color: '#475569',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  cursor: isDelivering ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Hủy Bỏ
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  setIsDelivering(true);
+                  try {
+                    await advanceState(confirmDeliveryOrder.id, 'deliver');
+                    setConfirmDeliveryOrder(null);
+                  } catch (err) {
+                    console.error('Lỗi giao hàng:', err);
+                  } finally {
+                    setIsDelivering(false);
+                  }
+                }}
+                disabled={isDelivering}
+                style={{
+                  padding: '9px 18px',
+                  backgroundColor: '#0f766e',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: isDelivering ? 'not-allowed' : 'pointer',
+                  opacity: isDelivering ? 0.7 : 1,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                }}
+              >
+                {isDelivering ? (
+                  <span>Đang xử lý...</span>
+                ) : (
+                  <>
+                    <CheckCircle2 size={14} color="#ffffff" />
+                    <span>Xác Nhận Đã Giao</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
