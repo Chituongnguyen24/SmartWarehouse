@@ -735,9 +735,17 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
   async approve(orderId: string): Promise<OutboundOrder> {
     const order = await this.findOne(orderId);
 
+    // Đơn hàng xuất hủy QC hoặc xuất trả nhà cung cấp RTV không bao giờ là đơn chờ điều chuyển
+    const isSpecialOutbound = order.orderCode?.startsWith('DISP') ||
+      order.orderCode?.startsWith('RTV') ||
+      order.requestedBy === 'QC_DEPARTMENT' ||
+      order.requestedBy === 'VENDOR_RETURN';
+
     // Kiểm tra nếu đơn hàng có sản phẩm đang chờ điều chuyển từ kho khác về
-    const hasTransferPending = (order.notes || '').includes('[CHỜ HÀNG ĐIỀU CHUYỂN]') ||
-      order.items?.some(it => it.slotId === 'TRANSFER_DOCK' || (!it.lotCode && !it.lotId));
+    const hasTransferPending = !isSpecialOutbound && (
+      (order.notes || '').includes('[CHỜ HÀNG ĐIỀU CHUYỂN]') ||
+      order.items?.some(it => it.slotId === 'TRANSFER_DOCK' || (!it.lotCode && !it.lotId))
+    );
 
     if (hasTransferPending) {
       order.status = 'WAITING_TRANSFER';
@@ -1115,11 +1123,183 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
           assignedDriverPhone: saved.assignedDriverPhone,
           assignedDriverPlate: saved.assignedDriverPlate,
           podPhotoUrl: saved.podPhotoUrl,
+          failureReason: saved.failureReason,
+          failurePhotoUrl: saved.failurePhotoUrl,
         },
       }),
     }).catch(() => {});
 
+    if (status === 'RETURN_TO_WAREHOUSE' || status === 'FAILED_DELIVERY') {
+      fetch(`http://localhost:3004/orders/broadcast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'order_exception',
+          payload: {
+            orderId: saved.id,
+            orderCode: saved.orderCode,
+            status: 'RETURN_TO_WAREHOUSE',
+            reason: saved.failureReason || 'Khách hàng hẹn lại / Giao không thành công',
+            photoUrl: saved.failurePhotoUrl,
+            timestamp: new Date().toISOString(),
+          },
+        }),
+      }).catch(() => {});
+
+      // Auto-create Return Inbound Order in inbound-service (:3006)
+      this.createReturnInboundOrder(saved).catch(e => console.warn('[ReverseLogistics] Auto-create inbound return failed:', e));
+    }
+
+    if (
+      status === 'CANCELLED' &&
+      (prevStatus === 'RETURN_TO_WAREHOUSE' ||
+        prevStatus === 'FAILED_DELIVERY' ||
+        extraBody?.notes?.includes('Restock') ||
+        extraBody?.note?.includes('Restock'))
+    ) {
+      this.createReturnInboundOrder(saved).catch(e => console.warn('[ReverseLogistics] Auto-create inbound return on restock failed:', e));
+    }
+
     return saved;
+  }
+
+  async createReturnInboundOrder(order: OutboundOrder): Promise<any> {
+    try {
+      const returnOrderCode = `RET-${order.orderCode.replace(/^RET-/, '')}`;
+      const payload = {
+        orderCode: returnOrderCode,
+        supplierId: 'CUSTOMER_RETURN',
+        supplierName: `Khách hàng trả lại (${order.requesterName || order.requestedBy || 'Khách hàng'})`,
+        invoiceNumber: order.orderCode,
+        delivererName: order.assignedDriverName || 'Tài xế giao hàng',
+        warehouseCode: order.warehouseCode || 'WH-006',
+        status: 'PENDING',
+        packingNote: `[HÀNG HOÀN] Lý do: ${order.failureReason || 'Khách hàng không nhận - Nhập lại kho lạnh'}`,
+        destinationStation: 'STORAGE_SHELF',
+        items: (order.items || []).map(item => ({
+          sku: item.sku,
+          productName: item.productName || item.sku,
+          expectedQuantity: Number(item.requestedQuantity) || 1,
+          unit: 'Cái',
+          unitPrice: 0,
+        })),
+      };
+
+      const res = await fetch(`http://localhost:3006/inbound-orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const createdInbound = await res.json();
+        console.log(`[ReverseLogistics] Created return inbound order ${returnOrderCode} successfully:`, createdInbound.id);
+        return createdInbound;
+      } else {
+        const errText = await res.text();
+        console.warn(`[ReverseLogistics] Failed to create return inbound order ${returnOrderCode}:`, errText);
+      }
+    } catch (err) {
+      console.warn(`[ReverseLogistics] Error calling inbound-service:`, err);
+    }
+    return null;
+  }
+
+  async createDisposalFromRejectedInbound(body: any): Promise<OutboundOrder> {
+    const rawCode = body.orderCode || `INB-${Date.now()}`;
+    const cleanCode = rawCode.replace(/^RET-/, '').replace(/^ECOMM-/, '').replace(/^OB-/, '');
+    const disposalCode = `DISP-${cleanCode}`;
+
+    // Kiểm tra nếu phiếu xuất hủy đã tồn tại thì trả về
+    const existing = await this.orderRepository.findOne({ where: { orderCode: disposalCode }, relations: ['items'] });
+    if (existing) {
+      return existing;
+    }
+
+    const order = this.orderRepository.create({
+      orderCode: disposalCode,
+      requestedBy: 'QC_DEPARTMENT',
+      requesterName: 'Ban Kiểm Định Chất Lượng Kho (QC)',
+      destination: 'Khu Liên Hợp Xử Lý Môi Trường Đa Phước, Xã Đa Phước, Huyện Bình Chánh, TP.HCM',
+      warehouseCode: body.warehouseCode || 'WH-006',
+      latitude: 10.6654,
+      longitude: 106.6712,
+      notes: `[XUẤT HỦY DO LỖI QC] Hàng hoàn #${body.invoiceNumber || rawCode} bị từ chối nhập kho. Lý do: ${body.rejectionReason || 'Không đạt chuẩn QC'}. Trách nhiệm: ${body.rejectionLiability || 'Chưa xác định'}. Ghi chú: ${body.packingNote || 'Không có'}`,
+      status: 'PENDING',
+      assignedDriverId: 'NV-TK01',
+      assignedDriverName: 'Đặng Hoàng Phúc (Tài xế Xe Tải Lạnh)',
+      assignedDriverPhone: '0944 778 899',
+      assignedDriverPlate: '51D-892.45',
+      totalItems: body.items?.length || 0,
+      totalQuantity: body.items?.reduce((sum: number, it: any) => sum + (Number(it.requestedQuantity) || 1), 0) || 0,
+    });
+
+    const saved = await this.orderRepository.save(order);
+
+    if (body.items && body.items.length > 0) {
+      const items = body.items.map((it: any) => this.itemRepository.create({
+        outboundOrder: saved,
+        sku: it.sku,
+        productName: it.productName || it.sku,
+        requestedQuantity: Number(it.requestedQuantity) || 1,
+        slotId: 'QUARANTINE_SHELF',
+        status: 'PENDING',
+      }));
+      await this.itemRepository.save(items);
+    }
+
+    console.log(`[ReverseLogistics] Auto-created disposal order ${disposalCode} for rejected inbound ${rawCode}`);
+    this.broadcastOrderEvent('order_created', { orderId: saved.id, order: saved });
+    return this.findOne(saved.id);
+  }
+
+  // Tự động tạo lệnh xuất trả Nhà Cung Cấp (Return to Vendor - RTV) khi hàng nhập NCC bị từ chối QC nhưng lưu kho cách ly
+  async createRtvFromRejectedInbound(body: any): Promise<OutboundOrder> {
+    const rawCode = body.orderCode || `INB-${Date.now()}`;
+    const cleanCode = rawCode.replace(/^INB-/, '').replace(/^RET-/, '').replace(/^ECOMM-/, '').replace(/^OB-/, '');
+    const rtvCode = `RTV-${cleanCode}`;
+
+    // Kiểm tra nếu phiếu xuất trả RTV đã tồn tại thì trả về
+    const existing = await this.orderRepository.findOne({ where: { orderCode: rtvCode }, relations: ['items'] });
+    if (existing) {
+      return existing;
+    }
+
+    const order = this.orderRepository.create({
+      orderCode: rtvCode,
+      requestedBy: 'VENDOR_RETURN',
+      requesterName: 'Bộ phận Tiếp Nhận & Đổi Trả NCC',
+      destination: `Kho / Nhà máy ${body.supplierName || 'Nhà Cung Cấp'} (Bàn giao tại Cửa Dock)`,
+      warehouseCode: body.warehouseCode || 'WH-006',
+      latitude: 10.7769,
+      longitude: 106.7009,
+      notes: `[XUẤT TRẢ NHÀ CUNG CẤP (RTV)] Đơn nhập #${body.invoiceNumber || rawCode} của NCC ${body.supplierName || ''} không đạt QC. Lý do: ${body.rejectionReason || 'Không đạt chuẩn kiểm định'}. NCC điều xe đến nhận lại hàng tại Dock trong 24-48h.`,
+      status: 'PENDING',
+      assignedDriverId: 'NCC-PICKUP',
+      assignedDriverName: `Đại diện xe ${body.supplierName || 'Nhà Cung Cấp'}`,
+      assignedDriverPhone: '0900000000',
+      assignedDriverPlate: 'Xe tải NCC',
+      totalItems: body.items?.length || 0,
+      totalQuantity: body.items?.reduce((sum: number, it: any) => sum + (Number(it.requestedQuantity) || 1), 0) || 0,
+    });
+
+    const saved = await this.orderRepository.save(order);
+
+    if (body.items && body.items.length > 0) {
+      const items = body.items.map((it: any) => this.itemRepository.create({
+        outboundOrder: saved,
+        sku: it.sku,
+        productName: it.productName || it.sku,
+        requestedQuantity: Number(it.requestedQuantity) || 1,
+        slotId: 'shelf-Q1',
+        status: 'PENDING',
+      }));
+      await this.itemRepository.save(items);
+    }
+
+    console.log(`[RTV] Auto-created Return-to-Vendor order ${rtvCode} for rejected supplier inbound ${rawCode}`);
+    this.broadcastOrderEvent('order_created', { orderId: saved.id, order: saved });
+    return this.findOne(saved.id);
   }
 
   async cancel(orderId: string): Promise<OutboundOrder> {
@@ -1127,10 +1307,14 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     if (order.status === 'CONFIRMED') {
       throw new BadRequestException(`Cannot cancel a confirmed order`);
     }
+    const prevStatus = order.status;
     order.status = 'CANCELLED';
     const saved = await this.orderRepository.save(order);
     await this.syncStatusToOrderService(order, 'CANCELLED');
     this.broadcastOrderEvent('order_status_updated', { orderId: order.id, status: 'CANCELLED', order: saved });
+    if (prevStatus === 'RETURN_TO_WAREHOUSE' || prevStatus === 'FAILED_DELIVERY') {
+      this.createReturnInboundOrder(saved).catch(e => console.warn('[ReverseLogistics] Auto-create inbound return on cancel failed:', e));
+    }
     return saved;
   }
 

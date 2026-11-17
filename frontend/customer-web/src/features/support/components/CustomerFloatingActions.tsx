@@ -75,13 +75,13 @@ export default function CustomerFloatingActions() {
     {
       id: "welcome-1",
       sender: "bot",
-      text: "Xin chào quý khách! Tôi là Trợ lý AI C.T Mart. Tôi có thể hỗ trợ quý khách tìm kiếm sản phẩm, kiểm tra đơn hàng, tư vấn chính sách giao hàng 2h hoặc kết nối trực tiếp với Tư vấn viên Bán hàng (Saler) bất cứ lúc nào!",
+      text: "Xin chào quý khách! Tôi là Trợ lý AI C.T Mart. Tôi có thể hỗ trợ quý khách tìm kiếm sản phẩm, kiểm tra đơn hàng, tư vấn chính sách giao hàng 2h hoặc kết nối trực tiếp với Điều phối viên / Nhân viên hỗ trợ bất cứ lúc nào!",
       time: "Vừa xong",
       options: [
-        "Chính sách giao hàng 2h",
         "Tra cứu tình trạng đơn hàng",
         "Sản phẩm khuyến mãi hôm nay",
-        "Gặp nhân viên tư vấn bán hàng"
+        "Chính sách giao hàng 2h",
+        "Gặp điều phối viên"
       ]
     }
   ]);
@@ -92,6 +92,21 @@ export default function CustomerFloatingActions() {
   const getCurrentTime = () => {
     const now = new Date();
     return `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
+  };
+
+  const formatMediaUrl = (url?: string | null) => {
+    if (!url) return "";
+    if (url.startsWith("data:")) return url;
+    if (url.startsWith("/chat/media/") || url.startsWith("/")) {
+      return `${getApiHost(3004)}${url}`;
+    }
+    if (url.includes(".amazonaws.com/")) {
+      const match = url.match(/\.amazonaws\.com\/(.+)$/);
+      if (match && match[1]) {
+        return `${getApiHost(3004)}/chat/media/${match[1]}`;
+      }
+    }
+    return url;
   };
 
   const scrollToBottom = () => {
@@ -181,9 +196,12 @@ export default function CustomerFloatingActions() {
         if (socketRef.current) {
           socketRef.current.emit("join_chat_session", { sessionId: activeSession.id });
         }
+        return activeSession;
       }
+      return null;
     } catch (err) {
       console.warn("Không thể kết nối API chat session:", err);
+      return null;
     } finally {
       setIsInitializing(false);
     }
@@ -338,10 +356,10 @@ export default function CustomerFloatingActions() {
             text: "Cuộc trò chuyện trước đó đã được dọn dẹp. Trợ lý AI C.T Mart sẵn sàng bắt đầu phiên hỗ trợ mới cùng quý khách!",
             time: getCurrentTime(),
             options: [
-              "Chính sách giao hàng 2h",
               "Tra cứu tình trạng đơn hàng",
               "Sản phẩm khuyến mãi hôm nay",
-              "Gặp nhân viên tư vấn bán hàng"
+              "Chính sách giao hàng 2h",
+              "Gặp điều phối viên"
             ]
           }
         ]);
@@ -360,40 +378,43 @@ export default function CustomerFloatingActions() {
     }
   }, [isOpen]);
 
-  // Yêu cầu gặp nhân viên tư vấn bán hàng
+  // Yêu cầu gặp Điều phối viên / Nhân viên hỗ trợ
   const handleRequestStaffHandoff = async () => {
-    if (!sessionId) {
-      await initChatSession();
+    let currentId = sessionId || sessionIdRef.current;
+    if (!currentId) {
+      const activeSession = await initChatSession();
+      currentId = activeSession?.id || (typeof window !== "undefined" ? localStorage.getItem("ctmart_chat_session_id") : null);
     }
 
     setSessionStatus("WAITING_FOR_STAFF");
+    sessionStatusRef.current = "WAITING_FOR_STAFF";
     setIsTyping(false);
 
     const userReqMsg: Message = {
       id: `user-req-${Date.now()}`,
       sender: "user",
-      text: "Tôi muốn gặp nhân viên tư vấn bán hàng",
+      text: "Tôi muốn kết nối với Điều phối viên / Nhân viên hỗ trợ",
       time: getCurrentTime()
     };
 
     const sysMsg: Message = {
       id: `sys-waiting-${Date.now()}`,
       sender: "system",
-      text: "Đã gửi yêu cầu kết nối tới Tư vấn viên Bán hàng (Saler). Bạn vui lòng đợi trong giây lát, nhân viên trực ban sẽ nhận phiên ngay!",
+      text: "Đã gửi yêu cầu kết nối tới Điều phối viên trực ban C.T Mart. Bạn vui lòng đợi trong giây lát, nhân viên sẽ tiếp quản phiên trò chuyện ngay tại đây!",
       time: getCurrentTime()
     };
 
     setMessages((prev) => [...prev, userReqMsg, sysMsg]);
 
     // Gửi tín hiệu Socket (hoặc fallback REST nếu socket ngắt kết nối)
-    if (socketRef.current && socketRef.current.connected && sessionId) {
+    if (socketRef.current && socketRef.current.connected && currentId) {
       socketRef.current.emit("request_human_handoff", {
-        sessionId,
+        sessionId: currentId,
         customerName: user?.name || "Khách hàng Trực tuyến"
       });
-    } else if (sessionId) {
+    } else if (currentId) {
       try {
-        await fetch(`${getApiHost(3004)}/chat/sessions/${sessionId}/request-handoff`, {
+        await fetch(`${getApiHost(3004)}/chat/sessions/${currentId}/request-handoff`, {
           method: "POST"
         });
       } catch (err) {
@@ -490,7 +511,19 @@ export default function CustomerFloatingActions() {
     if (!text && !selectedMedia) return;
     if (isUploadingMedia) return;
 
-    if (text === "Gặp nhân viên tư vấn bán hàng" || text.toLowerCase().includes("gặp nhân viên") || text.toLowerCase().includes("gặp saler")) {
+    const lowerText = text.toLowerCase();
+    const isHandoffRequest =
+      text === "Gặp điều phối viên" ||
+      text === "Gặp nhân viên tư vấn bán hàng" ||
+      lowerText.includes("gặp điều phối") ||
+      lowerText.includes("gặp controller") ||
+      lowerText.includes("gặp nhân viên") ||
+      lowerText.includes("gặp hỗ trợ") ||
+      lowerText.includes("gặp saler") ||
+      lowerText.includes("gặp người thật") ||
+      lowerText.includes("nói chuyện với người");
+
+    if (isHandoffRequest) {
       handleRequestStaffHandoff();
       if (!textToSend) setInputMessage("");
       return;
@@ -793,16 +826,16 @@ export default function CustomerFloatingActions() {
                           <div className="mt-1.5">
                             {msg.imageUrl.match(/\.(mp4|webm|mov|avi)(\?|$)/i) ? (
                               <video
-                                src={msg.imageUrl}
+                                src={formatMediaUrl(msg.imageUrl)}
                                 controls
                                 playsInline
                                 className="max-h-48 max-w-full rounded-lg border border-black/10 bg-black/10"
                               />
                             ) : (
                               <img
-                                src={msg.imageUrl}
+                                src={formatMediaUrl(msg.imageUrl)}
                                 alt="Ảnh đính kèm"
-                                onClick={() => setPreviewModalUrl(msg.imageUrl || null)}
+                                onClick={() => setPreviewModalUrl(formatMediaUrl(msg.imageUrl) || null)}
                                 className="max-h-40 max-w-full rounded-lg cursor-pointer object-cover border border-black/10 hover:opacity-95 transition-opacity"
                                 title="Bấm để xem ảnh phóng to"
                               />

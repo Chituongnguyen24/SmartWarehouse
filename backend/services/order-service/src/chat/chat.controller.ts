@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Delete, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Response } from 'express';
 import { ChatService } from './chat.service';
 
 @ApiTags('Chat Support & AI Co-Pilot')
@@ -29,6 +30,27 @@ export class ChatController {
     return this.chatService.uploadMedia(body.mediaBase64, body.filename, body.mimeType);
   }
 
+  @Get('media/:folder/:subfolder/:filename')
+  @ApiOperation({ summary: 'Xem hoặc tải hình ảnh / video tin nhắn chat theo thư mục' })
+  async getChatMedia(
+    @Param('folder') folder: string,
+    @Param('subfolder') subfolder: string,
+    @Param('filename') filename: string,
+    @Res() res: Response,
+  ) {
+    const key = `${folder}/${subfolder}/${filename}`;
+    return this.chatService.streamChatMedia(key, res);
+  }
+
+  @Get('media/:filename')
+  @ApiOperation({ summary: 'Xem hoặc tải hình ảnh / video tin nhắn chat' })
+  async getChatMediaSingle(
+    @Param('filename') filename: string,
+    @Res() res: Response,
+  ) {
+    return this.chatService.streamChatMedia(filename, res);
+  }
+
   @Get('sessions/:id/messages')
   @ApiOperation({ summary: 'Lấy toàn bộ lịch sử tin nhắn của một phiên chat' })
   async getMessages(@Param('id') sessionId: string) {
@@ -39,12 +61,12 @@ export class ChatController {
   @ApiOperation({ summary: 'Gửi tin nhắn trong phiên chat' })
   async sendMessage(
     @Param('id') sessionId: string,
-    @Body() body: { sender: 'CUSTOMER' | 'STAFF'; text: string; staffId?: string; staffName?: string; customerName?: string },
+    @Body() body: { sender: 'CUSTOMER' | 'STAFF'; text: string; staffId?: string; staffName?: string; customerName?: string; imageUrl?: string },
   ) {
     if (body.sender === 'STAFF') {
-      return this.chatService.saveStaffReply(sessionId, body.staffId || 'staff-1', body.staffName || 'Tư vấn viên', body.text);
+      return this.chatService.saveStaffReply(sessionId, body.staffId || 'staff-1', body.staffName || 'Tư vấn viên', body.text, body.imageUrl);
     } else {
-      const saved = await this.chatService.saveCustomerMessage(sessionId, body.text, body.customerName);
+      const saved = await this.chatService.saveCustomerMessage(sessionId, body.text, body.customerName, body.imageUrl);
       const session = await this.chatService.initOrGetSession(undefined, undefined, undefined, sessionId);
       
       // Nếu khách đã yêu cầu gặp Saler hoặc Saler đang trực tiếp tư vấn -> Tuyệt đối không để AI xen vào
@@ -52,7 +74,7 @@ export class ChatController {
         return { customerMessage: saved, session, aiReply: null };
       }
 
-      const aiReply = await this.chatService.processAiReply(sessionId, body.text);
+      const aiReply = await this.chatService.processAiReply(sessionId, body.text || (body.imageUrl ? '[Gửi hình ảnh]' : ''));
       return { customerMessage: saved, aiReply: aiReply.message, session: aiReply.session };
     }
   }

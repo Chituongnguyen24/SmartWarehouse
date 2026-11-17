@@ -706,7 +706,7 @@ export const GoongDriverLiveMap: React.FC<GoongDriverLiveMapProps> = ({
       return;
     }
 
-    const targetTask = currentTask || tasks.find((t) => t.status !== 'DELIVERED') || tasks[0];
+    const targetTask = currentTask || tasks.find((t) => t.status !== 'DELIVERED' && t.status !== 'FAILED') || tasks[0];
     if (targetTask) {
       const address = (targetTask as any).customerAddress || targetTask.deliveryAddress || '';
       const latVal = (targetTask as any).customerLat || targetTask.latitude;

@@ -28,7 +28,8 @@ import {
   Receipt,
   Zap,
   Tag,
-  FolderTree
+  FolderTree,
+  MessageSquare
 } from 'lucide-react';
 import { useAuth, ROLE_LABELS, type UserRole } from '@/features/auth';
 
@@ -50,6 +51,7 @@ const menuItems: MenuItem[] = [
   { path: '/demand-forecast', label: 'Đề xuất nhập kho', icon: <TrendingUp size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
   { path: '/staff', label: 'Nhân viên Trực kho', icon: <Users size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
   { path: '/orders', label: 'Tiếp nhận & Điều phối Đơn', icon: <Send size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'SALES_STAFF'] },
+  { path: '/sales?tab=chat', label: 'Hỗ trợ & Chat Khách hàng', icon: <MessageSquare size={18} />, section: 'QUẢN LÝ KHO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER', 'SALES_STAFF'] },
   { path: '/reports', label: 'Báo cáo Thống kê', icon: <BarChart3 size={18} />, section: 'BÁO CÁO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
   { path: '/cod-reconciliation', label: 'Đối soát Quỹ COD', icon: <Receipt size={18} />, section: 'BÁO CÁO', allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'] },
 

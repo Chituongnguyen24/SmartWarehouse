@@ -75,6 +75,14 @@ export const InboundReceiving: React.FC = () => {
   const [packageCondition, setPackageCondition] = useState<'PACKED_OK' | 'NEEDS_PACKING'>('PACKED_OK');
   const [packingNote, setPackingNote] = useState<string>('');
 
+  // Rejection Dialog State
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState<boolean>(false);
+  const [rejectReason, setRejectReason] = useState<'TEMP_BREACH' | 'BROKEN_PACKAGE' | 'SEAL_TAMPERED' | 'EXPIRED_SPOILED'>('TEMP_BREACH');
+  const [rejectLiability, setRejectLiability] = useState<'DRIVER' | 'CUSTOMER' | 'WAREHOUSE' | 'SUPPLIER'>('SUPPLIER');
+  const [rejectionAction, setRejectionAction] = useState<'RETURN_TO_SUPPLIER_AT_DOCK' | 'QUARANTINE_FOR_RTV' | 'DISPOSAL'>('RETURN_TO_SUPPLIER_AT_DOCK');
+  const [rejectNotes, setRejectNotes] = useState<string>('');
+  const [rejectSuccessMessage, setRejectSuccessMessage] = useState<string | null>(null);
+
   // Putaway Flow State
   const [modalStep, setModalStep] = useState<'QC' | 'PUTAWAY' | 'COMPLETED'>('QC');
   const [suggestedShelf, setSuggestedShelf] = useState<{ code: string; display: string; zone: 'COOL' | 'DRY' | 'FROZEN' }>({
@@ -194,6 +202,15 @@ export const InboundReceiving: React.FC = () => {
     setIsShelfVerified(false);
     setIsLedActive(false);
 
+    const isReturn = inb.orderCode?.startsWith('RET-');
+    if (isReturn) {
+      setRejectLiability('DRIVER');
+      setRejectionAction('DISPOSAL');
+    } else {
+      setRejectLiability('SUPPLIER');
+      setRejectionAction('RETURN_TO_SUPPLIER_AT_DOCK');
+    }
+
     // Calculate suggested shelf based on temp condition
     const req = (inb.temperatureRequired || '').toLowerCase();
     const isFrozen = req.includes('đông') || req.includes('-18');
@@ -241,11 +258,36 @@ export const InboundReceiving: React.FC = () => {
     });
   };
 
-  const handleRejectReceiving = async () => {
+  const handleConfirmReject = async () => {
     if (!selectedInbound) return;
     setIsSubmitting(true);
     try {
-      await updateInboundStatusApi(selectedInbound.id, 'REJECTED', false);
+      const reasonLabel = 
+        rejectReason === 'TEMP_BREACH' ? 'Vi phạm chuỗi lạnh bảo quản' :
+        rejectReason === 'BROKEN_PACKAGE' ? 'Bao bì rách vỡ, móp méo' :
+        rejectReason === 'SEAL_TAMPERED' ? 'Rách tem niêm phong, đã bị mở' : 'Thực phẩm hỏng, ôi thiu';
+
+      const isReturn = selectedInbound.orderCode?.startsWith('RET-');
+      const action = isReturn ? 'DISPOSAL' : rejectionAction;
+      const targetOrderCode = selectedInbound.orderCode;
+
+      await updateInboundStatusApi(selectedInbound.id, 'REJECTED', false, null, {
+        rejectionReason: reasonLabel,
+        rejectionLiability: isReturn ? rejectLiability : 'SUPPLIER',
+        rejectionAction: action,
+        measuredTemperature: Number(measuredTemp) || 0,
+        packingNote: rejectNotes ? `[TỪ CHỐI QC] ${rejectNotes}` : `[TỪ CHỐI QC] Lỗi: ${reasonLabel}`,
+      });
+
+      let riskReasonText = '';
+      if (action === 'RETURN_TO_SUPPLIER_AT_DOCK') {
+        riskReasonText = `Từ chối tiếp nhận (${reasonLabel}) - Trả xe NCC ngay tại Dock`;
+      } else if (action === 'QUARANTINE_FOR_RTV') {
+        riskReasonText = `Từ chối QC (${reasonLabel}) - Chuyển Kệ Q1 xuất trả NCC (RTV)`;
+      } else {
+        riskReasonText = `Từ chối QC (${reasonLabel}) - Đã chuyển Kệ Cách Ly Q1`;
+      }
+
       setInbounds(prev =>
         prev.map(it => {
           if (it.id === selectedInbound.id) {
@@ -254,12 +296,25 @@ export const InboundReceiving: React.FC = () => {
               status: 'REJECTED',
               qcPassed: false,
               riskLevel: 'CRITICAL',
+              riskReason: riskReasonText,
             };
           }
           return it;
         })
       );
+
+      setIsRejectModalOpen(false);
       setSelectedInbound(null);
+
+      if (action === 'RETURN_TO_SUPPLIER_AT_DOCK') {
+        setRejectSuccessMessage(`Đã lập biên bản từ chối #${targetOrderCode}. Xe Nhà Cung Cấp chở hàng quay về ngay tại Dock. Không nhập kho & hủy công nợ PO.`);
+      } else if (action === 'QUARANTINE_FOR_RTV') {
+        const cleanCode = targetOrderCode.replace(/^INB-/, '');
+        setRejectSuccessMessage(`Đã lập biên bản #${targetOrderCode}. Lệnh xuất trả NCC RTV-${cleanCode} đã được tạo. Hãy chuyển hàng sang Kệ Cách Ly Q1.`);
+      } else {
+        setRejectSuccessMessage(`Đã lập biên bản từ chối #${targetOrderCode}. Lệnh xuất tiêu hủy DISP-${targetOrderCode} đã kích hoạt. Hãy chuyển hàng sang Kệ Cách Ly Q1.`);
+      }
+      setTimeout(() => setRejectSuccessMessage(null), 8000);
     } catch (e) {
       console.warn('Reject inbound error:', e);
     } finally {
@@ -488,6 +543,35 @@ export const InboundReceiving: React.FC = () => {
         </div>
       </div>
 
+      {/* Reject Success / Disposal Action Alert */}
+      {rejectSuccessMessage && (
+        <div
+          style={{
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '8px',
+            padding: '12px 14px',
+            marginBottom: '12px',
+            color: '#991b1b',
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '8px',
+            lineHeight: '1.4',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+          }}
+        >
+          <AlertTriangle size={18} color="#991b1b" style={{ flexShrink: 0, marginTop: '2px' }} />
+          <div style={{ flex: 1, fontWeight: 500 }}>{rejectSuccessMessage}</div>
+          <button
+            onClick={() => setRejectSuccessMessage(null)}
+            style={{ background: 'none', border: 'none', color: '#991b1b', cursor: 'pointer', padding: '2px' }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       {/* QC & Putaway Flow Fixed Overlay Modal */}
       {selectedInbound && (
         <div
@@ -575,6 +659,7 @@ export const InboundReceiving: React.FC = () => {
               <>
                 {(() => {
                   const isTransfer = selectedInbound ? isTransferInbound(selectedInbound.orderCode, selectedInbound.supplierName) : false;
+                  const isReturn = selectedInbound ? (selectedInbound.orderCode.startsWith('RET') || selectedInbound.supplierName.toLowerCase().includes('trả lại') || selectedInbound.supplierName.toLowerCase().includes('hoàn')) : false;
                   return (
                     <>
                       {/* Header & Step Indicator */}
@@ -595,7 +680,7 @@ export const InboundReceiving: React.FC = () => {
                             }}
                           >
                             {modalStep === 'PUTAWAY' || modalStep === 'COMPLETED' ? <Check size={12} color="#059669" /> : null}
-                            {isTransfer ? '1. Tiếp Nhận Tại Dock' : '1. Kiểm Định QC'}
+                            {isReturn ? '1. Kiểm Tra Hàng Hoàn' : isTransfer ? '1. Tiếp Nhận Tại Dock' : '1. Kiểm Định QC'}
                           </span>
                           <ChevronRight size={14} color="#94a3b8" />
                           <span
@@ -609,7 +694,7 @@ export const InboundReceiving: React.FC = () => {
                               border: `1px solid ${(modalStep === 'PUTAWAY' || (isTransfer && modalStep === 'COMPLETED')) ? '#bae6fd' : '#e2e8f0'}`,
                             }}
                           >
-                            {isTransfer ? '2. Bàn Đóng Gói (Cross-Docking)' : '2. Cất Hàng Vào Kệ (Putaway)'}
+                            {isReturn ? '2. Nhập Kệ Lưu Trữ Lạnh' : isTransfer ? '2. Bàn Đóng Gói (Cross-Docking)' : '2. Cất Hàng Vào Kệ (Putaway)'}
                           </span>
                         </div>
 
@@ -621,7 +706,30 @@ export const InboundReceiving: React.FC = () => {
                         </button>
                       </div>
 
-                {isTransfer && (
+                {isReturn && (
+                  <div
+                    style={{
+                      backgroundColor: '#fef2f2',
+                      border: '1px solid #fecaca',
+                      borderRadius: '8px',
+                      padding: '10px 12px',
+                      fontSize: '12px',
+                      color: '#991b1b',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '8px',
+                      lineHeight: '1.4',
+                    }}
+                  >
+                    <ShieldAlert size={18} color="#dc2626" style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <div>
+                      <div style={{ fontWeight: 700, marginBottom: '2px' }}>Quy trình tiếp nhận Hàng Hoàn Trả (Reverse Logistics)</div>
+                      <div>{selectedInbound.packingNote || 'Đơn hàng giao không thành công từ tài xế. Cần kiểm tra nhiệt độ bảo quản, tình trạng tem seal trước khi hoàn nhập kệ lạnh.'}</div>
+                    </div>
+                  </div>
+                )}
+
+                {isTransfer && !isReturn && (
                   <div
                     style={{
                       backgroundColor: '#ecfdf5',
@@ -844,7 +952,7 @@ export const InboundReceiving: React.FC = () => {
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button
                         disabled={isSubmitting}
-                        onClick={handleRejectReceiving}
+                        onClick={() => setIsRejectModalOpen(true)}
                         style={{
                           flex: 1,
                           backgroundColor: '#fef2f2',
@@ -1104,6 +1212,289 @@ export const InboundReceiving: React.FC = () => {
   </div>
 )}
 
+      {/* QC Rejection & Disposal Attribution Modal */}
+      {isRejectModalOpen && selectedInbound && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            zIndex: 10000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            backdropFilter: 'blur(4px)',
+          }}
+          onClick={() => {
+            if (!isSubmitting) setIsRejectModalOpen(false);
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '12px',
+              maxWidth: '460px',
+              width: '100%',
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              padding: '18px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25)',
+              border: '1px solid #fecaca',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #fee2e2', paddingBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <AlertTriangle size={18} color="#991b1b" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#991b1b' }}>Biên Bản Từ Chối Nhận (Lỗi QC)</div>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Đơn hàng #{selectedInbound.orderCode}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRejectModalOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Warning Box */}
+            {selectedInbound.orderCode?.startsWith('RET-') ? (
+              <div style={{ backgroundColor: '#fff5f5', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px', fontSize: '11.5px', color: '#7f1d1d', lineHeight: '1.4' }}>
+                <b>Quy định HACCP (Hàng hoàn)</b>: Kiện hàng hoàn bị từ chối kiểm định chất lượng sẽ <b>tuyệt đối không nhập kệ bán lẻ</b>. Sau khi xác nhận, hệ thống sẽ kích hoạt <b>Lệnh xuất tiêu hủy (DISP-...)</b> sang Bãi xử lý rác Đa Phước.
+              </div>
+            ) : (
+              <div style={{ backgroundColor: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', padding: '10px', fontSize: '11.5px', color: '#9a3412', lineHeight: '1.4' }}>
+                <b>Kiểm Định Nhà Cung Cấp</b>: Lô hàng không đạt chuẩn an toàn vệ sinh thực phẩm / chuỗi lạnh từ NCC. <b>Tuyệt đối không nhập vào tồn kho thương mại</b>.
+              </div>
+            )}
+
+            {/* Field 1: Lý do lỗi QC */}
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a', marginBottom: '6px' }}>
+                1. Nguyên nhân không đạt chuẩn QC *
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {[
+                  { key: 'TEMP_BREACH', label: `Vi phạm chuỗi lạnh (Đo được: ${measuredTemp}°C)`, sub: 'Vượt ngưỡng nhiệt độ an toàn quy định' },
+                  { key: 'BROKEN_PACKAGE', label: 'Bao bì rách vỡ / Hộp móp méo / Rỉ nước', sub: 'Mất khả năng bảo quản kín' },
+                  { key: 'SEAL_TAMPERED', label: 'Rách tem niêm phong / Có dấu hiệu mở', sub: 'Nghi ngờ bị can thiệp tráo đổi' },
+                  { key: 'EXPIRED_SPOILED', label: 'Thực phẩm biến chất / Mùi lạ / Hết hạn', sub: 'Không còn giá trị sử dụng' },
+                ].map(opt => (
+                  <label
+                    key={opt.key}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '8px',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      border: `1.5px solid ${rejectReason === opt.key ? '#b91c1c' : '#e2e8f0'}`,
+                      backgroundColor: rejectReason === opt.key ? '#fef2f2' : '#ffffff',
+                      cursor: 'pointer',
+                      fontSize: '11.5px',
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="rejectReason"
+                      checked={rejectReason === opt.key}
+                      onChange={() => setRejectReason(opt.key as any)}
+                      style={{ marginTop: '2px' }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 600, color: rejectReason === opt.key ? '#991b1b' : '#1e293b' }}>{opt.label}</div>
+                      <div style={{ fontSize: '10px', color: '#64748b' }}>{opt.sub}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Field 2: Phương án xử lý (hoặc Phân định trách nhiệm cho hàng hoàn) */}
+            {selectedInbound.orderCode?.startsWith('RET-') ? (
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a', marginBottom: '6px' }}>
+                  2. Phân định trách nhiệm bồi thường (Hàng hoàn) *
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {[
+                    { key: 'DRIVER', title: 'Đơn vị vận chuyển (Tài xế / 3PL)', desc: 'Khấu trừ giá trị tổn thất vào quyết toán COD ca giao của tài xế' },
+                    { key: 'CUSTOMER', title: 'Khách hàng', desc: 'Từ chối bồi hoàn / Khách chịu toàn bộ chi phí hư hỏng hàng' },
+                    { key: 'WAREHOUSE', title: 'Nội bộ kho / Hàng hóa tự hỏng', desc: 'Hạch toán chi phí tổn thất kho nội bộ và đổi đơn mới cho khách' },
+                  ].map(lib => (
+                    <label
+                      key={lib.key}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '8px',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        border: `1.5px solid ${rejectLiability === lib.key ? '#0f766e' : '#e2e8f0'}`,
+                        backgroundColor: rejectLiability === lib.key ? '#f0fdfa' : '#ffffff',
+                        cursor: 'pointer',
+                        fontSize: '11.5px',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="rejectLiability"
+                        checked={rejectLiability === lib.key}
+                        onChange={() => setRejectLiability(lib.key as any)}
+                        style={{ marginTop: '2px' }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: 600, color: rejectLiability === lib.key ? '#0f766e' : '#1e293b' }}>{lib.title}</div>
+                        <div style={{ fontSize: '10px', color: '#64748b' }}>{lib.desc}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a', marginBottom: '6px' }}>
+                  2. Phương án xử lý hàng lỗi từ Nhà Cung Cấp *
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {[
+                    {
+                      key: 'RETURN_TO_SUPPLIER_AT_DOCK',
+                      title: 'Từ chối tiếp nhận & Không hạ tải (Xe NCC chở về ngay)',
+                      desc: 'Hàng giữ nguyên trên xe tải NCC tại Cửa Dock. Hủy công nợ PO, không nhập kho và không phát sinh chi phí tiêu hủy.',
+                      tag: 'Khuyến nghị',
+                    },
+                    {
+                      key: 'QUARANTINE_FOR_RTV',
+                      title: 'Hạ tải vào Kệ Cách Ly Q1 & Lập lệnh Xuất Trả NCC (RTV)',
+                      desc: 'Lưu kho tạm tại Kệ Q1, tạo lệnh xuất kho RTV-... yêu cầu Nhà Cung Cấp điều xe đến nhận lại hàng trong 24-48h.',
+                      tag: 'Lưu kho tạm',
+                    },
+                  ].map(act => (
+                    <label
+                      key={act.key}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '8px',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        border: `1.5px solid ${rejectionAction === act.key ? '#0f766e' : '#e2e8f0'}`,
+                        backgroundColor: rejectionAction === act.key ? '#f0fdfa' : '#ffffff',
+                        cursor: 'pointer',
+                        fontSize: '11.5px',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="rejectionAction"
+                        checked={rejectionAction === act.key}
+                        onChange={() => setRejectionAction(act.key as any)}
+                        style={{ marginTop: '2px' }}
+                      />
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontWeight: 600, color: rejectionAction === act.key ? '#0f766e' : '#1e293b' }}>{act.title}</span>
+                          <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: 700 }}>{act.tag}</span>
+                        </div>
+                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>{act.desc}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Field 3: Ghi chú */}
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>Ghi chú thẩm định:</div>
+              <input
+                type="text"
+                value={rejectNotes}
+                onChange={e => setRejectNotes(e.target.value)}
+                placeholder="VD: Thùng đá rỉ nước, nhiệt độ kem đo được -4°C, tem rách..."
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '11.5px',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+
+            {/* Destination instructions */}
+            <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px', fontSize: '11px', color: '#475569' }}>
+              {selectedInbound.orderCode?.startsWith('RET-') ? (
+                <>Vị trí cách ly lưu trữ tạm: <b>Kệ Cách Ly Q1 (Zone Z-DISPOSAL)</b></>
+              ) : rejectionAction === 'RETURN_TO_SUPPLIER_AT_DOCK' ? (
+                <>Hướng xử lý: <b>Hàng không hạ tải, trả lại theo xe tải của NCC ngay tại Cửa Dock</b></>
+              ) : (
+                <>Vị trí cách ly lưu trữ tạm: <b>Kệ Cách Ly Q1 (Zone Z-QUARANTINE) chờ xe NCC đến nhận lại</b></>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+              <button
+                type="button"
+                onClick={() => setIsRejectModalOpen(false)}
+                disabled={isSubmitting}
+                style={{
+                  flex: 1,
+                  padding: '9px',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  backgroundColor: '#ffffff',
+                  color: '#475569',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Quay Lại
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReject}
+                disabled={isSubmitting}
+                style={{
+                  flex: 2,
+                  padding: '9px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: '#991b1b',
+                  color: '#ffffff',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  opacity: isSubmitting ? 0.7 : 1,
+                }}
+              >
+                {isSubmitting
+                  ? 'Đang Xử Lý...'
+                  : selectedInbound.orderCode?.startsWith('RET-')
+                  ? 'Xác Nhận & Xuất Hủy Đa Phước'
+                  : rejectionAction === 'RETURN_TO_SUPPLIER_AT_DOCK'
+                  ? 'Xác Nhận & Trả Xe NCC Tại Dock'
+                  : 'Xác Nhận & Tạo Lệnh RTV'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Inbound List */}
       <div>
         <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '8px' }}>
@@ -1121,6 +1512,7 @@ export const InboundReceiving: React.FC = () => {
               const isDone = it.status === 'STORED' || it.status === 'COMPLETED';
               const isRejected = it.status === 'REJECTED';
               const isTransfer = isTransferInbound(it.orderCode, it.supplierName);
+              const isReturn = it.orderCode.startsWith('RET') || it.supplierName.toLowerCase().includes('trả lại') || it.supplierName.toLowerCase().includes('hoàn');
               const badge = getRiskBadge(it.riskLevel);
 
               return (
@@ -1130,16 +1522,21 @@ export const InboundReceiving: React.FC = () => {
                     backgroundColor: '#ffffff',
                     borderRadius: '8px',
                     padding: '14px',
-                    border: `1.5px solid ${isDone ? '#86efac' : isRejected ? '#fca5a5' : isTransfer ? '#7dd3fc' : it.riskLevel === 'CRITICAL' ? '#fca5a5' : it.riskLevel === 'RISK' ? '#fcd34d' : '#e2e8f0'}`,
+                    border: `1.5px solid ${isDone ? '#86efac' : isRejected ? '#fca5a5' : isReturn ? '#fca5a5' : isTransfer ? '#7dd3fc' : it.riskLevel === 'CRITICAL' ? '#fca5a5' : it.riskLevel === 'RISK' ? '#fcd34d' : '#e2e8f0'}`,
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
                   }}
                 >
                   <div style={{ flex: 1, marginRight: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#0284c7' }}>{it.orderCode}</span>
-                      {isTransfer && (
+                      {isReturn && (
+                        <span style={{ fontSize: '9px', backgroundColor: '#fef2f2', color: '#b91c1c', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, border: '1px solid #fecaca' }}>
+                          KHÁCH HÀNG TRẢ LẠI
+                        </span>
+                      )}
+                      {isTransfer && !isReturn && (
                         <span style={{ fontSize: '9px', backgroundColor: '#e0f2fe', color: '#0369a1', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, border: '1px solid #bae6fd' }}>
                           ĐIỀU CHUYỂN CHI NHÁNH
                         </span>
@@ -1185,7 +1582,7 @@ export const InboundReceiving: React.FC = () => {
                     <button
                       onClick={() => handleOpenQC(it)}
                       style={{
-                        backgroundColor: isTransfer ? '#0f766e' : it.riskLevel === 'CRITICAL' ? '#dc2626' : '#059669',
+                        backgroundColor: isReturn ? '#0f766e' : isTransfer ? '#0f766e' : it.riskLevel === 'CRITICAL' ? '#dc2626' : '#059669',
                         color: '#ffffff',
                         border: 'none',
                         padding: '8px 14px',
@@ -1197,7 +1594,7 @@ export const InboundReceiving: React.FC = () => {
                         boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
                       }}
                     >
-                      {isTransfer ? 'Tiếp Nhận Dock' : 'Kiểm QC'}
+                      {isReturn ? 'Nhập Hồi Kho' : isTransfer ? 'Tiếp Nhận Dock' : 'Kiểm QC'}
                     </button>
                   )}
                 </div>

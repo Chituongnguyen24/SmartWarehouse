@@ -345,7 +345,16 @@ export const updateInboundStatusApi = async (
   status: string,
   qualityCheckPassed?: boolean,
   token?: string | null,
-  extraData?: { packageCondition?: string; destinationStation?: string; packingNote?: string }
+  extraData?: {
+    packageCondition?: string;
+    destinationStation?: string;
+    packingNote?: string;
+    rejectionReason?: string;
+    rejectionLiability?: string;
+    rejectionAction?: string;
+    measuredTemperature?: number;
+    evidencePhotoUrl?: string;
+  }
 ) => {
   try {
     const res = await fetch(`${API_URLS.INBOUND}/inbound-orders/${orderId}/status`, {
@@ -360,6 +369,11 @@ export const updateInboundStatusApi = async (
         packageCondition: extraData?.packageCondition,
         destinationStation: extraData?.destinationStation,
         packingNote: extraData?.packingNote,
+        rejectionReason: extraData?.rejectionReason,
+        rejectionLiability: extraData?.rejectionLiability,
+        rejectionAction: extraData?.rejectionAction,
+        measuredTemperature: extraData?.measuredTemperature,
+        evidencePhotoUrl: extraData?.evidencePhotoUrl,
       }),
     });
     if (res.ok) return await res.json();

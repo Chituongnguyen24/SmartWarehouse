@@ -72,9 +72,19 @@ export class InboundOrderController {
   @Patch(':id/status')
   async updateStatus(
     @Param('id') id: string,
-    @Body() body: { status: string; qualityCheckPassed?: boolean; packageCondition?: string; destinationStation?: string; packingNote?: string }
+    @Body() body: {
+      status: string;
+      qualityCheckPassed?: boolean;
+      packageCondition?: string;
+      destinationStation?: string;
+      packingNote?: string;
+      rejectionReason?: string;
+      rejectionLiability?: string;
+      measuredTemperature?: number;
+      evidencePhotoUrl?: string;
+    }
   ) {
-    return this.inboundOrderService.updateStatus(id, body.status, body.qualityCheckPassed, body.packageCondition, body.destinationStation, body.packingNote);
+    return this.inboundOrderService.updateStatus(id, body.status, body);
   }
 
   @Patch('items/:itemId')

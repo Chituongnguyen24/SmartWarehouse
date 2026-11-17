@@ -51,6 +51,24 @@ export class InboundOrder {
   @Column({ name: 'packing_note', nullable: true })
   packingNote: string;
 
+  @Column({ name: 'rejection_reason', nullable: true })
+  rejectionReason: string;
+
+  @Column({ name: 'rejection_liability', nullable: true })
+  rejectionLiability: string; // CUSTOMER, DRIVER, WAREHOUSE, SUPPLIER
+
+  @Column({ name: 'rejection_action', nullable: true })
+  rejectionAction: string; // RETURN_TO_SUPPLIER_AT_DOCK, QUARANTINE_FOR_RTV, DISPOSAL
+
+  @Column({ name: 'measured_temperature', type: 'numeric', nullable: true })
+  measuredTemperature: number;
+
+  @Column({ name: 'evidence_photo_url', nullable: true })
+  evidencePhotoUrl: string;
+
+  @Column({ name: 'disposal_order_code', nullable: true })
+  disposalOrderCode: string;
+
   @Column({ name: 'warehouse_id', nullable: true })
   warehouseId: string;
 

@@ -18,11 +18,11 @@ export class EsmsService {
     private otpRepository: Repository<OtpVerification>,
     private configService: ConfigService,
   ) {
-    this.apiKey = this.configService.get<string>('ESMS_API_KEY', 'C2ABDF260DF0EBB1BCE73867029096');
-    this.secretKey = this.configService.get<string>('ESMS_SECRET_KEY', 'DB49F3A2DF3AC4B0E6046ECFF07ED0');
+    this.apiKey = this.configService.get<string>('ESMS_API_KEY', '');
+    this.secretKey = this.configService.get<string>('ESMS_SECRET_KEY', '');
     this.smsType = this.configService.get<string>('ESMS_SMS_TYPE', '2');
     this.brandname = this.configService.get<string>('ESMS_BRANDNAME', 'Baotrixemay');
-    this.isLiveSend = this.configService.get<string>('ESMS_LIVE_SEND', 'true') === 'true';
+    this.isLiveSend = this.configService.get<string>('ESMS_LIVE_SEND', 'false') === 'true' && !!this.apiKey;
   }
 
   /**

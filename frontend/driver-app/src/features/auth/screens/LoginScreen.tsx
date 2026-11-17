@@ -17,7 +17,9 @@ import { storageHelper } from '@/shared';
 import { Lock, Mail, Phone, LogIn, AlertCircle, Eye, EyeOff, CheckSquare, Square, Headphones, KeyRound, X, Check } from 'lucide-react-native';
 import { driverApi } from '@/shared';
 
-const REMEMBER_ACCOUNT_KEY = 'sfwms_driver_remembered_account';
+const REMEMBER_CREDENTIALS_KEY = 'sfwms_driver_remembered_credentials';
+const LEGACY_REMEMBER_KEY = 'sfwms_driver_remembered_account';
+const SESSION_EXPIRED_TOAST_KEY = 'sfwms_driver_session_expired_toast';
 
 export const LoginScreen: React.FC = () => {
   const { login } = useDriverTask();
@@ -130,14 +132,40 @@ export const LoginScreen: React.FC = () => {
     }
   };
 
-  // Restore remembered account on mount
+  // Restore remembered credentials on mount & check session expiration toast
   useEffect(() => {
     let isMounted = true;
-    storageHelper.getItem(REMEMBER_ACCOUNT_KEY).then((saved) => {
-      if (isMounted && saved) {
-        setAccount(saved);
+    const initScreen = async () => {
+      // 1. Check if session was expired after 7 days
+      const expiredToast = await storageHelper.getItem(SESSION_EXPIRED_TOAST_KEY);
+      if (isMounted && expiredToast) {
+        setErrorMessage(expiredToast);
+        await storageHelper.removeItem(SESSION_EXPIRED_TOAST_KEY);
       }
-    });
+
+      // 2. Restore credentials (both account and password)
+      const savedCreds = await storageHelper.getItem(REMEMBER_CREDENTIALS_KEY);
+      if (isMounted && savedCreds) {
+        try {
+          const parsed = JSON.parse(savedCreds);
+          if (parsed && (parsed.account || parsed.password)) {
+            setAccount(parsed.account || '');
+            setPassword(parsed.password || '');
+            setRememberMe(true);
+            return;
+          }
+        } catch (e) {}
+      }
+
+      // 3. Fallback to legacy key (account only)
+      const legacySaved = await storageHelper.getItem(LEGACY_REMEMBER_KEY);
+      if (isMounted && legacySaved) {
+        setAccount(legacySaved);
+        setRememberMe(true);
+      }
+    };
+
+    initScreen();
     return () => {
       isMounted = false;
     };
@@ -164,11 +192,16 @@ export const LoginScreen: React.FC = () => {
       if (!success) {
         setErrorMessage('Số điện thoại hoặc tài khoản tài xế không tồn tại trên hệ thống, hoặc mật khẩu không chính xác.');
       } else {
-        // Save or remove remembered account
+        // Save or remove remembered credentials (both account and password)
         if (rememberMe) {
-          await storageHelper.saveItem(REMEMBER_ACCOUNT_KEY, trimmedAccount);
+          await storageHelper.saveItem(REMEMBER_CREDENTIALS_KEY, JSON.stringify({
+            account: trimmedAccount,
+            password: trimmedPassword,
+          }));
+          await storageHelper.saveItem(LEGACY_REMEMBER_KEY, trimmedAccount);
         } else {
-          await storageHelper.removeItem(REMEMBER_ACCOUNT_KEY);
+          await storageHelper.removeItem(REMEMBER_CREDENTIALS_KEY);
+          await storageHelper.removeItem(LEGACY_REMEMBER_KEY);
         }
       }
     } catch (err: any) {

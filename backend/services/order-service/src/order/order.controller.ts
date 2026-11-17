@@ -1,4 +1,18 @@
-import { Controller, Get, Post, Put, Body, Param, Patch, Query, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Param,
+  Patch,
+  Query,
+  Res,
+  Headers,
+  UnauthorizedException,
+  ForbiddenException,
+} from '@nestjs/common';
+import * as crypto from 'crypto';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { OrderService } from './order.service';
@@ -6,6 +20,34 @@ import { OrderGateway } from './order.gateway';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderStatus } from './entities/order.entity';
 import { ColdChainTelemetry } from '../dispatch/cold-chain-monitor.service';
+
+function verifyJwtPayload(authHeader?: string): any {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  const token = authHeader.slice(7).trim();
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [headerB64, payloadB64, signatureB64] = parts;
+  const secret = process.env.JWT_SECRET || 'ee20b6d5a12b988c1be1ee0d5b7931dd513080f001986f20eeab2df633a8ca5f';
+
+  const expectedSig = crypto
+    .createHmac('sha256', secret)
+    .update(`${headerB64}.${payloadB64}`)
+    .digest('base64url');
+
+  if (signatureB64 !== expectedSig) {
+    return null;
+  }
+
+  try {
+    const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+    if (payload.exp && Date.now() / 1000 > payload.exp) {
+      return null;
+    }
+    return payload;
+  } catch {
+    return null;
+  }
+}
 
 @ApiTags('Orders')
 @Controller('orders')
@@ -34,20 +76,44 @@ export class OrderController {
   @Get('my-orders')
   @ApiOperation({ summary: 'Lấy danh sách đơn hàng an toàn cho khách hàng (Anti-IDOR / Bảo mật dữ liệu cá nhân)' })
   getMyOrders(
+    @Headers('authorization') authHeader?: string,
     @Query('customerId') customerId?: string,
     @Query('customerPhone') customerPhone?: string,
   ) {
-    return this.orderService.findCustomerOrders(customerId, customerPhone);
+    const user = verifyJwtPayload(authHeader);
+    if (!user) {
+      throw new UnauthorizedException('Yêu cầu xác thực tài khoản để truy cập lịch sử đơn hàng cá nhân.');
+    }
+
+    const staffRoles = ['ADMIN', 'MANAGER', 'WAREHOUSE_STAFF', 'DISPATCHER', 'SUPER_ADMIN'];
+    // Nếu là nhân sự quản lý / điều phối / thủ kho, cho phép tra cứu theo query
+    if (user.role && staffRoles.includes(user.role)) {
+      return this.orderService.findCustomerOrders(customerId, customerPhone);
+    }
+
+    // Nếu là CUSTOMER, CHỈ cho phép lấy đơn thuộc về chính tài khoản đang đăng nhập
+    const effectiveCustomerId = user.sub || user.id;
+    const effectivePhone = user.phone;
+    return this.orderService.findCustomerOrders(effectiveCustomerId, effectivePhone);
   }
 
   @Get()
   @ApiOperation({ summary: 'Get all orders' })
   findAll(
+    @Headers('authorization') authHeader?: string,
     @Query('warehouseCode') warehouseCode?: string,
     @Query('customerId') customerId?: string,
     @Query('customerPhone') customerPhone?: string,
   ) {
     if (customerId || customerPhone) {
+      const user = verifyJwtPayload(authHeader);
+      const staffRoles = ['ADMIN', 'MANAGER', 'WAREHOUSE_STAFF', 'DISPATCHER', 'SUPER_ADMIN'];
+      if (user && !staffRoles.includes(user.role)) {
+        // Tài khoản khách hàng thông thường không được xem đơn của người khác
+        const effectiveCustomerId = user.sub || user.id;
+        const effectivePhone = user.phone;
+        return this.orderService.findCustomerOrders(effectiveCustomerId, effectivePhone);
+      }
       return this.orderService.findCustomerOrders(customerId, customerPhone);
     }
     return this.orderService.findAll(warehouseCode);
@@ -122,8 +188,24 @@ export class OrderController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get order by id' })
-  findOne(@Param('id') id: string) {
-    return this.orderService.findOne(id);
+  async findOne(
+    @Param('id') id: string,
+    @Headers('authorization') authHeader?: string,
+  ) {
+    const order = await this.orderService.findOne(id);
+    if (!order) return null;
+
+    const user = verifyJwtPayload(authHeader);
+    const staffRoles = ['ADMIN', 'MANAGER', 'WAREHOUSE_STAFF', 'DISPATCHER', 'SUPER_ADMIN'];
+    if (user && !staffRoles.includes(user.role)) {
+      const isOwner =
+        (user.sub && order.customerId === user.sub) ||
+        (user.phone && order.customerPhone === user.phone);
+      if (!isOwner) {
+        throw new ForbiddenException('Bạn không có quyền truy cập dữ liệu đơn hàng này.');
+      }
+    }
+    return order;
   }
 
   @Patch(':id/status')
@@ -137,10 +219,24 @@ export class OrderController {
 
   @Post(':id/cancel')
   @ApiOperation({ summary: 'Hủy đơn hàng đàng hoàng & đồng bộ tồn kho giữa khách hàng và bộ phận kho' })
-  cancelOrder(
+  async cancelOrder(
     @Param('id') id: string,
     @Body() body: { reason?: string; cancelledBy?: string },
+    @Headers('authorization') authHeader?: string,
   ) {
+    const user = verifyJwtPayload(authHeader);
+    const staffRoles = ['ADMIN', 'MANAGER', 'WAREHOUSE_STAFF', 'DISPATCHER', 'SUPER_ADMIN'];
+    if (user && !staffRoles.includes(user.role)) {
+      const order = await this.orderService.findOne(id);
+      if (order) {
+        const isOwner =
+          (user.sub && order.customerId === user.sub) ||
+          (user.phone && order.customerPhone === user.phone);
+        if (!isOwner) {
+          throw new ForbiddenException('Bạn không có quyền hủy đơn hàng của người khác.');
+        }
+      }
+    }
     return this.orderService.cancelOrder(id, body);
   }
 

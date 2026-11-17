@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import {
   TrendingUp,
@@ -172,7 +173,28 @@ const INITIAL_CONVERSATIONS: ChatConversation[] = [
 
 export const SalesManagement = () => {
   const { user, token } = useAuth();
-  const [activeTab, setActiveTab] = useState<'CREATE_ORDER' | 'ORDER_LIST' | 'FEFO_INSIGHTS' | 'CUSTOMERS' | 'LIVE_CHAT'>('LIVE_CHAT');
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<'CREATE_ORDER' | 'ORDER_LIST' | 'FEFO_INSIGHTS' | 'CUSTOMERS' | 'LIVE_CHAT'>(
+    searchParams.get('tab') === 'orders' ? 'ORDER_LIST' :
+    searchParams.get('tab') === 'create' ? 'CREATE_ORDER' :
+    searchParams.get('tab') === 'fefo' ? 'FEFO_INSIGHTS' :
+    searchParams.get('tab') === 'customers' ? 'CUSTOMERS' : 'LIVE_CHAT'
+  );
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'chat' || tabParam === 'live-chat') {
+      setActiveTab('LIVE_CHAT');
+    } else if (tabParam === 'orders') {
+      setActiveTab('ORDER_LIST');
+    } else if (tabParam === 'create') {
+      setActiveTab('CREATE_ORDER');
+    } else if (tabParam === 'fefo') {
+      setActiveTab('FEFO_INSIGHTS');
+    } else if (tabParam === 'customers') {
+      setActiveTab('CUSTOMERS');
+    }
+  }, [searchParams]);
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
   const [products, setProducts] = useState<ProductInventoryItem[]>([]);
   const [customers, setCustomers] = useState<B2BCustomer[]>([]);
@@ -201,6 +223,21 @@ export const SalesManagement = () => {
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<ChatConversation | null>(null);
   const [isDeletingSession, setIsDeletingSession] = useState(false);
+
+  const formatMediaUrl = (url?: string | null) => {
+    if (!url) return '';
+    if (url.startsWith('data:')) return url;
+    if (url.startsWith('/chat/media/') || url.startsWith('/')) {
+      return `${getApiHost(3004)}${url}`;
+    }
+    if (url.includes('.amazonaws.com/')) {
+      const match = url.match(/\.amazonaws\.com\/(.+)$/);
+      if (match && match[1]) {
+        return `${getApiHost(3004)}/chat/media/${match[1]}`;
+      }
+    }
+    return url;
+  };
 
   // Fetch products from API
   const fetchProducts = async () => {
@@ -330,7 +367,7 @@ export const SalesManagement = () => {
   // Realtime Live Chat Socket & Sessions Fetch
   const fetchLiveChatSessions = async () => {
     try {
-      const res = await fetch(`${getApiHost(3004)}/chat/sessions`);
+      const res = await fetch(`${getApiHost(3004)}/chat/sessions?status=ALL`);
       if (res.ok) {
         const data = await res.json();
         const sessionsList: any[] = Array.isArray(data) ? data : (data.sessions || []);
@@ -387,11 +424,62 @@ export const SalesManagement = () => {
     });
     socketRef.current = socket;
 
-    socket.on('customer_chat_message', () => {
+    socket.on('customer_chat_message', (data: any) => {
+      if (data?.sessionId) {
+        const timeNow = data.time || new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        const newMsg: ChatMessage = {
+          id: data.message?.id || `cust-${Date.now()}`,
+          sender: 'CUSTOMER',
+          senderName: data.customerName || 'Khách hàng',
+          text: data.text || data.message?.text || '',
+          imageUrl: data.imageUrl || data.message?.imageUrl || null,
+          timestamp: timeNow,
+        };
+        setConversations(prev =>
+          prev.map(c => {
+            if (c.id === data.sessionId) {
+              const exists = c.messages.some(m => m.id === newMsg.id);
+              return {
+                ...c,
+                lastMessage: newMsg.text,
+                unreadCount: c.id === selectedConvId ? 0 : (c.unreadCount || 0) + 1,
+                messages: exists ? c.messages : [...c.messages, newMsg],
+              };
+            }
+            return c;
+          })
+        );
+      }
       fetchLiveChatSessions();
     });
 
-    socket.on('staff_chat_incoming', () => {
+    socket.on('staff_chat_incoming', (data: any) => {
+      if (data?.sessionId) {
+        const timeNow = data.time || new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        const newMsg: ChatMessage = {
+          id: data.message?.id || `cust-${Date.now()}`,
+          sender: 'CUSTOMER',
+          senderName: data.customerName || 'Khách hàng',
+          text: data.text || data.message?.text || '',
+          imageUrl: data.imageUrl || data.message?.imageUrl || null,
+          timestamp: timeNow,
+        };
+        setConversations(prev =>
+          prev.map(c => {
+            if (c.id === data.sessionId) {
+              const exists = c.messages.some(m => m.id === newMsg.id);
+              return {
+                ...c,
+                status: 'WAITING_FOR_STAFF',
+                lastMessage: newMsg.text,
+                unreadCount: c.id === selectedConvId ? 0 : (c.unreadCount || 0) + 1,
+                messages: exists ? c.messages : [...c.messages, newMsg],
+              };
+            }
+            return c;
+          })
+        );
+      }
       fetchLiveChatSessions();
     });
 
@@ -646,7 +734,7 @@ export const SalesManagement = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            data: selectedMediaPreview.url,
+            mediaBase64: selectedMediaPreview.url,
             filename: selectedMediaPreview.file.name,
             mimeType: selectedMediaPreview.file.type,
           }),
@@ -1211,12 +1299,12 @@ export const SalesManagement = () => {
             {msg.imageUrl && (
               <div style={{ marginTop: '8px' }}>
                 {msg.imageUrl.match(/\.(mp4|webm|mov)(\?|$)/i) ? (
-                  <video src={msg.imageUrl} controls style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 6 }} />
+                  <video src={formatMediaUrl(msg.imageUrl)} controls style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 6 }} />
                 ) : (
                   <img
-                    src={msg.imageUrl}
+                    src={formatMediaUrl(msg.imageUrl)}
                     alt="attachment"
-                    onClick={() => setLightboxUrl(msg.imageUrl || null)}
+                    onClick={() => setLightboxUrl(formatMediaUrl(msg.imageUrl) || null)}
                     style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 6, cursor: 'pointer', border: '1px solid #cbd5e1' }}
                   />
                 )}
@@ -1257,12 +1345,12 @@ export const SalesManagement = () => {
           {msg.imageUrl && (
             <div style={{ marginTop: msg.text ? '8px' : '0' }}>
               {msg.imageUrl.match(/\.(mp4|webm|mov)(\?|$)/i) ? (
-                <video src={msg.imageUrl} controls style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 6 }} />
+                <video src={formatMediaUrl(msg.imageUrl)} controls style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 6 }} />
               ) : (
                 <img
-                  src={msg.imageUrl}
+                  src={formatMediaUrl(msg.imageUrl)}
                   alt="attachment"
-                  onClick={() => setLightboxUrl(msg.imageUrl || null)}
+                  onClick={() => setLightboxUrl(formatMediaUrl(msg.imageUrl) || null)}
                   style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 6, cursor: 'pointer', border: '1px solid rgba(0,0,0,0.1)' }}
                 />
               )}
@@ -2061,9 +2149,9 @@ export const SalesManagement = () => {
               <X size={18} />
             </button>
             {lightboxUrl.match(/\.(mp4|webm|mov)(\?|$)/i) ? (
-              <video src={lightboxUrl} controls autoPlay style={{ maxWidth: '100%', maxHeight: '85vh' }} />
+              <video src={formatMediaUrl(lightboxUrl)} controls autoPlay style={{ maxWidth: '100%', maxHeight: '85vh' }} />
             ) : (
-              <img src={lightboxUrl} alt="enlarged" style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain' }} />
+              <img src={formatMediaUrl(lightboxUrl)} alt="enlarged" style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain' }} />
             )}
           </div>
         </div>

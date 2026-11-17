@@ -44,6 +44,7 @@ export class AuthService {
       role: user.role,
       warehouseCode: user.warehouseCode,
       code: user.code,
+      phone: user.phone,
     };
 
     let addresses = user.addresses;

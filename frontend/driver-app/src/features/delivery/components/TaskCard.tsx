@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
-import { MapPin, Phone, Navigation, ExternalLink, MessageSquare, CheckCircle, Package } from 'lucide-react-native';
+import { MapPin, Phone, Navigation, ExternalLink, MessageSquare, CheckCircle, Package, AlertTriangle, RotateCcw } from 'lucide-react-native';
 import { DeliveryTask } from '@/types/driver';
 import { COLORS } from '@/shared';
 
@@ -68,6 +68,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           )}
           {task.status === 'DELIVERED' && (
             <Text style={[styles.statusText, { color: '#166534' }]}>Đã giao</Text>
+          )}
+          {task.status === 'FAILED' && (
+            <Text style={[styles.statusText, { color: '#b91c1c' }]}>Hàng hoàn</Text>
           )}
         </View>
       </View>
@@ -213,6 +216,18 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 Xác nhận bàn giao
               </Text>
             </TouchableOpacity>
+          </View>
+        ) : task.status === 'FAILED' ? (
+          <View style={styles.failedInfoBox}>
+            <RotateCcw size={14} color="#b91c1c" style={{ marginRight: 6 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.failedInfoTitle}>
+                Sự cố: {task.failureReason || task.notes || 'Khách không nhận / Hẹn lại'}
+              </Text>
+              <Text style={styles.failedInfoSub}>
+                Kiện hàng giữ trong xe lạnh • Mang về nộp lại kho Hub
+              </Text>
+            </View>
           </View>
         ) : (
           <View style={styles.deliveredInfoBox}>
@@ -563,5 +578,25 @@ const styles = StyleSheet.create({
     color: '#166534',
     fontWeight: '600',
     fontSize: 11.5,
+  },
+  failedInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    backgroundColor: '#fef2f2',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  failedInfoTitle: {
+    color: '#991b1b',
+    fontWeight: '700',
+    fontSize: 11.5,
+  },
+  failedInfoSub: {
+    color: '#b91c1c',
+    fontSize: 10.5,
+    marginTop: 2,
   },
 });

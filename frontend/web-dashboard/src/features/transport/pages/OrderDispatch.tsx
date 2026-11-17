@@ -42,6 +42,7 @@ import { OutboundReceiptModal } from '@/features/outbound';
 const ORDER_API = `${getApiHost(3004)}/orders`;
 const OUTBOUND_API = getApiHost(3007);
 const WAREHOUSE_API = getApiHost(3005);
+const INBOUND_API = getApiHost(3006);
 
 export { DEFAULT_VERIFIED_POD_PHOTO, resolvePodUrl } from '@/shared/utils/podUtils';
 import { DEFAULT_VERIFIED_POD_PHOTO, resolvePodUrl } from '@/shared/utils/podUtils';
@@ -111,6 +112,19 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
   FAILED_DELIVERY:     { label: 'Giao thất bại', color: '#be123c', bg: '#ffe4e6', border: '#fecdd3', icon: <AlertTriangle size={12} /> },
   RETURN_TO_WAREHOUSE: { label: 'Đang hoàn về kho', color: '#c2410c', bg: '#ffedd5', border: '#fed7aa', icon: <RotateCcw size={12} /> },
   CANCELLED:           { label: 'Đã hủy đơn', color: '#64748b', bg: '#f1f5f9', border: '#cbd5e1', icon: <X size={12} /> },
+};
+
+const getOrderStatusConfig = (status: string, assignedDriverName?: string) => {
+  if ((status === 'READY_FOR_DELIVERY' || status === 'CONFIRMED') && assignedDriverName) {
+    return {
+      label: 'Chờ xuất bến (Đã gán xe)',
+      color: '#075985',
+      bg: '#f0f9ff',
+      border: '#bae6fd',
+      icon: <Truck size={12} />,
+    };
+  }
+  return STATUS_CONFIG[status] || STATUS_CONFIG.PENDING;
 };
 
 export default function OrderDispatch() {
@@ -287,7 +301,7 @@ export default function OrderDispatch() {
               assignedDriverName: driverName,
               assignedDriverPhone: driverPhone,
               assignedDriverPlate: driverPlate,
-              tripNumber: (idx % 2) + 1,
+              tripNumber: 1,
               podPhotoUrl: o.podPhotoUrl || savedPodPhotos[o.id] || savedPodPhotos[resolvedOrderCode] || (resolvedOrderCode ? savedPodPhotos[resolvedOrderCode.replace(/^ECOMM-/, '')] : undefined) || undefined,
               failureReason: o.failureReason || undefined,
               failurePhotoUrl: o.failurePhotoUrl || undefined,
@@ -706,45 +720,76 @@ export default function OrderDispatch() {
       setOrders(prev => prev.map(o => (o.id === order.id || o.orderCode === order.orderCode) ? { ...o, status: targetStatus } : o));
       setSelectedOrder(prev => (prev && (prev.id === order.id || prev.orderCode === order.orderCode)) ? { ...prev, status: targetStatus } : prev);
 
-      const cleanId = order.id.replace(/^ECOMM-/, '').replace(/^OB-/, '');
+      const isOutbound = order.orderCode?.startsWith('OB-') ||
+                         order.orderCode?.startsWith('RTV-') ||
+                         order.orderCode?.startsWith('DISP-') ||
+                         !order.isEcommerce;
 
-      // 1. Cập nhật status order-service sang targetStatus (WAITING_TRANSFER hoặc PROCESSING)
-      await fetch(`${ORDER_API}/sync-status/${order.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: targetStatus }),
-      }).catch(() => {});
+      if (isOutbound) {
+        // Đơn hàng xuất kho (RTV, Tiêu hủy QC, Điều chuyển/Xuất nội bộ) vốn đã tồn tại trong outbound-service (:3007)
+        // Duyệt đơn xuất kho để chuyển trạng thái sang PICKING / WAITING_TRANSFER
+        const cleanId = order.id.replace(/^ECOMM-/, '').replace(/^OB-/, '');
+        const targetId = order.id.startsWith('ECOMM-') ? cleanId : order.id;
 
-      if (cleanId && cleanId !== order.id) {
-        await fetch(`${ORDER_API}/sync-status/${cleanId}`, {
+        const approveRes = await fetch(`${OUTBOUND_API}/outbound-orders/${targetId}/approve`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+        }).catch(() => null);
+
+        if (!approveRes || !approveRes.ok) {
+          await fetch(`${OUTBOUND_API}/outbound-orders/${targetId}/approve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          }).catch(async () => {
+            await fetch(`${OUTBOUND_API}/outbound-orders/${targetId}/status`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: isTransferOrder ? 'WAITING_TRANSFER' : 'PICKING' }),
+            }).catch(() => {});
+          });
+        }
+      } else {
+        // Đơn hàng thương mại điện tử từ order-service (:3004)
+        const cleanId = order.id.replace(/^ECOMM-/, '').replace(/^OB-/, '');
+
+        // 1. Cập nhật status order-service sang targetStatus (WAITING_TRANSFER hoặc PROCESSING)
+        await fetch(`${ORDER_API}/sync-status/${order.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: targetStatus }),
         }).catch(() => {});
-      }
 
-      // 2. Đồng bộ lệnh xuất kho sang outbound-service (:3007) để quản lý kho tiếp nhận & giao việc
-      const whCode = order.warehouseCode || 'WH-006';
-      const resolvedObCode = order.orderCode.startsWith('ECOMM-') ? order.orderCode : `ECOMM-${order.orderCode}`;
-      await fetch(`${OUTBOUND_API}/outbound-orders`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderCode: resolvedObCode,
-          warehouseCode: whCode,
-          warehouseId: whCode,
-          requestedBy: user?.id || 'mgr-govap',
-          requesterName: order.customerName,
-          destination: order.customerAddress,
-          status: targetStatus,
-          notes: (order.note || order.notes || '') + (isTransferOrder ? ' [CHỜ HÀNG ĐIỀU CHUYỂN]' : ''),
-          items: order.items.map(i => ({
-            sku: i.sku,
-            productName: i.productName,
-            requestedQuantity: i.requestedQuantity || i.quantity || 1,
-          })),
-        })
-      }).catch(() => {});
+        if (cleanId && cleanId !== order.id) {
+          await fetch(`${ORDER_API}/sync-status/${cleanId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: targetStatus }),
+          }).catch(() => {});
+        }
+
+        // 2. Đồng bộ lệnh xuất kho sang outbound-service (:3007) để quản lý kho tiếp nhận & giao việc
+        const whCode = order.warehouseCode || 'WH-006';
+        const resolvedObCode = order.orderCode.startsWith('ECOMM-') ? order.orderCode : `ECOMM-${order.orderCode}`;
+        await fetch(`${OUTBOUND_API}/outbound-orders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderCode: resolvedObCode,
+            warehouseCode: whCode,
+            warehouseId: whCode,
+            requestedBy: user?.id || 'mgr-govap',
+            requesterName: order.customerName,
+            destination: order.customerAddress,
+            status: targetStatus,
+            notes: (order.note || order.notes || '') + (isTransferOrder ? ' [CHỜ HÀNG ĐIỀU CHUYỂN]' : ''),
+            items: order.items.map(i => ({
+              sku: i.sku,
+              productName: i.productName,
+              requestedQuantity: i.requestedQuantity || i.quantity || 1,
+            })),
+          })
+        }).catch(() => {});
+      }
 
       // 3. Phóng WebSocket broadcast sang Order Gateway (:3004) để cập nhật tức thì
       await fetch(`${ORDER_API}/broadcast`, {
@@ -755,7 +800,7 @@ export default function OrderDispatch() {
           payload: {
             id: order.id,
             orderCode: order.orderCode,
-            status: targetStatus,
+            status: isTransferOrder ? 'WAITING_TRANSFER' : (isOutbound ? 'PICKING' : targetStatus),
           },
         }),
       }).catch(() => {});
@@ -763,7 +808,7 @@ export default function OrderDispatch() {
       if (isTransferOrder) {
         showToast(`Đã tiếp nhận đơn #${order.orderCode}. Đơn ở trạng thái 'Chờ nhập điều chuyển' do cần đợi xe trung chuyển giao hàng về kho Gò Vấp.`, 'success');
       } else {
-        showToast(`Đã tiếp nhận đơn #${order.orderCode}. Đơn đã chuyển sang Quản lý Xuất Kho để tiếp nhận & giao kho.`, 'success');
+        showToast(`Đã tiếp nhận đơn #${order.orderCode}. Đơn đã chuyển sang trạng thái Đang Soạn Hàng.`, 'success');
       }
       await fetchAllData(false);
     } catch (e) {
@@ -1277,6 +1322,20 @@ export default function OrderDispatch() {
             }),
           }).catch(() => {});
 
+          if (!isOutbound && ord.orderCode) {
+            await fetch(`${OUTBOUND_API}/outbound-orders/${ord.orderCode}/assign-driver`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                driverId: assignedDrv.id,
+                driverName: assignedDrv.name,
+                driverPhone: assignedDrv.phone,
+                driverPlate: assignedDrv.plate,
+                status: newStatus,
+              }),
+            }).catch(() => {});
+          }
+
           await fetch(`${ORDER_API}/sync-status/${ord.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -1369,6 +1428,20 @@ export default function OrderDispatch() {
       }),
     }).catch(() => {});
 
+    if (!isOutbound && manualDriverModalOrder.orderCode) {
+      await fetch(`${OUTBOUND_API}/outbound-orders/${manualDriverModalOrder.orderCode}/assign-driver`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          driverId: selectedDriverForAssign.id,
+          driverName: selectedDriverForAssign.name,
+          driverPhone: selectedDriverForAssign.phone,
+          driverPlate: selectedDriverForAssign.plate,
+          status: 'READY_FOR_DELIVERY',
+        }),
+      }).catch(() => {});
+    }
+
     // Broadcast websocket event to Order Gateway (:3004) so Driver App updates immediately
     await fetch(`${ORDER_API}/broadcast`, {
       method: 'POST',
@@ -1395,25 +1468,77 @@ export default function OrderDispatch() {
 
   // 4. Reverse Logistics Actions: Restock / Redispatch
   const handleRestockOrder = async (orderId: string) => {
-    await fetch(`${ORDER_API}/sync-status/${orderId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'CANCELLED', note: 'Hàng đã hoàn nhập kho lạnh' }),
-    }).catch(() => {});
+    try {
+      const cleanId = orderId.replace(/^ECOMM-/, '').replace(/^OB-/, '');
+      const order = reverseLogisticsModalOrder || allOrders.find(o => o.id === orderId);
 
-    showToast('Đã xác nhận nhập lại hàng vào kho lạnh Gò Vấp.', 'success');
+      // 1. Tự động tạo phiếu nhập hồi hàng hoàn trong inbound-service (:3006)
+      if (order) {
+        const orderCode = order.orderCode || `OB-${cleanId}`;
+        const returnOrderCode = `RET-${orderCode.replace(/^RET-/, '')}`;
+        await fetch(`${INBOUND_API}/inbound-orders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderCode: returnOrderCode,
+            supplierId: 'CUSTOMER_RETURN',
+            supplierName: `Khách hàng trả lại (${order.customerName || (order as any).requesterName || 'Khách hàng'})`,
+            invoiceNumber: orderCode,
+            delivererName: order.assignedDriverName || 'Tài xế giao hàng',
+            warehouseCode: order.warehouseCode || activeWh || 'WH-006',
+            status: 'PENDING',
+            packingNote: `[HÀNG HOÀN] Lý do: ${order.failureReason || 'Khách không nhận - Chờ nhập lại kho lạnh'}`,
+            destinationStation: 'STORAGE_SHELF',
+            items: order.items?.map(it => ({
+              sku: it.sku,
+              productName: it.productName || it.sku,
+              expectedQuantity: Number(it.quantity) || Number((it as any).requestedQuantity) || 1,
+              unit: 'Cái',
+              unitPrice: 0,
+            })) || []
+          })
+        }).catch(err => console.warn('Could not auto-create inbound return order:', err));
+      }
+
+      await Promise.all([
+        fetch(`${ORDER_API}/sync-status/${cleanId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'CANCELLED', cancelledBy: 'STAFF', note: 'Hàng đã hoàn nhập kho lạnh (Restock)' }),
+        }).catch(() => {}),
+        fetch(`${OUTBOUND_API}/outbound-orders/${cleanId}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'CANCELLED', notes: 'Hàng đã hoàn nhập kho lạnh (Restock)' }),
+        }).catch(() => {}),
+      ]);
+      showToast('Đã xác nhận nhập lại hàng & Tạo phiếu nhập kho hoàn (RET-...) thành công.', 'success');
+    } catch (err) {
+      showToast('Không thể cập nhật trạng thái đơn hoàn!', 'error');
+    }
     setReverseLogisticsModalOrder(null);
     fetchAllData();
   };
 
   const handleRedispatchOrder = async (orderId: string) => {
-    await fetch(`${ORDER_API}/sync-status/${orderId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'READY_FOR_DELIVERY', note: 'Đã xếp vào hàng đợi giao lại lần 2' }),
-    }).catch(() => {});
-
-    showToast('Đã đưa đơn hàng vào hàng đợi chuyến tiếp theo.', 'success');
+    try {
+      const cleanId = orderId.replace(/^ECOMM-/, '').replace(/^OB-/, '');
+      await Promise.all([
+        fetch(`${ORDER_API}/sync-status/${cleanId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'READY_FOR_DELIVERY', note: 'Đã xếp vào hàng đợi giao lại lần 2' }),
+        }).catch(() => {}),
+        fetch(`${OUTBOUND_API}/outbound-orders/${cleanId}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'READY_FOR_DELIVERY', notes: 'Đã xếp vào hàng đợi giao lại lần 2' }),
+        }).catch(() => {}),
+      ]);
+      showToast('Đã đưa đơn hàng vào hàng đợi chuyến tiếp theo.', 'success');
+    } catch (err) {
+      showToast('Không thể xếp lại chuyến đơn hàng!', 'error');
+    }
     setReverseLogisticsModalOrder(null);
     fetchAllData();
   };
@@ -1430,12 +1555,48 @@ export default function OrderDispatch() {
     });
   }, [orders, activeWh]);
 
+  // Pipeline Criteria Definitions (100% Mutually Exclusive)
+  const isStepException = (o: UnifiedOrder) =>
+    o.status === 'FAILED_DELIVERY' ||
+    o.status === 'RETURN_TO_WAREHOUSE' ||
+    o.status === 'CANCELLED' ||
+    Boolean(o.failureReason);
+
+  const isStep1 = (o: UnifiedOrder) =>
+    !isStepException(o) && (
+      o.status === 'PENDING' ||
+      o.status === 'WAITING_TRANSFER' ||
+      o.status === 'PROCESSING' ||
+      o.status === 'PICKING'
+    );
+
+  const isStep2 = (o: UnifiedOrder) =>
+    !isStepException(o) && (
+      o.status === 'PACKING' ||
+      o.status === 'PICKED' ||
+      o.status === 'PACKED'
+    );
+
+  const isStep3 = (o: UnifiedOrder) =>
+    !isStepException(o) && (
+      o.status === 'READY_FOR_DELIVERY' ||
+      o.status === 'CONFIRMED' ||
+      o.status === 'DELIVERING' ||
+      o.status === 'SHIPPED'
+    );
+
+  const isStep4 = (o: UnifiedOrder) =>
+    !isStepException(o) && (
+      o.status === 'COMPLETED' ||
+      o.status === 'DELIVERED'
+    );
+
   // Pipeline Counts based on scoped orders
-  const step1Count = useMemo(() => whScopedOrders.filter(o => o.status === 'PENDING' || o.status === 'WAITING_TRANSFER' || o.status === 'PROCESSING' || o.status === 'PICKING' || o.status === 'PACKING' || o.status === 'PICKED').length, [whScopedOrders]);
-  const step2Count = useMemo(() => whScopedOrders.filter(o => o.status === 'PACKED' || o.status === 'READY_FOR_DELIVERY' || o.status === 'CONFIRMED').length, [whScopedOrders]);
-  const step3Count = useMemo(() => whScopedOrders.filter(o => o.status === 'DELIVERING' || o.status === 'SHIPPED').length, [whScopedOrders]);
-  const stepExceptionCount = useMemo(() => whScopedOrders.filter(o => o.status === 'FAILED_DELIVERY' || o.status === 'RETURN_TO_WAREHOUSE').length, [whScopedOrders]);
-  const completedCount = useMemo(() => whScopedOrders.filter(o => o.status === 'COMPLETED' || o.status === 'DELIVERED').length, [whScopedOrders]);
+  const step1Count = useMemo(() => whScopedOrders.filter(isStep1).length, [whScopedOrders]);
+  const step2Count = useMemo(() => whScopedOrders.filter(isStep2).length, [whScopedOrders]);
+  const step3Count = useMemo(() => whScopedOrders.filter(isStep3).length, [whScopedOrders]);
+  const completedCount = useMemo(() => whScopedOrders.filter(isStep4).length, [whScopedOrders]);
+  const stepExceptionCount = useMemo(() => whScopedOrders.filter(isStepException).length, [whScopedOrders]);
 
   // Filtered Orders
   const filteredOrders = useMemo(() => {
@@ -1452,26 +1613,22 @@ export default function OrderDispatch() {
       if (classificationFilter !== 'ALL') {
         const cls = detectSlipClassification(o as any);
         if (cls !== classificationFilter) return false;
-        // Khi người dùng bấm lọc riêng "Trả Hàng / Hoàn", "Điều Chuyển Liên Kho", "Xuất Tiêu Hủy" -> Hiển thị tất cả đơn thuộc loại đó, không bị chặn bởi bước pipeline
-        if (classificationFilter === 'RETURN' || classificationFilter === 'TRANSFER' || classificationFilter === 'DISPOSAL') {
-          return true;
-        }
       }
 
       if (activePipelineStep === 'STEP_1_PICKING') {
-        return o.status === 'PENDING' || o.status === 'WAITING_TRANSFER' || o.status === 'PROCESSING' || o.status === 'PICKING' || o.status === 'PACKING' || o.status === 'PICKED';
+        return isStep1(o);
       }
       if (activePipelineStep === 'STEP_2_DISPATCH') {
-        return o.status === 'PACKED' || o.status === 'READY_FOR_DELIVERY' || o.status === 'CONFIRMED';
+        return isStep2(o);
       }
       if (activePipelineStep === 'STEP_3_DELIVERING') {
-        return o.status === 'DELIVERING' || o.status === 'SHIPPED';
+        return isStep3(o);
       }
       if (activePipelineStep === 'STEP_EXCEPTION') {
-        return o.status === 'FAILED_DELIVERY' || o.status === 'RETURN_TO_WAREHOUSE';
+        return isStepException(o);
       }
       if (activePipelineStep === 'STEP_COMPLETED') {
-        return o.status === 'COMPLETED' || o.status === 'DELIVERED';
+        return isStep4(o);
       }
 
       return true;
@@ -1954,7 +2111,7 @@ export default function OrderDispatch() {
               {step1Count}
             </span>
           </div>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Đơn mới chờ duyệt & soạn hàng</div>
+          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Chờ duyệt & đang lấy hàng từ kệ</div>
         </div>
 
         {/* 2. GOM CHUYẾN VRP */}
@@ -1971,13 +2128,13 @@ export default function OrderDispatch() {
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
             <span style={{ fontSize: '11px', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <PackageCheck size={14} /> 2. GOM CHUYẾN & GÁN XE
+              <PackageCheck size={14} /> 2. ĐÓNG GÓI & GOM XE
             </span>
             <span style={{ fontSize: '13px', fontWeight: 900, padding: '2px 8px', borderRadius: '999px', backgroundColor: '#fef3c7', color: '#92400e' }}>
               {step2Count}
             </span>
           </div>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Đã đóng gói, sẵn sàng gán xe</div>
+          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Đang đóng gói, sẵn sàng gán xe</div>
         </div>
 
         {/* 3. ĐANG VẬN CHUYỂN */}
@@ -1994,13 +2151,13 @@ export default function OrderDispatch() {
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
             <span style={{ fontSize: '11px', fontWeight: 800, color: '#0369a1', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Truck size={14} /> 3. ĐANG VẬN CHUYỂN
+              <Truck size={14} /> 3. CHỜ XUẤT BẾN & ĐANG GIAO
             </span>
             <span style={{ fontSize: '13px', fontWeight: 900, padding: '2px 8px', borderRadius: '999px', backgroundColor: '#e0f2fe', color: '#075985' }}>
               {step3Count}
             </span>
           </div>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Đang di chuyển tới nhà khách</div>
+          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Đã gán xe & đang di chuyển tới khách</div>
         </div>
 
         {/* 4. ĐÃ HOÀN TẤT POD */}
@@ -2040,13 +2197,13 @@ export default function OrderDispatch() {
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
             <span style={{ fontSize: '11px', fontWeight: 800, color: '#b91c1c', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <RotateCcw size={14} /> SỰ CỐ & HÀNG HOÀN
+              <RotateCcw size={14} /> 5. SỰ CỐ & HÀNG HOÀN
             </span>
             <span style={{ fontSize: '13px', fontWeight: 900, padding: '2px 8px', borderRadius: '999px', backgroundColor: stepExceptionCount > 0 ? '#ef4444' : '#f1f5f9', color: stepExceptionCount > 0 ? '#ffffff' : '#64748b' }}>
               {stepExceptionCount}
             </span>
           </div>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Cần xử lý nhập kho / giao lại</div>
+          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Đơn hủy, giao thất bại & hàng hoàn</div>
         </div>
 
       </div>
@@ -2326,7 +2483,7 @@ export default function OrderDispatch() {
                 </thead>
                 <tbody>
                   {paginatedOrders.map((order, idx) => {
-                    const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.PENDING;
+                    const cfg = getOrderStatusConfig(order.status, order.assignedDriverName);
                     return (
                       <tr
                         key={order.id}
@@ -2366,31 +2523,44 @@ export default function OrderDispatch() {
                               }}>
                                 {order.warehouseCode || 'WH-006'}
                               </span>
-                              {order.orderClassification === 'B2B' ? (
-                                <span style={{
-                                  fontSize: '10px',
-                                  backgroundColor: '#eff6ff',
-                                  color: '#1d4ed8',
-                                  padding: '1px 5px',
-                                  borderRadius: '4px',
-                                  border: '1px solid #bfdbfe',
-                                  fontWeight: 600,
-                                }}>
-                                  B2B
-                                </span>
-                              ) : (
-                                <span style={{
-                                  fontSize: '10px',
-                                  backgroundColor: '#f8fafc',
-                                  color: '#64748b',
-                                  padding: '1px 5px',
-                                  borderRadius: '4px',
-                                  border: '1px solid #e2e8f0',
-                                  fontWeight: 500,
-                                }}>
-                                  Bán lẻ
-                                </span>
-                              )}
+                              {(() => {
+                                if (order.orderClassification === 'B2B') {
+                                  return (
+                                    <span style={{
+                                      fontSize: '10px',
+                                      backgroundColor: '#eff6ff',
+                                      color: '#1d4ed8',
+                                      padding: '1px 5px',
+                                      borderRadius: '4px',
+                                      border: '1px solid #bfdbfe',
+                                      fontWeight: 600,
+                                    }}>
+                                      B2B
+                                    </span>
+                                  );
+                                }
+                                const cls = detectSlipClassification(order as any);
+                                const badgeConfig = {
+                                  DISPOSAL: { text: 'Tiêu hủy', bg: '#faf5ff', color: '#7c3aed', border: '#e9d5ff' },
+                                  RETURN: { text: 'Trả NCC', bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
+                                  TRANSFER: { text: 'Điều chuyển', bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
+                                  SALE: { text: 'Bán lẻ', bg: '#f8fafc', color: '#475569', border: '#e2e8f0' },
+                                }[cls] || { text: 'Bán lẻ', bg: '#f8fafc', color: '#475569', border: '#e2e8f0' };
+
+                                return (
+                                  <span style={{
+                                    fontSize: '10px',
+                                    backgroundColor: badgeConfig.bg,
+                                    color: badgeConfig.color,
+                                    padding: '1px 5px',
+                                    borderRadius: '4px',
+                                    border: `1px solid ${badgeConfig.border}`,
+                                    fontWeight: 600,
+                                  }}>
+                                    {badgeConfig.text}
+                                  </span>
+                                );
+                              })()}
                             </div>
                           </div>
                         </td>
@@ -2586,7 +2756,7 @@ export default function OrderDispatch() {
                                       setSelectedDriverForAssign(getInitialDriverForOrder(order));
                                     }}
                                     style={{
-                                      backgroundColor: '#d97706',
+                                      backgroundColor: order.assignedDriverName ? '#475569' : '#d97706',
                                       color: '#ffffff',
                                       padding: '5px 10px',
                                       borderRadius: '6px',
@@ -2598,10 +2768,10 @@ export default function OrderDispatch() {
                                       alignItems: 'center',
                                       gap: '4px',
                                     }}
-                                    title="Gán tài xế thủ công hoặc dùng nút Tự Động Phân Tuyến"
+                                    title={order.assignedDriverName ? `Đổi tài xế (Hiện tại: ${order.assignedDriverName})` : 'Gán tài xế thủ công hoặc dùng nút Tự Động Phân Tuyến'}
                                   >
                                     <Truck size={12} color="#ffffff" />
-                                    <span>Gán Xe</span>
+                                    <span>{order.assignedDriverName ? 'Đổi Tài Xế' : 'Gán Xe'}</span>
                                   </button>
                                 )}
 
@@ -2741,7 +2911,7 @@ export default function OrderDispatch() {
             /* ── DẠNG LƯỚI THẺ CARD ── */
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px', marginBottom: '20px' }}>
               {paginatedOrders.map(order => {
-                const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.PENDING;
+                const cfg = getOrderStatusConfig(order.status, order.assignedDriverName);
                 return (
                   <div
                     key={order.id}
@@ -2972,7 +3142,7 @@ export default function OrderDispatch() {
                                   setSelectedDriverForAssign(getInitialDriverForOrder(order));
                                 }}
                                 style={{
-                                  backgroundColor: '#d97706',
+                                  backgroundColor: order.assignedDriverName ? '#475569' : '#d97706',
                                   color: '#ffffff',
                                   padding: '6px 12px',
                                   borderRadius: '6px',
@@ -2984,10 +3154,10 @@ export default function OrderDispatch() {
                                   alignItems: 'center',
                                   gap: '4px',
                                 }}
-                                title="Gán tài xế thủ công hoặc dùng nút Tự Động Phân Tuyến"
+                                title={order.assignedDriverName ? `Đổi tài xế (Hiện tại: ${order.assignedDriverName})` : 'Gán tài xế thủ công hoặc dùng nút Tự Động Phân Tuyến'}
                               >
                                 <Truck size={12} color="#ffffff" />
-                                <span>Gán Xe</span>
+                                <span>{order.assignedDriverName ? 'Đổi Tài Xế' : 'Gán Xe'}</span>
                               </button>
                             )}
 
@@ -3358,22 +3528,31 @@ export default function OrderDispatch() {
               </div>
 
               {/* Status Banner */}
-              <div style={{ padding: '12px 14px', borderRadius: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 700 }}>Trạng thái đơn:</span>
-                <span
-                  style={{
-                    padding: '3px 10px',
-                    borderRadius: '999px',
-                    fontSize: '11px',
-                    fontWeight: 800,
-                    color: STATUS_CONFIG[selectedOrder.status]?.color || '#333',
-                    backgroundColor: STATUS_CONFIG[selectedOrder.status]?.bg || '#eee',
-                    border: `1px solid ${STATUS_CONFIG[selectedOrder.status]?.border || '#ccc'}`,
-                  }}
-                >
-                  {STATUS_CONFIG[selectedOrder.status]?.label || selectedOrder.status}
-                </span>
-              </div>
+              {(() => {
+                const detailCfg = getOrderStatusConfig(selectedOrder.status, selectedOrder.assignedDriverName);
+                return (
+                  <div style={{ padding: '12px 14px', borderRadius: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 700 }}>Trạng thái đơn:</span>
+                    <span
+                      style={{
+                        padding: '3px 10px',
+                        borderRadius: '999px',
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        color: detailCfg.color,
+                        backgroundColor: detailCfg.bg,
+                        border: `1px solid ${detailCfg.border}`,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      {detailCfg.icon}
+                      <span>{detailCfg.label}</span>
+                    </span>
+                  </div>
+                );
+              })()}
 
               {selectedOrder.status === 'WAITING_TRANSFER' && (
                 <div style={{
@@ -3698,7 +3877,7 @@ export default function OrderDispatch() {
                       style={{
                         flex: 1,
                         padding: '10px 14px',
-                        backgroundColor: '#d97706',
+                        backgroundColor: selectedOrder.assignedDriverName ? '#475569' : '#d97706',
                         color: '#ffffff',
                         borderRadius: '8px',
                         fontSize: '12px',
@@ -3710,9 +3889,10 @@ export default function OrderDispatch() {
                         justifyContent: 'center',
                         gap: '6px',
                       }}
+                      title={selectedOrder.assignedDriverName ? `Đổi tài xế (Hiện tại: ${selectedOrder.assignedDriverName})` : 'Gán tài xế cho đơn hàng'}
                     >
                       <Truck size={14} />
-                      <span>Gán Xe</span>
+                      <span>{selectedOrder.assignedDriverName ? 'Đổi Tài Xế' : 'Gán Xe'}</span>
                     </button>
                   )}
 
@@ -3921,7 +4101,7 @@ export default function OrderDispatch() {
               cursor: 'default',
               backgroundColor: '#ffffff',
               border: '1px solid #fecaca',
-              borderRadius: '20px',
+              borderRadius: '14px',
               maxWidth: '440px',
               width: '100%',
               padding: '24px',
@@ -3929,7 +4109,7 @@ export default function OrderDispatch() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '14px', borderBottom: '1px solid #fef2f2', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 900, color: '#b91c1c', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#b91c1c', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                 <AlertTriangle size={18} color="#dc2626" />
                 Xử Lý Hàng Hoàn #{reverseLogisticsModalOrder.orderCode}
               </h3>
@@ -3938,20 +4118,54 @@ export default function OrderDispatch() {
               </button>
             </div>
 
-            <div style={{ padding: '12px', borderRadius: '12px', backgroundColor: '#fef2f2', border: '1px solid #fee2e2', fontSize: '12px', marginBottom: '16px' }}>
-              <div style={{ fontWeight: 800, color: '#991b1b', marginBottom: '4px' }}>Lý do giao không thành công:</div>
+            <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: '#fef2f2', border: '1px solid #fee2e2', fontSize: '12px', marginBottom: '16px' }}>
+              <div style={{ fontWeight: 600, color: '#991b1b', marginBottom: '4px' }}>Lý do giao không thành công:</div>
               <div style={{ color: '#7f1d1d' }}>{reverseLogisticsModalOrder.failureReason || 'Khách hàng không nghe máy (Đã gọi 3 lần)'}</div>
             </div>
 
             {/* Photo Proof */}
             <div style={{ marginBottom: '20px' }}>
-              <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 700, marginBottom: '6px' }}>Ảnh bằng chứng sự cố:</div>
-              <div style={{ height: '160px', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#f1f5f9', border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600, marginBottom: '6px' }}>Ảnh bằng chứng sự cố:</div>
+              <div
+                onClick={() => setPodPreviewModalOrder(reverseLogisticsModalOrder)}
+                style={{
+                  height: '160px',
+                  borderRadius: '8px',
+                  overflow: 'hidden',
+                  backgroundColor: '#f1f5f9',
+                  border: '1px solid #e2e8f0',
+                  cursor: 'pointer',
+                  position: 'relative',
+                }}
+                title="Bấm để xem ảnh kích thước lớn"
+              >
                 <img
-                  src="https://images.unsplash.com/photo-1558611848-73f7eb4001a1?w=500&q=80"
+                  src={resolvePodUrl(reverseLogisticsModalOrder.failurePhotoUrl || reverseLogisticsModalOrder.podPhotoUrl)}
                   alt="Ảnh sự cố"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    if (!target.src.includes('unsplash.com')) {
+                      target.src = DEFAULT_VERIFIED_POD_PHOTO;
+                    }
+                  }}
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
+                <div style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  insetInline: 0,
+                  backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                  padding: '4px 8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  color: '#ffffff',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                }}>
+                  <Eye size={13} /> Bấm để xem ảnh kích thước lớn
+                </div>
               </div>
             </div>
 
@@ -3961,16 +4175,20 @@ export default function OrderDispatch() {
                 style={{
                   width: '100%',
                   padding: '10px 14px',
-                  backgroundColor: '#2563eb',
+                  backgroundColor: '#0f766e',
                   color: '#ffffff',
                   borderRadius: '8px',
                   fontSize: '12px',
                   fontWeight: 600,
                   border: 'none',
                   cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
                 }}
               >
-                Nhập Lại Tồn Kho Lạnh (Restock)
+                Nhập Lại Tồn Kho Lạnh & Lập Phiếu Hàng Hoàn (Restock)
               </button>
               <button
                 onClick={() => handleRedispatchOrder(reverseLogisticsModalOrder.id)}

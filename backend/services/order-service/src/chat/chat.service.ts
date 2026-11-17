@@ -1,6 +1,9 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Response } from 'express';
+import * as fs from 'fs';
+import * as path from 'path';
 import { ChatSession, ChatSessionStatus } from './entities/chat-session.entity';
 import { ChatMessage, ChatSenderType } from './entities/chat-message.entity';
 import { Order } from '../order/entities/order.entity';
@@ -27,6 +30,44 @@ export class ChatService {
    */
   async uploadMedia(base64Data: string, filename?: string, mimeType?: string) {
     return this.s3StorageService.uploadChatMedia(base64Data, filename, mimeType);
+  }
+
+  /**
+   * Stream / Proxy hình ảnh hoặc video tin nhắn chat an toàn cho Client
+   */
+  async streamChatMedia(key: string, res: Response) {
+    const cleanKey = decodeURIComponent(key || '').replace(/^(\/|\\)+/, '');
+    const localCandidates = [
+      path.join(process.cwd(), 'uploads', cleanKey),
+      path.join(process.cwd(), 'uploads', 'chat-media', 'images', path.basename(cleanKey)),
+      path.join(process.cwd(), 'uploads', 'chat-media', 'videos', path.basename(cleanKey)),
+    ];
+
+    const isVideo = cleanKey.match(/\.(mp4|webm|mov|avi)(\?|$)/i);
+    const contentType = isVideo ? 'video/mp4' : 'image/jpeg';
+
+    for (const p of localCandidates) {
+      if (fs.existsSync(p)) {
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return fs.createReadStream(p).pipe(res);
+      }
+    }
+
+    if (this.s3StorageService.hasS3Client()) {
+      try {
+        const stream = await this.s3StorageService.getObjectStream(cleanKey);
+        if (stream) {
+          res.setHeader('Content-Type', contentType);
+          res.setHeader('Cache-Control', 'public, max-age=86400');
+          return (stream as any).pipe(res);
+        }
+      } catch (err: any) {
+        this.logger.warn(`Lỗi stream chat media từ S3: ${err.message}`);
+      }
+    }
+
+    return res.status(404).json({ error: 'Media file not found' });
   }
 
   /**
@@ -441,10 +482,11 @@ export class ChatService {
       .leftJoinAndSelect('session.messages', 'messages')
       .orderBy('session.lastMessageAt', 'DESC');
 
-    // Mặc định hiển thị các phiên khách cần Saler (WAITING_FOR_STAFF, STAFF_CONNECTED)
-    // HOẶC các phiên mà Saler đã từng tiếp nhận và chuyển lại cho AI (để Saler vẫn theo dõi được)
+    // Nếu lọc theo status cụ thể
     if (statusFilter && statusFilter !== 'ALL') {
       qb.where('session.status = :status', { status: statusFilter });
+    } else if (statusFilter === 'ALL') {
+      // Cho phép Controller xem toàn bộ phiên (bao gồm cả phiên AI đang tự động phục vụ để tiếp nhận bất kỳ lúc nào)
     } else {
       qb.where('(session.status IN (:...statuses) OR session.assignedStaffId IS NOT NULL)', {
         statuses: ['WAITING_FOR_STAFF', 'STAFF_CONNECTED'],

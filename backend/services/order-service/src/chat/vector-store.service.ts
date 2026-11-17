@@ -19,7 +19,7 @@ export interface SearchResult {
 export class VectorStoreService implements OnModuleInit {
   private readonly logger = new Logger(VectorStoreService.name);
   private readonly apiKey: string;
-  private readonly embeddingModel = 'gemini-embedding-001';
+  private readonly embeddingModel = 'text-embedding-004';
 
   // Kho lưu trữ tri thức vector dạng In-Memory Vector DB
   private documents: Map<string, VectorDocument> = new Map();

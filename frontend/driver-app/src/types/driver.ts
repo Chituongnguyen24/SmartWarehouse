@@ -39,6 +39,8 @@ export interface DeliveryTask {
   notes?: string;
   deliveredAt?: string;
   proofImageUri?: string;
+  failureReason?: string;
+  failurePhotoUrl?: string;
   isOutbound?: boolean;
   isDisposal?: boolean;
 }

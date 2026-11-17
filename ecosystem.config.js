@@ -1,3 +1,29 @@
+const path = require('path');
+const dotenv = require('dotenv');
+
+// Nạp cấu hình biến môi trường bảo mật từ file .env
+dotenv.config({ path: path.resolve(__dirname, '.env') });
+
+const commonEnv = {
+  NODE_ENV: process.env.NODE_ENV || 'production',
+  DB_HOST: process.env.DB_HOST || '127.0.0.1',
+  DB_PORT: process.env.DB_PORT || 5432,
+  DB_USER: process.env.DB_USER || 'postgres',
+  DB_PASSWORD: process.env.DB_PASSWORD || 'postgres',
+  JWT_SECRET: process.env.JWT_SECRET || 'ee20b6d5a12b988c1be1ee0d5b7931dd513080f001986f20eeab2df633a8ca5f',
+  REDIS_HOST: process.env.REDIS_HOST || '127.0.0.1',
+  REDIS_PORT: process.env.REDIS_PORT || 6379,
+  RABBITMQ_HOST: process.env.RABBITMQ_HOST || '127.0.0.1',
+  RABBITMQ_PORT: process.env.RABBITMQ_PORT || 5672,
+  RABBITMQ_USER: process.env.RABBITMQ_USER || 'guest',
+  RABBITMQ_PASS: process.env.RABBITMQ_PASS || 'guest',
+  ESMS_API_KEY: process.env.ESMS_API_KEY || '',
+  ESMS_SECRET_KEY: process.env.ESMS_SECRET_KEY || '',
+  ESMS_SMS_TYPE: process.env.ESMS_SMS_TYPE || '2',
+  ESMS_BRANDNAME: process.env.ESMS_BRANDNAME || 'Baotrixemay',
+  ESMS_LIVE_SEND: process.env.ESMS_LIVE_SEND || 'false',
+};
+
 module.exports = {
   apps: [
     // 1. User & Authentication Service (Cổng 3012)
@@ -10,12 +36,8 @@ module.exports = {
       watch: false,
       max_memory_restart: '300M',
       env: {
-        NODE_ENV: 'production',
+        ...commonEnv,
         PORT: 3012,
-        DB_HOST: process.env.DB_HOST || '127.0.0.1',
-        DB_PORT: process.env.DB_PORT || 5432,
-        DB_USER: process.env.DB_USER || 'postgres',
-        DB_PASSWORD: process.env.DB_PASSWORD || 'postgres',
         DB_NAME: 'sfwms_auth',
       },
     },
@@ -30,12 +52,8 @@ module.exports = {
       watch: false,
       max_memory_restart: '300M',
       env: {
-        NODE_ENV: 'production',
+        ...commonEnv,
         PORT: 3010,
-        DB_HOST: process.env.DB_HOST || '127.0.0.1',
-        DB_PORT: process.env.DB_PORT || 5432,
-        DB_USER: process.env.DB_USER || 'postgres',
-        DB_PASSWORD: process.env.DB_PASSWORD || 'postgres',
         DB_NAME: 'sfwms_product',
       },
     },
@@ -50,12 +68,8 @@ module.exports = {
       watch: false,
       max_memory_restart: '300M',
       env: {
-        NODE_ENV: 'production',
+        ...commonEnv,
         PORT: 3011,
-        DB_HOST: process.env.DB_HOST || '127.0.0.1',
-        DB_PORT: process.env.DB_PORT || 5432,
-        DB_USER: process.env.DB_USER || 'postgres',
-        DB_PASSWORD: process.env.DB_PASSWORD || 'postgres',
         DB_NAME: 'sfwms_inventory',
       },
     },
@@ -70,12 +84,8 @@ module.exports = {
       watch: false,
       max_memory_restart: '350M',
       env: {
-        NODE_ENV: 'production',
+        ...commonEnv,
         PORT: 3004,
-        DB_HOST: process.env.DB_HOST || '127.0.0.1',
-        DB_PORT: process.env.DB_PORT || 5432,
-        DB_USER: process.env.DB_USER || 'postgres',
-        DB_PASSWORD: process.env.DB_PASSWORD || 'postgres',
         DB_NAME: 'sfwms_order',
       },
     },
@@ -90,12 +100,8 @@ module.exports = {
       watch: false,
       max_memory_restart: '250M',
       env: {
-        NODE_ENV: 'production',
+        ...commonEnv,
         PORT: 3005,
-        DB_HOST: process.env.DB_HOST || '127.0.0.1',
-        DB_PORT: process.env.DB_PORT || 5432,
-        DB_USER: process.env.DB_USER || 'postgres',
-        DB_PASSWORD: process.env.DB_PASSWORD || 'postgres',
         DB_NAME: 'sfwms_warehouse',
       },
     },
@@ -110,12 +116,8 @@ module.exports = {
       watch: false,
       max_memory_restart: '300M',
       env: {
-        NODE_ENV: 'production',
+        ...commonEnv,
         PORT: 3007,
-        DB_HOST: process.env.DB_HOST || '127.0.0.1',
-        DB_PORT: process.env.DB_PORT || 5432,
-        DB_USER: process.env.DB_USER || 'postgres',
-        DB_PASSWORD: process.env.DB_PASSWORD || 'postgres',
         DB_NAME: 'sfwms_outbound',
       },
     },
@@ -130,12 +132,8 @@ module.exports = {
       watch: false,
       max_memory_restart: '250M',
       env: {
-        NODE_ENV: 'production',
+        ...commonEnv,
         PORT: 3006,
-        DB_HOST: process.env.DB_HOST || '127.0.0.1',
-        DB_PORT: process.env.DB_PORT || 5432,
-        DB_USER: process.env.DB_USER || 'postgres',
-        DB_PASSWORD: process.env.DB_PASSWORD || 'postgres',
         DB_NAME: 'sfwms_inbound',
       },
     },
@@ -150,12 +148,8 @@ module.exports = {
       watch: false,
       max_memory_restart: '250M',
       env: {
-        NODE_ENV: 'production',
+        ...commonEnv,
         PORT: 3008,
-        DB_HOST: process.env.DB_HOST || '127.0.0.1',
-        DB_PORT: process.env.DB_PORT || 5432,
-        DB_USER: process.env.DB_USER || 'postgres',
-        DB_PASSWORD: process.env.DB_PASSWORD || 'postgres',
         DB_NAME: 'sfwms_report',
       },
     },
@@ -170,12 +164,8 @@ module.exports = {
       watch: false,
       max_memory_restart: '250M',
       env: {
-        NODE_ENV: 'production',
+        ...commonEnv,
         PORT: 3013,
-        DB_HOST: process.env.DB_HOST || '127.0.0.1',
-        DB_PORT: process.env.DB_PORT || 5432,
-        DB_USER: process.env.DB_USER || 'postgres',
-        DB_PASSWORD: process.env.DB_PASSWORD || 'postgres',
         DB_NAME: 'sfwms_transport',
       },
     },
@@ -196,4 +186,3 @@ module.exports = {
     },
   ],
 };
-

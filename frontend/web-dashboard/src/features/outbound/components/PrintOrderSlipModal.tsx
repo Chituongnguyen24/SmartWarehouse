@@ -63,7 +63,7 @@ export function detectSlipClassification(order: PrintableOrder | null): SlipClas
   const isEcom = code.startsWith('ECOMM-') || code.startsWith('ORD-') || Boolean(order.customerPhone);
 
   if (code.startsWith('DSP-') || code.startsWith('DISP-') || code.startsWith('HUY-')) return 'DISPOSAL';
-  if (code.startsWith('RET-') || code.startsWith('RTN-') || code.startsWith('HOAN-') || code.startsWith('TRA-')) return 'RETURN';
+  if (code.startsWith('RTV-') || code.startsWith('RET-') || code.startsWith('RTN-') || code.startsWith('HOAN-') || code.startsWith('TRA-')) return 'RETURN';
   if (code.startsWith('TRF-') || code.startsWith('TRANS-') || code.startsWith('TRANSFER-') || code.startsWith('DIEUCHUYEN-')) {
     return 'TRANSFER';
   }

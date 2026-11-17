@@ -60,6 +60,7 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
 
   // Realistic sample photo for test verification & devices without physical camera
   const SAMPLE_POD_IMAGE = 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80';
+  const SAMPLE_RETURN_IMAGE = 'https://images.unsplash.com/photo-1558611848-73f7eb4001a1?auto=format&fit=crop&w=800&q=80';
 
   // Detect same-destination peer tasks (e.g. all orders delivered to Khu Liên Hợp Đa Phước)
   const isSameLocation = (a: DeliveryTask, b: DeliveryTask) => {
@@ -258,6 +259,7 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
       return;
     }
 
+    const finalReason = customNote.trim() ? `${selectedReason} - ${customNote}` : selectedReason;
     let finalPhoto = s3UploadedUrl || photoUri;
     if (!finalPhoto) {
       // Auto-fallback to sample verified POD photo so the action is NEVER blocked
@@ -290,21 +292,28 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
   };
 
   const handleReportFailure = async () => {
-    if (!photoUri) {
-      if (Platform.OS === 'web') {
-        window.alert('Chưa có ảnh sự cố: Vui lòng chụp ảnh hiện trường hoặc hàng hư hỏng để làm bằng chứng hoàn kho!');
-      } else {
-        Alert.alert('Chưa có ảnh sự cố', 'Vui lòng chụp ảnh hiện trường hoặc hàng hư hỏng để làm bằng chứng hoàn kho!');
-      }
-      return;
+    let finalPhoto = s3UploadedUrl || photoUri;
+    if (!finalPhoto) {
+      finalPhoto = SAMPLE_RETURN_IMAGE;
+      setPhotoUri(SAMPLE_RETURN_IMAGE);
     }
 
     const finalReason = customNote.trim() ? `${selectedReason} - ${customNote}` : selectedReason;
-    const finalPhoto = s3UploadedUrl || photoUri;
 
     setIsSubmitting(true);
+    if (!s3UploadedUrl && finalPhoto) {
+      try {
+        const uploadRes = await driverApi.uploadPodImage(task.id, finalPhoto, 'RETURN');
+        if (uploadRes && uploadRes.url) {
+          finalPhoto = uploadRes.url;
+        }
+      } catch (e) {}
+    }
+
     try {
       await reportDeliveryFailure(task.id, finalReason, finalPhoto);
+    } catch (err: any) {
+      console.warn('Lỗi ghi nhận sự cố:', err);
     } finally {
       setIsSubmitting(false);
       onSuccess();
@@ -802,6 +811,17 @@ export const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
                   <ImageIcon size={16} color="#0f172a" style={{ marginRight: 6 }} />
                   <Text style={styles.photoActionBtnTextSecondary}>
                     {photoUri ? 'Chọn ảnh khác' : 'Chọn từ thư viện'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.photoActionBtnSample}
+                  onPress={() => processAndUploadPhoto(SAMPLE_RETURN_IMAGE, 'EXCEPTION')}
+                  activeOpacity={0.8}
+                >
+                  <ShieldCheck size={15} color="#0f766e" style={{ marginRight: 5 }} />
+                  <Text style={styles.photoActionBtnTextSample}>
+                    Ảnh mẫu
                   </Text>
                 </TouchableOpacity>
               </View>

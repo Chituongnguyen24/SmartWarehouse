@@ -27,10 +27,10 @@ export class GeminiChatService {
   private readonly logger = new Logger(GeminiChatService.name);
   private readonly apiKey: string;
   private readonly models = [
-    'gemini-3.5-flash-lite',
-    'gemini-3.1-flash-lite',
-    'gemini-3.5-flash',
-    'gemini-flash-lite-latest',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-8b',
+    'gemini-1.5-pro',
   ];
   private productCache: ProductCatalogItem[] = [];
   private lastCacheTime = 0;
@@ -201,15 +201,21 @@ export class GeminiChatService {
       'khiếu nại',
       'bồi thường',
       'nói chuyện với người',
+      'gặp điều phối',
+      'điều phối viên',
+      'controller',
+      'nhân viên hỗ trợ',
+      'chăm sóc khách hàng',
+      'cskh',
     ];
     const isExplicitHandoff = explicitHandoffWords.some(w => lower.includes(w));
 
     if (isExplicitHandoff) {
       return {
-        text: 'Dạ, em đã tiếp nhận yêu cầu của Quý khách! Em đang chuyển ngay cuộc trò chuyện đến Tư vấn viên bán hàng (Saler) trực ban của C.T Mart. Quý khách vui lòng chờ trong giây lát, nhân viên sẽ phản hồi trực tiếp ngay tại đây ạ.',
+        text: 'Dạ, em đã tiếp nhận yêu cầu của Quý khách! Em đang chuyển cuộc trò chuyện đến Điều phối viên / Nhân viên hỗ trợ trực ban của C.T Mart. Quý khách vui lòng chờ trong giây lát, nhân viên sẽ trực tiếp hỗ trợ ngay tại đây ạ.',
         handoffRequested: true,
-        handoffReason: 'Khách hàng chủ động yêu cầu gặp tư vấn viên trực tiếp',
-        quickOptions: ['Xem đơn hàng gần nhất', 'Chính sách đổi trả 48h'],
+        handoffReason: 'Khách hàng chủ động yêu cầu kết nối Điều phối viên / Nhân viên hỗ trợ',
+        quickOptions: ['Tra cứu đơn hàng', 'Chính sách giao 2h', 'Chính sách đổi trả 48h'],
       };
     }
 
@@ -347,41 +353,155 @@ QUY TẮC PHỤC VỤ NGHIỆP VỤ:
   }
 
   /**
-   * Fallback quy tắc nội bộ khi mạng chập chờn (Tuyệt đối không dùng dấu **)
+   * Động cơ AI nội bộ (Smart Rule & NLP Domain Engine) phục vụ khách hàng thông minh
+   * Đảm bảo chatbot phản hồi sâu sát nghiệp vụ siêu thị C.T Mart và Logistics kho lạnh.
    */
   private fallbackRuleBasedReply(userMessage: string, products: ProductCatalogItem[], recentOrders: any[] = []): AiReplyResult {
-    const lower = userMessage.toLowerCase();
-    let text =
-      'Dạ, C.T Mart xin chào Quý khách! Em có thể hỗ trợ Quý khách kiểm tra hàng tồn, chương trình khuyến mãi hôm nay hoặc lộ trình giao hàng siêu tốc 2h ạ.';
+    const lower = userMessage.toLowerCase().trim();
+    let text = '';
     let productCard: ProductCatalogItem | undefined = undefined;
+    let quickOptions: string[] = ['Tra cứu đơn hàng', 'Chính sách giao 2h', 'Gặp điều phối viên'];
 
-    if (lower.includes('đơn hàng') || lower.includes('tra cứu') || lower.includes('đang mua') || lower.includes('bao gồm')) {
+    // 1. TRA CỨU ĐƠN HÀNG (TOÀN BỘ HOẶC ĐƠN GẦN NHẤT)
+    if (
+      lower.includes('đơn hàng') ||
+      lower.includes('tra cứu') ||
+      lower.includes('đang mua') ||
+      lower.includes('đơn mua') ||
+      lower.includes('các đơn') ||
+      lower.includes('lịch sử đơn') ||
+      lower.includes('kiểm tra đơn')
+    ) {
       if (recentOrders && recentOrders.length > 0) {
-        const latest = recentOrders[0];
-        const items = (latest.items || []).map((i: any) => `${i.productName} (x${i.quantity})`).join(', ');
-        const stText = latest.status === 'PENDING' ? 'Chờ duyệt' : latest.status === 'SHIPPED' ? 'Đang giao hàng' : 'Đang xử lý';
-        text = `Dạ, em kiểm tra thấy đơn hàng gần nhất của Quý khách #${latest.id
-          .slice(0, 8)
-          .toUpperCase()} gồm có: ${items}. Tổng giá trị thanh toán: ${Number(latest.totalAmount).toLocaleString(
-          'vi-VN',
-        )} đ, hiện trạng thái đơn đang là "${stText}" ạ!`;
+        const isAllQuery = lower.includes('tất cả') || lower.includes('toàn bộ') || lower.includes('các đơn') || lower.includes('danh sách');
+        if (isAllQuery && recentOrders.length > 1) {
+          const orderLines = recentOrders.slice(0, 4).map((o, idx) => {
+            const items = (o.items || []).map((i: any) => `${i.productName} (x${i.quantity})`).join(', ');
+            const stText =
+              o.status === 'PENDING' ? 'Chờ xác nhận' :
+              o.status === 'CONFIRMED' ? 'Đã duyệt kho' :
+              o.status === 'PROCESSING' ? 'Đang soạn & đóng gói' :
+              o.status === 'SHIPPED' ? 'Đang giao hàng hỏa tốc' :
+              o.status === 'DELIVERED' ? 'Đã giao thành công' : o.status;
+            return `${idx + 1}. Đơn #${o.id.slice(0, 8).toUpperCase()}: Trạng thái "${stText}" - Tổng tiền: ${Number(o.totalAmount).toLocaleString('vi-VN')} đ\n   Sản phẩm: ${items}`;
+          }).join('\n\n');
+
+          text = `Dạ, C.T Mart xin phép gửi thông tin chi tiết các đơn hàng của Quý khách:\n\n${orderLines}\n\nĐơn hàng đang được điều phối viên giám sát nhiệt độ và tiến độ giao sát sao ạ!`;
+          quickOptions = ['Chi tiết đơn mới nhất', 'Chính sách giao 2h', 'Gặp điều phối viên'];
+        } else {
+          const latest = recentOrders[0];
+          const items = (latest.items || []).map((i: any) => `${i.productName} (x${i.quantity})`).join(', ');
+          const stText =
+            latest.status === 'PENDING' ? 'Chờ xác nhận' :
+            latest.status === 'CONFIRMED' ? 'Đã duyệt kho, chuẩn bị lấy hàng' :
+            latest.status === 'PROCESSING' ? 'Đang soạn & đóng gói' :
+            latest.status === 'SHIPPED' ? 'Đang giao hàng hỏa tốc' :
+            latest.status === 'DELIVERED' ? 'Đã giao thành công' : latest.status;
+          text = `Dạ, C.T Mart kiểm tra thấy đơn hàng gần nhất của Quý khách #${latest.id.slice(0, 8).toUpperCase()}:\n- Trạng thái hiện tại: "${stText}"\n- Sản phẩm: ${items}\n- Tổng giá trị thanh toán: ${Number(latest.totalAmount).toLocaleString('vi-VN')} đ (COD)\n- Địa chỉ nhận hàng: ${latest.customerAddress || 'Theo địa chỉ đã đăng ký'}\n\nĐội ngũ giao hàng đang thực hiện đóng gói bảo quản mát để giao tận tay Quý khách đúng hẹn ạ!`;
+          quickOptions = ['Xem tất cả các đơn', 'Chính sách đổi trả 48h', 'Gặp điều phối viên'];
+        }
       } else {
-        text =
-          'Dạ, để tra cứu đơn hàng, Quý khách vui lòng cung cấp Số điện thoại đặt hàng hoặc Mã đơn hàng (VD: ORD-...) để em kiểm tra tiến độ đóng gói và xe giao ngay ạ.';
+        text = 'Dạ, hiện tại hệ thống chưa ghi nhận đơn hàng nào của Quý khách. Quý khách có thể cung cấp Mã đơn hàng (VD: ORD-...) hoặc Số điện thoại để em kiểm tra tiến độ đóng gói và điều phối xe giao ngay ạ!';
+        quickOptions = ['Sản phẩm khuyến mãi', 'Chính sách giao 2h', 'Gặp điều phối viên'];
       }
-    } else {
+    }
+
+    // 2. CHƯƠNG TRÌNH KHUYẾN MÃI & MÃ GIẢM GIÁ
+    else if (
+      lower.includes('khuyến mãi') ||
+      lower.includes('voucher') ||
+      lower.includes('mã giảm') ||
+      lower.includes('ưu đãi') ||
+      lower.includes('giảm giá') ||
+      lower.includes('sale') ||
+      lower.includes('flash sale')
+    ) {
+      text = `Dạ, siêu thị C.T Mart hiện đang áp dụng các chương trình ưu đãi đặc biệt hôm nay:\n\n1. FREESHIP2H: Miễn phí vận chuyển 100% cho mọi đơn hàng từ 300.000đ trở lên (Cam kết giao nhanh trong 2 giờ).\n2. CTMART10: Giảm ngay 10.000đ cho đơn hàng thực phẩm tươi sống từ 150.000đ.\n3. VEGGIE-FRESH: Ưu đãi giảm 10% - 15% cho nhóm hàng rau củ sạch & trái cây nhiệt đới trong ngày.\n4. ƯU ĐÃI B2B: Chiết khấu trực tiếp từ 5% đến 8% cho nhà hàng, quán ăn và đối tác siêu thị mua sỉ.\n\nQuý khách chỉ cần nhập mã tại bước thanh toán giỏ hàng là sẽ được áp dụng ngay ạ!`;
+      quickOptions = ['Rau củ tươi hôm nay', 'Tra cứu đơn hàng', 'Gặp điều phối viên'];
+    }
+
+    // 3. TƯ VẤN ẨM THỰC & GỢI Ý MÓN ĂN / NẤU NƯỚNG
+    else if (
+      lower.includes('nấu lẩu') ||
+      lower.includes('lẩu thái') ||
+      lower.includes('lẩu hải sản') ||
+      lower.includes('hôm nay ăn gì') ||
+      lower.includes('gợi ý món') ||
+      lower.includes('nấu món gì') ||
+      lower.includes('canh chua') ||
+      lower.includes('món xào') ||
+      lower.includes('ăn kiêng') ||
+      lower.includes('eat clean') ||
+      lower.includes('healthy')
+    ) {
+      if (lower.includes('lẩu')) {
+        text = `Dạ, để chuẩn bị một nồi lẩu thơm ngon trọn vị, C.T Mart gợi ý Quý khách combo nguyên liệu tươi có sẵn trong kho:\n- Hải sản tươi: Tôm càng xanh, Mực ống (bảo quản lạnh 0-4°C)\n- Rau nấm ăn lẩu: Nấm kim châm, cải thảo, rau muống, bắp ngọt\n- Gói gia vị lẩu thái chua cay chuẩn vị\n\nEm xin gửi thông tin sản phẩm hải sản tươi có sẵn để Quý khách bấm mua nhanh bên dưới ạ!`;
+        productCard = products.find(p => p.name.toLowerCase().includes('mực') || p.name.toLowerCase().includes('tôm')) || products[0];
+      } else if (lower.includes('canh chua')) {
+        text = `Dạ, món Canh chua thanh mát rất thích hợp cho bữa cơm gia đình! C.T Mart có sẵn đầy đủ nguyên liệu tươi ngon:\n- Cá tươi ngon / cá hồi phi lê\n- Thơm (dứa), cà chua, bạc hà, đậu bắp & giá đỗ sạch\n- Nước cốt me chua thanh tự nhiên\n\nQuý khách xem thông tin sản phẩm tươi sạch bên dưới nhé ạ!`;
+        productCard = products.find(p => p.name.toLowerCase().includes('cà chua') || p.name.toLowerCase().includes('dưa')) || products[0];
+      } else if (lower.includes('ăn kiêng') || lower.includes('eat clean') || lower.includes('healthy')) {
+        text = `Dạ, thực đơn Eat Clean & Giảm cân lành mạnh hôm nay của C.T Mart gồm có:\n- Ức gà tươi sạch giàu protein\n- Khoai lang mật Đà Lạt hấp ngọt bùi\n- Dưa leo & xà lách sạch chuẩn VietGAP\n\nCác sản phẩm đều được kiểm định chất lượng và bảo quản đúng tiêu chuẩn kho mát ạ!`;
+        productCard = products.find(p => p.name.toLowerCase().includes('khoai lang') || p.name.toLowerCase().includes('dưa leo')) || products[0];
+      } else {
+        text = `Dạ, hôm nay C.T Mart gợi ý Quý khách thực đơn ấm cúng:\n1. Món chính: Thịt heo xào rau củ tươi hoặc Cá chiên giòn sốt cà\n2. Món canh: Canh bí đỏ thịt bằm hoặc Canh cải ngọt tôm khô\n3. Tráng miệng: Dưa hấu ruột đỏ ngọt lịm\n\nToàn bộ nguyên liệu đều có sẵn trong kho mát hôm nay với giá ưu đãi ạ!`;
+        productCard = products.find(p => p.name.toLowerCase().includes('dưa hấu')) || products[0];
+      }
+      quickOptions = ['Xem sản phẩm khuyến mãi', 'Chính sách giao 2h', 'Gặp điều phối viên'];
+    }
+
+    // 4. TÌM KIẾM THEO TẦM GIÁ HOẶC GIÁ RẺ
+    else if (lower.includes('dưới 50k') || lower.includes('dưới 100k') || lower.includes('giá rẻ') || lower.includes('tiết kiệm')) {
+      const maxPrice = lower.includes('dưới 50k') ? 50000 : 100000;
+      const affordable = products.filter(p => p.price > 0 && p.price <= maxPrice).slice(0, 5);
+      if (affordable.length > 0) {
+        const lines = affordable.map(p => `- ${p.name}: ${p.price.toLocaleString('vi-VN')} đ/${p.unit} (Còn ${p.stock})`).join('\n');
+        text = `Dạ, C.T Mart gợi ý các sản phẩm tươi ngon giá tiết kiệm dưới ${maxPrice.toLocaleString('vi-VN')}đ hôm nay:\n\n${lines}\n\nQuý khách có thể xem chi tiết sản phẩm tiêu biểu bên dưới ạ!`;
+        productCard = affordable[0];
+      } else {
+        text = `Dạ, C.T Mart hiện có rất nhiều mặt hàng rau củ sạch và thực phẩm thiết yếu với mức giá rất hợp lý. Quý khách có thể tham khảo danh mục sản phẩm trên trang chủ ạ!`;
+      }
+      quickOptions = ['Sản phẩm rau củ', 'Sản phẩm thịt cá', 'Gặp điều phối viên'];
+    }
+
+    // 5. CHÍNH SÁCH GIAO HÀNG & LOGISTICS KHO THÔNG MINH
+    else if (lower.includes('giao hàng') || lower.includes('2h') || lower.includes('phí ship') || lower.includes('freeship') || lower.includes('vận chuyển')) {
+      text = `Dạ, C.T Mart cam kết dịch vụ vận chuyển thông minh chuẩn WMS:\n- Giao hàng siêu tốc trong 2 giờ: Áp dụng tại toàn bộ các quận nội thành TP.HCM.\n- Miễn phí vận chuyển (FreeShip 100%): Cho mọi đơn hàng từ 300.000đ trở lên.\n- Đơn dưới 300.000đ: Phí giao đồng giá chỉ 20.000đ.\n- Đội xe chuyên dụng: Xe máy và xe tải thùng giữ nhiệt lạnh HACCP giúp rau củ và thịt cá luôn tươi ngon đến tận tay khách hàng!`;
+      quickOptions = ['Tra cứu đơn hàng', 'Chính sách đổi trả 48h', 'Gặp điều phối viên'];
+    }
+
+    // 6. CHÍNH SÁCH ĐỔI TRẢ & BẢO HÀNH CHẤT LƯỢNG
+    else if (lower.includes('đổi trả') || lower.includes('bảo hành') || lower.includes('hỏng') || lower.includes('dập') || lower.includes('khiếu nại')) {
+      text = `Dạ, C.T Mart áp dụng chính sách Cam kết chất lượng 1-đổi-1 trong vòng 48 giờ:\n- Nếu thực phẩm tươi sống có bất kỳ dấu hiệu hư hỏng, dập nát hoặc giao sai sản phẩm, siêu thị đổi mới ngay lập tức hoặc hoàn tiền 100%.\n- Quý khách chỉ cần gửi hình ảnh chụp sản phẩm qua khung chat này hoặc liên hệ hotline, nhân viên chăm sóc khách hàng sẽ xử lý trong 15 phút!`;
+      quickOptions = ['Gặp điều phối viên ngay', 'Tra cứu đơn hàng'];
+    }
+
+    // 7. PHƯƠNG THỨC THANH TOÁN & HÓA ĐƠN VAT
+    else if (lower.includes('thanh toán') || lower.includes('tiền mặt') || lower.includes('cod') || lower.includes('chuyển khoản') || lower.includes('vnpay') || lower.includes('hóa đơn')) {
+      text = `Dạ, C.T Mart hỗ trợ đa dạng phương thức thanh toán thuận tiện:\n1. Thanh toán tiền mặt khi nhận hàng (COD).\n2. Chuyển khoản ngân hàng tức thời qua mã QR.\n3. Thanh toán qua ví điện tử VNPay / Thẻ ngân hàng.\n4. Xuất hóa đơn đỏ điện tử (VAT) đầy đủ cho doanh nghiệp B2B và khách hàng cá nhân.`;
+      quickOptions = ['Sản phẩm khuyến mãi', 'Chính sách giao 2h', 'Gặp điều phối viên'];
+    }
+
+    // 8. TÌM KIẾM TRỰC TIẾP TÊN SẢN PHẨM HOẶC NGÀNH HÀNG
+    else {
       const matched = products.find(p => lower.includes(p.name.toLowerCase()));
       if (matched) {
-        text = `Dạ, siêu thị C.T Mart hiện có sẵn sản phẩm "${matched.name}" với giá ưu đãi ${matched.price.toLocaleString(
-          'vi-VN',
-        )} đ/${matched.unit}. Sản phẩm tươi mới được bảo quản lạnh chuẩn tiêu chuẩn kho.`;
+        text = `Dạ, siêu thị C.T Mart hiện có sẵn sản phẩm "${matched.name}":\n- Giá ưu đãi: ${matched.price.toLocaleString('vi-VN')} đ/${matched.unit}\n- Tồn kho khả dụng: ${matched.stock} ${matched.unit}\n- Điều kiện bảo quản: Tiêu chuẩn kho mát C.T Mart tươi mới mỗi ngày.\n\nQuý khách có thể bấm mua nhanh ngay tại thẻ sản phẩm bên dưới ạ!`;
         productCard = matched;
-      } else if (lower.includes('giao hàng') || lower.includes('2h') || lower.includes('phí') || lower.includes('freeship')) {
-        text =
-          'Dạ, C.T Mart áp dụng chính sách giao hàng hỏa tốc trong 2 giờ tại khu vực nội thành. Mọi đơn hàng từ 300.000đ trở lên đều được miễn phí vận chuyển 100% ạ!';
-      } else if (lower.includes('đổi trả') || lower.includes('bảo hành') || lower.includes('hỏng')) {
-        text =
-          'Dạ, C.T Mart cam kết chính sách đổi trả 1-đổi-1 trong vòng 48 giờ đối với bất kỳ thực phẩm tươi sống nào bị hư hỏng, dập nát hoặc có lỗi từ vận chuyển kho ạ!';
+        quickOptions = ['Thêm vào giỏ hàng', 'Chính sách giao 2h', 'Xem sản phẩm khác'];
+      } else {
+        // Tìm theo danh mục
+        const categoryMatch = products.filter(p => lower.includes(p.category.toLowerCase())).slice(0, 4);
+        if (categoryMatch.length > 0) {
+          const catLines = categoryMatch.map(p => `- ${p.name}: ${p.price.toLocaleString('vi-VN')} đ/${p.unit}`).join('\n');
+          text = `Dạ, siêu thị C.T Mart hiện có các sản phẩm thuộc nhóm này với chất lượng tươi sạch:\n\n${catLines}\n\nQuý khách xem thông tin sản phẩm nổi bật bên dưới nhé ạ!`;
+          productCard = categoryMatch[0];
+          quickOptions = ['Sản phẩm khuyến mãi', 'Chính sách giao 2h', 'Gặp điều phối viên'];
+        } else {
+          // Lời chào thông minh và điều hướng rõ ràng
+          text = `Dạ, C.T Mart xin chào Quý khách! Em là Trợ lý Thông minh của siêu thị C.T Mart. Em có thể hỗ trợ Quý khách:\n\n1. Tra cứu chi tiết tiến độ các đơn hàng đã đặt.\n2. Tìm kiếm giá bán, tồn kho và gợi ý combo thực phẩm tươi ngon hôm nay.\n3. Cung cấp mã giảm giá, chính sách giao hàng 2h và đổi trả 48h.\n4. Kết nối trực tiếp với Điều phối viên kho bất cứ lúc nào.\n\nQuý khách có thể bấm chọn nhanh các gợi ý bên dưới hoặc gửi câu hỏi để em giải đáp ngay ạ!`;
+          quickOptions = ['Tra cứu đơn hàng của tôi', 'Các khuyến mãi đang áp dụng', 'Gợi ý món ăn hôm nay', 'Gặp điều phối viên'];
+        }
       }
     }
 
@@ -389,7 +509,7 @@ QUY TẮC PHỤC VỤ NGHIỆP VỤ:
       text,
       handoffRequested: false,
       productCard,
-      quickOptions: ['Tra cứu đơn hàng', 'Chính sách giao 2h', 'Gặp nhân viên tư vấn'],
+      quickOptions,
     };
   }
 }

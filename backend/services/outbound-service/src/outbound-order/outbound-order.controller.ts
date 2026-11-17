@@ -19,6 +19,18 @@ export class OutboundOrderController {
     return this.service.splitCreate(body);
   }
 
+  @Post('disposal-from-rejected-inbound')
+  @ApiOperation({ summary: 'Tự động tạo lệnh xuất tiêu hủy từ phiếu nhập bị từ chối QC' })
+  createDisposalFromRejectedInbound(@Body() body: any) {
+    return this.service.createDisposalFromRejectedInbound(body);
+  }
+
+  @Post('rtv-from-rejected-inbound')
+  @ApiOperation({ summary: 'Tự động tạo lệnh xuất trả Nhà Cung Cấp (RTV) từ phiếu nhập bị từ chối QC' })
+  createRtvFromRejectedInbound(@Body() body: any) {
+    return this.service.createRtvFromRejectedInbound(body);
+  }
+
   @Post('calculate-nearest')
   @ApiOperation({ summary: 'Tính toán và chọn kho hàng gần nhất dựa trên tọa độ và tồn kho' })
   calculateNearest(@Body() body: { latitude: number; longitude: number; items: any[] }) {
@@ -100,6 +112,7 @@ export class OutboundOrderController {
   }
 
   @Put(':id/approve')
+  @Post(':id/approve')
   @ApiOperation({ summary: 'Quản lý duyệt tiếp nhận đơn hàng và giao việc lấy hàng cho kho' })
   approve(@Param('id') id: string) {
     return this.service.approve(id);
@@ -136,6 +149,13 @@ export class OutboundOrderController {
   @ApiOperation({ summary: 'Đẩy đơn cho Shipper (SHIPPED)' })
   ship(@Param('id') id: string) {
     return this.service.ship(id);
+  }
+
+  @Post(':id/create-return-inbound')
+  @ApiOperation({ summary: 'Tạo phiếu nhập hàng hoàn trong inbound-service cho đơn xuất kho' })
+  async createReturnInbound(@Param('id') id: string) {
+    const order = await this.service.findOne(id);
+    return this.service.createReturnInboundOrder(order);
   }
 
   @Patch(':id/status')

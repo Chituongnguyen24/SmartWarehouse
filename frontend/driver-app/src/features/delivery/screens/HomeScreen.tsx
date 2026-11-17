@@ -56,6 +56,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask, onOpenPOD 
     assignedTasks,
     inTransitTasks,
     deliveredTasks,
+    failedTasks,
     startDelivery,
     currentTripNumber,
     tripStatus,
@@ -76,8 +77,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask, onOpenPOD 
   const [waveMode, setWaveMode] = useState<'CURRENT_BATCH' | 'NEXT_WAVE'>('CURRENT_BATCH');
 
   // Mặc định: nếu có đơn đang giao thì ưu tiên tab Đang Giao, ngược lại chọn Chờ Nhận
-  const [activeTab, setActiveTab] = useState<'ACTIVE' | 'PENDING' | 'DONE'>(
-    inTransitTasks.length > 0 ? 'ACTIVE' : 'PENDING'
+  const [activeTab, setActiveTab] = useState<'ACTIVE' | 'PENDING' | 'DONE' | 'FAILED'>(
+    inTransitTasks.length > 0 ? 'ACTIVE' : (failedTasks.length > 0 ? 'FAILED' : 'PENDING')
   );
 
   // VietQR Dynamic Modal State
@@ -157,7 +158,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask, onOpenPOD 
     if (activeTab === 'ACTIVE') return tasks.filter(t => t.status === 'IN_TRANSIT');
     if (activeTab === 'PENDING') return tasks.filter(t => t.status === 'ASSIGNED');
     if (activeTab === 'DONE') return tasks.filter(t => t.status === 'DELIVERED');
-    return tasks.filter(t => t.status !== 'DELIVERED');
+    if (activeTab === 'FAILED') return tasks.filter(t => t.status === 'FAILED');
+    return tasks.filter(t => t.status !== 'DELIVERED' && t.status !== 'FAILED');
   };
 
   const currentTasks = getFilteredTasks();
@@ -201,8 +203,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask, onOpenPOD 
   const nextTripBoxes = nextWaveTasks.reduce((sum, t) => sum + (t.packageCount || 1), 0);
   const nextTripItems = nextWaveTasks.reduce((sum, t) => sum + (t.items?.reduce((s, it) => s + (it.quantity || 1), 0) || 1), 0);
 
-  // Đơn hàng điều phối phân công cần ship đi trong chuyến hiện tại (chưa giao xong):
-  const tasksToShip = tasks.filter(t => t.status !== 'DELIVERED');
+  // Đơn hàng điều phối phân công cần ship đi trong chuyến hiện tại (chưa giao xong, loại trừ đơn đã giao và đơn hàng hoàn/sự cố):
+  const tasksToShip = tasks.filter(t => t.status !== 'DELIVERED' && t.status !== 'FAILED');
   const displayShipOrdersCount = tasksToShip.length > 0 ? tasksToShip.length : tasks.length;
   const displayShipBoxesCount = tasksToShip.length > 0
     ? tasksToShip.reduce((sum, t) => sum + (t.packageCount || 1), 0)
@@ -421,7 +423,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask, onOpenPOD 
         </View>
 
         {/* ── 4. COMPACT LOADING / DEPARTURE ACTION BAR ── */}
-        {waveMode === 'CURRENT_BATCH' && tasksToShip.length > 0 && (
+        {waveMode === 'CURRENT_BATCH' && tasksToShip.length > 0 && tripStatus !== 'RETURNING_TO_HUB' && (
           <View style={styles.loadingBanner}>
             <View style={{ flex: 1, marginRight: 8 }}>
               <Text style={styles.loadingBannerTitle}>
@@ -552,6 +554,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask, onOpenPOD 
               </Text>
             </View>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.statusTabItem, activeTab === 'FAILED' && styles.statusTabItemActiveRose]}
+            onPress={() => setActiveTab('FAILED')}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.statusTabTitle, activeTab === 'FAILED' && styles.statusTabTitleActiveRose]}>
+              Hàng hoàn
+            </Text>
+            <View style={[styles.statusBadge, activeTab === 'FAILED' ? styles.statusBadgeActiveRose : styles.statusBadgeMuted]}>
+              <Text style={[styles.statusBadgeText, activeTab === 'FAILED' && styles.statusBadgeTextActiveRose]}>
+                {failedTasks.length}
+              </Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* TASK LIST */}
@@ -582,11 +599,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectTask, onOpenPOD 
                   ? 'Chưa có đơn hàng đang giao'
                   : activeTab === 'PENDING'
                   ? 'Không còn đơn chờ nhận'
+                  : activeTab === 'FAILED'
+                  ? 'Không có đơn sự cố / hàng hoàn'
                   : 'Chưa có đơn hoàn thành trong chuyến này'}
               </Text>
               <Text style={styles.emptySub}>
                 {activeTab === 'ACTIVE'
                   ? 'Hãy chọn một đơn trong mục "Chờ Nhận" và bấm "Bắt Đầu Giao".'
+                  : activeTab === 'FAILED'
+                  ? 'Tất cả đơn hàng đều giao thuận lợi, không phát sinh hàng hoàn.'
                   : 'Vui lòng kiểm tra lại lộ trình hoặc đợi đợt phân bổ tiếp theo.'}
               </Text>
             </View>
@@ -1460,6 +1481,9 @@ const styles = StyleSheet.create({
   statusTabItemActiveBlue: {
     backgroundColor: '#f0f9ff',
   },
+  statusTabItemActiveRose: {
+    backgroundColor: '#fef2f2',
+  },
   statusTabTitle: {
     fontSize: 11.5,
     fontWeight: '600',
@@ -1477,6 +1501,10 @@ const styles = StyleSheet.create({
     color: '#0284c7',
     fontWeight: '700',
   },
+  statusTabTitleActiveRose: {
+    color: '#b91c1c',
+    fontWeight: '700',
+  },
   statusBadge: {
     paddingHorizontal: 5,
     paddingVertical: 1,
@@ -1490,6 +1518,9 @@ const styles = StyleSheet.create({
   },
   statusBadgeActiveBlue: {
     backgroundColor: '#e0f2fe',
+  },
+  statusBadgeActiveRose: {
+    backgroundColor: '#fee2e2',
   },
   statusBadgeMuted: {
     backgroundColor: '#f1f5f9',
@@ -1507,6 +1538,9 @@ const styles = StyleSheet.create({
   },
   statusBadgeTextActiveBlue: {
     color: '#0369a1',
+  },
+  statusBadgeTextActiveRose: {
+    color: '#991b1b',
   },
 
   // ── 7. TASK LIST ──

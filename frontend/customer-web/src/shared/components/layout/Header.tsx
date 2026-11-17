@@ -96,7 +96,7 @@ export default function Header() {
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const cartItems = useCartStore(state => state.items);
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const { user, isAuthenticated, logout, token } = useAuthStore();
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
   const totalItems = mounted ? cartItems.reduce((sum, item) => sum + item.quantity, 0) : 0;
@@ -193,6 +193,7 @@ export default function Header() {
         if (currentUser?.id) q.set('customerId', currentUser.id);
         if (currentUser?.phone) q.set('customerPhone', currentUser.phone);
         const res = await fetch(`${getApiHost(3004)}/orders/my-orders?${q.toString()}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
           signal: AbortSignal.timeout(3500)
         });
         if (res.ok) {

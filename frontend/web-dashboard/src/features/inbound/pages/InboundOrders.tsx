@@ -51,6 +51,11 @@ interface InboundOrder {
   packageCondition?: 'PACKED_OK' | 'NEEDS_PACKING' | null;
   destinationStation?: string;
   packingNote?: string;
+  rejectionReason?: string;
+  rejectionLiability?: 'CUSTOMER' | 'DRIVER' | 'WAREHOUSE' | string;
+  measuredTemperature?: number | null;
+  evidencePhotoUrl?: string;
+  disposalOrderCode?: string;
   notes?: string;
   createdAt: string;
   items: InboundOrderItem[];
@@ -69,8 +74,31 @@ export const INBOUND_TYPE_CONFIG: Record<InboundTransactionType, { label: string
 export function detectInboundClassification(order: InboundOrder | null): InboundTransactionType {
   if (!order) return 'NHAP_MUA_NCC';
 
-  // 1. Kiểm tra trực tiếp theo tiền tố mã phiếu điều chuyển
   const code = (order.orderCode || (order as any).order_code || '').toUpperCase().trim();
+  const invoice = (order.invoiceNumber || (order as any).invoice_number || '').toUpperCase().trim();
+  const deliverer = (order.delivererName || (order as any).deliverer_name || '').toLowerCase();
+  const supplier = (order.supplierName || (order as any).supplier_name || '').toLowerCase();
+  const notes = (order.packingNote || order.notes || (order as any).packing_note || '').toLowerCase();
+  const text = `${code} ${supplier} ${notes} ${invoice} ${deliverer}`.toLowerCase();
+
+  // 1. Kiểm tra trực tiếp phiếu hàng hoàn / Khách hàng trả lại
+  if (
+    code.startsWith('RET') ||
+    code.includes('RET-') ||
+    code.includes('RETURN') ||
+    invoice.startsWith('RET') ||
+    supplier.includes('trả lại') ||
+    supplier.includes('customer_return') ||
+    text.includes('trả lại') ||
+    text.includes('hàng hoàn') ||
+    text.includes('hoàn') ||
+    text.includes('return') ||
+    text.includes('tra hang')
+  ) {
+    return 'HANG_TRA_LAI';
+  }
+
+  // 2. Kiểm tra trực tiếp theo tiền tố mã phiếu điều chuyển
   if (
     code.startsWith('TRF') ||
     code.includes('TRF-') ||
@@ -82,25 +110,20 @@ export function detectInboundClassification(order: InboundOrder | null): Inbound
     return 'DIEU_CHUYEN';
   }
 
-  // 2. Kiểm tra theo số chứng từ / hóa đơn tham chiếu
-  const invoice = (order.invoiceNumber || (order as any).invoice_number || '').toUpperCase().trim();
+  // 3. Kiểm tra theo số chứng từ / hóa đơn tham chiếu
   if (invoice.startsWith('TRF') || invoice.includes('TRF-') || invoice.includes('TRF_')) {
     return 'DIEU_CHUYEN';
   }
 
-  // 3. Kiểm tra đơn vị xuất / xe trung chuyển / ghi chú
-  const deliverer = (order.delivererName || (order as any).deliverer_name || '').toLowerCase();
+  // 4. Kiểm tra đơn vị xuất / xe trung chuyển / ghi chú
   if (deliverer.includes('trung chuyển') || deliverer.includes('điều chuyển') || deliverer.includes('xe trung chuyển')) {
     return 'DIEU_CHUYEN';
   }
 
-  const supplier = (order.supplierName || (order as any).supplier_name || '').toLowerCase();
   if (supplier.includes('kho tổng') || supplier.includes('kho chi nhánh') || supplier.includes('wh-') || supplier.includes('trung chuyển')) {
     return 'DIEU_CHUYEN';
   }
 
-  const text = `${order.orderCode || (order as any).order_code || ''} ${order.supplierName || (order as any).supplier_name || ''} ${order.notes || ''} ${order.invoiceNumber || ''} ${order.delivererName || ''}`.toLowerCase();
-  if (text.includes('trả lại') || text.includes('hoàn') || text.includes('return') || text.includes('tra hang')) return 'HANG_TRA_LAI';
   if (
     text.includes('điều chuyển') ||
     text.includes('chuyển kho') ||
@@ -1845,6 +1868,54 @@ const InboundOrders: React.FC = () => {
                         </div>
                       )
                     )}
+
+                    {selectedOrder.status === 'REJECTED' && (() => {
+                      const isOrderReturn = selectedOrder.orderCode?.startsWith('RET-');
+                      const isRtv = selectedOrder.disposalOrderCode?.startsWith('RTV-') || (selectedOrder as any).rejectionAction === 'QUARANTINE_FOR_RTV';
+                      const isDockReturn = (selectedOrder as any).rejectionAction === 'RETURN_TO_SUPPLIER_AT_DOCK' || (!isOrderReturn && !isRtv && !selectedOrder.disposalOrderCode);
+
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', background: isDockReturn ? '#fff7ed' : '#fef2f2', padding: '16px 20px', borderRadius: '10px', border: `1px solid ${isDockReturn ? '#fed7aa' : '#fecaca'}` }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                <AlertTriangle size={18} color={isDockReturn ? '#c2410c' : '#991b1b'} />
+                                <span style={{ color: isDockReturn ? '#9a3412' : '#991b1b', fontWeight: 800, fontSize: '0.95rem' }}>
+                                  {isDockReturn 
+                                    ? 'Từ Chối Nhận Tại Cửa Dock (Không Hạ Tải - Trả Xe NCC)'
+                                    : isRtv 
+                                    ? 'Cách Ly Lưu Kho Tạm — Xuất Trả Nhà Cung Cấp (RTV)'
+                                    : 'Đơn Hàng Bị Từ Chối Nhập Kho (Lỗi Kiểm Định QC)'}
+                                </span>
+                              </div>
+                              <p style={{ margin: '4px 0', fontSize: '0.85rem', color: isDockReturn ? '#7c2d12' : '#7f1d1d' }}>
+                                Lý do: <b>{selectedOrder.rejectionReason || selectedOrder.packingNote || 'Không đạt chuẩn an toàn thực phẩm / bao bì hỏng'}</b>
+                                {selectedOrder.rejectionLiability ? ` • Quy trách nhiệm: ${selectedOrder.rejectionLiability === 'DRIVER' ? 'Đơn vị vận chuyển (Tài xế/3PL)' : selectedOrder.rejectionLiability === 'CUSTOMER' ? 'Khách hàng' : selectedOrder.rejectionLiability === 'SUPPLIER' ? 'Nhà cung cấp (NCC)' : 'Kho nội bộ'}` : ''}
+                              </p>
+                              <p style={{ margin: '4px 0', fontSize: '0.82rem', color: isDockReturn ? '#9a3412' : '#991b1b' }}>
+                                {isDockReturn 
+                                  ? <>Hướng xử lý: <b>Hàng không hạ tải, trả lại theo xe tải của NCC ngay tại Cửa Dock</b></>
+                                  : isRtv
+                                  ? <>Vị trí lưu kho tạm: <b>Kệ Cách Ly Q1 (Zone Z-QUARANTINE)</b> chờ xe NCC đến nhận lại</>
+                                  : <>Vị trí lưu trữ cách ly: <b>Kệ Cách Ly Q1 (Zone Z-DISPOSAL)</b></>}
+                              </p>
+                            </div>
+                            {selectedOrder.disposalOrderCode && (
+                              <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: isRtv ? '#eff6ff' : '#faf5ff', color: isRtv ? '#1d4ed8' : '#7c3aed', fontWeight: 700, border: `1px solid ${isRtv ? '#bfdbfe' : '#e9d5ff'}`, whiteSpace: 'nowrap' }}>
+                                {isRtv ? `Lệnh xuất trả NCC: #${selectedOrder.disposalOrderCode}` : `Đã tạo lệnh xuất hủy: #${selectedOrder.disposalOrderCode}`}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '0.8rem', color: '#64748b', borderTop: `1px dashed ${isDockReturn ? '#fdba74' : '#fca5a5'}`, paddingTop: '8px' }}>
+                            {isDockReturn
+                              ? 'Lô hàng đã bị từ chối tiếp nhận ngay tại dock. Hủy công nợ PO, xe NCC mang hàng về, không phát sinh chi phí tiêu hủy.'
+                              : isRtv
+                              ? 'Lô hàng được lưu kho tạm tại Kệ Cách Ly Q1. Đã thông báo NCC điều xe chuyên dụng đến tiếp nhận lại hàng trong 24-48 giờ.'
+                              : 'Thực phẩm không đạt chuẩn vệ sinh an toàn đã được đưa vào luồng xuất tiêu hủy sang Khu Liên Hợp Xử Lý Rác Thải Đa Phước, cấm lưu thông bán lẻ theo tiêu chuẩn HACCP.'}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {(selectedOrder.status === 'COMPLETED' || selectedOrder.status === 'STORED') && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: '#f0fdf4', padding: '14px 18px', borderRadius: '10px', border: '1px solid #bbf7d0' }}>

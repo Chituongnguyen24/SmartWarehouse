@@ -73,7 +73,7 @@ const CANCEL_REASONS = [
 
 export default function OrderHistoryPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, token } = useAuthStore();
   const { addToCart } = useCartStore();
 
   const [activeTab, setActiveTab] = useState("all");
@@ -128,7 +128,9 @@ export default function OrderHistoryPage() {
       if (user?.phone) queryParams.set("customerPhone", user.phone);
 
       // Gọi endpoint my-orders an toàn (Anti-IDOR / Chỉ trả về đơn của chính khách hàng này)
-      const res = await fetch(`${getApiHost(3004)}/orders/my-orders?${queryParams.toString()}`);
+      const res = await fetch(`${getApiHost(3004)}/orders/my-orders?${queryParams.toString()}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       if (res.ok) {
         const data: CustomerOrder[] = await res.json();
         const userOrders = Array.isArray(data) ? data : [];
@@ -361,7 +363,10 @@ export default function OrderHistoryPage() {
     try {
       const res = await fetch(`${getApiHost(3004)}/orders/${cancellingOrder.id}/cancel`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           reason: reasonText,
           cancelledBy: "CUSTOMER",

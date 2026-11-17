@@ -33,6 +33,14 @@ export class OrderGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(`Client disconnected: ${client.id}`);
   }
 
+  @SubscribeMessage('join_chat_session')
+  handleJoinChatSession(@MessageBody() data: any, @ConnectedSocket() client: Socket) {
+    if (data?.sessionId) {
+      client.join(`chat_${data.sessionId}`);
+      this.logger.log(`Client ${client.id} joined room chat_${data.sessionId}`);
+    }
+  }
+
   @SubscribeMessage('customer_chat_message')
   async handleCustomerChatMessage(@MessageBody() data: any, @ConnectedSocket() client: Socket) {
     this.logger.log(`Customer Chat Message received: ${data?.customerName || 'Customer'} - ${data?.text}`);

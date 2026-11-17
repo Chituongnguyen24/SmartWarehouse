@@ -565,8 +565,9 @@ export class OrderService {
       throw new NotFoundException(`Không tìm thấy đơn hàng với mã: ${id}`);
     }
 
-    // 1. Kiểm tra quy tắc nghiệp vụ: Không cho phép hủy khi đang giao hàng hoặc đã giao xong
-    if (order.status === OrderStatus.DELIVERING) {
+    // 1. Kiểm tra quy tắc nghiệp vụ: Khách hàng không thể tự hủy khi đang giao hàng hoặc đã hoàn tất
+    const isStaffOrRestock = body?.cancelledBy === 'STAFF' || order.status === OrderStatus.RETURN_TO_WAREHOUSE || order.status === OrderStatus.FAILED_DELIVERY;
+    if (order.status === OrderStatus.DELIVERING && !isStaffOrRestock) {
       throw new BadRequestException(
         'Đơn hàng đang trong trạng thái đang giao hàng, không thể hủy đơn lúc này. Quý khách vui lòng nhận hàng hoặc liên hệ trực tiếp tài xế khi giao đến!',
       );
@@ -899,9 +900,74 @@ export class OrderService {
       failurePhotoUrl: dto.photoUrl,
     });
 
+    if (!updated) {
+      this.logger.warn(`[ReverseLogistics] Không tìm thấy đơn #${id} trong order-service, chuyển tiếp cập nhật sang outbound-service.`);
+      try {
+        await fetch(`http://localhost:3007/outbound-orders/${id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            status: targetStatus,
+            failureReason: dto.reason,
+            failurePhotoUrl: dto.photoUrl,
+          }),
+        });
+      } catch (e) {}
+
+      // Vẫn broadcast order_exception tới Control Tower
+      try {
+        this.orderGateway.server.emit('order_exception', {
+          orderId: id,
+          status: targetStatus,
+          reason: dto.reason,
+          photoUrl: dto.photoUrl,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (e) {}
+      return { id, status: targetStatus } as any;
+    }
+
     this.logger.warn(
       `[ReverseLogistics] Đơn #${updated.id.slice(0, 8)} giao thất bại: "${dto.reason}". Đã chuyển sang ${targetStatus}.`,
     );
+
+    // Đồng bộ sang outbound-service (:3007)
+    fetch(`http://localhost:3007/outbound-orders/${updated.id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: targetStatus,
+        failureReason: dto.reason,
+        failurePhotoUrl: dto.photoUrl,
+      }),
+    }).catch(() => {});
+
+    // Tự động tạo phiếu nhập hàng hoàn trong inbound-service (:3006)
+    try {
+      const returnCode = `RET-ECOMM-${updated.id.slice(0, 8).toUpperCase()}`;
+      fetch(`http://localhost:3006/inbound-orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderCode: returnCode,
+          supplierId: 'CUSTOMER_RETURN',
+          supplierName: `Khách hàng trả lại (${updated.customerName || 'Khách hàng'})`,
+          invoiceNumber: `ECOMM-${updated.id.slice(0, 8).toUpperCase()}`,
+          delivererName: 'Tài xế giao hàng',
+          warehouseCode: (updated as any).warehouseCode || 'WH-006',
+          status: 'PENDING',
+          packingNote: `[HÀNG HOÀN] Lý do: ${dto.reason || 'Giao không thành công - Nhập lại kho lạnh'}`,
+          destinationStation: 'STORAGE_SHELF',
+          items: (updated.items || []).map((it: any) => ({
+            sku: it.sku,
+            productName: it.productName || it.sku,
+            expectedQuantity: Number(it.quantity) || 1,
+            unit: 'Cái',
+            unitPrice: Number(it.unitPrice) || 0,
+          })),
+        }),
+      }).catch(err => this.logger.warn(`Could not create return inbound order: ${err.message}`));
+    } catch (e) {}
 
     // Kích hoạt thông báo tới Control Tower Dashboard
     try {

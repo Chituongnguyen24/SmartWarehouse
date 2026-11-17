@@ -23,17 +23,36 @@ export class InboundOrderService {
   }
 
   async create(createDto: any): Promise<InboundOrder> {
+    if (createDto.orderCode) {
+      const existing = await this.orderRepo.findOne({
+        where: { orderCode: createDto.orderCode },
+        relations: ['items'],
+      });
+      if (existing) {
+        if (createDto.packingNote) existing.packingNote = createDto.packingNote;
+        if (createDto.packageCondition) existing.packageCondition = createDto.packageCondition;
+        if (createDto.destinationStation) existing.destinationStation = createDto.destinationStation;
+        if (createDto.status) existing.status = createDto.status;
+        await this.orderRepo.save(existing);
+        return this.findOne(existing.id);
+      }
+    }
+
     const order = this.orderRepo.create({
       orderCode: createDto.orderCode || `INB-${Date.now()}`,
-      supplierId: createDto.supplierId,
-      supplierName: createDto.supplierName,
+      supplierId: createDto.supplierId || 'CUSTOMER_RETURN',
+      supplierName: createDto.supplierName || 'Khách hàng trả lại',
       invoiceNumber: createDto.invoiceNumber,
       delivererName: createDto.delivererName,
       expectedDate: createDto.expectedDate || new Date(),
-      warehouseCode: createDto.warehouseCode,
+      warehouseCode: createDto.warehouseCode || 'WH-006',
+      status: createDto.status || 'PENDING',
+      destinationStation: createDto.destinationStation || 'STORAGE_SHELF',
+      packingNote: createDto.packingNote || null,
+      packageCondition: createDto.packageCondition || null,
       totalItems: createDto.items?.length || 0,
-      totalQuantity: createDto.items?.reduce((sum: number, i: any) => sum + (i.expectedQuantity || 0), 0) || 0,
-      totalAmount: createDto.items?.reduce((sum: number, i: any) => sum + ((i.expectedQuantity || 0) * (i.unitPrice || 0)), 0) || 0,
+      totalQuantity: createDto.items?.reduce((sum: number, i: any) => sum + (Number(i.expectedQuantity) || Number(i.quantity) || 0), 0) || 0,
+      totalAmount: createDto.items?.reduce((sum: number, i: any) => sum + ((Number(i.expectedQuantity) || Number(i.quantity) || 0) * (Number(i.unitPrice) || 0)), 0) || 0,
     });
 
     const savedOrder = await this.orderRepo.save(order);
@@ -42,14 +61,32 @@ export class InboundOrderService {
       const items = createDto.items.map((item: any) => this.itemRepo.create({
         inboundOrder: savedOrder,
         sku: item.sku,
-        productName: item.productName,
-        expectedQuantity: item.expectedQuantity,
-        unit: item.unit,
-        unitPrice: item.unitPrice,
-        expiryDate: item.expiryDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        productName: item.productName || item.sku,
+        expectedQuantity: Number(item.expectedQuantity) || Number(item.quantity) || 1,
+        receivedQuantity: Number(item.receivedQuantity) || 0,
+        unit: item.unit || 'Cái',
+        unitPrice: Number(item.unitPrice) || 0,
+        status: item.status || 'PENDING',
+        expiryDate: item.expiryDate ? new Date(item.expiryDate) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       }));
       await this.itemRepo.save(items);
     }
+
+    // Broadcast realtime event so Web Dashboard & Staff App update immediately
+    fetch(`http://localhost:3004/orders/broadcast`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'inbound_order_created',
+        payload: {
+          id: savedOrder.id,
+          orderCode: savedOrder.orderCode,
+          warehouseCode: savedOrder.warehouseCode,
+          status: savedOrder.status,
+          supplierName: savedOrder.supplierName,
+        },
+      }),
+    }).catch(() => {});
 
     return this.findOne(savedOrder.id);
   }
@@ -57,7 +94,7 @@ export class InboundOrderService {
   async updateStatus(
     id: string,
     status: string,
-    qualityCheckPassed?: boolean,
+    optionsOrQcPassed?: boolean | any,
     packageCondition?: string,
     destinationStation?: string,
     packingNote?: string,
@@ -65,18 +102,163 @@ export class InboundOrderService {
     const order = await this.findOne(id);
     if (!order) throw new NotFoundException('Inbound order not found');
 
+    const opts = typeof optionsOrQcPassed === 'object' && optionsOrQcPassed !== null
+      ? optionsOrQcPassed
+      : {
+          qualityCheckPassed: optionsOrQcPassed,
+          packageCondition,
+          destinationStation,
+          packingNote,
+        };
+
     order.status = status;
-    if (qualityCheckPassed !== undefined) {
-      order.qualityCheckPassed = qualityCheckPassed;
+    if (opts.qualityCheckPassed !== undefined) {
+      order.qualityCheckPassed = opts.qualityCheckPassed;
     }
-    if (packageCondition !== undefined) {
-      order.packageCondition = packageCondition;
+    if (opts.packageCondition !== undefined) {
+      order.packageCondition = opts.packageCondition;
     }
-    if (destinationStation !== undefined) {
-      order.destinationStation = destinationStation;
+    if (opts.destinationStation !== undefined) {
+      order.destinationStation = opts.destinationStation;
     }
-    if (packingNote !== undefined) {
-      order.packingNote = packingNote;
+    if (opts.packingNote !== undefined) {
+      order.packingNote = opts.packingNote;
+    }
+    if (opts.rejectionReason !== undefined) {
+      order.rejectionReason = opts.rejectionReason;
+    }
+    if (opts.rejectionLiability !== undefined) {
+      order.rejectionLiability = opts.rejectionLiability;
+    }
+    if (opts.rejectionAction !== undefined) {
+      order.rejectionAction = opts.rejectionAction;
+    }
+    if (opts.measuredTemperature !== undefined) {
+      order.measuredTemperature = Number(opts.measuredTemperature) || null;
+    }
+    if (opts.evidencePhotoUrl !== undefined) {
+      order.evidencePhotoUrl = opts.evidencePhotoUrl;
+    }
+
+    // XỬ LÝ KHI TỪ CHỐI NHẬP KHO DO LỖI QC
+    if (status === 'REJECTED') {
+      order.qualityCheckPassed = false;
+      const isCustomerReturn = order.orderCode?.startsWith('RET-');
+      const action = order.rejectionAction || (isCustomerReturn ? 'DISPOSAL' : 'RETURN_TO_SUPPLIER_AT_DOCK');
+      order.rejectionAction = action;
+
+      if (action === 'RETURN_TO_SUPPLIER_AT_DOCK') {
+        // Kịch bản 1: Không hạ tải, xe NCC chở về ngay tại Cửa Dock
+        order.destinationStation = 'DOCK_RETURN';
+        if (order.items && order.items.length > 0) {
+          for (const it of order.items) {
+            it.assignedZone = 'DOCK_RETURN';
+            it.assignedSlotId = 'DOCK_RETURN';
+            it.status = 'REJECTED';
+            await this.itemRepo.save(it);
+          }
+        }
+        console.log(`[InboundService] Order ${order.orderCode} rejected at dock: Supplier truck returned immediately.`);
+      } else if (action === 'QUARANTINE_FOR_RTV') {
+        // Kịch bản 2: Hạ tải vào Kệ Cách Ly Q1, tạo Lệnh Xuất Trả Nhà Cung Cấp (Return to Vendor - RTV)
+        order.destinationStation = 'QUARANTINE_SHELF';
+        if (order.items && order.items.length > 0) {
+          for (const it of order.items) {
+            it.assignedZone = 'Z-QUARANTINE';
+            it.assignedSlotId = 'QUARANTINE_SHELF';
+            it.status = 'QUARANTINE';
+            await this.itemRepo.save(it);
+          }
+        }
+
+        try {
+          const rtvRes = await fetch('http://localhost:3007/outbound-orders/rtv-from-rejected-inbound', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              inboundOrderId: order.id,
+              orderCode: order.orderCode,
+              invoiceNumber: order.invoiceNumber,
+              supplierName: order.supplierName,
+              warehouseCode: order.warehouseCode || 'WH-006',
+              rejectionReason: order.rejectionReason,
+              rejectionLiability: order.rejectionLiability || 'SUPPLIER',
+              measuredTemperature: order.measuredTemperature,
+              packingNote: order.packingNote,
+              items: (order.items || []).map(it => ({
+                sku: it.sku,
+                productName: it.productName,
+                requestedQuantity: it.expectedQuantity || 1,
+              })),
+            }),
+          });
+          if (rtvRes.ok) {
+            const rtvData = await rtvRes.json();
+            order.disposalOrderCode = rtvData.orderCode;
+          }
+        } catch (e) {
+          console.warn('[InboundService] Failed to trigger RTV outbound order:', e);
+        }
+      } else {
+        // Kịch bản 3: Hàng hoàn từ khách hỏng QC -> Tiêu hủy Đa Phước (DISP-...)
+        order.destinationStation = 'QUARANTINE_SHELF';
+        if (order.items && order.items.length > 0) {
+          for (const it of order.items) {
+            it.assignedZone = 'Z-DISPOSAL';
+            it.assignedSlotId = 'QUARANTINE_SHELF';
+            it.status = 'REJECTED';
+            await this.itemRepo.save(it);
+          }
+        }
+
+        try {
+          const disposalRes = await fetch('http://localhost:3007/outbound-orders/disposal-from-rejected-inbound', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              inboundOrderId: order.id,
+              orderCode: order.orderCode,
+              invoiceNumber: order.invoiceNumber,
+              supplierName: order.supplierName,
+              warehouseCode: order.warehouseCode || 'WH-006',
+              rejectionReason: order.rejectionReason,
+              rejectionLiability: order.rejectionLiability,
+              measuredTemperature: order.measuredTemperature,
+              packingNote: order.packingNote,
+              items: (order.items || []).map(it => ({
+                sku: it.sku,
+                productName: it.productName,
+                requestedQuantity: it.expectedQuantity || 1,
+              })),
+            }),
+          });
+          if (disposalRes.ok) {
+            const dispData = await disposalRes.json();
+            order.disposalOrderCode = dispData.orderCode;
+          }
+        } catch (e) {
+          console.warn('[InboundService] Failed to trigger disposal outbound order:', e);
+        }
+      }
+
+      // Broadcast sự cố từ chối QC đến Control Tower và Staff App
+      fetch(`http://localhost:3004/orders/broadcast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'inbound_order_rejected',
+          payload: {
+            id: order.id,
+            orderCode: order.orderCode,
+            status: 'REJECTED',
+            rejectionReason: order.rejectionReason,
+            rejectionLiability: order.rejectionLiability,
+            rejectionAction: order.rejectionAction,
+            disposalOrderCode: order.disposalOrderCode,
+            warehouseCode: order.warehouseCode,
+          },
+        }),
+      }).catch(() => {});
     }
 
     const isTransfer = order.orderCode && (order.orderCode.startsWith('TRF-IMP-') || order.orderCode.includes('TRF'));

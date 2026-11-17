@@ -35,6 +35,7 @@ interface DriverTaskContextType {
   assignedTasks: DeliveryTask[];
   inTransitTasks: DeliveryTask[];
   deliveredTasks: DeliveryTask[];
+  failedTasks: DeliveryTask[];
   refreshTasks: () => Promise<void>;
 
   // ── Live GPS from Driver's Device ──
@@ -109,6 +110,9 @@ export function calculateLiveDistance(
   return { distanceKm: finalKm, estimatedTimeMinutes: estMinutes };
 }
 
+// Giới hạn thời gian sống của phiên đăng nhập tài xế: 7 ngày (1 tuần)
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isSessionChecking, setIsSessionChecking] = useState<boolean>(true);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -151,6 +155,7 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [activeTask, setActiveTask] = useState<DeliveryTask | null>(null);
   const [completedTaskIds, setCompletedTaskIds] = useState<Set<string>>(new Set());
   const [inTransitTaskIds, setInTransitTaskIds] = useState<Set<string>>(new Set());
+  const [failedTaskIds, setFailedTaskIds] = useState<Set<string>>(new Set());
   const [isBatchDeparted, setIsBatchDeparted] = useState<boolean>(false);
   const [currentTripLockedIds, setCurrentTripLockedIds] = useState<Set<string>>(new Set());
 
@@ -194,7 +199,19 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const saved = await storageHelper.getItem(DRIVER_SESSION_KEY);
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (parsed && parsed.profile) {
+          const now = Date.now();
+          const isExpired = parsed?.expiresAt
+            ? now > parsed.expiresAt
+            : parsed?.loginAt
+            ? (now - parsed.loginAt > SESSION_TTL_MS)
+            : false;
+
+          if (isExpired) {
+            console.log('[DriverApp] Session expired after 7 days, logging out...');
+            await storageHelper.removeItem(DRIVER_SESSION_KEY);
+            await storageHelper.saveItem('sfwms_driver_session_expired_toast', 'Phiên làm việc đã hết hạn sau 7 ngày. Vui lòng đăng nhập lại.');
+            setIsAuthenticated(false);
+          } else if (parsed && parsed.profile) {
             setDriverProfile(parsed.profile);
             if (parsed.token) setAuthToken(parsed.token);
             setIsAuthenticated(true);
@@ -211,6 +228,8 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             if (savedInTransit) setInTransitTaskIds(new Set(JSON.parse(savedInTransit)));
             const savedCompleted = await storageHelper.getItem(`sfwms_driver_completed_ids_${dId}`);
             if (savedCompleted) setCompletedTaskIds(new Set(JSON.parse(savedCompleted)));
+            const savedFailed = await storageHelper.getItem(`sfwms_driver_failed_ids_${dId}`);
+            if (savedFailed) setFailedTaskIds(new Set(JSON.parse(savedFailed)));
           } else {
             setIsAuthenticated(false);
           }
@@ -273,18 +292,18 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         
         // Canonical Key để chống trùng lặp x2 giữa order-service (:3004) và outbound-service (:3007)
         let primaryKey = '';
-        if (o.notes) {
-          const matchId = String(o.notes).match(/\[(?:ORDER_)?ID:([^\]]+)\]/i);
+        if (o.notes || o.note) {
+          const matchId = String(o.notes || o.note).match(/\[(?:ORDER_)?ID:([^\]]+)\]/i);
           if (matchId && matchId[1]) {
-            primaryKey = `ECOMM-${matchId[1].slice(0, 8).toUpperCase()}`;
+            primaryKey = `ORD-${matchId[1].replace(/[-_]/g, '').slice(0, 8).toUpperCase()}`;
           }
         }
         if (!primaryKey) {
-          const cleanCode = code.toUpperCase().replace(/^ECOMM-/, '').replace(/^OB-/, '');
+          const cleanCode = code.toUpperCase().replace(/^ECOMM-/, '').replace(/^OB-/, '').replace(/^ORD-/, '').replace(/[-_]/g, '');
           if (cleanCode.length >= 8) {
-            primaryKey = `ORD-${cleanCode.slice(0, 8)}`;
+            primaryKey = `ORD-${cleanCode.slice(0, 8).toUpperCase()}`;
           } else {
-            primaryKey = (code || rawId).toUpperCase().trim();
+            primaryKey = `ORD-${(code || rawId).toUpperCase().trim()}`;
           }
         }
 
@@ -341,6 +360,26 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
         const existing = orderMap.get(primaryKey);
         if (existing) {
+          const mergedDriverId = orderObj.assignedDriverId || existing.assignedDriverId;
+          const mergedDriverName = orderObj.assignedDriverName || existing.assignedDriverName;
+          const mergedDriverPhone = orderObj.assignedDriverPhone || existing.assignedDriverPhone;
+          const mergedDriverPlate = orderObj.assignedDriverPlate || existing.assignedDriverPlate;
+
+          // Xác định trạng thái chuẩn khi gộp giữa Order Service (:3004) và Outbound Service (:3007)
+          const allStatuses = [existing.status, orderObj.status].map((s: any) => (s || '').toUpperCase());
+          let mergedStatus = existing.status || orderObj.status;
+          if (allStatuses.includes('FAILED_DELIVERY') || allStatuses.includes('RETURN_TO_WAREHOUSE')) {
+            mergedStatus = 'RETURN_TO_WAREHOUSE';
+          } else if (allStatuses.includes('DELIVERED') || allStatuses.includes('COMPLETED')) {
+            mergedStatus = 'DELIVERED';
+          } else if (allStatuses.includes('IN_TRANSIT') || allStatuses.includes('DELIVERING') || allStatuses.includes('SHIPPED')) {
+            mergedStatus = 'IN_TRANSIT';
+          } else if (allStatuses.includes('READY_FOR_DELIVERY') || allStatuses.includes('CONFIRMED')) {
+            mergedStatus = 'READY_FOR_DELIVERY';
+          } else if (allStatuses.includes('PACKED')) {
+            mergedStatus = mergedDriverId ? 'READY_FOR_DELIVERY' : 'PACKED';
+          }
+
           // Merge thông tin: ưu tiên danh sách sản phẩm và xuất kho của outbound, nhưng giữ thông tin tài xế và trạng thái chuẩn
           orderMap.set(primaryKey, {
             ...existing,
@@ -348,15 +387,13 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             id: isOb ? rawId : existing.id,
             orderCode: existing.orderCode || code,
             items: (existing.items && existing.items.length > 0) ? existing.items : (orderObj.items || []),
-            assignedDriverId: orderObj.assignedDriverId || existing.assignedDriverId,
-            assignedDriverName: orderObj.assignedDriverName || existing.assignedDriverName,
-            assignedDriverPhone: orderObj.assignedDriverPhone || existing.assignedDriverPhone,
-            assignedDriverPlate: orderObj.assignedDriverPlate || existing.assignedDriverPlate,
-            status: (orderObj.status === 'DELIVERED' || existing.status === 'DELIVERED')
-              ? 'DELIVERED'
-              : (orderObj.status === 'IN_TRANSIT' || existing.status === 'IN_TRANSIT')
-              ? 'IN_TRANSIT'
-              : (existing.status || orderObj.status),
+            assignedDriverId: mergedDriverId,
+            assignedDriverName: mergedDriverName,
+            assignedDriverPhone: mergedDriverPhone,
+            assignedDriverPlate: mergedDriverPlate,
+            status: mergedStatus,
+            failureReason: orderObj.failureReason || existing.failureReason,
+            failurePhotoUrl: orderObj.failurePhotoUrl || existing.failurePhotoUrl,
           });
           return;
         }
@@ -389,6 +426,7 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           const ALLOWED_DRIVER_STATUSES = [
             'READY_FOR_DELIVERY',
             'CONFIRMED',
+            'PACKED',
             'SHIPPED',
             'DELIVERING',
             'IN_TRANSIT',
@@ -467,18 +505,32 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         matchedOrders.forEach((o: any) => {
           const isServerDelivered = o.status === 'COMPLETED' || o.status === 'DELIVERED';
           const isServerInTransit = o.status === 'DELIVERING' || o.status === 'SHIPPED' || o.status === 'IN_TRANSIT';
-          const isServerAssigned = o.status === 'READY_FOR_DELIVERY' || o.status === 'CONFIRMED' || o.status === 'ASSIGNED';
+          const isServerAssigned = o.status === 'READY_FOR_DELIVERY' || o.status === 'CONFIRMED' || o.status === 'PACKED' || o.status === 'ASSIGNED';
+          const isServerFailed = o.status === 'FAILED_DELIVERY' || o.status === 'RETURN_TO_WAREHOUSE';
 
           const isCurrentTripLocked = currentTripLockedIds.has(o.id) || currentTripLockedIds.has(o.orderCode);
+          const isAlreadyFailed = isServerFailed || failedTaskIds.has(o.id) || failedTaskIds.has(o.orderCode);
           // Backend DB status is the authoritative source of truth for real-time synchronization
-          const isAlreadyDelivered = isServerDelivered || (!isServerAssigned && (completedTaskIds.has(o.id) || completedTaskIds.has(o.orderCode)));
-          const isAlreadyInTransit = isServerInTransit || (!isServerDelivered && !isServerAssigned && (inTransitTaskIds.has(o.id) || inTransitTaskIds.has(o.orderCode)));
+          const isAlreadyDelivered = !isAlreadyFailed && (isServerDelivered || (!isServerAssigned && (completedTaskIds.has(o.id) || completedTaskIds.has(o.orderCode))));
+          const isAlreadyInTransit = !isAlreadyFailed && (isServerInTransit || (!isServerDelivered && !isServerAssigned && (inTransitTaskIds.has(o.id) || inTransitTaskIds.has(o.orderCode))));
 
           // QUY TẮC PHÂN CHUYẾN CHUẨN TMS:
           // Nếu chuyến hiện tại đã xuất bến/đang lăn bánh giao hàng (effectiveBatchDeparted):
           // Bất kỳ đơn hàng mới nào được phân bổ (chưa xuất bến, chưa giao, không thuộc locked ban đầu)
+          // VÀ không cùng khách hàng/địa chỉ với đơn đang có trong chuyến hiện tại
           // -> BẮT BUỘC CHUYỂN VÀO CHUYẾN KẾ TIẾP (nextWaveOrders) để không làm xáo trộn lộ trình đang giao!
-          if (effectiveBatchDeparted && !isAlreadyInTransit && !isAlreadyDelivered && (!isCurrentTripLocked || nextWaveOrders.length > 0)) {
+          // Đơn hàng sự cố/hàng hoàn (isAlreadyFailed) luôn giữ ở chuyến hiện tại!
+          const isSameCustomerWithCurrentTrip = currentBatchOrders.some(curr => {
+            const currPhone = (curr.customerPhone || '').replace(/\D/g, '');
+            const thisPhone = (o.customerPhone || '').replace(/\D/g, '');
+            const currAddr = (curr.customerAddress || curr.deliveryAddress || '').toLowerCase().trim();
+            const thisAddr = (o.customerAddress || o.deliveryAddress || '').toLowerCase().trim();
+            const isSamePhone = Boolean(currPhone && thisPhone && currPhone === thisPhone);
+            const isSameAddr = Boolean(currAddr && thisAddr && (currAddr === thisAddr || currAddr.includes(thisAddr) || thisAddr.includes(currAddr)));
+            return isSamePhone || isSameAddr;
+          });
+
+          if (effectiveBatchDeparted && !isAlreadyFailed && !isAlreadyInTransit && !isAlreadyDelivered && !isSameCustomerWithCurrentTrip && (!isCurrentTripLocked || nextWaveOrders.length > 0)) {
             nextWaveOrders.push(o);
           } else {
             currentBatchOrders.push(o);
@@ -494,6 +546,13 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           let taskStatus: TaskStatus = 'ASSIGNED';
           if (o.status === 'COMPLETED' || o.status === 'DELIVERED') {
             taskStatus = 'DELIVERED';
+          } else if (
+            o.status === 'FAILED_DELIVERY' ||
+            o.status === 'RETURN_TO_WAREHOUSE' ||
+            failedTaskIds.has(o.id) ||
+            failedTaskIds.has(o.orderCode)
+          ) {
+            taskStatus = 'FAILED';
           } else if (o.status === 'DELIVERING' || o.status === 'SHIPPED' || o.status === 'IN_TRANSIT') {
             taskStatus = 'IN_TRANSIT';
           } else if (o.status === 'READY_FOR_DELIVERY' || o.status === 'CONFIRMED' || o.status === 'PACKED' || o.status === 'ASSIGNED') {
@@ -585,6 +644,8 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               ? `${packingBoxes} Thùng Tiêu Hủy (Niêm phong QC)` 
               : `${packingBoxes} Thùng đóng gói (${totalQty} món • Khâu QC đóng gói)`,
             notes: o.notes || o.note || (o.isDisposal ? 'Vận chuyển tiêu hủy tại Khu xử lý chất thải Đa Phước' : 'Giao hàng tận tay khách'),
+            failureReason: o.failureReason || (o.notes?.startsWith('[HÀNG HOÀN]') ? o.notes.replace('[HÀNG HOÀN]', '').trim() : undefined),
+            failurePhotoUrl: o.failurePhotoUrl,
             isOutbound: o.isOutbound,
           };
         });
@@ -659,6 +720,14 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setNextWaveTasks(mappedNextTasks);
         setNextBatchQueueCount(mappedNextTasks.length);
 
+        // Kiểm tra nếu tất cả đơn trong chuyến hiện tại đã giao xong hoặc đã báo hoàn -> Chuyển sang hoàn tất chuyến
+        if (
+          mappedCurrentTasks.length > 0 &&
+          mappedCurrentTasks.every(t => t.status === 'DELIVERED' || t.status === 'FAILED')
+        ) {
+          setTripStatus('RETURNING_TO_HUB');
+        }
+
         const currentActive = mappedCurrentTasks.find(t => t.status === 'IN_TRANSIT');
         setActiveTask(currentActive || null);
       } else {
@@ -675,7 +744,7 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setActiveTask(null);
       setNextBatchQueueCount(0);
     }
-  }, [isAuthenticated, driverProfile, completedTaskIds, inTransitTaskIds, currentTripNumber, isBatchDeparted, currentTripLockedIds]);
+  }, [isAuthenticated, driverProfile, completedTaskIds, inTransitTaskIds, failedTaskIds, currentTripNumber, isBatchDeparted, currentTripLockedIds]);
 
   useEffect(() => {
     // Không chạy sync hay socket khi chưa đăng nhập hoặc đang kiểm tra phiên
@@ -885,7 +954,13 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     try {
       const dId = finalProfile.id || '';
-      await storageHelper.saveItem(DRIVER_SESSION_KEY, JSON.stringify({ token, profile: finalProfile }));
+      const now = Date.now();
+      await storageHelper.saveItem(DRIVER_SESSION_KEY, JSON.stringify({
+        token,
+        profile: finalProfile,
+        loginAt: now,
+        expiresAt: now + SESSION_TTL_MS,
+      }));
       await storageHelper.removeItem(`sfwms_driver_batch_departed_${dId}`);
       await storageHelper.removeItem(`sfwms_driver_locked_trip_ids_${dId}`);
       await storageHelper.removeItem(`sfwms_driver_trip_number_${dId}`);
@@ -938,7 +1013,13 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setCompletedTaskIds(new Set());
       setInTransitTaskIds(new Set());
       try {
-        await storageHelper.saveItem(DRIVER_SESSION_KEY, JSON.stringify({ token: `JWT_DRIVER_${target.id}`, profile: target }));
+        const now = Date.now();
+        await storageHelper.saveItem(DRIVER_SESSION_KEY, JSON.stringify({
+          token: `JWT_DRIVER_${target.id}`,
+          profile: target,
+          loginAt: now,
+          expiresAt: now + SESSION_TTL_MS,
+        }));
         await storageHelper.removeItem('sfwms_driver_batch_departed');
         await storageHelper.removeItem('sfwms_driver_locked_trip_ids');
       } catch (e) {}
@@ -978,6 +1059,14 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setNextBatchQueueCount(0);
     setInTransitTaskIds(new Set());
     setCompletedTaskIds(new Set());
+    setFailedTaskIds(new Set());
+
+    const dId = driverProfile?.id || '';
+    if (dId) {
+      storageHelper.removeItem(`sfwms_driver_intransit_ids_${dId}`);
+      storageHelper.removeItem(`sfwms_driver_completed_ids_${dId}`);
+      storageHelper.removeItem(`sfwms_driver_failed_ids_${dId}`);
+    }
 
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
@@ -986,6 +1075,7 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         window.localStorage.setItem('sfwms_driver_locked_trip_ids', JSON.stringify(Array.from(newLocked)));
         window.localStorage.removeItem('sfwms_driver_intransit_ids');
         window.localStorage.removeItem('sfwms_driver_completed_ids');
+        window.localStorage.removeItem('sfwms_driver_failed_ids');
       } catch (e) {}
     }
 
@@ -1161,7 +1251,7 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }));
 
     // Check if that was the last delivery in current batch -> Trigger Return-to-Hub
-    const remainingAfterThis = updatedTasks.filter(t => t.status !== 'DELIVERED');
+    const remainingAfterThis = updatedTasks.filter(t => t.status !== 'DELIVERED' && t.status !== 'FAILED');
     if (remainingAfterThis.length === 0) {
       setTripStatus('RETURNING_TO_HUB');
     }
@@ -1296,7 +1386,7 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       totalEarningsToday: prev.totalEarningsToday + (35000 * targetTasks.length),
     }));
 
-    const remainingAfterThis = updatedTasks.filter(t => t.status !== 'DELIVERED');
+    const remainingAfterThis = updatedTasks.filter(t => t.status !== 'DELIVERED' && t.status !== 'FAILED');
     if (remainingAfterThis.length === 0) {
       setTripStatus('RETURNING_TO_HUB');
     }
@@ -1371,39 +1461,91 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const reportDeliveryFailure = async (taskId: string, reason: string, photoUrl?: string) => {
-    setTasks(prev =>
-      prev.map(t =>
-        t.id === taskId
-          ? { ...t, status: 'FAILED' as TaskStatus, notes: `[HÀNG HOÀN] ${reason}` }
-          : t
-      )
-    );
+    const targetTask = tasks.find(t => t.id === taskId || t.orderCode === taskId);
+    const orderCode = targetTask?.orderCode || taskId;
+    const dId = driverProfile?.id || '';
 
-    if (activeTask?.id === taskId) {
+    // 1. Xóa khỏi danh sách đang giao (inTransitTaskIds)
+    setInTransitTaskIds(prev => {
+      const updated = new Set(prev);
+      updated.delete(taskId);
+      if (targetTask?.id) updated.delete(targetTask.id);
+      if (targetTask?.orderCode) updated.delete(targetTask.orderCode);
+      if (dId) {
+        storageHelper.saveItem(`sfwms_driver_intransit_ids_${dId}`, JSON.stringify(Array.from(updated)));
+      }
+      return updated;
+    });
+
+    // 2. Thêm vào danh sách sự cố / hàng hoàn (failedTaskIds)
+    setFailedTaskIds(prev => {
+      const updated = new Set(prev);
+      updated.add(taskId);
+      if (targetTask?.id) updated.add(targetTask.id);
+      if (targetTask?.orderCode) updated.add(targetTask.orderCode);
+      if (dId) {
+        storageHelper.saveItem(`sfwms_driver_failed_ids_${dId}`, JSON.stringify(Array.from(updated)));
+      }
+      return updated;
+    });
+
+    // 3. Cập nhật state tasks
+    const updatedTasks = tasks.map(t =>
+      t.id === taskId || t.orderCode === orderCode
+        ? {
+            ...t,
+            status: 'FAILED' as TaskStatus,
+            notes: `[HÀNG HOÀN] ${reason}`,
+            failureReason: reason,
+            failurePhotoUrl: photoUrl,
+          }
+        : t
+    );
+    setTasks(updatedTasks);
+
+    // Kiểm tra nếu tất cả đơn trong chuyến hiện tại đã giao xong hoặc đã báo hoàn -> Chuyển sang hoàn tất chuyến
+    const remainingAfterThis = updatedTasks.filter(t => t.status !== 'DELIVERED' && t.status !== 'FAILED');
+    if (remainingAfterThis.length === 0) {
+      setTripStatus('RETURNING_TO_HUB');
+    }
+
+    if (activeTask?.id === taskId || activeTask?.orderCode === orderCode) {
       setActiveTask(null);
     }
 
-    const targetTask = tasks.find(t => t.id === taskId);
-    const isOutbound = targetTask?.orderCode?.startsWith('OB-') || (targetTask as any)?.isOutbound;
     const failurePayload = {
       failureReason: reason,
       failurePhotoUrl: photoUrl,
+      reason,
+      photoUrl,
+      returnToWarehouse: true,
       driverId: driverProfile.id,
       driverName: driverProfile.name,
       driverPhone: driverProfile.phone,
       driverPlate: driverProfile.licensePlate,
     };
 
-    if (isOutbound && targetTask) {
-      await driverApi.syncOutboundStatus(targetTask.id, 'CANCELLED', failurePayload);
-    } else {
-      await driverApi.reportFailure(taskId, reason, photoUrl);
+    // 4. Đồng bộ trạng thái RETURN_TO_WAREHOUSE lên máy chủ
+    try {
+      await Promise.all([
+        driverApi.syncOutboundStatus(taskId, 'RETURN_TO_WAREHOUSE', failurePayload),
+        orderCode && orderCode !== taskId
+          ? driverApi.syncOutboundStatus(orderCode, 'RETURN_TO_WAREHOUSE', failurePayload)
+          : Promise.resolve(true),
+        driverApi.reportFailure(orderCode, reason, photoUrl),
+        taskId && taskId !== orderCode
+          ? driverApi.reportFailure(taskId, reason, photoUrl)
+          : Promise.resolve(true),
+      ]);
+    } catch (err) {
+      console.warn('Lỗi đồng bộ hàng hoàn lên máy chủ:', err);
     }
   };
 
   const assignedTasks = tasks.filter(t => t.status === 'ASSIGNED');
   const inTransitTasks = tasks.filter(t => t.status === 'IN_TRANSIT');
   const deliveredTasks = tasks.filter(t => t.status === 'DELIVERED');
+  const failedTasks = tasks.filter(t => t.status === 'FAILED');
 
   const totalCodCollectedCurrentTrip = deliveredTasks.reduce((sum, t) => sum + (t.codAmount || 0), 0);
 
@@ -1434,6 +1576,7 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         assignedTasks,
         inTransitTasks,
         deliveredTasks,
+        failedTasks,
         refreshTasks: fetchLiveAssignedOrders,
 
         // Live GPS

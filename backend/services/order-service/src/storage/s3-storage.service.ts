@@ -144,12 +144,25 @@ export class S3StorageService {
     const folder = isVideo ? 'chat-media/videos' : 'chat-media/images';
     const key = `${folder}/${timestamp}_${cleanFilename}`;
 
+    const cleanBase64 = base64Data.replace(/^data:[^;]+;base64,/, '');
+    const buffer = Buffer.from(cleanBase64, 'base64');
+
+    // 1. Luôn lưu bản sao cục bộ vào thư mục uploads/chat-media/... để phục vụ streaming trực tiếp qua proxy endpoint
+    try {
+      const uploadDir = path.join(process.cwd(), 'uploads', folder);
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      fs.writeFileSync(path.join(uploadDir, `${timestamp}_${cleanFilename}`), buffer);
+      this.logger.log(`[Chat Media] Saved locally to: ${path.join(uploadDir, `${timestamp}_${cleanFilename}`)} (${buffer.length} bytes)`);
+    } catch (fsErr: any) {
+      this.logger.warn(`Failed to save local chat media backup: ${fsErr?.message}`);
+    }
+
+    // 2. Nếu có S3 client hợp lệ, upload đồng thời lên S3 làm bản sao đám mây
     if (this.s3Client) {
       try {
         this.logger.log(`[AWS S3] Uploading chat media to s3://${this.bucketName}/${key} (${mimeType})...`);
-        const cleanBase64 = base64Data.replace(/^data:[^;]+;base64,/, '');
-        const buffer = Buffer.from(cleanBase64, 'base64');
-
         const command = new PutObjectCommand({
           Bucket: this.bucketName,
           Key: key,
@@ -158,25 +171,19 @@ export class S3StorageService {
         });
 
         await this.s3Client.send(command);
-        const s3Url = `https://${this.bucketName}.s3.${this.region}.amazonaws.com/${key}`;
-        this.logger.log(`[AWS S3] Chat media upload SUCCESS: ${s3Url}`);
-        return {
-          url: s3Url,
-          key,
-          mediaType: isVideo ? 'VIDEO' : 'IMAGE',
-          isSimulated: false,
-        };
+        this.logger.log(`[AWS S3] Chat media upload SUCCESS to S3: s3://${this.bucketName}/${key}`);
       } catch (err: any) {
-        this.logger.error(`[AWS S3] Chat media upload error: ${err.message}. Using direct S3 URL template.`);
+        this.logger.error(`[AWS S3] Chat media S3 upload error: ${err.message}. Local file will serve client.`);
       }
     }
 
-    const previewUrl = `https://${this.bucketName}.s3.${this.region}.amazonaws.com/${key}`;
+    // 3. Trả về endpoint proxy nội bộ /chat/media/${key} để frontend hiển thị 100% không bị lỗi 403 S3
+    const proxyUrl = `/chat/media/${key}`;
     return {
-      url: previewUrl,
+      url: proxyUrl,
       key,
       mediaType: isVideo ? 'VIDEO' : 'IMAGE',
-      isSimulated: true,
+      isSimulated: !this.s3Client,
     };
   }
 }
