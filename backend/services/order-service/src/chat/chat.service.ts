@@ -551,7 +551,11 @@ export class ChatService {
    * Đánh dấu toàn bộ phiên chat là đã đọc
    */
   async markAllSessionsAsRead(): Promise<{ success: boolean }> {
-    await this.sessionRepo.update({}, { unreadCount: 0 });
+    await this.sessionRepo
+      .createQueryBuilder()
+      .update(ChatSession)
+      .set({ unreadCount: 0 })
+      .execute();
     this.logger.log('All chat sessions marked as read by staff.');
     return { success: true };
   }
