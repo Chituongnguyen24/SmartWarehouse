@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Boxes, MapPin, RefreshCw, X, Layers, Settings, Building2, Edit2, Send, ExternalLink, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Boxes, MapPin, RefreshCw, X, Layers, Settings, Building2, Edit2, Send, ExternalLink, CheckCircle2, AlertTriangle, ArrowRight, Search, Loader2 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
 import { useWarehouse, type Warehouse } from '@/shared';
 import { getApiHost } from '@/shared/utils/apiConfig';
@@ -122,6 +122,10 @@ const Inventory = () => {
   const [hideDepletedLots, setHideDepletedLots] = useState(true);
   const [selectedZoneFilter, setSelectedZoneFilter] = useState<'ALL' | 'COLD' | 'FROZEN' | 'DRY'>('ALL');
 
+  // Cross-warehouse lot search state when lot is not in current warehouse
+  const [crossWhLots, setCrossWhLots] = useState<any[]>([]);
+  const [isSearchingCrossWh, setIsSearchingCrossWh] = useState(false);
+
   // URL Search & Highlight synchronization from GlobalSearch
   const urlSearch = searchParams.get('search') || '';
   const urlHighlight = searchParams.get('highlight') || '';
@@ -138,6 +142,50 @@ const Inventory = () => {
       return () => clearTimeout(timer);
     }
   }, [urlHighlight]);
+
+  // Cross-warehouse lot discovery when 0 results found in current warehouse
+  useEffect(() => {
+    const q = lotsSearch.trim();
+    if (!q || q.length < 2) {
+      setCrossWhLots([]);
+      setIsSearchingCrossWh(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      // Check if current warehouse has matches
+      const currentHasMatch = whLots.some(l => 
+        (l.lotCode || '').toLowerCase().includes(q.toLowerCase()) ||
+        (l.displayName || '').toLowerCase().includes(q.toLowerCase()) ||
+        (l.displaySku || '').toLowerCase().includes(q.toLowerCase())
+      );
+
+      if (currentHasMatch) {
+        setCrossWhLots([]);
+        return;
+      }
+
+      setIsSearchingCrossWh(true);
+      try {
+        const res = await fetch(`${INVENTORY_API}/inventory/lots?limit=100&search=${encodeURIComponent(q)}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const list = Array.isArray(data) ? data : (data.items || []);
+          // Filter to lots that are in other warehouses
+          const otherLots = list.filter((l: any) => l.warehouseCode && l.warehouseCode !== viewingWh?.code);
+          setCrossWhLots(otherLots);
+        }
+      } catch (err) {
+        console.warn('Cross warehouse search error:', err);
+      } finally {
+        setIsSearchingCrossWh(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [lotsSearch, whLots, viewingWh, token]);
 
   useEffect(() => {
     if (urlSearch) {
@@ -1789,9 +1837,108 @@ const Inventory = () => {
           )}
 
           {filteredWhLots.length === 0 ? (
-            <div style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
-              Không tìm thấy lô hàng nào phù hợp với bộ lọc đã chọn.
-            </div>
+            isSearchingCrossWh ? (
+              <div style={{ padding: '2.5rem', textAlign: 'center', color: '#0f766e', backgroundColor: '#f0fdfa', borderRadius: '10px', border: '1px solid #ccfbf1' }}>
+                <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 8px', color: '#0f766e' }} />
+                <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>Đang quét tìm kiếm lô hàng trên toàn bộ mạng lưới kho...</div>
+              </div>
+            ) : crossWhLots.length > 0 ? (
+              <div style={{ padding: '18px 20px', backgroundColor: '#f0fdf4', borderRadius: '10px', border: '1.5px solid #bbf7d0', textAlign: 'left' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#166534', fontWeight: 700, fontSize: '0.95rem', marginBottom: '6px' }}>
+                  <CheckCircle2 size={18} color="#16a34a" />
+                  <span>Không có lô này trong {viewingWh?.name || 'kho hiện tại'}, nhưng tìm thấy tại kho khác!</span>
+                </div>
+                <p style={{ fontSize: '0.82rem', color: '#334155', margin: '0 0 12px' }}>
+                  Hệ thống tìm thấy <strong>{crossWhLots.length} lô hàng</strong> phù hợp với từ khóa <strong>"{lotsSearch}"</strong> tại các kho sau trong mạng lưới:
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {crossWhLots.map((cl: any) => {
+                    const targetWh = warehouses.find(w => w.code.toUpperCase() === (cl.warehouseCode || '').toUpperCase());
+                    return (
+                      <div
+                        key={cl.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '10px 14px',
+                          backgroundColor: '#ffffff',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: '8px',
+                          gap: '12px',
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>
+                            {cl.lotCode}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>Kho: <strong style={{ color: '#0f766e' }}>{targetWh?.name || cl.warehouseCode}</strong> ({cl.warehouseCode})</span>
+                            <span>•</span>
+                            <span>Còn <strong>{Number(cl.remainingQty || cl.quantity || 0).toLocaleString('vi-VN')}</strong> món</span>
+                            {cl.location && (
+                              <>
+                                <span>•</span>
+                                <span>Kệ: <strong>{cl.location}</strong></span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (targetWh) {
+                              handleViewStock(targetWh);
+                            }
+                          }}
+                          style={{
+                            padding: '6px 14px',
+                            backgroundColor: '#0f766e',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontWeight: 600,
+                            fontSize: '0.78rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            flexShrink: 0,
+                            transition: 'background-color 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#115e59')}
+                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#0f766e')}
+                        >
+                          <span>Chuyển sang xem tại {cl.warehouseCode}</span>
+                          <ArrowRight size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
+                <Boxes size={32} color="#94a3b8" style={{ margin: '0 auto 10px' }} />
+                <div style={{ fontWeight: 700, color: '#1e293b', fontSize: '0.9rem' }}>
+                  {lotsSearch ? `Không tìm thấy lô hàng nào phù hợp với từ khóa "${lotsSearch}"` : 'Không có lô hàng nào phù hợp với bộ lọc đã chọn'}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '4px' }}>
+                  Đang tìm trong: <strong>{viewingWh?.name || 'Kho hiện tại'}</strong>. Hãy thử kiểm tra lại mã lô hoặc xóa bộ lọc.
+                </div>
+                {lotsSearch && (
+                  <div style={{ marginTop: '14px', display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => { setLotsSearch(''); setSelectedRiskFilter('ALL'); setSelectedZoneFilter('ALL'); }}
+                      style={{ padding: '6px 14px', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 600, color: '#334155', cursor: 'pointer' }}
+                    >
+                      Xóa tìm kiếm & xem tất cả lô
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '1rem' }}>

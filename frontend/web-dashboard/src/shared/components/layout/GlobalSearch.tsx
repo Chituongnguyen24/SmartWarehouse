@@ -113,8 +113,9 @@ export const GlobalSearch: React.FC = () => {
         fetch(`${getApiHost(3011)}/inventory/lots?limit=500`).then(r => r.ok ? r.json() : null),
       ]);
 
+      let pList: any[] = [];
       if (prodRes.status === 'fulfilled' && prodRes.value) {
-        const pList = prodRes.value.items || prodRes.value.data || prodRes.value;
+        pList = prodRes.value.items || prodRes.value.data || prodRes.value || [];
         if (Array.isArray(pList)) setProducts(pList);
       }
       if (inbRes.status === 'fulfilled' && inbRes.value) {
@@ -131,7 +132,22 @@ export const GlobalSearch: React.FC = () => {
       }
       if (lotRes.status === 'fulfilled' && lotRes.value) {
         const lList = Array.isArray(lotRes.value) ? lotRes.value : (lotRes.value.items || lotRes.value.data || []);
-        if (Array.isArray(lList)) setLots(lList);
+        if (Array.isArray(lList)) {
+          const prodMap = new Map<string, any>();
+          pList.forEach(p => {
+            if (p.id) prodMap.set(p.id, p);
+            if (p.sku) prodMap.set(p.sku.toLowerCase(), p);
+          });
+          const enriched = lList.map(l => {
+            const p = prodMap.get(l.productId) || (l.sku ? prodMap.get(l.sku.toLowerCase()) : null);
+            return {
+              ...l,
+              productName: p?.name || l.productName || '',
+              sku: p?.sku || l.sku || '',
+            };
+          });
+          setLots(enriched);
+        }
       }
     } catch (err) {
       console.warn('Error loading global search cache:', err);
