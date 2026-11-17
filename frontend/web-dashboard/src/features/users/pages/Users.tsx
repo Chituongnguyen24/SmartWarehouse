@@ -11,6 +11,10 @@ import {
   Unlock,
   KeyRound,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   AlertTriangle,
   RefreshCw,
   Edit,
@@ -89,16 +93,248 @@ const SHIFT_OPTIONS = [
   { value: 'CA_DEM', label: 'Ca Đêm (22:00 - 06:00)' },
 ];
 
+// Reusable Enterprise Pagination Bar for User Management
+interface UserPaginationBarProps {
+  currentPage: number;
+  pageSize: number;
+  totalItems: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
+}
+
+const UserPaginationBar: React.FC<UserPaginationBarProps> = ({
+  currentPage,
+  pageSize,
+  totalItems,
+  onPageChange,
+  onPageSizeChange,
+}) => {
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(totalItems, currentPage * pageSize);
+
+  // Generate page numbers with ellipsis
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('...');
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) {
+        if (!pages.includes(i)) pages.push(i);
+      }
+      if (currentPage < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '10px 16px',
+        backgroundColor: '#f8fafc',
+        borderTop: '1px solid #e2e8f0',
+        flexWrap: 'wrap',
+        gap: '12px',
+      }}
+    >
+      <div style={{ fontSize: '12px', color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>
+        Hiển thị <b style={{ color: '#0f172a' }}>{startItem}</b> - <b style={{ color: '#0f172a' }}>{endItem}</b> trong tổng số <b style={{ color: '#0f766e' }}>{totalItems}</b> tài khoản
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Page Size Selector */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: '#64748b' }}>
+          <span>Hiển thị:</span>
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              onPageSizeChange(Number(e.target.value));
+              onPageChange(1);
+            }}
+            style={{
+              padding: '3px 8px',
+              borderRadius: '6px',
+              border: '1px solid #cbd5e1',
+              backgroundColor: '#ffffff',
+              fontSize: '11.5px',
+              color: '#0f172a',
+              fontWeight: 500,
+              cursor: 'pointer',
+              outline: 'none',
+            }}
+          >
+            <option value={10}>10 tài khoản/trang</option>
+            <option value={20}>20 tài khoản/trang</option>
+            <option value={50}>50 tài khoản/trang</option>
+            <option value={100}>100 tài khoản/trang</option>
+          </select>
+        </div>
+
+        {/* Page Navigation Controls */}
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          <button
+            type="button"
+            onClick={() => onPageChange(1)}
+            disabled={currentPage <= 1}
+            title="Trang đầu"
+            style={{
+              padding: '4px 6px',
+              borderRadius: '6px',
+              border: '1px solid #cbd5e1',
+              backgroundColor: currentPage <= 1 ? '#f1f5f9' : '#ffffff',
+              color: currentPage <= 1 ? '#94a3b8' : '#334155',
+              fontSize: '11.5px',
+              cursor: currentPage <= 1 ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <ChevronsLeft size={13} />
+          </button>
+          <button
+            type="button"
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage <= 1}
+            title="Trang trước"
+            style={{
+              padding: '4px 7px',
+              borderRadius: '6px',
+              border: '1px solid #cbd5e1',
+              backgroundColor: currentPage <= 1 ? '#f1f5f9' : '#ffffff',
+              color: currentPage <= 1 ? '#94a3b8' : '#334155',
+              fontSize: '11.5px',
+              fontWeight: 500,
+              cursor: currentPage <= 1 ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '2px',
+            }}
+          >
+            <ChevronLeft size={13} />
+            <span>Trước</span>
+          </button>
+
+          {getPageNumbers().map((p, idx) => {
+            if (p === '...') {
+              return (
+                <span key={`dots-${idx}`} style={{ padding: '0 4px', color: '#94a3b8', fontSize: '11px' }}>
+                  ...
+                </span>
+              );
+            }
+            const isCurrent = p === currentPage;
+            return (
+              <button
+                key={`page-${p}`}
+                type="button"
+                onClick={() => onPageChange(p as number)}
+                style={{
+                  padding: '4px 9px',
+                  borderRadius: '6px',
+                  border: isCurrent ? '1px solid #0f766e' : '1px solid #cbd5e1',
+                  backgroundColor: isCurrent ? '#0f766e' : '#ffffff',
+                  color: isCurrent ? '#ffffff' : '#334155',
+                  fontSize: '11.5px',
+                  fontWeight: isCurrent ? 700 : 500,
+                  cursor: 'pointer',
+                  minWidth: '28px',
+                  textAlign: 'center',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                {p}
+              </button>
+            );
+          })}
+
+          <button
+            type="button"
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+            title="Trang sau"
+            style={{
+              padding: '4px 7px',
+              borderRadius: '6px',
+              border: '1px solid #cbd5e1',
+              backgroundColor: currentPage >= totalPages ? '#f1f5f9' : '#ffffff',
+              color: currentPage >= totalPages ? '#94a3b8' : '#334155',
+              fontSize: '11.5px',
+              fontWeight: 500,
+              cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '2px',
+            }}
+          >
+            <span>Tiếp</span>
+            <ChevronRight size={13} />
+          </button>
+          <button
+            type="button"
+            onClick={() => onPageChange(totalPages)}
+            disabled={currentPage >= totalPages}
+            title="Trang cuối"
+            style={{
+              padding: '4px 6px',
+              borderRadius: '6px',
+              border: '1px solid #cbd5e1',
+              backgroundColor: currentPage >= totalPages ? '#f1f5f9' : '#ffffff',
+              color: currentPage >= totalPages ? '#94a3b8' : '#334155',
+              fontSize: '11.5px',
+              cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <ChevronsRight size={13} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Users: React.FC = () => {
   const { token, user: currentAuthUser } = useAuth();
   const [users, setUsers] = useState<ComprehensiveUser[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
 
   // Filters
   const [search, setSearch] = useState('');
   const [selectedRole, setSelectedRole] = useState('ALL');
   const [selectedWarehouse, setSelectedWarehouse] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
+
+  // Reset page when filter or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedRole, selectedWarehouse, selectedStatus]);
+
+  const totalPages = Math.max(1, Math.ceil(users.length / pageSize));
+
+  // Guard against currentPage exceeding totalPages when list shrinks
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return users.slice(start, start + pageSize);
+  }, [users, currentPage, pageSize]);
 
   // Modals & Panels
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -510,6 +746,43 @@ const Users: React.FC = () => {
           overflow: 'hidden',
         }}
       >
+        {/* Table Title & Quick Counters */}
+        <div
+          style={{
+            padding: '12px 16px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderBottom: '1px solid #e2e8f0',
+            backgroundColor: '#ffffff',
+            flexWrap: 'wrap',
+            gap: '8px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
+              Danh Sách Tài Khoản Người Dùng
+            </span>
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 600,
+                color: '#0f766e',
+                backgroundColor: '#f0fdf4',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                border: '1px solid #bbf7d0',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {users.length} tài khoản
+            </span>
+          </div>
+          <span style={{ fontSize: '11.5px', color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>
+            Trang <b>{users.length > 0 ? currentPage : 0}</b> / {totalPages}
+          </span>
+        </div>
+
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.825rem' }}>
             <thead>
@@ -537,7 +810,7 @@ const Users: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                users.map(u => {
+                paginatedUsers.map(u => {
                   const isLocked = u.status === 'INACTIVE' || !!u.lockedAt;
                   const roleColor = ROLE_COLORS[u.role] || '#475569';
                   const roleLabel = ROLE_LABELS[u.role] || u.role;
@@ -751,6 +1024,15 @@ const Users: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* User Pagination Bar */}
+        <UserPaginationBar
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalItems={users.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
