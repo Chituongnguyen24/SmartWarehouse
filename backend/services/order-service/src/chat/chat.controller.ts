@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, Res } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Response } from 'express';
 import { ChatService } from './chat.service';
@@ -101,6 +101,18 @@ export class ChatController {
   @ApiOperation({ summary: 'Chuyển lại quyền hỗ trợ cho Trợ lý AI' })
   async handback(@Param('id') sessionId: string) {
     return this.chatService.handBackToAi(sessionId);
+  }
+
+  @Patch('sessions/mark-all-read')
+  @ApiOperation({ summary: 'Đánh dấu tất cả phiên chat là đã đọc' })
+  async markAllRead() {
+    return this.chatService.markAllSessionsAsRead();
+  }
+
+  @Patch('sessions/:id/mark-read')
+  @ApiOperation({ summary: 'Đánh dấu phiên chat đã được nhân viên đọc/xem' })
+  async markSessionRead(@Param('id') sessionId: string) {
+    return this.chatService.markSessionAsRead(sessionId);
   }
 
   @Delete('sessions/:id')

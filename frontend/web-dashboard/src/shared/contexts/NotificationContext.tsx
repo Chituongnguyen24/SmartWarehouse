@@ -183,6 +183,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       return next;
     });
 
+    // Notify backend DB to persist unreadCount = 0
+    fetch(`${getApiHost(3004)}/chat/sessions/${sessionId}/mark-read`, {
+      method: 'PATCH',
+    }).catch(err => console.warn('Failed to mark chat session as read on server:', err));
+
     // Mark matching chat notifications as read
     setNotifications(prev =>
       prev.map(n => {
@@ -202,6 +207,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setNotifications(prev =>
       prev.map(n => (n.type === 'CHAT' ? { ...n, isRead: true } : n))
     );
+
+    // Notify backend DB
+    fetch(`${getApiHost(3004)}/chat/sessions/mark-all-read`, {
+      method: 'PATCH',
+    }).catch(err => console.warn('Failed to mark all chat sessions as read on server:', err));
   }, []);
 
   const unreadCount = useMemo(() => {
@@ -217,6 +227,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, [user, selectedWarehouseCode]);
 
   // Fetch real counts across order-service, outbound-service, and chat-sessions
+  // readChatSessionIds must be in deps so the closure always has the LATEST read set
   const refreshPendingCounts = useCallback(async () => {
     try {
       // 1. Pending Orders (Đơn hàng chưa tiếp nhận - status = PENDING, WAITING_TRANSFER)
@@ -246,31 +257,31 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
 
       // 3. Pending Chat & Customer Inquiries (Khách hàng cần tư vấn / chưa được trả lời)
+      // Uses React state `readChatSessionIds` from closure (always fresh) instead of re-reading localStorage
       try {
         const chatRes = await fetch(`${getApiHost(3004)}/chat/sessions?status=ALL`);
         if (chatRes.ok) {
           const sessions = await chatRes.json();
           if (Array.isArray(sessions)) {
-            const savedReadIds = new Set<string>(
-              JSON.parse(localStorage.getItem(READ_CHATS_STORAGE_KEY) || '[]')
-            );
             const unanswered = sessions.filter((s: any) => {
-              if (savedReadIds.has(s.id)) return false;
+              // Skip sessions staff have already opened and read
+              if (readChatSessionIds.has(s.id)) return false;
               const status = String(s.status || '').toUpperCase();
               const hasUnread = Number(s.unreadCount || 0) > 0;
               const isWaiting = status === 'WAITING_FOR_STAFF' || status === 'PENDING';
-              return hasUnread || isWaiting;
+              const isStaffConnectedWithUnread = status === 'STAFF_CONNECTED' && hasUnread;
+              return isWaiting || isStaffConnectedWithUnread;
             });
             setPendingChatsCount(unanswered.length);
           }
         }
       } catch (chatErr) {
-        // Chat endpoint fallback
+        // Chat endpoint fallback — do not reset count on transient errors
       }
     } catch (err) {
       console.warn('[NOTIF CONTEXT] Error refreshing pending counts:', err);
     }
-  }, [activeWh]);
+  }, [activeWh, readChatSessionIds]);
 
   // Periodic Polling Fallback (every 8 seconds for real-time badge accuracy)
   useEffect(() => {

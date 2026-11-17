@@ -290,6 +290,9 @@ export class ChatService {
         ...recent,
         { sender: 'CUSTOMER', text: userText },
       ]);
+    } else if (session.status === 'AI_ACTIVE') {
+      // AI bot đã giải đáp thành công cho khách hàng, không cần nhân viên can thiệp
+      session.unreadCount = 0;
     }
 
     await this.sessionRepo.update(session.id, {
@@ -297,6 +300,7 @@ export class ChatService {
       lastMessageAt: session.lastMessageAt,
       status: session.status,
       aiSummary: session.aiSummary,
+      unreadCount: session.unreadCount,
     });
 
     return {
@@ -528,6 +532,28 @@ export class ChatService {
       where: { sessionId },
       order: { createdAt: 'ASC' },
     });
+  }
+
+  /**
+   * Đánh dấu phiên chat đã được nhân viên đọc/xem (xóa badge unread trên CSDL)
+   */
+  async markSessionAsRead(sessionId: string): Promise<{ success: boolean; sessionId: string }> {
+    const session = await this.sessionRepo.findOne({ where: { id: sessionId } });
+    if (!session) {
+      throw new NotFoundException(`Session ${sessionId} not found`);
+    }
+    await this.sessionRepo.update(sessionId, { unreadCount: 0 });
+    this.logger.log(`Session ${sessionId} marked as read by staff.`);
+    return { success: true, sessionId };
+  }
+
+  /**
+   * Đánh dấu toàn bộ phiên chat là đã đọc
+   */
+  async markAllSessionsAsRead(): Promise<{ success: boolean }> {
+    await this.sessionRepo.update({}, { unreadCount: 0 });
+    this.logger.log('All chat sessions marked as read by staff.');
+    return { success: true };
   }
 
   /**
