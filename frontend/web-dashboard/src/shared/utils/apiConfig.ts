@@ -8,6 +8,24 @@
  */
 export const getApiHost = (port: number): string => {
   if (typeof window === 'undefined') return `http://localhost:${port}`;
+
+  // 1. Cho phép tùy biến máy chủ nhanh qua localStorage (dễ dàng đổi IP/Domain khi cần)
+  try {
+    const customServer = localStorage.getItem('smartwarehouse_server_url');
+    if (customServer && customServer.trim()) {
+      return customServer.trim().replace(/\/$/, '');
+    }
+  } catch {}
+
+  // 2. Môi trường Desktop App (Electron): Mặc định kết nối máy chủ Cloud EC2
+  if (
+    (window as any).isElectron ||
+    (typeof navigator !== 'undefined' && /SmartWarehouseDesktop/i.test(navigator.userAgent))
+  ) {
+    return 'http://smartwarehouse-kltn.duckdns.org';
+  }
+
+  // 3. Môi trường Web thông thường
   const hostname = window.location.hostname;
   if (!hostname || hostname === 'localhost' || hostname === '127.0.0.1') {
     return `http://localhost:${port}`;
