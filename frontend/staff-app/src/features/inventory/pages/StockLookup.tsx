@@ -103,7 +103,7 @@ const WAREHOUSE_OPTIONS = [
   { code: 'WH-016', name: 'Kho Quận 10 (WH-016 / Q10)' },
 ];
 
-import { formatStandardShelfLocation } from '@/features/picking';
+import { formatStandardShelfLocation, resolveStorageZone } from '@/features/picking';
 
 const formatShelfLocation = (rawLoc?: string, zone?: string, fallbackIdx: number = 1): string => {
   return formatStandardShelfLocation(rawLoc, zone, fallbackIdx);
@@ -578,8 +578,20 @@ export const StockLookup: React.FC = () => {
         displayName: finalName,
       });
 
-      const z = (lot.zone || 'DRY').toUpperCase();
-      const defaultTemp = z === 'COOL' || z === 'COLD' ? '0-4°C' : z === 'FROZEN' ? '-18°C' : '+25°C';
+      const zoneMeta = resolveStorageZone({
+        zone: lot.zone,
+        shelfLocation: lot.location,
+        location: lot.location,
+        sku: finalSku,
+        productName: finalName,
+        category: p?.category || riskAnalysis.category,
+        storageType: p?.storageType || (p as any)?.storage_type,
+        storageCondition: p?.storageCondition || (p as any)?.temperatureCondition,
+        temperatureRequired: p?.temperatureCondition,
+      });
+
+      const z = zoneMeta.zone;
+      const defaultTemp = zoneMeta.tempRange;
 
       const auditRec = auditedRecords[lot.id] || auditedRecords[lot.lotCode];
       const lastAuditedAt = auditRec ? auditRec.auditedAt : (lot as any).lastAuditedAt;
@@ -590,6 +602,8 @@ export const StockLookup: React.FC = () => {
 
       return {
         ...lot,
+        zone: z,
+        zoneMeta,
         remainingQty: auditRec ? auditRec.actualQty : (lot.remainingQty ?? lot.quantity ?? 0),
         lastAuditedAt,
         lastAuditedBy,
@@ -611,7 +625,7 @@ export const StockLookup: React.FC = () => {
         aiScore: riskAnalysis.aiScore,
         riskReason: riskAnalysis.reason,
         riskRecommendation: riskAnalysis.recommendation,
-        formattedLocation: formatShelfLocation(lot.location),
+        formattedLocation: formatShelfLocation(lot.location, z, idx + 1),
       };
     });
   }, [lots, products, getAIRiskAnalysis, auditedRecords]);
@@ -1865,8 +1879,21 @@ export const StockLookup: React.FC = () => {
                         </span>
 
                         {/* Zone Condition Badge */}
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600, backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' }}>
-                          {lot.zone === 'FROZEN' ? 'Hầm Đông' : isCold ? 'Kho Mát' : 'Kho Khô'} ({lot.temperatureCondition})
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            fontSize: '10px',
+                            fontWeight: 600,
+                            backgroundColor: lot.zoneMeta?.badgeStyle?.backgroundColor || (lot.zone === 'COOL' || lot.zone === 'COLD' ? '#f0fdf4' : lot.zone === 'FROZEN' ? '#f0f9ff' : '#fffbeb'),
+                            color: lot.zoneMeta?.badgeStyle?.color || (lot.zone === 'COOL' || lot.zone === 'COLD' ? '#166534' : lot.zone === 'FROZEN' ? '#0369a1' : '#92400e'),
+                            border: lot.zoneMeta?.badgeStyle?.border || (lot.zone === 'COOL' || lot.zone === 'COLD' ? '1px solid #bbf7d0' : lot.zone === 'FROZEN' ? '1px solid #bae6fd' : '1px solid #fde68a'),
+                          }}
+                        >
+                          {lot.zoneMeta?.label || (lot.zone === 'FROZEN' ? 'Kho Đông' : (lot.zone === 'COOL' || lot.zone === 'COLD') ? 'Kho Lạnh' : 'Kho Khô')} ({lot.temperatureCondition})
                         </span>
 
                         {/* Audit Status Badge */}

@@ -696,3 +696,247 @@ export function formatStandardShelfLocation(
   return `Kệ ${loc}`;
 }
 
+export type StorageZoneType = 'COOL' | 'FROZEN' | 'DRY';
+
+export interface StorageZoneMeta {
+  zone: StorageZoneType;
+  label: string; // 'Kho Lạnh' | 'Kho Đông' | 'Kho Khô'
+  shortLabel: string; // 'Lạnh' | 'Đông' | 'Khô'
+  tempRange: string; // '0-4°C' | '-18°C' | '+25°C'
+  badgeStyle: {
+    backgroundColor: string;
+    color: string;
+    border: string;
+  };
+}
+
+/**
+ * Intelligently resolve the storage zone and badge styling for any WMS item or lot.
+ * Supports multiple signals: explicit zone string, storageType, shelf location code, and product keywords.
+ */
+export function resolveStorageZone(input?: {
+  zone?: string | null;
+  shelfLocation?: string | null;
+  location?: string | null;
+  slotId?: string | null;
+  sku?: string | null;
+  productName?: string | null;
+  category?: string | null;
+  storageType?: string | null;
+  storageCondition?: string | null;
+  temperatureRequired?: string | null;
+}): StorageZoneMeta {
+  if (!input) {
+    return {
+      zone: 'DRY',
+      label: 'Kho Khô',
+      shortLabel: 'Khô',
+      tempRange: '+25°C',
+      badgeStyle: {
+        backgroundColor: '#fffbeb',
+        color: '#92400e',
+        border: '1px solid #fde68a',
+      },
+    };
+  }
+
+  // 1. Inspect explicit storageType or zone string
+  const rawZoneStr = (
+    input.zone ||
+    input.storageType ||
+    input.storageCondition ||
+    input.temperatureRequired ||
+    ''
+  ).toUpperCase().trim();
+
+  let resolvedZone: StorageZoneType | null = null;
+
+  if (
+    rawZoneStr.includes('FROZEN') ||
+    rawZoneStr.includes('ĐÔNG') ||
+    rawZoneStr.includes('-18') ||
+    rawZoneStr.includes('HẦM ĐÔNG')
+  ) {
+    resolvedZone = 'FROZEN';
+  } else if (
+    rawZoneStr.includes('COOL') ||
+    rawZoneStr.includes('COLD') ||
+    rawZoneStr.includes('CHILLED') ||
+    rawZoneStr.includes('MÁT') ||
+    rawZoneStr.includes('LẠNH') ||
+    rawZoneStr.includes('0-4') ||
+    rawZoneStr.includes('2-6') ||
+    rawZoneStr.includes('2-8')
+  ) {
+    resolvedZone = 'COOL';
+  } else if (
+    rawZoneStr.includes('DRY') ||
+    rawZoneStr.includes('KHÔ') ||
+    rawZoneStr.includes('+25') ||
+    rawZoneStr.includes('THƯỜNG')
+  ) {
+    resolvedZone = 'DRY';
+  }
+
+  // 2. Inspect shelfLocation / location / slotId (A = COOL, B = FROZEN, C/D = DRY)
+  const locStr = (
+    input.shelfLocation ||
+    input.location ||
+    input.slotId ||
+    ''
+  ).toUpperCase().trim();
+
+  if (!resolvedZone && locStr) {
+    if (
+      locStr.includes('KỆ A') ||
+      locStr.includes('SHELF-A') ||
+      locStr.includes('COOL-SHELF') ||
+      locStr.includes('COLD-SHELF') ||
+      /^A\d/.test(locStr) ||
+      /-A\d/.test(locStr)
+    ) {
+      resolvedZone = 'COOL';
+    } else if (
+      locStr.includes('KỆ B') ||
+      locStr.includes('SHELF-B') ||
+      locStr.includes('FROZEN-SHELF') ||
+      /^B\d/.test(locStr) ||
+      /-B\d/.test(locStr)
+    ) {
+      resolvedZone = 'FROZEN';
+    } else if (
+      locStr.includes('KỆ C') ||
+      locStr.includes('KỆ D') ||
+      locStr.includes('SHELF-C') ||
+      locStr.includes('SHELF-D') ||
+      locStr.includes('DRY-SHELF') ||
+      /^[CD]\d/.test(locStr) ||
+      /-[CD]\d/.test(locStr)
+    ) {
+      resolvedZone = 'DRY';
+    }
+  }
+
+  // 3. Inspect Product Name / Category / SKU keywords
+  if (!resolvedZone) {
+    const pName = (input.productName || input.sku || input.category || '').toLowerCase();
+
+    // Check Frozen keywords
+    if (
+      pName.includes('kem') ||
+      pName.includes('hải sản') ||
+      pName.includes('thủy sản') ||
+      pName.includes('cá hồi') ||
+      pName.includes('tôm sú') ||
+      pName.includes('mực ống') ||
+      pName.includes('bạch tuộc') ||
+      pName.includes('bò mỹ đông') ||
+      pName.includes('đông lạnh') ||
+      pName.includes('frozen') ||
+      pName.includes('thả lẩu') ||
+      pName.includes('chả cá basa')
+    ) {
+      resolvedZone = 'FROZEN';
+    }
+    // Check Cool / Chilled keywords (Fresh meats, fresh dairy, fresh greens/fruits)
+    else if (
+      pName.includes('thịt tươi') ||
+      pName.includes('thịt heo') ||
+      pName.includes('thịt bò') ||
+      pName.includes('thịt gà') ||
+      pName.includes('gà ta') ||
+      pName.includes('ba chỉ') ||
+      pName.includes('sườn non') ||
+      pName.includes('thịt xay') ||
+      pName.includes('vissan') ||
+      pName.includes('chả lụa') ||
+      pName.includes('giò thủ') ||
+      pName.includes('chả bò') ||
+      pName.includes('xúc xích tươi') ||
+      pName.includes('nem chua') ||
+      pName.includes('sữa tươi') ||
+      pName.includes('dalat milk') ||
+      pName.includes('vinamilk') ||
+      pName.includes('th true milk') ||
+      pName.includes('sữa chua') ||
+      pName.includes('bơ lạt') ||
+      pName.includes('phô mai') ||
+      pName.includes('kem tươi') ||
+      pName.includes('sữa thanh trùng') ||
+      pName.includes('rau') ||
+      pName.includes('củ') ||
+      pName.includes('quả') ||
+      pName.includes('mướp') ||
+      pName.includes('cà chua') ||
+      pName.includes('xà lách') ||
+      pName.includes('dưa leo') ||
+      pName.includes('bắp cải') ||
+      pName.includes('cải thìa') ||
+      pName.includes('cải ngọt') ||
+      pName.includes('bông cải') ||
+      pName.includes('nấm') ||
+      pName.includes('vietgap') ||
+      pName.includes('co.op select') ||
+      pName.includes('trái cây') ||
+      pName.includes('táo') ||
+      pName.includes('nho') ||
+      pName.includes('cam') ||
+      pName.includes('dâu tây') ||
+      pName.includes('mát') ||
+      pName.includes('lạnh')
+    ) {
+      resolvedZone = 'COOL';
+    }
+    // Fallback based on shelf code if still unresolved
+    else if (locStr.includes('A')) {
+      resolvedZone = 'COOL';
+    } else if (locStr.includes('B')) {
+      resolvedZone = 'FROZEN';
+    } else {
+      resolvedZone = 'DRY';
+    }
+  }
+
+  // 4. Return complete metadata with semantic styling
+  if (resolvedZone === 'COOL') {
+    return {
+      zone: 'COOL',
+      label: 'Kho Lạnh',
+      shortLabel: 'Lạnh',
+      tempRange: '0-4°C',
+      badgeStyle: {
+        backgroundColor: '#f0fdf4',
+        color: '#166534',
+        border: '1px solid #bbf7d0',
+      },
+    };
+  }
+
+  if (resolvedZone === 'FROZEN') {
+    return {
+      zone: 'FROZEN',
+      label: 'Kho Đông',
+      shortLabel: 'Đông',
+      tempRange: '-18°C',
+      badgeStyle: {
+        backgroundColor: '#f0f9ff',
+        color: '#0369a1',
+        border: '1px solid #bae6fd',
+      },
+    };
+  }
+
+  return {
+    zone: 'DRY',
+    label: 'Kho Khô',
+    shortLabel: 'Khô',
+    tempRange: '+25°C',
+    badgeStyle: {
+      backgroundColor: '#fffbeb',
+      color: '#92400e',
+      border: '1px solid #fde68a',
+    },
+  };
+}
+
+

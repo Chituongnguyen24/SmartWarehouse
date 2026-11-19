@@ -34,7 +34,7 @@ import {
 import { PickingItem } from '@/types';
 import { CameraScannerModal } from '@/shared';
 import { Mobile3DWarehouseView } from '@/features/picking';
-import { formatStandardShelfLocation } from '@/features/picking';
+import { formatStandardShelfLocation, resolveStorageZone } from '@/features/picking';
 import { ShiftHandoverModal } from '@/features/dashboard';
 import { IncidentReportModal } from '@/features/dashboard';
 import { optimizePickingRoute } from '@/features/picking';
@@ -149,9 +149,15 @@ export const PickingWave: React.FC = () => {
 
   const handleSwitchToAlternativeLot = (altLot: any) => {
     if (!shortageItem) return;
-    const newLoc = formatStandardShelfLocation(altLot.location, altLot.zone);
+    const resolved = resolveStorageZone({
+      zone: altLot.zone,
+      shelfLocation: altLot.location,
+      productName: shortageItem.productName,
+      sku: shortageItem.sku,
+    });
+    const newLoc = formatStandardShelfLocation(altLot.location, resolved.zone);
     const newLotCode = altLot.lotCode;
-    const newZone = (altLot.zone || shortageItem.zone || 'DRY').toUpperCase() as 'DRY' | 'COOL' | 'FROZEN';
+    const newZone = resolved.zone;
 
     setItems(prev =>
       prev.map(it => {
@@ -273,8 +279,21 @@ export const PickingWave: React.FC = () => {
         const dbLot = (it.lotCode ? lotMap.get(it.lotCode) : null) || matchingLots[0] || ((it as any).productId ? lotMap.get((it as any).productId) : null);
         const dbProd = (it.sku ? prodMap.get(it.sku) : null) || (dbLot?.productId ? prodMap.get(dbLot.productId) : null);
 
-        const z = (dbLot?.zone || it.zone || 'DRY').toUpperCase() as 'DRY' | 'COOL' | 'FROZEN';
-        const loc = formatShelfLocation(dbLot?.location || it.slotId || it.location || (it as any).shelfLocation, z, idx + 1);
+        const rawLoc = dbLot?.location || it.slotId || it.location || (it as any).shelfLocation;
+
+        const zoneMeta = resolveStorageZone({
+          zone: dbLot?.zone || it.zone,
+          storageType: dbProd?.storageType || (dbProd as any)?.storage_type,
+          storageCondition: (dbProd as any)?.storageCondition || (it as any)?.storageCondition,
+          temperatureRequired: (it as any)?.temperatureRequired,
+          shelfLocation: rawLoc,
+          sku: it.sku || dbLot?.sku,
+          productName: it.productName || dbProd?.name,
+          category: dbProd?.category,
+        });
+
+        const z = zoneMeta.zone;
+        const loc = formatShelfLocation(rawLoc, z, idx + 1);
 
         const exactQty = Number(
           (it as any).requestedQuantity !== undefined
@@ -307,7 +326,7 @@ export const PickingWave: React.FC = () => {
           zone: z,
           barcode: it.barcode || dbProd?.barcode || `893456789${idx + 1000}`,
           status: isItemPicked ? 'PICKED' : 'PENDING',
-          temperatureRequired: z === 'COOL' ? '0-4°C' : z === 'FROZEN' ? '-18°C' : '+25°C',
+          temperatureRequired: zoneMeta.tempRange,
           imageUrl: dbProd?.imageUrl,
         };
       });
@@ -960,9 +979,9 @@ export const PickingWave: React.FC = () => {
 
                 {[
                   { id: 'ALL', label: 'Tất cả khu' },
-                  { id: 'COOL', label: 'Mát' },
-                  { id: 'FROZEN', label: 'Đông' },
-                  { id: 'DRY', label: 'Khô' },
+                  { id: 'COOL', label: 'Kho Lạnh' },
+                  { id: 'FROZEN', label: 'Kho Đông' },
+                  { id: 'DRY', label: 'Kho Khô' },
                 ].map(z => (
                   <button
                     key={z.id}
@@ -1347,19 +1366,32 @@ export const PickingWave: React.FC = () => {
                         <MapPin size={12} />
                         <span>{item.shelfLocation}</span>
                       </div>
-                      <span
-                        style={{
-                          fontSize: '10px',
-                          fontWeight: 600,
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          backgroundColor: item.zone === 'COOL' ? '#f0fdf4' : item.zone === 'FROZEN' ? '#f0f9ff' : '#f8fafc',
-                          color: item.zone === 'COOL' ? '#166534' : item.zone === 'FROZEN' ? '#075985' : '#475569',
-                          border: `1px solid ${item.zone === 'COOL' ? '#bbf7d0' : item.zone === 'FROZEN' ? '#bae6fd' : '#e2e8f0'}`,
-                        }}
-                      >
-                        {item.zone === 'COOL' ? '0-4°C' : item.zone === 'FROZEN' ? '-18°C' : 'Khô'}
-                      </span>
+                      {(() => {
+                        const zm = resolveStorageZone({
+                          zone: item.zone,
+                          shelfLocation: item.shelfLocation,
+                          productName: item.productName,
+                          sku: item.sku,
+                          temperatureRequired: item.temperatureRequired,
+                        });
+                        return (
+                          <span
+                            title={`${zm.label} (${zm.tempRange})`}
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: 600,
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              backgroundColor: zm.badgeStyle.backgroundColor,
+                              color: zm.badgeStyle.color,
+                              border: zm.badgeStyle.border,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {zm.label}
+                          </span>
+                        );
+                      })()}
                       {item.orderCode && (
                         <span style={{ fontSize: '10px', fontWeight: 500, color: '#64748b' }}>
                           #{item.orderCode.slice(-6)}

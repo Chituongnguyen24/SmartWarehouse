@@ -145,7 +145,7 @@ interface PackOrder {
   status: string;
 }
 
-import { formatStandardShelfLocation } from '@/features/picking';
+import { formatStandardShelfLocation, resolveStorageZone } from '@/features/picking';
 
 const formatShelfLocation = (rawLoc?: string, zone?: string, fallbackIdx: number = 1): string => {
   return formatStandardShelfLocation(rawLoc, zone, fallbackIdx);
@@ -252,17 +252,24 @@ export const PackingStation: React.FC = () => {
           sourceItems = Array.from(itemMap.values());
         }
 
-        const mappedItems: PackItem[] = sourceItems.map((it: any) => {
-          const isCold = it.zone === 'COOL' || it.zone === 'FROZEN' || it.temperatureRequired?.includes('0') || it.temperatureRequired?.includes('-');
+        const mappedItems: PackItem[] = sourceItems.map((it: any, idx: number) => {
           const rawShelf = it.slotId || it.location || it.shelfLocation;
+          const zm = resolveStorageZone({
+            zone: it.zone,
+            shelfLocation: rawShelf,
+            sku: it.sku,
+            productName: it.productName || it.name,
+            temperatureRequired: it.temperatureRequired,
+          });
+          const isCold = zm.zone === 'COOL' || zm.zone === 'FROZEN';
           return {
             name: it.productName || it.name || it.sku || 'Sản phẩm',
             qty: Number(it.pickedQuantity || it.quantity || (it as any).requestedQuantity || 1),
             unit: it.unit || 'Đơn vị',
             sku: it.sku,
             lotCode: it.lotCode || 'LOT-2026',
-            shelfLocation: formatShelfLocation(rawShelf),
-            zone: it.zone || 'DRY',
+            shelfLocation: formatShelfLocation(rawShelf, zm.zone, idx + 1),
+            zone: zm.zone,
             isCold: Boolean(isCold),
           };
         });

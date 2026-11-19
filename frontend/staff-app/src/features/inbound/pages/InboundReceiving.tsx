@@ -1044,12 +1044,12 @@ export const InboundReceiving: React.FC = () => {
                       fontWeight: 600,
                       padding: '2px 8px',
                       borderRadius: '4px',
-                      backgroundColor: suggestedShelf.zone === 'COOL' ? '#d1fae5' : suggestedShelf.zone === 'FROZEN' ? '#e0f2fe' : '#fef3c7',
-                      color: suggestedShelf.zone === 'COOL' ? '#065f46' : suggestedShelf.zone === 'FROZEN' ? '#0369a1' : '#92400e',
-                      border: '1px solid rgba(0,0,0,0.06)',
+                      backgroundColor: (suggestedShelf.zone === 'COOL' || suggestedShelf.zone === 'COLD') ? '#f0fdf4' : suggestedShelf.zone === 'FROZEN' ? '#f0f9ff' : '#fffbeb',
+                      color: (suggestedShelf.zone === 'COOL' || suggestedShelf.zone === 'COLD') ? '#166534' : suggestedShelf.zone === 'FROZEN' ? '#0369a1' : '#92400e',
+                      border: `1px solid ${(suggestedShelf.zone === 'COOL' || suggestedShelf.zone === 'COLD') ? '#bbf7d0' : suggestedShelf.zone === 'FROZEN' ? '#bae6fd' : '#fde68a'}`,
                     }}
                   >
-                    {suggestedShelf.zone === 'COOL' ? '0-4°C Kho Mát' : suggestedShelf.zone === 'FROZEN' ? '-18°C Kho Đông' : 'Kho Khô'}
+                    {(suggestedShelf.zone === 'COOL' || suggestedShelf.zone === 'COLD') ? 'Kho Lạnh (0-4°C)' : suggestedShelf.zone === 'FROZEN' ? 'Kho Đông (-18°C)' : 'Kho Khô (+25°C)'}
                   </span>
                 </div>
 
