@@ -44,4 +44,5 @@ export const API_HOSTS = {
   get INVENTORY() { return getApiHost(3011); },
   get USER() { return getApiHost(3012); },
   get TRANSPORT() { return getApiHost(3013); },
+  get IOT() { return getApiHost(3002); },
 };

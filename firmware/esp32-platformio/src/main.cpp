@@ -152,37 +152,38 @@ void allOff() {
 }
 
 // ================= HELPER: TÌM INDEX TỪ SHELF CODE =================
+// CHỈ ĐỊNH VỊ CHO CÁC LÔ VÀ KỆ A1, A2, A3 (KHÔNG BEEP CHO CÁC KỆ KHÁC NHƯ B1, C1, D1...)
 int findShelfIndex(const char* code) {
   if (!code || strlen(code) == 0) return -1;
   String s = String(code);
   s.toUpperCase();
+  s.trim();
 
-  // Kệ A1: A1, 01, 1, COOL-1, SHELF-1, COLD-SHELF-1, RACK-1, KỆ 1
-  if (s.indexOf("A1") >= 0 || s.indexOf("01") >= 0 || s.indexOf("SHELF-1") >= 0 ||
-      s.indexOf("SHELF_1") >= 0 || s.indexOf("SHELF 1") >= 0 || s.indexOf("KE 1") >= 0 ||
-      s.indexOf("KỆ 1") >= 0 || s.indexOf("RACK-1") >= 0 || s == "1") {
+  // Kệ A1 (chỉ khớp A1, COLD-SHELF-1, COOL-1, KỆ A1)
+  if (s == "A1" || s == "1" || s.startsWith("A1") ||
+      s.indexOf("KE A1") >= 0 || s.indexOf("KỆ A1") >= 0 ||
+      s.indexOf("COLD-SHELF-1") >= 0 || s.indexOf("COOL-1") >= 0 ||
+      s.indexOf("SHELF-A1") >= 0 || s.indexOf("RACK-A1") >= 0) {
     return 0;
   }
 
-  // Kệ A2: A2, 02, 2, COOL-2, SHELF-2, COLD-SHELF-2, RACK-2, KỆ 2
-  if (s.indexOf("A2") >= 0 || s.indexOf("02") >= 0 || s.indexOf("SHELF-2") >= 0 ||
-      s.indexOf("SHELF_2") >= 0 || s.indexOf("SHELF 2") >= 0 || s.indexOf("KE 2") >= 0 ||
-      s.indexOf("KỆ 2") >= 0 || s.indexOf("RACK-2") >= 0 || s == "2") {
+  // Kệ A2 (chỉ khớp A2, COLD-SHELF-2, COOL-2, KỆ A2)
+  if (s == "A2" || s == "2" || s.startsWith("A2") ||
+      s.indexOf("KE A2") >= 0 || s.indexOf("KỆ A2") >= 0 ||
+      s.indexOf("COLD-SHELF-2") >= 0 || s.indexOf("COOL-2") >= 0 ||
+      s.indexOf("SHELF-A2") >= 0 || s.indexOf("RACK-A2") >= 0) {
     return 1;
   }
 
-  // Kệ A3: A3, 03, 3, COOL-3, SHELF-3, COLD-SHELF-3, RACK-3, KỆ 3
-  if (s.indexOf("A3") >= 0 || s.indexOf("03") >= 0 || s.indexOf("SHELF-3") >= 0 ||
-      s.indexOf("SHELF_3") >= 0 || s.indexOf("SHELF 3") >= 0 || s.indexOf("KE 3") >= 0 ||
-      s.indexOf("KỆ 3") >= 0 || s.indexOf("RACK-3") >= 0 || s == "3") {
+  // Kệ A3 (chỉ khớp A3, COLD-SHELF-3, COOL-3, KỆ A3)
+  if (s == "A3" || s == "3" || s.startsWith("A3") ||
+      s.indexOf("KE A3") >= 0 || s.indexOf("KỆ A3") >= 0 ||
+      s.indexOf("COLD-SHELF-3") >= 0 || s.indexOf("COOL-3") >= 0 ||
+      s.indexOf("SHELF-A3") >= 0 || s.indexOf("RACK-A3") >= 0) {
     return 2;
   }
 
-  // Fallback: check isolated character 1, 2, 3
-  if (s.indexOf("1") >= 0) return 0;
-  if (s.indexOf("2") >= 0) return 1;
-  if (s.indexOf("3") >= 0) return 2;
-
+  // Tất cả các kệ khác (B1, B2, C1, C2, C3, D1, DRY...) trả về -1 (không kêu, không sáng)
   return -1;
 }
 

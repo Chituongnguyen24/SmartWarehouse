@@ -191,27 +191,18 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  // Normalize shelf code from "A1", "01", "1", "a1", "KE A1", "cold-shelf-2-slot-2", etc.
+  // Normalize shelf code strictly for A1, A2, A3 (Pick-to-Light IoT hardware)
   normalizeShelfCode(input: string): ShelfCode | null {
     if (!input) return null;
     const clean = input.toUpperCase().trim();
-    if (clean.includes('A1') || clean.includes('01') || clean === '1') return 'A1';
-    if (clean.includes('A2') || clean.includes('02') || clean === '2') return 'A2';
-    if (clean.includes('A3') || clean.includes('03') || clean === '3') return 'A3';
+    if (clean.includes('A1') || clean === '1') return 'A1';
+    if (clean.includes('A2') || clean === '2') return 'A2';
+    if (clean.includes('A3') || clean === '3') return 'A3';
 
-    // Match shelf / cold-shelf / ke / rack / vi tri followed by 1, 2, 3
-    const match = clean.match(/(?:COLD[-_ ]*SHELF|SHELF|RACK|KỆ|KE|VỊ[-_ ]*TRÍ|VI[-_ ]*TRI)[-_ ]*0?([123])/);
+    // Match COLD-SHELF, COOL, KỆ A, KE A followed by 1, 2, 3
+    const match = clean.match(/(?:COLD[-_ ]*SHELF|COOL|(?:KỆ|KE)[-_ ]*A)[-_ ]*0?([123])/);
     if (match) {
       const num = match[1];
-      if (num === '1') return 'A1';
-      if (num === '2') return 'A2';
-      if (num === '3') return 'A3';
-    }
-
-    // Fallback: check any isolated number 1, 2, 3
-    const fallbackMatch = clean.match(/(?:^|[-_ \/])0?([123])(?:$|[-_ \/])/);
-    if (fallbackMatch) {
-      const num = fallbackMatch[1];
       if (num === '1') return 'A1';
       if (num === '2') return 'A2';
       if (num === '3') return 'A3';

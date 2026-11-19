@@ -1736,26 +1736,26 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private normalizeShelfCode(input: string): string {
-    if (!input) return 'A1';
+  private normalizeShelfCode(input: string): string | null {
+    if (!input) return null;
     const clean = input.toUpperCase().trim();
-    if (clean.includes('A1') || clean.includes('01') || clean === '1') return 'A1';
-    if (clean.includes('A2') || clean.includes('02') || clean === '2') return 'A2';
-    if (clean.includes('A3') || clean.includes('03') || clean === '3') return 'A3';
+    if (clean.includes('A1') || clean === '1') return 'A1';
+    if (clean.includes('A2') || clean === '2') return 'A2';
+    if (clean.includes('A3') || clean === '3') return 'A3';
 
-    const match = clean.match(/(?:COLD[-_ ]*SHELF|SHELF|RACK|KỆ|KE|VỊ[-_ ]*TRÍ|VI[-_ ]*TRI)[-_ ]*0?([123])/);
+    const match = clean.match(/(?:COLD[-_ ]*SHELF|COOL|(?:KỆ|KE)[-_ ]*A)[-_ ]*0?([123])/);
     if (match) return `A${match[1]}`;
 
-    const fallbackMatch = clean.match(/(?:^|[-_ \/])0?([123])(?:$|[-_ \/])/);
-    if (fallbackMatch) return `A${fallbackMatch[1]}`;
-
-    return 'A1';
+    return null;
   }
 
   // IoT Pick-to-Light: Locate Shelf (Blink & Beep)
   async triggerIotLocateShelf(dto: { warehouseCode?: string; shelfCode: string; slotCode?: string; productName?: string; qty?: number; step?: number }) {
     const warehouseCode = dto.warehouseCode || 'WH-006';
     const normShelf = this.normalizeShelfCode(dto.shelfCode);
+    if (!normShelf) {
+      return { success: false, message: `Kệ ${dto.shelfCode} không thuộc hệ thống Pick-to-Light IoT (chỉ hỗ trợ A1, A2, A3).` };
+    }
     const payload = {
       action: 'LOCATE',
       warehouseCode,

@@ -299,10 +299,23 @@ export const StockLookup: React.FC = () => {
     };
   }, [activeLocatingShelf, effectiveWhCode]);
 
+  // Helper kiểm tra vị trí/kệ có được trang bị phần cứng Pick-to-Light IoT hay không (chỉ A1, A2, A3)
+  const isIotShelfLocation = (shelfCodeOrLocation?: string | null): boolean => {
+    if (!shelfCodeOrLocation) return false;
+    const s = shelfCodeOrLocation.toUpperCase().trim();
+    if (s.includes('A1') || s.includes('A2') || s.includes('A3')) return true;
+    if (/COLD[-_ ]*SHELF[-_ ]*0?[123]/.test(s) || /COOL[-_ ]*0?[123]/.test(s) || /(?:KỆ|KE)[-_ ]*A0?[123]/.test(s)) return true;
+    return s === '1' || s === '2' || s === '3';
+  };
+
   const handleToggleRackLed = async (shelfCode: string) => {
+    const targetCode = shelfCode || selectedAuditRack || '';
+    if (!isIotShelfLocation(targetCode)) {
+      alert(`Kệ "${targetCode || 'N/A'}" không thuộc hệ thống Pick-to-Light IoT.\n\nPhần cứng đèn LED và còi Buzzer hiện chỉ được lắp đặt tại các giàn kệ Kho Mát A1, A2, A3.`);
+      return;
+    }
     const nextState = !isRackLedActive;
     setIsRackLedActive(nextState);
-    const targetCode = shelfCode || selectedAuditRack || 'A1';
     if (nextState) {
       if (activeLocatingShelf) {
         await stopShelfIotApi({
@@ -329,7 +342,12 @@ export const StockLookup: React.FC = () => {
   };
 
   const handleLocateLot = async (lot: any) => {
-    const rawShelf = lot.formattedLocation || lot.location || selectedAuditRack || 'A1';
+    const rawShelf = lot.formattedLocation || lot.location || selectedAuditRack || '';
+    if (!isIotShelfLocation(rawShelf)) {
+      alert(`Vị trí "${rawShelf || 'N/A'}" không thuộc hệ thống Pick-to-Light IoT.\n\nPhần cứng đèn LED và còi Buzzer hiện chỉ được lắp đặt tại các giàn kệ Kho Mát A1, A2, A3. Các kệ khác không hỗ trợ còi/đèn.`);
+      return;
+    }
+
     const isCurrentLocating = activeLocatingLotCode === lot.lotCode;
 
     if (isCurrentLocating) {
@@ -1310,6 +1328,7 @@ export const StockLookup: React.FC = () => {
                     const isAudited = !!auditRecord;
                     const diff = auditRecord ? auditRecord.diff : 0;
                     const isLocating = activeLocatingLotCode === lot.lotCode;
+                    const isIotEligible = isIotShelfLocation(lot.formattedLocation || lot.location || selectedAuditRack);
 
                     return (
                       <div
@@ -1364,9 +1383,9 @@ export const StockLookup: React.FC = () => {
                             type="button"
                             onClick={() => handleLocateLot(lot)}
                             style={{
-                              backgroundColor: isLocating ? '#0284c7' : '#f0f9ff',
-                              color: isLocating ? '#ffffff' : '#0369a1',
-                              border: `1px solid ${isLocating ? '#0284c7' : '#bae6fd'}`,
+                              backgroundColor: !isIotEligible ? '#f8fafc' : isLocating ? '#0284c7' : '#f0f9ff',
+                              color: !isIotEligible ? '#94a3b8' : isLocating ? '#ffffff' : '#0369a1',
+                              border: `1px solid ${!isIotEligible ? '#e2e8f0' : isLocating ? '#0284c7' : '#bae6fd'}`,
                               borderRadius: '6px',
                               padding: '7px 10px',
                               fontSize: '11.5px',
@@ -1377,8 +1396,9 @@ export const StockLookup: React.FC = () => {
                               alignItems: 'center',
                               gap: '4px',
                               transition: 'all 0.15s ease',
+                              opacity: !isIotEligible ? 0.75 : 1,
                             }}
-                            title="Kích hoạt đèn LED định vị kệ chứa lô hàng này"
+                            title={isIotEligible ? "Kích hoạt đèn LED & còi định vị kệ chứa lô hàng này" : "Kệ này không có phần cứng Pick-to-Light IoT (chỉ hỗ trợ A1, A2, A3)"}
                           >
                             <Radio size={13} />
                             <span>{isLocating ? 'Đang Nháy' : 'Định Vị'}</span>
