@@ -153,9 +153,36 @@ void allOff() {
 
 // ================= HELPER: TÌM INDEX TỪ SHELF CODE =================
 int findShelfIndex(const char* code) {
-  if (strstr(code, "A1") || strstr(code, "01") || strcmp(code, "1") == 0) return 0;
-  if (strstr(code, "A2") || strstr(code, "02") || strcmp(code, "2") == 0) return 1;
-  if (strstr(code, "A3") || strstr(code, "03") || strcmp(code, "3") == 0) return 2;
+  if (!code || strlen(code) == 0) return -1;
+  String s = String(code);
+  s.toUpperCase();
+
+  // Kệ A1: A1, 01, 1, COOL-1, SHELF-1, COLD-SHELF-1, RACK-1, KỆ 1
+  if (s.indexOf("A1") >= 0 || s.indexOf("01") >= 0 || s.indexOf("SHELF-1") >= 0 ||
+      s.indexOf("SHELF_1") >= 0 || s.indexOf("SHELF 1") >= 0 || s.indexOf("KE 1") >= 0 ||
+      s.indexOf("KỆ 1") >= 0 || s.indexOf("RACK-1") >= 0 || s == "1") {
+    return 0;
+  }
+
+  // Kệ A2: A2, 02, 2, COOL-2, SHELF-2, COLD-SHELF-2, RACK-2, KỆ 2
+  if (s.indexOf("A2") >= 0 || s.indexOf("02") >= 0 || s.indexOf("SHELF-2") >= 0 ||
+      s.indexOf("SHELF_2") >= 0 || s.indexOf("SHELF 2") >= 0 || s.indexOf("KE 2") >= 0 ||
+      s.indexOf("KỆ 2") >= 0 || s.indexOf("RACK-2") >= 0 || s == "2") {
+    return 1;
+  }
+
+  // Kệ A3: A3, 03, 3, COOL-3, SHELF-3, COLD-SHELF-3, RACK-3, KỆ 3
+  if (s.indexOf("A3") >= 0 || s.indexOf("03") >= 0 || s.indexOf("SHELF-3") >= 0 ||
+      s.indexOf("SHELF_3") >= 0 || s.indexOf("SHELF 3") >= 0 || s.indexOf("KE 3") >= 0 ||
+      s.indexOf("KỆ 3") >= 0 || s.indexOf("RACK-3") >= 0 || s == "3") {
+    return 2;
+  }
+
+  // Fallback: check isolated character 1, 2, 3
+  if (s.indexOf("1") >= 0) return 0;
+  if (s.indexOf("2") >= 0) return 1;
+  if (s.indexOf("3") >= 0) return 2;
+
   return -1;
 }
 
@@ -206,6 +233,18 @@ void publishShelfEvent(const char* eventName, int idx, const char* note) {
 // ================= KÍCH HOẠT KỆ (BẬT ĐÈN HIGH + CÒI LOW) =================
 void activateShelf(int idx, const char* orderId, int qty) {
   if (idx < 0 || idx >= 3) return;
+
+  // QUAN TRỌNG: Tắt các giàn khác trước khi bật giàn này để không bao giờ bị kêu 2 kệ cùng lúc!
+  for (int i = 0; i < 3; i++) {
+    if (i != idx) {
+      shelves[i].ledOn          = false;
+      shelves[i].buzzerOn       = false;
+      shelves[i].waitingCheckin = false;
+      digitalWrite(LED_PINS[i], LED_OFF);
+      digitalWrite(BUZ_PINS[i], BUZZER_OFF);
+    }
+  }
+
   strncpy(shelves[idx].orderId, orderId, sizeof(shelves[idx].orderId) - 1);
   shelves[idx].qty            = qty;
   shelves[idx].ledOn          = true;
@@ -332,11 +371,20 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   if (deserializeJson(doc, payload, length)) return;
 
   String action = doc["action"] | "";
-  const char* shelfCode = doc["shelfCode"] | doc["shelf"] | "";
+  action.toUpperCase();
+  action.trim();
+
+  String shelfCodeStr = doc["shelfCode"] | doc["shelf"] | "";
+  shelfCodeStr.toUpperCase();
+  shelfCodeStr.trim();
+  const char* shelfCode = shelfCodeStr.c_str();
+
   const char* orderId   = doc["orderId"]   | "ORD-WEB";
   int         qty       = doc["qty"]       | doc["quantity"] | 1;
 
-  if (action == "LOCATE" || action == "PICK" || (strlen(shelfCode) > 0 && action == "")) {
+  Serial.printf("\n[MQTT RECV] Topic: %s | Action: %s | Shelf: %s\n", topic, action.c_str(), shelfCode);
+
+  if (action == "LOCATE" || action == "PICK") {
     int idx = findShelfIndex(shelfCode);
     if (idx >= 0) {
       activateShelf(idx, orderId, qty);
@@ -354,9 +402,14 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     } else {
       startAll3ShelvesOrder(orderId);
     }
-  } else if (action == "OFF" || action == "STOP" || action == "SCAN_COMPLETED" || action == "DONE_SHELF") {
+  } else if (action == "OFF" || action == "STOP" || action == "SCAN_COMPLETED" || action == "DONE_SHELF" || action == "ARRIVED") {
     int idx = findShelfIndex(shelfCode);
-    if (idx >= 0) confirmCheckin(idx);
+    if (idx >= 0) {
+      confirmCheckin(idx);
+    } else {
+      // Khi bấm tắt chung hoặc không rõ mã kệ -> Tắt toàn bộ 3 kệ ngay lập tức!
+      allOff();
+    }
   } else if (action == "RESET" || action == "ALL_OFF" || action == "CLEAR") {
     allOff();
   } else if (action == "TEST") {

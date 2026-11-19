@@ -1736,13 +1736,30 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  private normalizeShelfCode(input: string): string {
+    if (!input) return 'A1';
+    const clean = input.toUpperCase().trim();
+    if (clean.includes('A1') || clean.includes('01') || clean === '1') return 'A1';
+    if (clean.includes('A2') || clean.includes('02') || clean === '2') return 'A2';
+    if (clean.includes('A3') || clean.includes('03') || clean === '3') return 'A3';
+
+    const match = clean.match(/(?:COLD[-_ ]*SHELF|SHELF|RACK|KỆ|KE|VỊ[-_ ]*TRÍ|VI[-_ ]*TRI)[-_ ]*0?([123])/);
+    if (match) return `A${match[1]}`;
+
+    const fallbackMatch = clean.match(/(?:^|[-_ \/])0?([123])(?:$|[-_ \/])/);
+    if (fallbackMatch) return `A${fallbackMatch[1]}`;
+
+    return 'A1';
+  }
+
   // IoT Pick-to-Light: Locate Shelf (Blink & Beep)
   async triggerIotLocateShelf(dto: { warehouseCode?: string; shelfCode: string; slotCode?: string; productName?: string; qty?: number; step?: number }) {
     const warehouseCode = dto.warehouseCode || 'WH-006';
+    const normShelf = this.normalizeShelfCode(dto.shelfCode);
     const payload = {
       action: 'LOCATE',
       warehouseCode,
-      shelfCode: dto.shelfCode,
+      shelfCode: normShelf,
       slotCode: dto.slotCode,
       productName: dto.productName || 'Sản phẩm xuất kho',
       qty: dto.qty || 1,
@@ -1759,17 +1776,19 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     // Fallback: publish to both WH-006 and GV topics directly
     await this.publishToMqtt(`citymart/warehouse/WH-006/picking/command`, payload);
     await this.publishToMqtt(`citymart/warehouse/GV/picking/command`, payload);
+    await this.publishToMqtt(`citymart/wh006/shelf/command`, payload);
 
-    return { success: true, message: `Đã phát lệnh nháy đèn tìm kệ ${dto.shelfCode}`, payload };
+    return { success: true, message: `Đã phát lệnh nháy đèn tìm kệ ${normShelf}`, payload };
   }
 
   // IoT Pick-to-Light: Smartkey Horn Chirp (Bóp còi tìm kệ như Smartkey ô tô / xe máy)
   async triggerIotChirpShelf(dto: { warehouseCode?: string; shelfCode: string }) {
     const warehouseCode = dto.warehouseCode || 'WH-006';
+    const normShelf = this.normalizeShelfCode(dto.shelfCode);
     const payload = {
       action: 'SMARTKEY_CHIRP',
       warehouseCode,
-      shelfCode: dto.shelfCode,
+      shelfCode: normShelf,
       timestamp: Date.now(),
     };
 
@@ -1780,17 +1799,19 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
 
     await this.publishToMqtt(`citymart/warehouse/WH-006/picking/command`, payload);
     await this.publishToMqtt(`citymart/warehouse/GV/picking/command`, payload);
+    await this.publishToMqtt(`citymart/wh006/shelf/command`, payload);
 
-    return { success: true, message: `Đã bóp còi Smartkey tìm kệ ${dto.shelfCode}`, payload };
+    return { success: true, message: `Đã bóp còi Smartkey tìm kệ ${normShelf}`, payload };
   }
 
   // IoT Pick-to-Light: Complete Shelf (Auto turn off LED and mark picked)
   async triggerIotCompleteShelf(dto: { warehouseCode?: string; shelfCode: string }) {
     const warehouseCode = dto.warehouseCode || 'WH-006';
+    const normShelf = this.normalizeShelfCode(dto.shelfCode);
     const payload = {
       action: 'SCAN_COMPLETED',
       warehouseCode,
-      shelfCode: dto.shelfCode,
+      shelfCode: normShelf,
       timestamp: Date.now(),
     };
 
@@ -1800,6 +1821,7 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     // Fallback publish to both WH-006 and GV topics
     await this.publishToMqtt(`citymart/warehouse/WH-006/picking/command`, payload);
     await this.publishToMqtt(`citymart/warehouse/GV/picking/command`, payload);
+    await this.publishToMqtt(`citymart/wh006/shelf/command`, payload);
 
     // Auto sync picked status for matching shelf in pending picking orders
     try {
@@ -1814,7 +1836,7 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
         for (const item of order.items) {
           if (item.status !== 'PICKED') {
             const itemShelf = (item.slotId || '').toLowerCase();
-            const targetShelf = (dto.shelfCode || '').toLowerCase();
+            const targetShelf = normShelf.toLowerCase();
             const isMatch = (targetShelf.includes('a1') && itemShelf.includes('a1')) ||
                             (targetShelf.includes('a2') && itemShelf.includes('a2')) ||
                             (targetShelf.includes('a3') && itemShelf.includes('a3')) ||
@@ -1837,16 +1859,17 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
       console.warn('[IoT Complete Shelf] Auto-pick error:', e);
     }
 
-    return { success: true, message: `Đã quét xong. Tắt đèn kệ ${dto.shelfCode}`, payload };
+    return { success: true, message: `Đã quét xong. Tắt đèn kệ ${normShelf}`, payload };
   }
 
   // IoT Pick-to-Light: Stop Shelf (Turn off LED and Buzzer)
   async triggerIotStopShelf(dto: { warehouseCode?: string; shelfCode: string }) {
     const warehouseCode = dto.warehouseCode || 'WH-006';
+    const normShelf = this.normalizeShelfCode(dto.shelfCode);
     const payload = {
       action: 'OFF',
       warehouseCode,
-      shelfCode: dto.shelfCode,
+      shelfCode: normShelf,
       timestamp: Date.now(),
     };
 
@@ -1865,13 +1888,14 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     const scanCompletedPayload = {
       action: 'SCAN_COMPLETED',
       warehouseCode,
-      shelfCode: dto.shelfCode,
+      shelfCode: normShelf,
       timestamp: Date.now(),
     };
     await this.publishToMqtt(`citymart/warehouse/WH-006/picking/command`, scanCompletedPayload);
     await this.publishToMqtt(`citymart/warehouse/GV/picking/command`, scanCompletedPayload);
+    await this.publishToMqtt(`citymart/wh006/shelf/command`, scanCompletedPayload);
 
-    return { success: true, message: `Đã tắt đèn và còi kệ ${dto.shelfCode}`, payload };
+    return { success: true, message: `Đã tắt đèn và còi kệ ${normShelf}`, payload };
   }
 }
 
