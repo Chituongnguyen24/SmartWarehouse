@@ -354,7 +354,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     } else {
       startAll3ShelvesOrder(orderId);
     }
-  } else if (action == "OFF") {
+  } else if (action == "OFF" || action == "STOP" || action == "SCAN_COMPLETED" || action == "DONE_SHELF") {
     int idx = findShelfIndex(shelfCode);
     if (idx >= 0) confirmCheckin(idx);
   } else if (action == "RESET" || action == "ALL_OFF" || action == "CLEAR") {

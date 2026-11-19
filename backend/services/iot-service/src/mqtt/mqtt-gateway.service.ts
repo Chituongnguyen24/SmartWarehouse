@@ -144,7 +144,8 @@ export class MqttGatewayService extends EventEmitter implements OnModuleInit, On
 
     return new Promise((resolve) => {
       const message = typeof payload === 'string' ? payload : JSON.stringify(payload);
-      this.client.publish(topic, message, { qos: 1 }, (err) => {
+      // QoS 0 ensures sub-millisecond dispatch without blocking on remote broker PUBACK
+      this.client.publish(topic, message, { qos: 0 }, (err) => {
         if (err) {
           this.logger.error(`Publish failed for ${topic}: ${err.message}`);
           resolve(false);
@@ -157,23 +158,27 @@ export class MqttGatewayService extends EventEmitter implements OnModuleInit, On
   }
 
   /**
-   * Publish shelf command across standard and legacy topics
+   * Publish shelf command across standard and legacy topics in parallel
    */
   async publishShelfCommand(payload: any): Promise<boolean> {
-    const res1 = await this.publish(this.TOPIC_CMD_SHELF, payload);
-    const res2 = await this.publish(this.TOPIC_CMD_LEGACY, payload);
-    await this.publish(this.TOPIC_CMD_GV, payload);
-    return res1 || res2;
+    const results = await Promise.all([
+      this.publish(this.TOPIC_CMD_SHELF, payload),
+      this.publish(this.TOPIC_CMD_LEGACY, payload),
+      this.publish(this.TOPIC_CMD_GV, payload),
+    ]);
+    return results.some(Boolean);
   }
 
   /**
-   * Publish system command (all-off, test, alarm)
+   * Publish system command (all-off, test, alarm) in parallel
    */
   async publishSystemCommand(payload: any): Promise<boolean> {
-    const res1 = await this.publish(this.TOPIC_CMD_SYSTEM, payload);
-    const res2 = await this.publish(this.TOPIC_CMD_SHELF, payload);
-    await this.publish(this.TOPIC_CMD_LEGACY, payload);
-    return res1 || res2;
+    const results = await Promise.all([
+      this.publish(this.TOPIC_CMD_SYSTEM, payload),
+      this.publish(this.TOPIC_CMD_SHELF, payload),
+      this.publish(this.TOPIC_CMD_LEGACY, payload),
+    ]);
+    return results.some(Boolean);
   }
 
   getConnectionStatus() {

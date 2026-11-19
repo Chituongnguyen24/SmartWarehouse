@@ -320,7 +320,8 @@ export const StockLookup: React.FC = () => {
       const shelfToStop = activeLocatingShelf || targetCode;
       setActiveLocatingLotCode(null);
       setActiveLocatingShelf(null);
-      await stopShelfIotApi({
+      setIsRackLedActive(false);
+      stopShelfIotApi({
         warehouseCode: effectiveWhCode,
         shelfCode: shelfToStop,
       });
@@ -333,10 +334,11 @@ export const StockLookup: React.FC = () => {
 
     if (isCurrentLocating) {
       const shelfToStop = activeLocatingShelf || rawShelf;
+      // Optimistic instant UI update: immediately toggle state without waiting for network
       setActiveLocatingLotCode(null);
       setActiveLocatingShelf(null);
       setIsRackLedActive(false);
-      await stopShelfIotApi({
+      stopShelfIotApi({
         warehouseCode: effectiveWhCode,
         shelfCode: shelfToStop,
       });
@@ -345,7 +347,7 @@ export const StockLookup: React.FC = () => {
 
     // Stop any previously locating shelf before starting the new one
     if (activeLocatingShelf) {
-      await stopShelfIotApi({
+      stopShelfIotApi({
         warehouseCode: effectiveWhCode,
         shelfCode: activeLocatingShelf,
       });
@@ -356,7 +358,7 @@ export const StockLookup: React.FC = () => {
     setActiveLocatingShelf(rawShelf);
     setIsRackLedActive(true);
 
-    await locateShelfIotApi({
+    locateShelfIotApi({
       warehouseCode: effectiveWhCode,
       shelfCode: rawShelf,
       productName: lot.productName,
@@ -365,13 +367,13 @@ export const StockLookup: React.FC = () => {
     });
   };
 
-  const handleCloseAuditModal = async () => {
+  const handleCloseAuditModal = () => {
     if (activeLocatingShelf) {
       const shelfToStop = activeLocatingShelf;
       setActiveLocatingLotCode(null);
       setActiveLocatingShelf(null);
       setIsRackLedActive(false);
-      await stopShelfIotApi({
+      stopShelfIotApi({
         warehouseCode: effectiveWhCode,
         shelfCode: shelfToStop,
       });

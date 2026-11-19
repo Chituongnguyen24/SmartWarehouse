@@ -480,15 +480,16 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
       timestamp: Date.now(),
     };
 
-    const published = await this.mqttGateway.publishShelfCommand(payload);
-
-    // Also dispatch SCAN_COMPLETED so firmware running currently on ESP32 instantly turns off
-    await this.mqttGateway.publishShelfCommand({
-      action: 'SCAN_COMPLETED',
-      shelfCode: code,
-      warehouseCode: dto.warehouseCode || 'WH-006',
-      timestamp: Date.now(),
-    });
+    // Parallel dispatch for instant zero-latency turn-off
+    const [published] = await Promise.all([
+      this.mqttGateway.publishShelfCommand(payload),
+      this.mqttGateway.publishShelfCommand({
+        action: 'SCAN_COMPLETED',
+        shelfCode: code,
+        warehouseCode: dto.warehouseCode || 'WH-006',
+        timestamp: Date.now(),
+      }),
+    ]);
 
     this.addLog(
       code,
@@ -496,7 +497,7 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
       `Tắt đèn và còi kệ ${code} qua thao tác App.`,
       payload,
     );
-    this.syncStateAndPublish('stopped', code, payload);
+    this.syncStateAndPublish('stopped', code, payload).catch(() => {});
 
     return {
       success: published,
