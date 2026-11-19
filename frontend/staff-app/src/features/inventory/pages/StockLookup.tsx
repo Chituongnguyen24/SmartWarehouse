@@ -285,22 +285,44 @@ export const StockLookup: React.FC = () => {
     return () => clearInterval(interval);
   }, [activeLocatingShelf]);
 
+  const effectiveWhCode = selectedWarehouse === 'ALL' ? 'WH-006' : (selectedWarehouse || 'WH-006');
+
+  // Turn off IoT locating when leaving the page or changing tabs
+  useEffect(() => {
+    return () => {
+      if (activeLocatingShelf) {
+        stopShelfIotApi({
+          warehouseCode: effectiveWhCode,
+          shelfCode: activeLocatingShelf,
+        });
+      }
+    };
+  }, [activeLocatingShelf, effectiveWhCode]);
+
   const handleToggleRackLed = async (shelfCode: string) => {
     const nextState = !isRackLedActive;
     setIsRackLedActive(nextState);
+    const targetCode = shelfCode || selectedAuditRack || 'A1';
     if (nextState) {
+      if (activeLocatingShelf) {
+        await stopShelfIotApi({
+          warehouseCode: effectiveWhCode,
+          shelfCode: activeLocatingShelf,
+        });
+      }
       setArrivedLotShelf(null);
-      setActiveLocatingShelf(shelfCode || 'A1');
+      setActiveLocatingShelf(targetCode);
       await locateShelfIotApi({
-        warehouseCode: selectedWarehouse || 'WH-006',
-        shelfCode: shelfCode || 'A1',
+        warehouseCode: effectiveWhCode,
+        shelfCode: targetCode,
       });
     } else {
+      const shelfToStop = activeLocatingShelf || targetCode;
       setActiveLocatingLotCode(null);
       setActiveLocatingShelf(null);
       await stopShelfIotApi({
-        warehouseCode: selectedWarehouse || 'WH-006',
-        shelfCode: shelfCode || 'A1',
+        warehouseCode: effectiveWhCode,
+        shelfCode: shelfToStop,
       });
     }
   };
@@ -310,14 +332,23 @@ export const StockLookup: React.FC = () => {
     const isCurrentLocating = activeLocatingLotCode === lot.lotCode;
 
     if (isCurrentLocating) {
+      const shelfToStop = activeLocatingShelf || rawShelf;
       setActiveLocatingLotCode(null);
       setActiveLocatingShelf(null);
       setIsRackLedActive(false);
       await stopShelfIotApi({
-        warehouseCode: selectedWarehouse || 'WH-006',
-        shelfCode: rawShelf,
+        warehouseCode: effectiveWhCode,
+        shelfCode: shelfToStop,
       });
       return;
+    }
+
+    // Stop any previously locating shelf before starting the new one
+    if (activeLocatingShelf) {
+      await stopShelfIotApi({
+        warehouseCode: effectiveWhCode,
+        shelfCode: activeLocatingShelf,
+      });
     }
 
     setArrivedLotShelf(null);
@@ -326,12 +357,26 @@ export const StockLookup: React.FC = () => {
     setIsRackLedActive(true);
 
     await locateShelfIotApi({
-      warehouseCode: selectedWarehouse || 'WH-006',
+      warehouseCode: effectiveWhCode,
       shelfCode: rawShelf,
       productName: lot.productName,
       qty: lot.remainingQty ?? lot.quantity ?? 1,
       orderId: `AUD-${(lot.lotCode || 'LOT').slice(-8)}`,
     });
+  };
+
+  const handleCloseAuditModal = async () => {
+    if (activeLocatingShelf) {
+      const shelfToStop = activeLocatingShelf;
+      setActiveLocatingLotCode(null);
+      setActiveLocatingShelf(null);
+      setIsRackLedActive(false);
+      await stopShelfIotApi({
+        warehouseCode: effectiveWhCode,
+        shelfCode: shelfToStop,
+      });
+    }
+    setAuditModalLot(null);
   };
 
   const { lastEvent } = useStaffWebSocket();
@@ -691,6 +736,18 @@ export const StockLookup: React.FC = () => {
 
       const diffMsg = diff === 0 ? 'Khớp 100%' : diff > 0 ? `Lệch thừa +${diff}` : `Lệch thiếu ${diff}`;
       setAuditSuccessMsg(`Đã lưu kết quả kiểm kê: Lô ${auditModalLot.lotCode} (${countNum} ${auditModalLot.unit} — ${diffMsg})`);
+
+      // Turn off shelf locator immediately upon successful audit
+      if (activeLocatingShelf) {
+        const shelfToStop = activeLocatingShelf;
+        setActiveLocatingLotCode(null);
+        setActiveLocatingShelf(null);
+        setIsRackLedActive(false);
+        stopShelfIotApi({
+          warehouseCode: effectiveWhCode,
+          shelfCode: shelfToStop,
+        });
+      }
 
       setTimeout(() => {
         setAuditSuccessMsg(null);
@@ -1232,7 +1289,7 @@ export const StockLookup: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        stopShelfIotApi({ warehouseCode: selectedWarehouse || 'WH-006', shelfCode: activeLocatingShelf });
+                        stopShelfIotApi({ warehouseCode: effectiveWhCode, shelfCode: activeLocatingShelf });
                         setActiveLocatingShelf(null);
                         setActiveLocatingLotCode(null);
                         setIsRackLedActive(false);
@@ -2132,7 +2189,7 @@ export const StockLookup: React.FC = () => {
                 </div>
               </div>
               <button
-                onClick={() => setAuditModalLot(null)}
+                onClick={handleCloseAuditModal}
                 style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
               >
                 <X size={18} />
@@ -2253,7 +2310,7 @@ export const StockLookup: React.FC = () => {
 
             <div style={{ paddingTop: '10px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button
-                onClick={() => setAuditModalLot(null)}
+                onClick={handleCloseAuditModal}
                 disabled={isSubmittingAudit}
                 style={{ padding: '8px 14px', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', color: '#334155', borderRadius: '10px', fontSize: '11.5px', fontWeight: 800, cursor: 'pointer' }}
               >

@@ -66,7 +66,7 @@ export class SensorService implements OnModuleInit, OnModuleDestroy {
 
     try {
       this.influxClient = new InfluxDB({ url: influxUrl, token: influxToken });
-      this.influxWriteApi = this.influxClient.getWriteApi(influxOrg, influxBucket, 'ms');
+      this.influxWriteApi = this.influxClient.getWriteApi(influxOrg, influxBucket, 'ms', { maxRetries: 0 });
       this.logger.log(`InfluxDB client ready (Bucket: ${influxBucket}, Org: ${influxOrg})`);
     } catch (e: any) {
       this.logger.warn(`InfluxDB initialization skipped: ${e.message}`);

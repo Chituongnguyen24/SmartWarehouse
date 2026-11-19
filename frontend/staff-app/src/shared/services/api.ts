@@ -518,8 +518,20 @@ export const stopShelfIotApi = async (data: { warehouseCode?: string; shelfCode:
     });
     if (res.ok) return await res.json();
   } catch (e) {
-    console.warn('stopShelfIotApi network error:', e);
+    console.warn('stopShelfIotApi direct IoT network error, attempting outbound fallback:', e);
   }
+
+  try {
+    const res = await fetch(`${API_URLS.OUTBOUND}/outbound-orders/iot/stop-shelf`, {
+      method: 'POST',
+      headers: getIotHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn('stopShelfIotApi outbound fallback error:', e);
+  }
+
   return { success: true };
 };
 

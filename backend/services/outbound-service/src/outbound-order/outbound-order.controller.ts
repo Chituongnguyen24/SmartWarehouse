@@ -61,6 +61,12 @@ export class OutboundOrderController {
     return this.service.triggerIotCompleteShelf(body);
   }
 
+  @Post('iot/stop-shelf')
+  @ApiOperation({ summary: 'IoT: Tắt đèn và còi kệ (Dừng định vị / hoàn tất kiểm kê)' })
+  stopShelf(@Body() body: { warehouseCode?: string; shelfCode: string }) {
+    return this.service.triggerIotStopShelf(body);
+  }
+
   @Get()
   @ApiOperation({ summary: 'Lấy danh sách đơn xuất kho' })
   @ApiQuery({ name: 'status', required: false })

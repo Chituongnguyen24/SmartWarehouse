@@ -1839,6 +1839,30 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
 
     return { success: true, message: `Đã quét xong. Tắt đèn kệ ${dto.shelfCode}`, payload };
   }
+
+  // IoT Pick-to-Light: Stop Shelf (Turn off LED and Buzzer)
+  async triggerIotStopShelf(dto: { warehouseCode?: string; shelfCode: string }) {
+    const warehouseCode = dto.warehouseCode || 'WH-006';
+    const payload = {
+      action: 'OFF',
+      warehouseCode,
+      shelfCode: dto.shelfCode,
+      timestamp: Date.now(),
+    };
+
+    // 1. Forward to centralized IoT Gateway (iot-service)
+    const gatewayRes = await this.callIotGateway('/api/iot/shelf/stop', payload);
+    if (gatewayRes) {
+      return gatewayRes;
+    }
+
+    // 2. Fallback: publish to both WH-006 and GV topics directly
+    await this.publishToMqtt(`citymart/warehouse/WH-006/picking/command`, payload);
+    await this.publishToMqtt(`citymart/warehouse/GV/picking/command`, payload);
+    await this.publishToMqtt(`citymart/wh006/shelf/command`, payload);
+
+    return { success: true, message: `Đã tắt đèn và còi kệ ${dto.shelfCode}`, payload };
+  }
 }
 
 

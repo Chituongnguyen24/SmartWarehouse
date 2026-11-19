@@ -191,13 +191,32 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  // Normalize shelf code from "A1", "01", "1", "a1", "KE A1"
+  // Normalize shelf code from "A1", "01", "1", "a1", "KE A1", "cold-shelf-2-slot-2", etc.
   normalizeShelfCode(input: string): ShelfCode | null {
     if (!input) return null;
     const clean = input.toUpperCase().trim();
     if (clean.includes('A1') || clean.includes('01') || clean === '1') return 'A1';
     if (clean.includes('A2') || clean.includes('02') || clean === '2') return 'A2';
     if (clean.includes('A3') || clean.includes('03') || clean === '3') return 'A3';
+
+    // Match shelf / cold-shelf / ke / rack / vi tri followed by 1, 2, 3
+    const match = clean.match(/(?:COLD[-_ ]*SHELF|SHELF|RACK|KỆ|KE|VỊ[-_ ]*TRÍ|VI[-_ ]*TRI)[-_ ]*0?([123])/);
+    if (match) {
+      const num = match[1];
+      if (num === '1') return 'A1';
+      if (num === '2') return 'A2';
+      if (num === '3') return 'A3';
+    }
+
+    // Fallback: check any isolated number 1, 2, 3
+    const fallbackMatch = clean.match(/(?:^|[-_ \/])0?([123])(?:$|[-_ \/])/);
+    if (fallbackMatch) {
+      const num = fallbackMatch[1];
+      if (num === '1') return 'A1';
+      if (num === '2') return 'A2';
+      if (num === '3') return 'A3';
+    }
+
     return null;
   }
 
@@ -418,9 +437,21 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
    * Stop shelf (turn off LED & buzzer, set ARRIVED)
    */
   async stopShelf(dto: StopShelfDto) {
+    if (!dto.shelfCode || dto.shelfCode.toUpperCase().includes('ALL')) {
+      return this.resetAllShelves();
+    }
+
     const code = this.normalizeShelfCode(dto.shelfCode);
     if (!code) {
       return { success: false, message: `Mã kệ không hợp lệ (${dto.shelfCode}).` };
+    }
+
+    // Clear pending retry timer so it won't re-activate shelf after user stopped it
+    const pendingKey = `${code}:LOCATE`;
+    if (this.pendingCommands.has(pendingKey)) {
+      const pending = this.pendingCommands.get(pendingKey);
+      if (pending?.timer) clearTimeout(pending.timer);
+      this.pendingCommands.delete(pendingKey);
     }
 
     const shelf = this.shelves[code];
@@ -465,6 +496,14 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
       return { success: false, message: `Mã kệ không hợp lệ (${dto.shelfCode}).` };
     }
 
+    // Clear pending retry if exists
+    const pendingKey = `${code}:LOCATE`;
+    if (this.pendingCommands.has(pendingKey)) {
+      const pending = this.pendingCommands.get(pendingKey);
+      if (pending?.timer) clearTimeout(pending.timer);
+      this.pendingCommands.delete(pendingKey);
+    }
+
     const shelf = this.shelves[code];
     shelf.status = 'COMPLETED';
     shelf.ledOn = false;
@@ -502,6 +541,12 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
    * Reset all 3 shelves to IDLE
    */
   async resetAllShelves() {
+    // Clear all pending command timers
+    for (const [key, pending] of this.pendingCommands.entries()) {
+      if (pending?.timer) clearTimeout(pending.timer);
+    }
+    this.pendingCommands.clear();
+
     for (const code of ['A1', 'A2', 'A3'] as ShelfCode[]) {
       this.shelves[code].status = 'IDLE';
       this.shelves[code].ledOn = false;
