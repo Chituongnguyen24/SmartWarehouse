@@ -18,6 +18,7 @@ import { WarehouseDispatch, ShelfArrangement, Warehouse3DDigitalTwin } from '@/f
 import { TransportOptimization, OrderDispatch, CodReconciliation } from '@/features/transport';
 import { SalesManagement, FlashSaleManagement, OrderManagement } from '@/features/sales';
 import { Dashboard, Reports, AIAlerts } from '@/features/reports';
+import { IoTClimateDashboard } from '@/features/iot';
 import {
   CustomerStorefront,
   CustomerCart,
@@ -160,6 +161,12 @@ function App() {
                 <DemandForecast />
               </ProtectedRoute>
             } />
+            <Route path="iot-controller" element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF']}>
+                <IoTClimateDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="iot-dashboard" element={<Navigate to="/iot-controller" replace />} />
             <Route path="replenishment" element={<Navigate to="/demand-forecast" replace />} />
             <Route path="transport" element={
               <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE_MANAGER', 'DRIVER']}>
