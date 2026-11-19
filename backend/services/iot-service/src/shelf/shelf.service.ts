@@ -470,6 +470,14 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
 
     const published = await this.mqttGateway.publishShelfCommand(payload);
 
+    // Also dispatch SCAN_COMPLETED so firmware running currently on ESP32 instantly turns off
+    await this.mqttGateway.publishShelfCommand({
+      action: 'SCAN_COMPLETED',
+      shelfCode: code,
+      warehouseCode: dto.warehouseCode || 'WH-006',
+      timestamp: Date.now(),
+    });
+
     this.addLog(
       code,
       'STOP_PRESSED',
@@ -519,6 +527,14 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
     };
 
     const published = await this.mqttGateway.publishShelfCommand(payload);
+
+    // Also dispatch SCAN_COMPLETED so firmware running currently on ESP32 instantly turns off
+    await this.mqttGateway.publishShelfCommand({
+      action: 'SCAN_COMPLETED',
+      shelfCode: code,
+      warehouseCode: dto.warehouseCode || 'WH-006',
+      timestamp: Date.now(),
+    });
 
     this.addLog(
       code,

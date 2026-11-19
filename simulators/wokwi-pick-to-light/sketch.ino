@@ -296,8 +296,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     return;
   }
 
-  // 2. LỆNH QUÉT HOÀN TẤT -> TẮT ĐÈN
-  if (action == "SCAN_COMPLETED" || action == "DONE_SHELF") {
+  // 2. LỆNH QUÉT HOÀN TẤT HOẶC TẮT ĐÈN TỪ APP (STOP / OFF / SCAN_COMPLETED)
+  if (action == "SCAN_COMPLETED" || action == "DONE_SHELF" || action == "OFF" || action == "STOP") {
     int shelfIdx = parseColdShelfIndex(shelfCode);
     if (shelfIdx >= 0) {
       Serial.println(">> Quét xong tại phòng lạnh! Tự động tắt đèn " + String(SHELF_NAMES[shelfIdx]));

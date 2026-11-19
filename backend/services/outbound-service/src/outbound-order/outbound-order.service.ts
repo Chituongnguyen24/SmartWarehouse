@@ -1861,6 +1861,16 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
     await this.publishToMqtt(`citymart/warehouse/GV/picking/command`, payload);
     await this.publishToMqtt(`citymart/wh006/shelf/command`, payload);
 
+    // Also publish SCAN_COMPLETED so ESP32 firmware running currently turns off
+    const scanCompletedPayload = {
+      action: 'SCAN_COMPLETED',
+      warehouseCode,
+      shelfCode: dto.shelfCode,
+      timestamp: Date.now(),
+    };
+    await this.publishToMqtt(`citymart/warehouse/WH-006/picking/command`, scanCompletedPayload);
+    await this.publishToMqtt(`citymart/warehouse/GV/picking/command`, scanCompletedPayload);
+
     return { success: true, message: `Đã tắt đèn và còi kệ ${dto.shelfCode}`, payload };
   }
 }
