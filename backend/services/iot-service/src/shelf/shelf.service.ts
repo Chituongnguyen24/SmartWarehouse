@@ -277,7 +277,13 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
       this.pendingCommands.delete(pendingKey);
     }
 
-    if (eventName === 'CONFIRMED') {
+    if (
+      eventName === 'CONFIRMED' ||
+      eventName === 'STAFF_ARRIVED' ||
+      eventName === 'STOP_PRESSED' ||
+      eventName === 'STOP' ||
+      eventName === 'ARRIVED'
+    ) {
       // Physical STOP button was pressed at shelf!
       // Transitions to ARRIVED (NOT COMPLETED - barcode scan / staff app completes it)
       shelf.status = 'ARRIVED';
@@ -294,6 +300,12 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
       );
       this.syncStateAndPublish('arrived', code, event);
     } else if (eventName === 'LOCATING') {
+      // If shelf was already stopped, arrived or completed, ignore lagging LOCATING ack
+      if (shelf.status === 'ARRIVED' || shelf.status === 'COMPLETED' || shelf.status === 'IDLE') {
+        this.logger.log(`Ignoring delayed LOCATING event for shelf ${code} because current status is ${shelf.status}.`);
+        return;
+      }
+
       shelf.status = 'LOCATING';
       shelf.ledOn = true;
       shelf.buzzerOn = true;
