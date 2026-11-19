@@ -21,6 +21,7 @@ import {
   RotateCcw,
   Bell,
   Info,
+  Building2,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -35,6 +36,9 @@ import {
 } from 'recharts';
 import { API_HOSTS } from '@/shared/utils/apiConfig';
 import { useAuth } from '@/features/auth';
+import { useWarehouse } from '@/shared';
+import { WarehouseClimateThresholdModal } from '@/features/warehouse';
+import { getWarehouseThresholds, type WarehouseThresholds } from '@/shared/utils/thresholdStorage';
 
 interface TelemetryPoint {
   time: string;
@@ -109,7 +113,29 @@ interface IotLogItem {
 
 export const IoTClimateDashboard: React.FC = () => {
   const { token } = useAuth();
+  const { selectedWarehouseCode, setSelectedWarehouseCode } = useWarehouse();
   const iotBaseUrl = API_HOSTS.IOT;
+
+  // Selected warehouse for climate thresholds
+  const [currentWhCode, setCurrentWhCode] = useState<string>(selectedWarehouseCode || 'WH-006');
+  const [activeThresholds, setActiveThresholds] = useState<WarehouseThresholds>(() =>
+    getWarehouseThresholds(selectedWarehouseCode || 'WH-006')
+  );
+  const [isThresholdModalOpen, setIsThresholdModalOpen] = useState(false);
+
+  useEffect(() => {
+    setActiveThresholds(getWarehouseThresholds(currentWhCode));
+  }, [currentWhCode]);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (e.detail?.thresholds && (!e.detail.warehouseCode || e.detail.warehouseCode === currentWhCode)) {
+        setActiveThresholds(e.detail.thresholds);
+      }
+    };
+    window.addEventListener('sfwms_thresholds_updated', handler);
+    return () => window.removeEventListener('sfwms_thresholds_updated', handler);
+  }, [currentWhCode]);
 
   // Real-time states
   const [climate, setClimate] = useState<ClimateStatus | null>(null);
@@ -363,8 +389,8 @@ export const IoTClimateDashboard: React.FC = () => {
     }
   };
 
-  // Safe limits
-  const safeEnv = climate?.safeEnvelope || { minTemp: 10, maxTemp: 35, minHumidity: 30, maxHumidity: 80 };
+  // Safe limits from warehouse configuration
+  const safeEnv = activeThresholds?.coolZone || climate?.safeEnvelope || { minTemp: 0, maxTemp: 4, minHumidity: 60, maxHumidity: 85 };
   const currentTemp = climate?.temperature ?? 0;
   const currentHum = climate?.humidity ?? 0;
   const isTempViolated = currentTemp > safeEnv.maxTemp || currentTemp < safeEnv.minTemp;
@@ -422,21 +448,71 @@ export const IoTClimateDashboard: React.FC = () => {
                 border: '1px solid #bbf7d0',
               }}
             >
-              HỆ THỐNG IOT KHO GÒ VẤP (WH-006)
+              HỆ THỐNG IOT: {currentWhCode}
             </span>
             <span style={{ fontSize: '12px', color: '#64748b' }}>•</span>
-            <span style={{ fontSize: '12px', color: '#64748b' }}>Giao thức MQTT / SHT30</span>
+            <span style={{ fontSize: '12px', color: '#64748b' }}>{activeThresholds.warehouseName}</span>
           </div>
 
           <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#0f172a', margin: '4px 0 2px' }}>
             Giám Sát Nhiệt Ẩm Thời Gian Thực & Điều Khiển IoT
           </h1>
           <p style={{ fontSize: '13px', color: '#475569', margin: 0 }}>
-            Hệ thống hỗ trợ lấy hàng Pick-to-Light (Giàn kệ A1, A2, A3) & Giám sát Vi khí hậu Kho Mát
+            Hệ thống hỗ trợ lấy hàng Pick-to-Light (Kệ A1, A2, A3) & Cấu hình Ngưỡng An Toàn Theo Kho
           </p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Warehouse Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Building2 size={16} color="#0f766e" />
+            <select
+              value={currentWhCode}
+              onChange={(e) => {
+                setCurrentWhCode(e.target.value);
+                setSelectedWarehouseCode(e.target.value);
+              }}
+              style={{
+                padding: '5px 10px',
+                borderRadius: '6px',
+                border: '1px solid #cbd5e1',
+                fontSize: '12px',
+                fontWeight: 600,
+                color: '#0f172a',
+                backgroundColor: '#ffffff',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="WH-006">WH-006: Kho Gò Vấp (IoT)</option>
+              <option value="WH-001">WH-001: Kho Tân Bình</option>
+              <option value="WH-002">WH-002: Kho Quận 12</option>
+              <option value="WH-005">WH-005: Kho Thủ Đức</option>
+            </select>
+          </div>
+
+          {/* Threshold Config Button */}
+          <button
+            type="button"
+            onClick={() => setIsThresholdModalOpen(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '6px',
+              backgroundColor: '#ffffff',
+              color: '#0f766e',
+              border: '1.5px solid #0f766e',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+            }}
+          >
+            <Sliders size={14} color="#0f766e" />
+            <span>Cấu Hình Ngưỡng Kho</span>
+          </button>
+
           {/* MQTT Status Badge */}
           <div
             style={{
@@ -1630,6 +1706,14 @@ export const IoTClimateDashboard: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Modal Cấu hình Ngưỡng An toàn Môi trường theo Từng Kho */}
+      <WarehouseClimateThresholdModal
+        isOpen={isThresholdModalOpen}
+        onClose={() => setIsThresholdModalOpen(false)}
+        initialWarehouseCode={currentWhCode}
+        onSaved={(newTh) => setActiveThresholds(newTh)}
+      />
     </div>
   );
 };

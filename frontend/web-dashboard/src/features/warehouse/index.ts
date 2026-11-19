@@ -7,4 +7,5 @@ export * from './components/Supermarket3DScene';
 export { default as WarehouseMap3D } from './components/WarehouseMap3D';
 export * from './components/WarehouseConfigModal';
 export * from './components/WarehouseManageModal';
+export * from './components/WarehouseClimateThresholdModal';
 

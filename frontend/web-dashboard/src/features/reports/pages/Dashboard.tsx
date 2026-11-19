@@ -35,6 +35,7 @@ import {
   CalendarCheck,
   AlertCircle,
   ArrowRight,
+  Wifi,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -51,12 +52,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth';
 import { useWarehouse } from '@/shared';
 import { getApiHost } from '@/shared/utils/apiConfig';
-
-// Standard Safe Thresholds for Gò Vấp Cold Chain
-const COOL_SAFE_MIN = 0.0;
-const COOL_SAFE_MAX = 4.0;
-const FROZEN_SAFE_MIN = -22.0;
-const FROZEN_SAFE_MAX = -18.0;
+import { WarehouseClimateThresholdModal } from '@/features/warehouse';
+import { getWarehouseThresholds, type WarehouseThresholds } from '@/shared/utils/thresholdStorage';
 
 export const Dashboard: React.FC = () => {
   const { token, user } = useAuth();
@@ -72,6 +69,26 @@ export const Dashboard: React.FC = () => {
   );
   // Admin is allowed to choose any warehouse. Warehouse accounts are strictly locked to their warehouse.
   const effectiveWhCode = isAdmin ? (selectedWarehouseCode || 'WH-006') : (user?.warehouseCode || myWarehouseCode || 'WH-006');
+
+  // Dynamic Warehouse Safe Envelope Thresholds
+  const [activeThresholds, setActiveThresholds] = useState<WarehouseThresholds>(() =>
+    getWarehouseThresholds(effectiveWhCode)
+  );
+  const [isThresholdModalOpen, setIsThresholdModalOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    setActiveThresholds(getWarehouseThresholds(effectiveWhCode));
+  }, [effectiveWhCode]);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (e.detail?.thresholds && (!e.detail.warehouseCode || e.detail.warehouseCode === effectiveWhCode)) {
+        setActiveThresholds(e.detail.thresholds);
+      }
+    };
+    window.addEventListener('sfwms_thresholds_updated', handler);
+    return () => window.removeEventListener('sfwms_thresholds_updated', handler);
+  }, [effectiveWhCode]);
 
   // Role Routing: Staff & Drivers are redirected, Managers & Admins view the Dashboard
   useEffect(() => {
@@ -205,8 +222,16 @@ export const Dashboard: React.FC = () => {
     }
   }, []);
 
-  // Monitor Temperature Breach & Trigger Continuous Audio Siren
-  const isOverheatBreached = coolTemp > COOL_SAFE_MAX;
+  // Monitor Temperature Breach against Warehouse Safe Envelope
+  const coolSafeMax = activeThresholds?.coolZone?.maxTemp ?? 4.0;
+  const coolSafeMin = activeThresholds?.coolZone?.minTemp ?? 0.0;
+  const isOverheatBreached =
+    activeColdRoom === 'COOL'
+      ? (coolTemp > coolSafeMax || coolTemp < coolSafeMin)
+      : activeColdRoom === 'FROZEN'
+      ? (-19.4 > (activeThresholds?.frozenZone?.maxTemp ?? -18.0) || -19.4 < (activeThresholds?.frozenZone?.minTemp ?? -22.0))
+      : (24.2 > (activeThresholds?.dryZone?.maxTemp ?? 25.0) || 24.2 < (activeThresholds?.dryZone?.minTemp ?? 20.0));
+
   useEffect(() => {
     if (isOverheatBreached && !isSirenMuted) {
       startSiren();
@@ -215,6 +240,49 @@ export const Dashboard: React.FC = () => {
     }
     return () => stopSiren();
   }, [isOverheatBreached, isSirenMuted, startSiren, stopSiren]);
+
+  // Live real-time SHT30 Telemetry Polling from ESP32 IoT Gateway
+  useEffect(() => {
+    let isMounted = true;
+    const fetchIotTelemetry = async () => {
+      try {
+        const res = await fetch(`${getApiHost(3002)}/climate/status`);
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          if (data && typeof data.temperature === 'number') {
+            if (!isSimulatedOverheat) {
+              setCoolTemp(data.temperature);
+              setCoolHum(data.humidity);
+
+              const now = new Date();
+              const timeStr = now.toLocaleTimeString('vi-VN', { hour12: false });
+              setTelemetryHistory((prev) => {
+                const next = [
+                  ...prev,
+                  {
+                    time: timeStr,
+                    temp: Number(data.temperature.toFixed(1)),
+                    safeMax: activeThresholds.coolZone.maxTemp,
+                    safeMin: activeThresholds.coolZone.minTemp,
+                  },
+                ];
+                return next.slice(-15);
+              });
+            }
+          }
+        }
+      } catch (e) {
+        // Silent catch for background IoT polling
+      }
+    };
+
+    fetchIotTelemetry();
+    const interval = setInterval(fetchIotTelemetry, 3000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [isSimulatedOverheat, activeThresholds]);
 
   // Fetch Live Operational Data
   const fetchDashboardData = useCallback(async () => {
@@ -326,10 +394,18 @@ export const Dashboard: React.FC = () => {
 
   // Shelf Hardware Interaction APIs
   const handleLocateShelf = async (shelfCode: string, productName: string) => {
+    const clean = shelfCode.toUpperCase().trim();
+    const isSupported = clean.includes('A1') || clean.includes('A2') || clean.includes('A3') ||
+                        clean === '1' || clean === '2' || clean === '3';
+    if (!isSupported) {
+      alert(`Kệ "${shelfCode}" không thuộc hệ thống Pick-to-Light IoT.\n\nPhần cứng đèn LED và còi Buzzer hiện chỉ được lắp đặt tại 3 giàn kệ Kho Mát A1, A2, A3.`);
+      return;
+    }
+
     try {
       if (activeLocatingShelf === shelfCode) {
         setActiveLocatingShelf(null);
-        await fetch(`${getApiHost(3007)}/outbound-orders/iot/complete-shelf`, {
+        await fetch(`${getApiHost(3002)}/shelf/stop`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -339,7 +415,7 @@ export const Dashboard: React.FC = () => {
         });
       } else {
         setActiveLocatingShelf(shelfCode);
-        await fetch(`${getApiHost(3007)}/outbound-orders/iot/locate-shelf`, {
+        await fetch(`${getApiHost(3002)}/shelf/locate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -426,28 +502,32 @@ export const Dashboard: React.FC = () => {
 
   // Active room settings for IoT Telemetry
   const activeRoomData = useMemo(() => {
+    const fTh = activeThresholds?.frozenZone || { minTemp: -22, maxTemp: -18, minHumidity: 50, maxHumidity: 75 };
+    const dTh = activeThresholds?.dryZone || { minTemp: 20, maxTemp: 25, minHumidity: 45, maxHumidity: 65 };
+    const cTh = activeThresholds?.coolZone || { minTemp: 0, maxTemp: 4, minHumidity: 60, maxHumidity: 85 };
+
     if (activeColdRoom === 'FROZEN') {
       return {
         name: 'Phòng Kho Đông',
         subtitle: 'Thịt bò Úc, hải sản Na Uy, kem',
         temp: -19.4,
         hum: 62.0,
-        tempStandard: '-22.0°C ~ -18.0°C',
-        humStandard: '60% ~ 75%',
-        statusText: '-18°C ~ -22°C Đạt Chuẩn',
+        tempStandard: `${fTh.minTemp.toFixed(1)}°C ~ ${fTh.maxTemp.toFixed(1)}°C`,
+        humStandard: `${fTh.minHumidity}% ~ ${fTh.maxHumidity}%`,
+        statusText: `${fTh.minTemp}°C ~ ${fTh.maxTemp}°C Đạt Chuẩn`,
         statusColor: '#0284c7',
         statusBg: '#f0f9ff',
         statusBorder: '#7dd3fc',
-        safeMax: -18.0,
-        safeMin: -22.0,
+        safeMax: fTh.maxTemp,
+        safeMin: fTh.minTemp,
         yDomain: [-25, -15],
         telemetry: frozenTelemetryHistory,
         strokeColor: '#0284c7',
         fillGradId: 'frozenGrad',
         shelves: [
-          { code: 'Ke B1', name: 'Kệ B1: Bò Úc nhập khẩu', tempSafe: '-18°C ~ -22°C' },
-          { code: 'Ke B2', name: 'Kệ B2: Hải sản Na Uy', tempSafe: '-18°C ~ -22°C' },
-          { code: 'Ke B3', name: 'Kệ B3: Viên thả lẩu & kem', tempSafe: '-18°C ~ -20°C' },
+          { code: 'Ke B1', name: 'Kệ B1: Bò Úc nhập khẩu', tempSafe: `${fTh.minTemp}°C ~ ${fTh.maxTemp}°C`, iotSupported: false },
+          { code: 'Ke B2', name: 'Kệ B2: Hải sản Na Uy', tempSafe: `${fTh.minTemp}°C ~ ${fTh.maxTemp}°C`, iotSupported: false },
+          { code: 'Ke B3', name: 'Kệ B3: Viên thả lẩu & kem', tempSafe: `${fTh.minTemp}°C ~ ${fTh.maxTemp}°C`, iotSupported: false },
         ]
       };
     }
@@ -457,22 +537,22 @@ export const Dashboard: React.FC = () => {
         subtitle: 'Gạo ST25, mì gói, dầu ăn, gia vị',
         temp: 24.2,
         hum: 56.0,
-        tempStandard: '20.0°C ~ 25.0°C',
-        humStandard: '50% ~ 65%',
-        statusText: '20°C ~ 25°C Khô Thoáng',
+        tempStandard: `${dTh.minTemp.toFixed(1)}°C ~ ${dTh.maxTemp.toFixed(1)}°C`,
+        humStandard: `${dTh.minHumidity}% ~ ${dTh.maxHumidity}%`,
+        statusText: `${dTh.minTemp}°C ~ ${dTh.maxTemp}°C Khô Thoáng`,
         statusColor: '#d97706',
         statusBg: '#fffbeb',
         statusBorder: '#fde68a',
-        safeMax: 25.0,
-        safeMin: 20.0,
+        safeMax: dTh.maxTemp,
+        safeMin: dTh.minTemp,
         yDomain: [15, 30],
         telemetry: dryTelemetryHistory,
         strokeColor: '#d97706',
         fillGradId: 'dryGrad',
         shelves: [
-          { code: 'Ke C1', name: 'Kệ C1: Gạo ST25 Sóc Trăng', tempSafe: '20°C ~ 25°C' },
-          { code: 'Ke C2', name: 'Kệ C2: Mì Hảo Hảo & đồ hộp', tempSafe: '20°C ~ 25°C' },
-          { code: 'Ke C3', name: 'Kệ C3: Dầu Simply & Knorr', tempSafe: '20°C ~ 25°C' },
+          { code: 'Ke C1', name: 'Kệ C1: Gạo ST25 Sóc Trăng', tempSafe: `${dTh.minTemp}°C ~ ${dTh.maxTemp}°C`, iotSupported: false },
+          { code: 'Ke C2', name: 'Kệ C2: Mì Hảo Hảo & đồ hộp', tempSafe: `${dTh.minTemp}°C ~ ${dTh.maxTemp}°C`, iotSupported: false },
+          { code: 'Ke C3', name: 'Kệ C3: Dầu Simply & Knorr', tempSafe: `${dTh.minTemp}°C ~ ${dTh.maxTemp}°C`, iotSupported: false },
         ]
       };
     }
@@ -481,25 +561,25 @@ export const Dashboard: React.FC = () => {
       subtitle: 'Thịt tươi CP, sữa thanh trùng, rau củ VietGAP',
       temp: coolTemp,
       hum: coolHum,
-      tempStandard: '0.0°C ~ 4.0°C',
-      humStandard: '70% ~ 85%',
-      statusText: isOverheatBreached ? 'Cảnh Báo Vượt Ngưỡng' : '0°C ~ 4°C Tươi Ngon',
+      tempStandard: `${cTh.minTemp.toFixed(1)}°C ~ ${cTh.maxTemp.toFixed(1)}°C`,
+      humStandard: `${cTh.minHumidity}% ~ ${cTh.maxHumidity}%`,
+      statusText: isOverheatBreached ? 'Cảnh Báo Vượt Ngưỡng' : `${cTh.minTemp}°C ~ ${cTh.maxTemp}°C Chuẩn`,
       statusColor: isOverheatBreached ? '#dc2626' : '#059669',
       statusBg: isOverheatBreached ? '#fef2f2' : '#ecfdf5',
       statusBorder: isOverheatBreached ? '#fca5a5' : '#86efac',
-      safeMax: 4.0,
-      safeMin: 0.0,
-      yDomain: [-1, 7],
+      safeMax: cTh.maxTemp,
+      safeMin: cTh.minTemp,
+      yDomain: [-1, 38],
       telemetry: telemetryHistory,
       strokeColor: isOverheatBreached ? '#dc2626' : '#059669',
       fillGradId: 'coolGrad',
       shelves: [
-        { code: 'Ke A1', name: 'Kệ A1: Thịt tươi CP', tempSafe: '0°C ~ 4°C' },
-        { code: 'Ke A2', name: 'Kệ A2: Sữa Đà Lạt Milk', tempSafe: '2°C ~ 6°C' },
-        { code: 'Ke A3', name: 'Kệ A3: Rau củ VietGAP', tempSafe: '2°C ~ 8°C' },
+        { code: 'Ke A1', name: 'Kệ A1: Thịt tươi CP', tempSafe: `${cTh.minTemp}°C ~ ${cTh.maxTemp}°C`, iotSupported: true },
+        { code: 'Ke A2', name: 'Kệ A2: Sữa Đà Lạt Milk', tempSafe: `${cTh.minTemp}°C ~ ${cTh.maxTemp}°C`, iotSupported: true },
+        { code: 'Ke A3', name: 'Kệ A3: Rau củ VietGAP', tempSafe: `${cTh.minTemp}°C ~ ${cTh.maxTemp}°C`, iotSupported: true },
       ]
     };
-  }, [activeColdRoom, coolTemp, coolHum, isOverheatBreached, telemetryHistory, frozenTelemetryHistory, dryTelemetryHistory]);
+  }, [activeColdRoom, coolTemp, coolHum, isOverheatBreached, telemetryHistory, frozenTelemetryHistory, dryTelemetryHistory, activeThresholds]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '32px' }}>
@@ -1018,14 +1098,15 @@ export const Dashboard: React.FC = () => {
                 </span>
               </div>
 
-              {/* Subtle Test Simulation Button */}
-              {!isSimulatedOverheat ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                {/* Configuration Modal Trigger */}
                 <button
-                  onClick={handleSimulateOverheat}
+                  type="button"
+                  onClick={() => setIsThresholdModalOpen(true)}
                   style={{
                     backgroundColor: '#ffffff',
-                    color: '#64748b',
-                    border: '1.5px solid #cbd5e1',
+                    color: '#0f766e',
+                    border: '1.5px solid #0f766e',
                     padding: '4px 10px',
                     borderRadius: '6px',
                     fontSize: '11.5px',
@@ -1036,32 +1117,81 @@ export const Dashboard: React.FC = () => {
                     cursor: 'pointer',
                     boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
                   }}
-                  title="Kiểm tra phản hồi của còi báo và ngưỡng nhiệt"
+                  title="Cấu hình ngưỡng nhiệt độ & độ ẩm an toàn cho từng kho hàng"
                 >
-                  <Sliders size={13} color="#475569" />
-                  <span>Thử còi báo</span>
+                  <Sliders size={13} color="#0f766e" />
+                  <span>Cấu hình ngưỡng kho</span>
                 </button>
-              ) : (
+
+                {/* Direct link to Full IoT Controller Page */}
                 <button
-                  onClick={handleRestoreSafeTemp}
+                  type="button"
+                  onClick={() => navigate('/iot-controller')}
                   style={{
-                    backgroundColor: '#f0fdf4',
-                    color: '#166534',
-                    border: '1.5px solid #86efac',
+                    backgroundColor: '#0284c7',
+                    color: '#ffffff',
+                    border: 'none',
                     padding: '4px 10px',
                     borderRadius: '6px',
                     fontSize: '11.5px',
-                    fontWeight: 700,
+                    fontWeight: 600,
                     display: 'flex',
                     alignItems: 'center',
                     gap: '5px',
                     cursor: 'pointer',
+                    boxShadow: '0 1px 2px rgba(2, 132, 199, 0.2)',
                   }}
+                  title="Mở Bảng Điều Khiển IoT & Giám Sát Chi Tiết"
                 >
-                  <CheckCircle2 size={13} />
-                  <span>Khôi phục (2.6°C)</span>
+                  <Wifi size={13} />
+                  <span>Điều khiển IoT</span>
                 </button>
-              )}
+
+                {/* Subtle Test Simulation Button */}
+                {!isSimulatedOverheat ? (
+                  <button
+                    onClick={handleSimulateOverheat}
+                    style={{
+                      backgroundColor: '#ffffff',
+                      color: '#64748b',
+                      border: '1.5px solid #cbd5e1',
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontSize: '11.5px',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                    }}
+                    title="Kiểm tra phản hồi của còi báo và ngưỡng nhiệt"
+                  >
+                    <Sliders size={13} color="#475569" />
+                    <span>Thử còi báo</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleRestoreSafeTemp}
+                    style={{
+                      backgroundColor: '#f0fdf4',
+                      color: '#166534',
+                      border: '1.5px solid #86efac',
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <CheckCircle2 size={13} />
+                    <span>Khôi phục (2.6°C)</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Room Tabs with Distinct Vibrant Colors */}
@@ -1570,6 +1700,14 @@ export const Dashboard: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Modal Cấu hình Ngưỡng An toàn Môi trường theo Từng Kho */}
+      <WarehouseClimateThresholdModal
+        isOpen={isThresholdModalOpen}
+        onClose={() => setIsThresholdModalOpen(false)}
+        initialWarehouseCode={effectiveWhCode}
+        onSaved={(newTh) => setActiveThresholds(newTh)}
+      />
 
     </div>
   );
