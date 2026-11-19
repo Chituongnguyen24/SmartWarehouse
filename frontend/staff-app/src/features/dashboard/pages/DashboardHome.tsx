@@ -17,6 +17,7 @@ import {
   FileSpreadsheet,
   AlertTriangle,
   Truck,
+  Radio,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
 import { fetchOutboundOrders, fetchInboundOrdersApi } from '@/shared';
@@ -322,6 +323,64 @@ export const DashboardHome: React.FC = () => {
             </p>
           </div>
         </div>
+      </div>
+
+      {/* IoT Gateway Pick-to-Light & Cold Storage Center Banner */}
+      <div
+        onClick={() => navigate('/iot-center')}
+        style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          padding: '14px 16px',
+          border: '1px solid #e2e8f0',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div
+            style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '8px',
+              backgroundColor: '#f0fdf4',
+              color: '#0f766e',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1px solid #ccfbf1',
+            }}
+          >
+            <Radio size={20} />
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
+                Trung Tâm Kiểm Thử IoT
+              </span>
+              <span
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  backgroundColor: '#f0fdf4',
+                  color: '#166534',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  border: '1px solid #bbf7d0',
+                }}
+              >
+                Kệ A1, A2, A3
+              </span>
+            </div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+              Điều khiển Pick-to-Light, Giám sát SHT30 & Báo động kho
+            </div>
+          </div>
+        </div>
+        <ChevronRight size={18} color="#94a3b8" />
       </div>
 
       {/* Daily Shift Task Overview Grid */}

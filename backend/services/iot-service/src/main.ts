@@ -7,19 +7,19 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors();
-  app.useGlobalPipes(new ValidationPipe({ transform: true }));
+  app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
   const config = new DocumentBuilder()
-    .setTitle('SFWMS IoT Service')
-    .setDescription('IoT environmental monitoring backend APIs and embedded MQTT broker.')
-    .setVersion('1.0')
+    .setTitle('CityMart SFWMS - IoT Service Gateway')
+    .setDescription('Centralized IoT Gateway managing Shelves A1, A2, A3 (Pick-to-Light) and Cool Storage Environmental Climate Monitoring.')
+    .setVersion('2.0')
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
   const port = process.env.PORT || 3002;
-  await app.listen(port);
-  console.log(`IoT Service is running on: http://localhost:${port}`);
+  await app.listen(port, '0.0.0.0');
+  console.log(`IoT Service Gateway is running on: http://0.0.0.0:${port}`);
   console.log(`Swagger docs available at: http://localhost:${port}/api`);
 }
 bootstrap();

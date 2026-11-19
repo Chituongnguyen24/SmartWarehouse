@@ -52,6 +52,8 @@ import {
   locateShelfIotApi,
   chirpShelfIotApi,
   completeShelfIotApi,
+  stopShelfIotApi,
+  getIotShelvesStatusApi,
   API_URLS,
 } from '@/shared';
 import { useStaffWebSocket } from '@/features/dashboard';
@@ -87,7 +89,35 @@ export const PickingWave: React.FC = () => {
   const [isToolsMenuOpen, setIsToolsMenuOpen] = useState<boolean>(false);
   const [expandedPickedIds, setExpandedPickedIds] = useState<Record<string, boolean>>({});
   const [activeLocatingShelf, setActiveLocatingShelf] = useState<string | null>(null);
+  const [arrivedShelf, setArrivedShelf] = useState<string | null>(null);
   const [smartkeyPingingShelf, setSmartkeyPingingShelf] = useState<string | null>(null);
+
+  // Poll IoT shelf state when locating to detect physical STOP button press (LOCATING -> ARRIVED)
+  useEffect(() => {
+    if (!activeLocatingShelf) return;
+    const checkArrival = async () => {
+      try {
+        const res = await getIotShelvesStatusApi();
+        if (res?.shelves) {
+          const normCode = activeLocatingShelf.toUpperCase();
+          const matchedKey = Object.keys(res.shelves).find(k => normCode.includes(k));
+          if (matchedKey) {
+            const sh = res.shelves[matchedKey];
+            if (sh.status === 'ARRIVED') {
+              setArrivedShelf(activeLocatingShelf);
+              setActiveLocatingShelf(null);
+              voiceAssistant.playTone('SUCCESS');
+            }
+          }
+        }
+      } catch (e) {
+        // silent pass
+      }
+    };
+
+    const interval = setInterval(checkArrival, 1500);
+    return () => clearInterval(interval);
+  }, [activeLocatingShelf]);
 
   const toggleExpandPicked = (id: string) => {
     setExpandedPickedIds(prev => ({ ...prev, [id]: !prev[id] }));
@@ -180,23 +210,36 @@ export const PickingWave: React.FC = () => {
   const handleLocateShelf = async (item: PickingItem) => {
     if (activeLocatingShelf === item.shelfLocation) {
       setActiveLocatingShelf(null);
-      await completeShelfIotApi({
-        warehouseCode: effectiveWhCode || 'GV',
+      await stopShelfIotApi({
+        warehouseCode: effectiveWhCode || 'WH-006',
         shelfCode: item.shelfLocation,
       });
+      return;
+    }
+
+    setArrivedShelf(null);
+
+    const res = await locateShelfIotApi({
+      warehouseCode: effectiveWhCode || 'WH-006',
+      shelfCode: item.shelfLocation,
+      productName: item.productName,
+      qty: item.quantity,
+      orderId: item.orderCode || item.orderId || activeWaveId || 'WAVE-PICK',
+    });
+
+    if (res && res.success === false) {
+      setActiveLocatingShelf(null);
+      setToastMessage({
+        type: 'ERROR',
+        text: res.message || `Kệ ${item.shelfLocation} không thuộc phạm vi IoT (Hệ thống IoT hiện tại hỗ trợ Kệ A1, A2, A3 - Kho mát Gò Vấp).`,
+      });
+      voiceAssistant.playTone('ERROR');
       return;
     }
 
     setActiveLocatingShelf(item.shelfLocation);
     // Play radar sonar ping sound effect on mobile (default: visual LED blink on IoT)
     voiceAssistant.playTone('LOCATE');
-
-    await locateShelfIotApi({
-      warehouseCode: effectiveWhCode || 'GV',
-      shelfCode: item.shelfLocation,
-      productName: item.productName,
-      qty: item.quantity,
-    });
   };
 
   // Smartkey Horn Chirp (Bóp còi tìm kệ như Smartkey ô tô / xe máy)
@@ -529,13 +572,16 @@ export const PickingWave: React.FC = () => {
         text: `Đã gom đủ: ${activeScanItem.productName} (${activeScanItem.quantity} ${activeScanItem.unit})`,
       });
 
-      // IoT: Quét xong sản phẩm -> Tự động gửi lệnh tắt đèn kệ
+      // IoT: Quét xong sản phẩm -> Tự động gửi lệnh hoàn tất và tắt đèn kệ
       completeShelfIotApi({
-        warehouseCode: effectiveWhCode || 'GV',
+        warehouseCode: effectiveWhCode || 'WH-006',
         shelfCode: activeScanItem.shelfLocation,
       });
       if (activeLocatingShelf === activeScanItem.shelfLocation) {
         setActiveLocatingShelf(null);
+      }
+      if (arrivedShelf === activeScanItem.shelfLocation) {
+        setArrivedShelf(null);
       }
     } else {
       setToastMessage({
@@ -943,7 +989,7 @@ export const PickingWave: React.FC = () => {
         )}
       </div>
 
-      {/* Active IoT Shelf Finding Banner */}
+      {/* Active IoT Shelf Finding Banner (LOCATING) */}
       {activeLocatingShelf && (
         <div
           style={{
@@ -958,12 +1004,44 @@ export const PickingWave: React.FC = () => {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: '#92400e', fontWeight: 600 }}>
-            <Volume2 size={15} color="#d97706" />
-            <span>Đang định vị kệ: <b>{activeLocatingShelf}</b></span>
+            <Radio size={15} color="#d97706" />
+            <span>Đang định vị kệ: <b>{activeLocatingShelf}</b> (Đèn đang nhấp nháy. Bấm nút STOP khi đến nơi)</span>
           </div>
           <button
-            onClick={() => setActiveLocatingShelf(null)}
+            onClick={() => {
+              if (activeLocatingShelf) {
+                stopShelfIotApi({ warehouseCode: effectiveWhCode || 'WH-006', shelfCode: activeLocatingShelf });
+              }
+              setActiveLocatingShelf(null);
+            }}
             style={{ background: 'none', border: 'none', color: '#92400e', cursor: 'pointer', padding: '2px 4px' }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* IoT Shelf Arrived Banner (ARRIVED - Staff pressed STOP button on hardware) */}
+      {arrivedShelf && (
+        <div
+          style={{
+            backgroundColor: '#f0f9ff',
+            border: '1px solid #bae6fd',
+            borderRadius: '8px',
+            padding: '8px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '8px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: '#075985', fontWeight: 600 }}>
+            <CheckCircle2 size={15} color="#0284c7" />
+            <span>Đã đến kệ: <b>{arrivedShelf}</b> (Đã bấm nút STOP). Vui lòng quét mã sản phẩm để hoàn tất!</span>
+          </div>
+          <button
+            onClick={() => setArrivedShelf(null)}
+            style={{ background: 'none', border: 'none', color: '#075985', cursor: 'pointer', padding: '2px 4px' }}
           >
             <X size={14} />
           </button>
@@ -1094,9 +1172,17 @@ export const PickingWave: React.FC = () => {
                 <button
                   onClick={() => handleLocateShelf(currentPendingItem)}
                   style={{
-                    backgroundColor: activeLocatingShelf === currentPendingItem.shelfLocation ? '#d97706' : '#fffbeb',
-                    color: activeLocatingShelf === currentPendingItem.shelfLocation ? '#ffffff' : '#b45309',
-                    border: '1px solid #fde68a',
+                    backgroundColor: arrivedShelf === currentPendingItem.shelfLocation
+                      ? '#0284c7'
+                      : activeLocatingShelf === currentPendingItem.shelfLocation
+                      ? '#d97706'
+                      : '#fffbeb',
+                    color: arrivedShelf === currentPendingItem.shelfLocation || activeLocatingShelf === currentPendingItem.shelfLocation
+                      ? '#ffffff'
+                      : '#b45309',
+                    border: arrivedShelf === currentPendingItem.shelfLocation
+                      ? '1px solid #0284c7'
+                      : '1px solid #fde68a',
                     padding: '8px 10px',
                     borderRadius: '6px',
                     fontWeight: 600,
@@ -1107,8 +1193,17 @@ export const PickingWave: React.FC = () => {
                     gap: '4px',
                   }}
                 >
-                  <Volume2 size={14} />
-                  <span>{activeLocatingShelf === currentPendingItem.shelfLocation ? 'Đang kêu' : 'Định Vị'}</span>
+                  {arrivedShelf === currentPendingItem.shelfLocation ? (
+                    <>
+                      <CheckCircle2 size={14} />
+                      <span>Đã đến kệ</span>
+                    </>
+                  ) : (
+                    <>
+                      <Radio size={14} />
+                      <span>{activeLocatingShelf === currentPendingItem.shelfLocation ? 'Đang nháy' : 'Định Vị'}</span>
+                    </>
+                  )}
                 </button>
 
                 <button
@@ -1341,7 +1436,7 @@ export const PickingWave: React.FC = () => {
                         </span>
                       </button>
 
-                      {/* IoT LED button */}
+                      {/* IoT LED locate button */}
                       <button
                         type="button"
                         onClick={e => {
@@ -1349,46 +1444,61 @@ export const PickingWave: React.FC = () => {
                           handleLocateShelf(item);
                         }}
                         style={{
-                          width: '38px',
                           height: '38px',
+                          padding: '0 8px',
                           borderRadius: '6px',
-                          border: `1px solid ${activeLocatingShelf === item.shelfLocation ? '#0284c7' : '#cbd5e1'}`,
-                          backgroundColor: activeLocatingShelf === item.shelfLocation ? '#0284c7' : '#f8fafc',
-                          color: activeLocatingShelf === item.shelfLocation ? '#ffffff' : '#475569',
+                          border: `1px solid ${
+                            arrivedShelf === item.shelfLocation
+                              ? '#bbf7d0'
+                              : activeLocatingShelf === item.shelfLocation
+                              ? '#0284c7'
+                              : '#cbd5e1'
+                          }`,
+                          backgroundColor:
+                            arrivedShelf === item.shelfLocation
+                              ? '#f0fdf4'
+                              : activeLocatingShelf === item.shelfLocation
+                              ? '#0284c7'
+                              : '#f8fafc',
+                          color:
+                            arrivedShelf === item.shelfLocation
+                              ? '#166534'
+                              : activeLocatingShelf === item.shelfLocation
+                              ? '#ffffff'
+                              : '#334155',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
+                          gap: '4px',
                           cursor: 'pointer',
                           flexShrink: 0,
+                          fontSize: '11px',
+                          fontWeight: 600,
                         }}
-                        title="Nháy đèn LED định vị kệ"
+                        title={
+                          arrivedShelf === item.shelfLocation
+                            ? 'Đã đến kệ (Đã bấm STOP)'
+                            : activeLocatingShelf === item.shelfLocation
+                            ? 'Đang nhấp nháy định vị kệ'
+                            : 'Nháy đèn LED định vị kệ'
+                        }
                       >
-                        <Radio size={16} />
-                      </button>
-
-                      {/* Smartkey Horn Chirp button */}
-                      <button
-                        type="button"
-                        onClick={e => {
-                          e.stopPropagation();
-                          handleSmartkeyChirp(item);
-                        }}
-                        style={{
-                          width: '38px',
-                          height: '38px',
-                          borderRadius: '6px',
-                          border: `1px solid ${smartkeyPingingShelf === item.shelfLocation ? '#d97706' : '#cbd5e1'}`,
-                          backgroundColor: smartkeyPingingShelf === item.shelfLocation ? '#fef3c7' : '#f8fafc',
-                          color: smartkeyPingingShelf === item.shelfLocation ? '#b45309' : '#475569',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                          flexShrink: 0,
-                        }}
-                        title="Bấm còi tìm kệ"
-                      >
-                        <Volume2 size={16} />
+                        {arrivedShelf === item.shelfLocation ? (
+                          <>
+                            <CheckCircle2 size={13} color="#166534" />
+                            <span>Đã đến</span>
+                          </>
+                        ) : activeLocatingShelf === item.shelfLocation ? (
+                          <>
+                            <Radio size={13} color="#ffffff" />
+                            <span>Đang nháy</span>
+                          </>
+                        ) : (
+                          <>
+                            <Radio size={13} color="#475569" />
+                            <span>Định vị</span>
+                          </>
+                        )}
                       </button>
 
                       {/* Shortage Exception button */}

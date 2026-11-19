@@ -9,7 +9,7 @@ export const API_URLS = {
   get PRODUCT() { return getServiceBaseUrl(3010); },
   get INBOUND() { return getServiceBaseUrl(3006); },
   get AUTH() { return getServiceBaseUrl(3012); },
-  get IOT() { return getServiceBaseUrl(3014); },
+  get IOT() { return getServiceBaseUrl(3002); },
 };
 
 let currentAuthToken: string | null = null;
@@ -438,6 +438,14 @@ export const fetchDailyMetricsApi = async () => {
 
 export const fetchShiftMetricsApi = fetchDailyMetricsApi;
 
+const getIotHeaders = () => {
+  const token = currentAuthToken || (typeof window !== 'undefined' ? localStorage.getItem('sfwms_staff_token') : null);
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
+
 // IoT Pick-to-Light: Phát lệnh tìm vị trí kệ hàng (Mặc định nháy đèn)
 export const locateShelfIotApi = async (data: {
   warehouseCode?: string;
@@ -446,11 +454,25 @@ export const locateShelfIotApi = async (data: {
   productName?: string;
   qty?: number;
   step?: number;
+  orderId?: string;
 }) => {
+  try {
+    // Try centralized IoT Gateway first
+    const res = await fetch(`${API_URLS.IOT}/api/iot/shelf/locate`, {
+      method: 'POST',
+      headers: getIotHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn('locateShelfIotApi gateway fallback to outbound:', e);
+  }
+
+  // Fallback to Outbound Service
   try {
     const res = await fetch(`${API_URLS.OUTBOUND}/outbound-orders/iot/locate-shelf`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getIotHeaders(),
       body: JSON.stringify(data),
     });
     if (res.ok) return await res.json();
@@ -463,9 +485,20 @@ export const locateShelfIotApi = async (data: {
 // IoT Pick-to-Light: Bóp còi Smartkey tìm kệ (như Smartkey ô tô / xe máy)
 export const chirpShelfIotApi = async (data: { warehouseCode?: string; shelfCode: string }) => {
   try {
+    const res = await fetch(`${API_URLS.IOT}/api/iot/shelf/chirp`, {
+      method: 'POST',
+      headers: getIotHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn('chirpShelfIotApi fallback to outbound:', e);
+  }
+
+  try {
     const res = await fetch(`${API_URLS.OUTBOUND}/outbound-orders/iot/chirp-shelf`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getIotHeaders(),
       body: JSON.stringify(data),
     });
     if (res.ok) return await res.json();
@@ -475,12 +508,38 @@ export const chirpShelfIotApi = async (data: { warehouseCode?: string; shelfCode
   return { success: true };
 };
 
-// IoT Pick-to-Light: Quét xong sản phẩm -> Tự động tắt đèn kệ
-export const completeShelfIotApi = async (data: { warehouseCode?: string; shelfCode: string }) => {
+// IoT Pick-to-Light: Tắt đèn và còi kệ (Chuyển trạng thái ARRIVED)
+export const stopShelfIotApi = async (data: { warehouseCode?: string; shelfCode: string }) => {
+  try {
+    const res = await fetch(`${API_URLS.IOT}/api/iot/shelf/stop`, {
+      method: 'POST',
+      headers: getIotHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn('stopShelfIotApi network error:', e);
+  }
+  return { success: true };
+};
+
+// IoT Pick-to-Light: Quét xong sản phẩm -> Tự động hoàn thành và tắt đèn kệ
+export const completeShelfIotApi = async (data: { warehouseCode?: string; shelfCode: string; orderId?: string }) => {
+  try {
+    const res = await fetch(`${API_URLS.IOT}/api/iot/shelf/complete`, {
+      method: 'POST',
+      headers: getIotHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn('completeShelfIotApi fallback to outbound:', e);
+  }
+
   try {
     const res = await fetch(`${API_URLS.OUTBOUND}/outbound-orders/iot/complete-shelf`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getIotHeaders(),
       body: JSON.stringify(data),
     });
     if (res.ok) return await res.json();
@@ -488,6 +547,122 @@ export const completeShelfIotApi = async (data: { warehouseCode?: string; shelfC
     console.warn('completeShelfIotApi network error:', e);
   }
   return { success: true };
+};
+
+// IoT Pick-to-Light: Reset cả 3 kệ hàng về trạng thái IDLE
+export const resetAllShelvesIotApi = async () => {
+  try {
+    const res = await fetch(`${API_URLS.IOT}/api/iot/shelf/reset`, {
+      method: 'POST',
+      headers: getIotHeaders(),
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn('resetAllShelvesIotApi network error:', e);
+  }
+  return { success: false };
+};
+
+// IoT: Lấy trạng thái 3 kệ hàng và kết nối ESP32
+export const getIotShelvesStatusApi = async () => {
+  try {
+    const res = await fetch(`${API_URLS.IOT}/api/iot/shelf/status`, {
+      headers: getIotHeaders(),
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn('getIotShelvesStatusApi network error:', e);
+  }
+  return null;
+};
+
+// IoT: Lấy nhật ký sự kiện phần cứng gần đây
+export const getIotLogsApi = async (limit = 30) => {
+  try {
+    const res = await fetch(`${API_URLS.IOT}/api/iot/shelf/logs?limit=${limit}`, {
+      headers: getIotHeaders(),
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn('getIotLogsApi network error:', e);
+  }
+  return [];
+};
+
+// IoT Climate: Lấy trạng thái nhiệt độ, độ ẩm và cảnh báo an toàn
+export const getIotClimateStatusApi = async () => {
+  try {
+    const res = await fetch(`${API_URLS.IOT}/api/iot/climate/status`, {
+      headers: getIotHeaders(),
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn('getIotClimateStatusApi network error:', e);
+  }
+  return null;
+};
+
+// IoT Climate: Giả lập nhiệt độ / độ ẩm
+export const simulateIotClimateApi = async (data: { temperature: number; humidity: number; enabled: boolean }) => {
+  try {
+    const res = await fetch(`${API_URLS.IOT}/api/iot/climate/simulate`, {
+      method: 'POST',
+      headers: getIotHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn('simulateIotClimateApi network error:', e);
+  }
+  return null;
+};
+
+// IoT Climate: Thử nghiệm kích hoạt báo động khẩn cấp đồng loạt 3 kệ
+export const testIotAlarmApi = async () => {
+  try {
+    const res = await fetch(`${API_URLS.IOT}/api/iot/climate/alarm/test`, {
+      method: 'POST',
+      headers: getIotHeaders(),
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn('testIotAlarmApi network error:', e);
+  }
+  return null;
+};
+
+// IoT Climate: Tạm tắt còi báo động (60 giây)
+export const silenceIotAlarmApi = async (durationSeconds = 60) => {
+  try {
+    const res = await fetch(`${API_URLS.IOT}/api/iot/climate/alarm/silence`, {
+      method: 'POST',
+      headers: getIotHeaders(),
+      body: JSON.stringify({ durationSeconds }),
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn('silenceIotAlarmApi network error:', e);
+  }
+  return null;
+};
+
+// IoT Climate: Khôi phục an toàn (Clear Alarm - Kiểm tra cả Nhiệt độ và Độ ẩm)
+export const clearIotAlarmApi = async () => {
+  try {
+    const res = await fetch(`${API_URLS.IOT}/api/iot/climate/alarm/clear`, {
+      method: 'POST',
+      headers: getIotHeaders(),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      return { success: true, data };
+    } else {
+      return { success: false, message: data.message || 'Không thể gỡ cảnh báo! Điều kiện chưa an toàn.' };
+    }
+  } catch (e: any) {
+    console.warn('clearIotAlarmApi network error:', e);
+    return { success: false, message: 'Lỗi mạng khi gọi gỡ cảnh báo.' };
+  }
 };
 
 // ── eSMS OTP AUTHENTICATION APIs ──

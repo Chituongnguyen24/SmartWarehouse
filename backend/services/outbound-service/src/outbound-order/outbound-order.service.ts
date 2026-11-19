@@ -1705,6 +1705,23 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
   }
 
   private iotMqttClient: any = null;
+  private readonly IOT_GATEWAY_URL = process.env.IOT_SERVICE_URL || 'http://localhost:3002';
+
+  private async callIotGateway(path: string, payload: any): Promise<any> {
+    try {
+      const res = await fetch(`${this.IOT_GATEWAY_URL}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e: any) {
+      console.warn(`[OutboundService -> IoT Gateway] HTTP call to ${path} failed (${e.message}), falling back to direct MQTT`);
+    }
+    return null;
+  }
 
   private async publishToMqtt(topic: string, payload: any) {
     try {
@@ -1733,7 +1750,13 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
       timestamp: Date.now(),
     };
 
-    // Publish to both WH-006 and GV topics for total compatibility
+    // Forward to centralized IoT Gateway (iot-service)
+    const gatewayRes = await this.callIotGateway('/api/iot/shelf/locate', payload);
+    if (gatewayRes) {
+      return gatewayRes;
+    }
+
+    // Fallback: publish to both WH-006 and GV topics directly
     await this.publishToMqtt(`citymart/warehouse/WH-006/picking/command`, payload);
     await this.publishToMqtt(`citymart/warehouse/GV/picking/command`, payload);
 
@@ -1750,10 +1773,15 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
       timestamp: Date.now(),
     };
 
+    const gatewayRes = await this.callIotGateway('/api/iot/shelf/chirp', payload);
+    if (gatewayRes) {
+      return gatewayRes;
+    }
+
     await this.publishToMqtt(`citymart/warehouse/WH-006/picking/command`, payload);
     await this.publishToMqtt(`citymart/warehouse/GV/picking/command`, payload);
 
-    return { success: true, message: `🔑 Đã bóp còi Smartkey tìm kệ ${dto.shelfCode}`, payload };
+    return { success: true, message: `Đã bóp còi Smartkey tìm kệ ${dto.shelfCode}`, payload };
   }
 
   // IoT Pick-to-Light: Complete Shelf (Auto turn off LED and mark picked)
@@ -1766,7 +1794,10 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
       timestamp: Date.now(),
     };
 
-    // Publish to both WH-006 and GV topics
+    // Forward to centralized IoT Gateway
+    await this.callIotGateway('/api/iot/shelf/complete', payload);
+
+    // Fallback publish to both WH-006 and GV topics
     await this.publishToMqtt(`citymart/warehouse/WH-006/picking/command`, payload);
     await this.publishToMqtt(`citymart/warehouse/GV/picking/command`, payload);
 

@@ -24,7 +24,6 @@ import {
   Check,
   Camera,
   QrCode,
-  Volume2,
   X,
   Radio,
   Key,
@@ -277,9 +276,9 @@ export const PickingScreen: React.FC = () => {
       {/* Active IoT Finding Banner */}
       {activeLocatingShelf && (
         <View style={styles.activeLocatingBanner}>
-          <Volume2 size={16} color="#d97706" />
+          <Radio size={16} color="#d97706" />
           <Text style={styles.activeLocatingText}>
-            Đang phát lệnh tới <Text style={{ fontWeight: '900', color: '#b45309' }}>{activeLocatingShelf}</Text> (Kêu còi & Nháy đèn). Hãy tới nơi và ấn Check-in!
+            Đang phát lệnh tới <Text style={{ fontWeight: '900', color: '#b45309' }}>{activeLocatingShelf}</Text> (Nháy đèn LED). Hãy tới nơi và ấn Check-in!
           </Text>
           <TouchableOpacity onPress={() => setActiveLocatingShelf(null)}>
             <X size={16} color="#b45309" />
@@ -429,34 +428,6 @@ export const PickingScreen: React.FC = () => {
                               ]}
                             >
                               {activeLocatingShelf === item.shelfLocation ? 'Đang nháy' : 'Nháy đèn'}
-                            </Text>
-                          </TouchableOpacity>
-                        )}
-
-                        {/* Nút Bóp Còi Smartkey */}
-                        {!isItemPicked && (
-                          <TouchableOpacity
-                            style={[
-                              styles.smartkeyBtn,
-                              smartkeyPingingShelf === item.shelfLocation && styles.smartkeyBtnActive,
-                            ]}
-                            onPress={(e: any) => {
-                              e.stopPropagation?.();
-                              handleSmartkeyChirpIot(item);
-                            }}
-                            activeOpacity={0.65}
-                          >
-                            <Volume2
-                              size={11}
-                              color={smartkeyPingingShelf === item.shelfLocation ? '#ffffff' : '#b45309'}
-                            />
-                            <Text
-                              style={[
-                                styles.smartkeyBtnText,
-                                smartkeyPingingShelf === item.shelfLocation && { color: '#ffffff' },
-                              ]}
-                            >
-                              {smartkeyPingingShelf === item.shelfLocation ? 'Đang kêu' : 'Bấm còi'}
                             </Text>
                           </TouchableOpacity>
                         )}

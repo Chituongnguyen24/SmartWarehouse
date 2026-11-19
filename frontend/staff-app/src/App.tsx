@@ -7,6 +7,7 @@ import { PickingWave } from '@/features/picking';
 import { InboundReceiving } from '@/features/inbound';
 import { PackingStation, OutboundShipping } from '@/features/packing-shipping';
 import { StockLookup } from '@/features/inventory';
+import { IoTTestCenter } from '@/features/iot';
 
 const AppContent: React.FC = () => {
   const { isAuthenticated, isInitializing } = useAuth();
@@ -68,6 +69,7 @@ const AppContent: React.FC = () => {
         <Route path="/inbound" element={<InboundReceiving />} />
         <Route path="/packing" element={<PackingStation />} />
         <Route path="/lookup" element={<StockLookup />} />
+        <Route path="/iot-center" element={<IoTTestCenter />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

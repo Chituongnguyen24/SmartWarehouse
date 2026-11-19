@@ -42,6 +42,8 @@ import {
   fetchProducts,
   adjustStockAuditApi,
   locateShelfIotApi,
+  stopShelfIotApi,
+  getIotShelvesStatusApi,
   ApiLot,
   ApiProduct,
 } from '@/shared';
@@ -252,11 +254,83 @@ export const StockLookup: React.FC = () => {
     }
   }, [filteredRacks, selectedAuditRack]);
 
+  const [activeLocatingLotCode, setActiveLocatingLotCode] = useState<string | null>(null);
+  const [activeLocatingShelf, setActiveLocatingShelf] = useState<string | null>(null);
+  const [arrivedLotShelf, setArrivedLotShelf] = useState<string | null>(null);
+
+  // Poll IoT shelf state when locating to detect physical STOP button press (LOCATING -> ARRIVED)
+  useEffect(() => {
+    if (!activeLocatingShelf) return;
+    const checkArrival = async () => {
+      try {
+        const res = await getIotShelvesStatusApi();
+        if (res?.shelves) {
+          const normCode = activeLocatingShelf.toUpperCase();
+          const matchedKey = Object.keys(res.shelves).find(k => normCode.includes(k));
+          if (matchedKey) {
+            const sh = res.shelves[matchedKey];
+            if (sh.status === 'ARRIVED') {
+              setArrivedLotShelf(activeLocatingShelf);
+              setActiveLocatingLotCode(null);
+              setActiveLocatingShelf(null);
+              setIsRackLedActive(false);
+            }
+          }
+        }
+      } catch (e) {
+        // silent pass
+      }
+    };
+    const interval = setInterval(checkArrival, 1500);
+    return () => clearInterval(interval);
+  }, [activeLocatingShelf]);
+
   const handleToggleRackLed = async (shelfCode: string) => {
-    setIsRackLedActive(prev => !prev);
+    const nextState = !isRackLedActive;
+    setIsRackLedActive(nextState);
+    if (nextState) {
+      setArrivedLotShelf(null);
+      setActiveLocatingShelf(shelfCode || 'A1');
+      await locateShelfIotApi({
+        warehouseCode: selectedWarehouse || 'WH-006',
+        shelfCode: shelfCode || 'A1',
+      });
+    } else {
+      setActiveLocatingLotCode(null);
+      setActiveLocatingShelf(null);
+      await stopShelfIotApi({
+        warehouseCode: selectedWarehouse || 'WH-006',
+        shelfCode: shelfCode || 'A1',
+      });
+    }
+  };
+
+  const handleLocateLot = async (lot: any) => {
+    const rawShelf = lot.formattedLocation || lot.location || selectedAuditRack || 'A1';
+    const isCurrentLocating = activeLocatingLotCode === lot.lotCode;
+
+    if (isCurrentLocating) {
+      setActiveLocatingLotCode(null);
+      setActiveLocatingShelf(null);
+      setIsRackLedActive(false);
+      await stopShelfIotApi({
+        warehouseCode: selectedWarehouse || 'WH-006',
+        shelfCode: rawShelf,
+      });
+      return;
+    }
+
+    setArrivedLotShelf(null);
+    setActiveLocatingLotCode(lot.lotCode);
+    setActiveLocatingShelf(rawShelf);
+    setIsRackLedActive(true);
+
     await locateShelfIotApi({
       warehouseCode: selectedWarehouse || 'WH-006',
-      shelfCode: shelfCode || 'cld-shelf-14',
+      shelfCode: rawShelf,
+      productName: lot.productName,
+      qty: lot.remainingQty ?? lot.quantity ?? 1,
+      orderId: `AUD-${(lot.lotCode || 'LOT').slice(-8)}`,
     });
   };
 
@@ -1100,12 +1174,83 @@ export const StockLookup: React.FC = () => {
                   </div>
                 </div>
 
+                {/* IoT Arrived Notification Banner */}
+                {arrivedLotShelf && (
+                  <div
+                    style={{
+                      backgroundColor: '#f0fdf4',
+                      border: '1px solid #bbf7d0',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      fontSize: '11.5px',
+                      color: '#166534',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <CheckCircle2 size={15} color="#166534" />
+                      <span>Đã đến kệ: <b>{arrivedLotShelf}</b> (Đã bấm nút STOP tại kệ).</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setArrivedLotShelf(null)}
+                      style={{ background: 'none', border: 'none', color: '#166534', cursor: 'pointer', padding: '2px 4px' }}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+
+                {/* IoT Locating Active Banner */}
+                {activeLocatingShelf && (
+                  <div
+                    style={{
+                      backgroundColor: '#f0f9ff',
+                      border: '1px solid #bae6fd',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      fontSize: '11.5px',
+                      color: '#075985',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Radio size={15} color="#0284c7" />
+                      <span>
+                        Đang nháy đèn định vị: <b>{activeLocatingShelf}</b>
+                        {activeLocatingLotCode ? ` • Lô ${activeLocatingLotCode}` : ''}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        stopShelfIotApi({ warehouseCode: selectedWarehouse || 'WH-006', shelfCode: activeLocatingShelf });
+                        setActiveLocatingShelf(null);
+                        setActiveLocatingLotCode(null);
+                        setIsRackLedActive(false);
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#075985', cursor: 'pointer', padding: '2px 4px' }}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+
                 {/* Lots on this Rack Checklist */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {rackLots.map((lot, idx) => {
                     const auditRecord = auditedRecords[lot.id] || auditedRecords[lot.lotCode];
                     const isAudited = !!auditRecord;
                     const diff = auditRecord ? auditRecord.diff : 0;
+                    const isLocating = activeLocatingLotCode === lot.lotCode;
 
                     return (
                       <div
@@ -1113,7 +1258,7 @@ export const StockLookup: React.FC = () => {
                         style={{
                           backgroundColor: isAudited ? '#f0fdf4' : '#ffffff',
                           borderRadius: '8px',
-                          border: `1px solid ${isAudited ? '#bbf7d0' : '#e2e8f0'}`,
+                          border: `1px solid ${isAudited ? '#bbf7d0' : isLocating ? '#0284c7' : '#e2e8f0'}`,
                           padding: '12px',
                           display: 'flex',
                           justifyContent: 'space-between',
@@ -1155,27 +1300,53 @@ export const StockLookup: React.FC = () => {
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleOpenAuditModal(lot)}
-                          style={{
-                            backgroundColor: isAudited ? '#ffffff' : '#0f766e',
-                            color: isAudited ? '#166534' : '#ffffff',
-                            border: `1px solid ${isAudited ? '#bbf7d0' : '#0f766e'}`,
-                            borderRadius: '6px',
-                            padding: '7px 12px',
-                            fontSize: '11.5px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                          }}
-                        >
-                          {isAudited ? <CheckCircle2 size={13} color="#166534" /> : <Edit3 size={13} />}
-                          <span>{isAudited ? 'Kiểm Lại' : 'Kiểm Đếm'}</span>
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleLocateLot(lot)}
+                            style={{
+                              backgroundColor: isLocating ? '#0284c7' : '#f0f9ff',
+                              color: isLocating ? '#ffffff' : '#0369a1',
+                              border: `1px solid ${isLocating ? '#0284c7' : '#bae6fd'}`,
+                              borderRadius: '6px',
+                              padding: '7px 10px',
+                              fontSize: '11.5px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              transition: 'all 0.15s ease',
+                            }}
+                            title="Kích hoạt đèn LED định vị kệ chứa lô hàng này"
+                          >
+                            <Radio size={13} />
+                            <span>{isLocating ? 'Đang Nháy' : 'Định Vị'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAuditModal(lot)}
+                            style={{
+                              backgroundColor: isAudited ? '#ffffff' : '#0f766e',
+                              color: isAudited ? '#166534' : '#ffffff',
+                              border: `1px solid ${isAudited ? '#bbf7d0' : '#0f766e'}`,
+                              borderRadius: '6px',
+                              padding: '7px 12px',
+                              fontSize: '11.5px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            {isAudited ? <CheckCircle2 size={13} color="#166534" /> : <Edit3 size={13} />}
+                            <span>{isAudited ? 'Kiểm Lại' : 'Kiểm Đếm'}</span>
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -1661,6 +1832,28 @@ export const StockLookup: React.FC = () => {
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <button
+                        type="button"
+                        onClick={() => handleLocateLot(lot)}
+                        style={{
+                          padding: '7px 10px',
+                          backgroundColor: activeLocatingLotCode === lot.lotCode ? '#0284c7' : '#f0f9ff',
+                          border: `1px solid ${activeLocatingLotCode === lot.lotCode ? '#0284c7' : '#bae6fd'}`,
+                          borderRadius: '8px',
+                          color: activeLocatingLotCode === lot.lotCode ? '#ffffff' : '#0369a1',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                        }}
+                        title="Định vị kệ chứa lô này (Pick-to-Light)"
+                      >
+                        <Radio size={13} />
+                        <span>{activeLocatingLotCode === lot.lotCode ? 'Đang Nháy' : 'Định Vị'}</span>
+                      </button>
+
+                      <button
                         onClick={() => setSelectedLot(lot)}
                         style={{ padding: '8px', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '10px', color: '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         title="Xem chi tiết"
@@ -1954,8 +2147,30 @@ export const StockLookup: React.FC = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px' }}>
                 <div style={{ padding: '12px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <div style={{ color: '#0f172a', fontWeight: 800 }}>{auditModalLot.productName}</div>
-                  <div style={{ color: '#64748b' }}>
-                    Vị trí: <strong style={{ color: '#059669' }}>{auditModalLot.formattedLocation}</strong>
+                  <div style={{ color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                    <span>
+                      Vị trí: <strong style={{ color: '#059669' }}>{auditModalLot.formattedLocation}</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleLocateLot(auditModalLot)}
+                      style={{
+                        padding: '4px 8px',
+                        backgroundColor: activeLocatingLotCode === auditModalLot.lotCode ? '#0284c7' : '#f0f9ff',
+                        color: activeLocatingLotCode === auditModalLot.lotCode ? '#ffffff' : '#0369a1',
+                        border: `1px solid ${activeLocatingLotCode === auditModalLot.lotCode ? '#0284c7' : '#bae6fd'}`,
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      <Radio size={12} />
+                      <span>{activeLocatingLotCode === auditModalLot.lotCode ? 'Đang Nháy Đèn' : 'Định Vị Kệ Này'}</span>
+                    </button>
                   </div>
                   <div style={{ color: '#64748b' }}>
                     Tồn trên hệ thống:{' '}

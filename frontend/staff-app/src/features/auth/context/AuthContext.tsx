@@ -162,32 +162,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: accountInput, password }),
         });
-      } catch (primaryErr) {
-        console.warn('Primary login attempt failed:', primaryUrl, primaryErr);
-        // Fallback sang máy chủ đám mây chính thức nếu đang trỏ localhost/LAN không thành công
-        const currentHost = getBackendHost();
-        if (currentHost !== DEFAULT_LAN_IP) {
-          try {
-            res = await fetch(`http://${DEFAULT_LAN_IP}/auth/login`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: accountInput, password }),
-            });
-            setBackendHost(DEFAULT_LAN_IP);
-          } catch (fallbackErr) {
-            console.error('Login network error:', primaryErr, fallbackErr);
-            return {
-              success: false,
-              message: `Không thể kết nối đến máy chủ xác thực (${DEFAULT_LAN_IP}). Vui lòng kiểm tra lại kết nối mạng của thiết bị!`,
-            };
-          }
-        } else {
-          console.error('Login network error:', primaryErr);
-          return {
-            success: false,
-            message: `Không thể kết nối đến máy chủ xác thực (${DEFAULT_LAN_IP}). Vui lòng kiểm tra lại kết nối Internet!`,
-          };
-        }
+      } catch (primaryErr: any) {
+        console.error('Login network error:', primaryUrl, primaryErr);
+        return {
+          success: false,
+          message: `Không thể kết nối đến máy chủ xác thực (${primaryUrl}). Vui lòng kiểm tra xem backend đã khởi động chưa và thử lại!`,
+        };
       }
 
       if (!res.ok) {

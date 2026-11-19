@@ -4,10 +4,18 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { SensorReading } from './sensor/sensor.entity';
 import { SensorService } from './sensor/sensor.service';
 import { SensorController } from './sensor/sensor.controller';
+import { MqttGatewayService } from './mqtt/mqtt-gateway.service';
+import { ShelfService } from './shelf/shelf.service';
+import { ShelfController } from './shelf/shelf.controller';
+import { ClimateService } from './climate/climate.service';
+import { ClimateController } from './climate/climate.controller';
+import { AuthModule } from './auth';
+import { RabbitMqService } from './rabbitmq';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    AuthModule,
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -20,7 +28,23 @@ import { SensorController } from './sensor/sensor.controller';
     }),
     TypeOrmModule.forFeature([SensorReading]),
   ],
-  providers: [SensorService],
-  controllers: [SensorController],
+  providers: [
+    SensorService,
+    MqttGatewayService,
+    ShelfService,
+    ClimateService,
+    RabbitMqService,
+  ],
+  controllers: [
+    SensorController,
+    ShelfController,
+    ClimateController,
+  ],
+  exports: [
+    MqttGatewayService,
+    ShelfService,
+    ClimateService,
+    RabbitMqService,
+  ],
 })
 export class AppModule {}

@@ -21,7 +21,7 @@ import { EsmsService } from './esms.service';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.getOrThrow<string>('JWT_SECRET'),
+        secret: config.get<string>('JWT_SECRET', 'super-secret-jwt-key'),
         signOptions: { expiresIn: '30d' },
       }),
     }),

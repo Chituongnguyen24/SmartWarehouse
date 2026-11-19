@@ -184,5 +184,21 @@ module.exports = {
         PORT: 3000,
       },
     },
+
+    // 11. IoT Gateway & Pick-to-Light Service (Cổng 3002)
+    {
+      name: 'sfwms-iot',
+      cwd: './backend/services/iot-service',
+      script: 'dist/main.js',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '250M',
+      env: {
+        ...commonEnv,
+        PORT: 3002,
+        MQTT_BROKER_URL: process.env.MQTT_BROKER_URL || 'mqtt://broker.emqx.io:1883',
+      },
+    },
   ],
 };

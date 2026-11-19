@@ -19,7 +19,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
-import { getBackendHost, setBackendHost } from '@/shared';
+import { getBackendHost, setBackendHost, switchEnvironmentAndResetSession, checkPortHealth } from '@/shared';
 import { sendOtpApi, forgotPasswordConfirmApi } from '@/shared';
 
 export const Login: React.FC = () => {
@@ -35,6 +35,14 @@ export const Login: React.FC = () => {
   const [currentHost, setCurrentHost] = useState<string>(() => getBackendHost());
   const [showServerModal, setShowServerModal] = useState<boolean>(false);
   const [customHostInput, setCustomHostInput] = useState<string>('');
+
+  useEffect(() => {
+    const handleEnvChanged = (e: any) => {
+      if (e.detail?.host) setCurrentHost(e.detail.host);
+    };
+    window.addEventListener('sfwms_environment_changed', handleEnvChanged);
+    return () => window.removeEventListener('sfwms_environment_changed', handleEnvChanged);
+  }, []);
 
   // Forgot Password SMS OTP Modal State
   const [showForgotModal, setShowForgotModal] = useState<boolean>(false);
@@ -617,10 +625,7 @@ export const Login: React.FC = () => {
                     key={opt.host}
                     type="button"
                     onClick={() => {
-                      setBackendHost(opt.host);
-                      setCurrentHost(opt.host);
-                      setShowServerModal(false);
-                      window.location.reload();
+                      switchEnvironmentAndResetSession(opt.host);
                     }}
                     style={{
                       display: 'flex',
@@ -667,10 +672,7 @@ export const Login: React.FC = () => {
                   type="button"
                   onClick={() => {
                     if (customHostInput.trim()) {
-                      setBackendHost(customHostInput.trim());
-                      setCurrentHost(customHostInput.trim());
-                      setShowServerModal(false);
-                      window.location.reload();
+                      switchEnvironmentAndResetSession(customHostInput.trim());
                     }
                   }}
                   style={{

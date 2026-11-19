@@ -21,7 +21,6 @@ import {
   Lightbulb,
   Check,
   ArrowRight,
-  Volume2,
 } from 'lucide-react';
 import { InboundReceipt } from '@/types';
 import { CameraScannerModal } from '@/shared';
@@ -1098,29 +1097,6 @@ export const InboundReceiving: React.FC = () => {
                   >
                     <Radio size={16} />
                     <span>{isLedActive ? 'Tắt Đèn' : 'Nháy Đèn LED'}</span>
-                  </button>
-
-                  {/* Tool 2: Chirp Horn */}
-                  <button
-                    type="button"
-                    onClick={handleChirpShelf}
-                    style={{
-                      backgroundColor: '#ffffff',
-                      color: '#b45309',
-                      border: '1px solid #fde68a',
-                      borderRadius: '6px',
-                      padding: '8px 4px',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}
-                  >
-                    <Volume2 size={16} />
-                    <span>Bóp Còi Kệ</span>
                   </button>
 
                   {/* Tool 3: Scan Shelf Barcode */}

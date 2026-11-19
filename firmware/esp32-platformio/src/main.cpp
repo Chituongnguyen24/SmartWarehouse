@@ -38,8 +38,8 @@
 // =========================================================================
 
 // ================= CẤU HÌNH WIFI & MQTT =================
-const char* WIFI_SSID     = "Bao Hoa";        // WiFi 2.4GHz
-const char* WIFI_PASSWORD = "hoabao8420";     // Mật khẩu WiFi
+const char* WIFI_SSID     = "BELAND lau 2";   // WiFi 2.4GHz
+const char* WIFI_PASSWORD = "0919237655";     // Mật khẩu WiFi
 
 const char* MQTT_SERVER   = "broker.emqx.io";
 const int   MQTT_PORT     = 1883;
@@ -302,16 +302,16 @@ void updateOLED() {
     display.setCursor(0, 56);
     display.print("Bam STOP tai ke de tat");
   } else {
-    // Đã bấm STOP tắt hết cả 3 kệ -> Hoàn tất đơn hàng & hiện Nhiệt độ / Độ ẩm
+    // Trạng thái nghỉ / Sẵn sàng -> Hiện thông số Nhiệt độ / Độ ẩm
     display.setCursor(0, 13);
-    display.print(">> DA LAY XONG 3 KE! <<");
+    display.print(">> SAN SANG CHO LENH <<");
     display.setCursor(0, 25);
     if (isSensorOK) {
       display.printf("Nhiet do: %.1f C", currentTemp);
       display.setCursor(0, 35);
       display.printf("Do am   : %.1f %%", currentHum);
       display.setCursor(0, 45);
-      display.print(isAlarm ? "! CANH BAO NHIET DO !" : "Kho mat : AN TOAN");
+      display.print(isAlarm ? "! CANH BAO NHIET DO !" : "Moi truong: AN TOAN");
     } else {
       display.print("SHT30   : Dang doc...");
       display.setCursor(0, 35);
@@ -431,8 +431,8 @@ void setup() {
   client.setCallback(mqttCallback);
   connectMQTT();
 
-  // Kích hoạt sẵn đơn hàng trên cả 3 Giàn Kệ (A1, A2, A3) để sẵn sàng bấm STOP tắt từng kệ!
-  startAll3ShelvesOrder("ORD-WH006");
+  // Khởi động ở trạng thái SẴN SÀNG (Tất cả đèn và còi đều TẮT, chỉ bật khi có lệnh từ App)
+  allOff();
   updateOLED();
 }
 
@@ -496,7 +496,7 @@ void loop() {
       currentTemp = t;
       currentHum  = h;
       isSensorOK  = true;
-      isAlarm     = (currentTemp > 8.0 || currentTemp < -1.0 || currentHum > 90.0);
+      isAlarm     = (currentTemp > 35.0 || currentTemp < 10.0 || currentHum > 80.0);
     } else {
       isSensorOK = false;
     }
