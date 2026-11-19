@@ -821,8 +821,38 @@ export function resolveStorageZone(input?: {
   if (!resolvedZone) {
     const pName = (input.productName || input.sku || input.category || '').toLowerCase();
 
-    // Check Frozen keywords
+    // Check Dry goods first if clearly dry
     if (
+      pName.includes('khô') ||
+      pName.includes('phở') ||
+      pName.includes('bún khô') ||
+      pName.includes('hủ tiếu') ||
+      pName.includes('miến') ||
+      pName.includes('mì gói') ||
+      pName.includes('mì tôm') ||
+      pName.includes('vifon') ||
+      pName.includes('hảo hảo') ||
+      pName.includes('omachi') ||
+      pName.includes('bánh') ||
+      pName.includes('kẹo') ||
+      pName.includes('gạo') ||
+      pName.includes('dầu ăn') ||
+      pName.includes('nước tương') ||
+      pName.includes('nước mắm') ||
+      pName.includes('hạt nêm') ||
+      pName.includes('đường') ||
+      pName.includes('muối') ||
+      pName.includes('đồ hộp') ||
+      pName.includes('cà phê') ||
+      pName.includes('trà') ||
+      pName.includes('nước ngọt') ||
+      pName.includes('nước suối') ||
+      pName.includes('gia vị')
+    ) {
+      resolvedZone = 'DRY';
+    }
+    // Check Frozen keywords
+    else if (
       pName.includes('kem') ||
       pName.includes('hải sản') ||
       pName.includes('thủy sản') ||
@@ -887,10 +917,10 @@ export function resolveStorageZone(input?: {
     ) {
       resolvedZone = 'COOL';
     }
-    // Fallback based on shelf code if still unresolved
-    else if (locStr.includes('A')) {
+    // Strict rack check for fallback: only match rack A1-A8 or B1-B8
+    else if (/(?:^|[\s\-_])A[1-8]/i.test(locStr) || locStr.includes('KỆ A')) {
       resolvedZone = 'COOL';
-    } else if (locStr.includes('B')) {
+    } else if (/(?:^|[\s\-_])B[1-8]/i.test(locStr) || locStr.includes('KỆ B')) {
       resolvedZone = 'FROZEN';
     } else {
       resolvedZone = 'DRY';
