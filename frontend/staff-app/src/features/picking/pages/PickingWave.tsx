@@ -1807,7 +1807,7 @@ export const PickingWave: React.FC = () => {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: '#92400e', fontWeight: 600 }}>
             <Radio size={15} color="#d97706" />
-            <span>Đang định vị kệ: <b>{activeLocatingShelf}</b> (Đèn và còi đang bật. Bấm nút STOP khi đến nơi)</span>
+            <span>Đang định vị kệ: <b>{activeLocatingShelf}</b> — Tới kệ bấm nút STOP khi lấy hàng</span>
           </div>
           <button
             onClick={() => {

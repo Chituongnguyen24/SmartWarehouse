@@ -126,6 +126,7 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
   private readonly MAX_LOGS = 60;
   private pendingCommands = new Map<string, PendingCommand>();
   private lastSeenEventKeys = new Set<string>();
+  private buzzerEnabled = true;
 
   constructor(
     private readonly mqttGateway: MqttGatewayService,
@@ -155,6 +156,18 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
     this.mqttGateway.on('shelf_event', (event: any) => {
       this.handleIncomingShelfEvent(event);
     });
+
+    // Re-sync current buzzer mode whenever ESP32 connects or boots
+    this.mqttGateway.on('esp32_ready', () => {
+      this.mqttGateway
+        .publishSystemCommand({
+          action: 'SET_BUZZER',
+          enabled: this.buzzerEnabled,
+          muted: !this.buzzerEnabled,
+          timestamp: Date.now(),
+        })
+        .catch(() => {});
+    });
   }
 
   onModuleDestroy() {
@@ -182,6 +195,11 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
             }
           }
           this.logger.log('Restored shelf state from Redis cache (iot:shelves:wh006).');
+        }
+        const cachedBuzzer = await this.redisClient.get('iot:shelves:wh006:buzzer_enabled');
+        if (cachedBuzzer !== null) {
+          this.buzzerEnabled = cachedBuzzer !== 'false';
+          this.logger.log(`Restored buzzerEnabled=${this.buzzerEnabled} from Redis.`);
         }
       }
     } catch (err: any) {
@@ -335,14 +353,16 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
 
       shelf.status = 'LOCATING';
       shelf.ledOn = true;
-      shelf.buzzerOn = true;
+      shelf.buzzerOn = this.buzzerEnabled;
       shelf.waitingCheckin = true;
       if (!shelf.activatedAt) shelf.activatedAt = nowIso;
 
       this.addLog(
         code,
         'COMMAND_DISPATCHED',
-        `ESP32 đã nhận lệnh định vị kệ ${code}. Đèn và còi đang nhấp nháy.`,
+        this.buzzerEnabled
+          ? `ESP32 đã nhận lệnh định vị kệ ${code}. Đèn và còi đang hoạt động.`
+          : `ESP32 đã nhận lệnh định vị kệ ${code}. Đang bật chỉ sáng đèn.`,
         event,
       );
       this.syncStateAndPublish('locating', code, event);
@@ -377,10 +397,12 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
 
     const shelf = this.shelves[code];
     const nowIso = new Date().toISOString();
+    const effectiveBuzzer =
+      typeof dto.buzzerEnabled === 'boolean' ? dto.buzzerEnabled : this.buzzerEnabled;
 
     shelf.status = 'LOCATING';
     shelf.ledOn = true;
-    shelf.buzzerOn = true;
+    shelf.buzzerOn = effectiveBuzzer;
     shelf.waitingCheckin = true;
     shelf.orderId = dto.orderId || shelf.orderId || 'ORD-STAFF';
     shelf.productName = dto.productName || shelf.productName || shelf.label;
@@ -400,6 +422,8 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
       totalSteps: shelf.totalSteps || 1,
       slotCode: dto.slotCode || `${code}-01`,
       warehouseCode: dto.warehouseCode || 'WH-006',
+      buzzerEnabled: effectiveBuzzer,
+      muteBuzzer: !effectiveBuzzer,
       timestamp: Date.now(),
     };
 
@@ -413,7 +437,7 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
     this.addLog(
       code,
       'COMMAND_DISPATCHED',
-      `Phát lệnh định vị kệ ${code} (${shelf.productName || shelf.label})${shelf.step && shelf.totalSteps ? ` — Bước ${shelf.step}/${shelf.totalSteps}` : ''}. Bật đèn và còi.`,
+      `Phát lệnh định vị kệ ${code} (${shelf.productName || shelf.label})${shelf.step && shelf.totalSteps ? ` — Bước ${shelf.step}/${shelf.totalSteps}` : ''}. ${effectiveBuzzer ? 'Bật đèn và còi.' : 'Chỉ sáng đèn.'}`,
       payload,
     );
     this.syncStateAndPublish('located', code, payload);
@@ -422,8 +446,11 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
       success: published,
       shelfCode: code,
       status: shelf.status,
+      buzzerEnabled: effectiveBuzzer,
       stopSeq: shelf.stopSeq || 0,
-      message: `Đã phát lệnh định vị kệ ${code}. Đèn và còi trên kệ đang hoạt động.`,
+      message: effectiveBuzzer
+        ? `Đã phát lệnh định vị kệ ${code}. Đèn và còi trên kệ đang hoạt động.`
+        : `Đã phát lệnh định vị kệ ${code}. Chỉ bật đèn dẫn hướng trên kệ.`,
       shelf,
     };
   }
@@ -476,6 +503,8 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
       action: 'SMARTKEY_CHIRP',
       shelfCode: code,
       warehouseCode: dto.warehouseCode || 'WH-006',
+      buzzerEnabled: this.buzzerEnabled,
+      muteBuzzer: !this.buzzerEnabled,
       timestamp: Date.now(),
     };
 
@@ -484,7 +513,9 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
     this.addLog(
       code,
       'SMARTKEY_CHIRP',
-      `Bóp còi Smartkey định vị kệ ${code}.`,
+      this.buzzerEnabled
+        ? `Phát tín hiệu đèn và còi định vị kệ ${code}.`
+        : `Nháy đèn định vị kệ ${code} (đang tắt còi).`,
       payload,
     );
     this.syncStateAndPublish('chirped', code, payload);
@@ -492,7 +523,10 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
     return {
       success: published,
       shelfCode: code,
-      message: `Đã phát tín hiệu còi Smartkey tìm kệ ${code}.`,
+      buzzerEnabled: this.buzzerEnabled,
+      message: this.buzzerEnabled
+        ? `Đã phát tín hiệu đèn và còi tìm kệ ${code}.`
+        : `Đã nháy đèn tìm kệ ${code} (chế độ chỉ sáng đèn).`,
     };
   }
 
@@ -674,6 +708,7 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
     const payload = {
       action: 'TEST',
       reason,
+      forceBuzzer: true,
       timestamp: Date.now(),
     };
 
@@ -694,6 +729,57 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Toggle buzzer mode during picking (true = LED + Buzzer, false = LED only)
+   */
+  async setBuzzerMode(enabled: boolean) {
+    this.buzzerEnabled = !!enabled;
+
+    for (const code of ['A1', 'A2', 'A3'] as ShelfCode[]) {
+      if (this.shelves[code].ledOn || this.shelves[code].status === 'LOCATING') {
+        this.shelves[code].buzzerOn = this.buzzerEnabled;
+      } else {
+        this.shelves[code].buzzerOn = false;
+      }
+    }
+
+    try {
+      if (this.redisClient?.status === 'ready') {
+        await this.redisClient.set('iot:shelves:wh006:buzzer_enabled', String(this.buzzerEnabled));
+      }
+    } catch (err: any) {
+      this.logger.warn(`Failed to persist buzzerEnabled to Redis: ${err.message}`);
+    }
+
+    const payload = {
+      action: 'SET_BUZZER',
+      enabled: this.buzzerEnabled,
+      muted: !this.buzzerEnabled,
+      timestamp: Date.now(),
+    };
+
+    const published = await this.mqttGateway.publishSystemCommand(payload);
+
+    this.addLog(
+      'ALL',
+      'COMMAND_DISPATCHED',
+      this.buzzerEnabled
+        ? 'Đã bật còi báo khi định vị lấy hàng.'
+        : 'Đã tắt còi báo — Chế độ chỉ sáng đèn khi lấy hàng.',
+      payload,
+    );
+    this.syncStateAndPublish('buzzer_mode', 'ALL', { buzzerEnabled: this.buzzerEnabled }).catch(() => {});
+
+    return {
+      success: published,
+      buzzerEnabled: this.buzzerEnabled,
+      message: this.buzzerEnabled
+        ? 'Đã bật chế độ Đèn và Còi khi lấy hàng.'
+        : 'Đã bật chế độ Chỉ sáng đèn khi lấy hàng.',
+      shelves: this.shelves,
+    };
+  }
+
+  /**
    * Silence all buzzers while keeping LEDs active
    */
   async silenceAllBuzzers() {
@@ -701,11 +787,17 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
       this.shelves[code].buzzerOn = false;
     }
 
-    // ESP32 turns off buzzers when action is OFF or silence command
+    await this.mqttGateway.publishSystemCommand({
+      action: 'SET_BUZZER',
+      enabled: false,
+      muted: true,
+      timestamp: Date.now(),
+    });
+
     this.addLog(
       'ALL',
       'RESET',
-      'Tạm tắt còi báo động trong 60 giây. Đèn cảnh báo vẫn duy trì.',
+      'Tạm tắt còi báo động. Đèn cảnh báo vẫn duy trì.',
     );
 
     return { success: true, message: 'Đã tạm tắt còi báo động.' };
@@ -718,6 +810,7 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
     const conn = this.mqttGateway.getConnectionStatus();
     return {
       shelves: this.shelves,
+      buzzerEnabled: this.buzzerEnabled,
       mqtt: conn,
       timestamp: new Date().toISOString(),
     };

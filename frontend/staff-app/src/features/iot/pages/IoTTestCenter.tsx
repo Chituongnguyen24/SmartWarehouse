@@ -269,7 +269,12 @@ export const IoTTestCenter: React.FC = () => {
         qty: 1,
       });
       if (res?.success) {
-        showFeedback('success', `Đã kích hoạt đèn và còi định vị kệ ${code}.`);
+        showFeedback(
+          'success',
+          res?.buzzerEnabled === false
+            ? `Đã bật đèn định vị kệ ${code} (chế độ chỉ sáng đèn).`
+            : `Đã kích hoạt đèn và còi định vị kệ ${code}.`,
+        );
       } else {
         showFeedback('error', res?.message || `Không thể kích hoạt kệ ${code}`);
       }

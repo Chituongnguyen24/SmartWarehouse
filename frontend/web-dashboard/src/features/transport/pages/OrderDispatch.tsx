@@ -338,6 +338,7 @@ export default function OrderDispatch() {
   // Sequential Pick-to-Light (Kệ IoT A1, A2, A3) state
   const [pickedOrderItems, setPickedOrderItems] = useState<Record<string, Record<number, boolean>>>({});
   const [activePickGuide, setActivePickGuide] = useState<ActiveOrderPickGuide | null>(null);
+  const [iotBuzzerEnabled, setIotBuzzerEnabled] = useState<boolean>(true);
   const autoAdvanceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Modals & Action States
@@ -1846,8 +1847,11 @@ export default function OrderDispatch() {
   });
 
   const isOrderItemPicked = useCallback((order: UnifiedOrder, idx: number, overrideMap?: Record<number, boolean>) => {
-    const orderMap = overrideMap || pickedOrderItems[order.id] || {};
-    if (orderMap[idx]) return true;
+    const hasCustomMap = Boolean(overrideMap) || Object.prototype.hasOwnProperty.call(pickedOrderItems, order.id);
+    if (hasCustomMap) {
+      const orderMap = overrideMap || pickedOrderItems[order.id] || {};
+      return Boolean(orderMap[idx]);
+    }
     const item = order.items?.[idx];
     if (!item) return false;
     const req = item.requestedQuantity || item.quantity || 1;
@@ -1865,8 +1869,31 @@ export default function OrderDispatch() {
     }
     await fetch(`${IOT_API}/api/iot/shelf/reset`, { method: 'POST' }).catch(() => null);
     setActivePickGuide(null);
-    showToast('Đã tắt toàn bộ đèn LED và còi trên 3 kệ IoT (A1, A2, A3).', 'info');
-  }, [showToast]);
+    showToast(
+      iotBuzzerEnabled
+        ? 'Đã tắt toàn bộ đèn LED và còi trên 3 kệ IoT.'
+        : 'Đã tắt toàn bộ đèn LED trên 3 kệ IoT.',
+      'info'
+    );
+  }, [showToast, iotBuzzerEnabled]);
+
+  const handleToggleIotBuzzerMode = useCallback(async () => {
+    const nextEnabled = !iotBuzzerEnabled;
+    setIotBuzzerEnabled(nextEnabled);
+    try {
+      const res = await fetch(`${IOT_API}/api/iot/shelf/buzzer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: nextEnabled }),
+      });
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        if (typeof data?.buzzerEnabled === 'boolean') {
+          setIotBuzzerEnabled(data.buzzerEnabled);
+        }
+      }
+    } catch {}
+  }, [iotBuzzerEnabled]);
 
   const activateOrderProductShelf = useCallback(async (
     order: UnifiedOrder,
@@ -1910,12 +1937,17 @@ export default function OrderDispatch() {
     const step = Math.min(totalSteps, pickedCount + 1);
     const qty = item.requestedQuantity || item.quantity || 1;
 
-    // 1. Lấy baseline stopSeq hiện tại từ IoT Service (:3002)
+    // 1. Lấy baseline stopSeq và trạng thái còi hiện tại từ IoT Service (:3002)
     let baselineStopSeq = 0;
+    let currentBuzzerEnabled = iotBuzzerEnabled;
     try {
       const statusRes = await fetch(`${IOT_API}/api/iot/shelf/status`).catch(() => null);
       if (statusRes && statusRes.ok) {
         const statusData = await statusRes.json();
+        if (typeof statusData?.buzzerEnabled === 'boolean') {
+          currentBuzzerEnabled = statusData.buzzerEnabled;
+          setIotBuzzerEnabled(statusData.buzzerEnabled);
+        }
         const shelvesMap = statusData?.shelves;
         const shelfObj = Array.isArray(shelvesMap)
           ? shelvesMap.find((s: any) => (s.code || s.shelfCode) === shelfCode)
@@ -1944,9 +1976,9 @@ export default function OrderDispatch() {
       baselineStopSeq,
     });
 
-    // 2. Gửi lệnh bật LED + Còi xuống ESP32 qua IoT Service (:3002)
+    // 2. Gửi lệnh định vị xuống ESP32 qua IoT Service (:3002)
     try {
-      await fetch(`${IOT_API}/api/iot/shelf/locate`, {
+      const locateRes = await fetch(`${IOT_API}/api/iot/shelf/locate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1961,6 +1993,13 @@ export default function OrderDispatch() {
           totalSteps,
         }),
       });
+      if (locateRes.ok) {
+        const locateData = await locateRes.json().catch(() => null);
+        if (typeof locateData?.buzzerEnabled === 'boolean') {
+          currentBuzzerEnabled = locateData.buzzerEnabled;
+          setIotBuzzerEnabled(locateData.buzzerEnabled);
+        }
+      }
 
       if (item.id && !order.isEcommerce) {
         fetch(`${OUTBOUND_API}/outbound-orders/${order.id}/items/${item.id}/locate`, {
@@ -1972,13 +2011,15 @@ export default function OrderDispatch() {
 
       setActivePickGuide(prev => prev ? { ...prev, status: 'WAITING_STOP' } : null);
       showToast(
-        `Đã bật Đèn LED & Còi tại ${loc.fullLabel} — Sản phẩm "${cleanName}" (Bước ${step}/${totalSteps}). Tới kệ bấm nút STOP để lấy hàng!`,
+        currentBuzzerEnabled
+          ? `Đã bật Đèn LED & Còi tại ${loc.fullLabel} — "${cleanName}" (${step}/${totalSteps}).`
+          : `Đã bật Đèn LED tại ${loc.fullLabel} — "${cleanName}" (${step}/${totalSteps}) ở chế độ chỉ sáng đèn.`,
         'success'
       );
     } catch (err) {
       showToast(`Không thể kết nối IoT Service để bật ${loc.fullLabel}`, 'error');
     }
-  }, [isOrderItemPicked, pickedOrderItems, showToast]);
+  }, [isOrderItemPicked, pickedOrderItems, showToast, iotBuzzerEnabled]);
 
   const handleSelectAndLocateOrder = useCallback((order: UnifiedOrder, itemIdx?: number) => {
     setSelectedOrder(order);
@@ -2013,7 +2054,9 @@ export default function OrderDispatch() {
       const nextItem = items[nextUnpickedIdx];
       const nextLoc = resolveOrderItemShelfTier(nextItem, nextUnpickedIdx);
       showToast(
-        `Đã bấm STOP tắt đèn & còi ${guide.fullLocationLabel}! Tự động nhảy sang sản phẩm tiếp theo tại ${nextLoc.fullLabel}...`,
+        iotBuzzerEnabled
+          ? `Đã xác nhận lấy tại ${guide.fullLocationLabel}. Chuyển sang kệ ${nextLoc.fullLabel}.`
+          : `Đã xác nhận lấy tại ${guide.fullLocationLabel}. Chuyển đèn sang kệ ${nextLoc.fullLabel}.`,
         'success'
       );
       autoAdvanceTimerRef.current = setTimeout(() => {
@@ -2023,11 +2066,13 @@ export default function OrderDispatch() {
       await fetch(`${IOT_API}/api/iot/shelf/reset`, { method: 'POST' }).catch(() => null);
       setActivePickGuide(prev => prev ? { ...prev, status: 'COMPLETED' } : null);
       showToast(
-        `Hoàn thành lấy đủ ${items.length}/${items.length} sản phẩm của đơn #${targetOrder.orderCode}! Đèn và còi trên 3 kệ A, B, C đã tắt.`,
+        iotBuzzerEnabled
+          ? `Hoàn thành lấy đủ ${items.length}/${items.length} sản phẩm đơn #${targetOrder.orderCode}. Đèn và còi đã tắt.`
+          : `Hoàn thành lấy đủ ${items.length}/${items.length} sản phẩm đơn #${targetOrder.orderCode}. Đèn dẫn hướng đã tắt.`,
         'success'
       );
     }
-  }, [orders, selectedOrder, pickedOrderItems, user?.id, showToast, activateOrderProductShelf]);
+  }, [orders, selectedOrder, pickedOrderItems, user?.id, showToast, activateOrderProductShelf, iotBuzzerEnabled]);
 
   const handleSimulatePhysicalStop = useCallback(async (guide: ActiveOrderPickGuide) => {
     await fetch(`${IOT_API}/api/iot/shelf/stop`, {
@@ -2037,6 +2082,28 @@ export default function OrderDispatch() {
     }).catch(() => null);
     await confirmCurrentGuideStepAndAdvance(guide);
   }, [confirmCurrentGuideStepAndAdvance]);
+
+  // Đồng bộ chế độ còi (Đèn & còi / Chỉ sáng đèn) mỗi khi mở chi tiết đơn
+  useEffect(() => {
+    if (!selectedOrder) return;
+    let active = true;
+    const syncBuzzer = async () => {
+      try {
+        const res = await fetch(`${IOT_API}/api/iot/shelf/status`);
+        if (!res.ok || !active) return;
+        const data = await res.json();
+        if (typeof data?.buzzerEnabled === 'boolean' && active) {
+          setIotBuzzerEnabled(data.buzzerEnabled);
+        }
+      } catch {}
+    };
+    syncBuzzer();
+    const t = setInterval(syncBuzzer, 2500);
+    return () => {
+      active = false;
+      clearInterval(t);
+    };
+  }, [selectedOrder?.id]);
 
   // Poll trạng thái nút bấm vật lý STOP từ ESP32 (mỗi 800ms khi đang WAITING_STOP)
   useEffect(() => {
@@ -2048,6 +2115,9 @@ export default function OrderDispatch() {
         const res = await fetch(`${IOT_API}/api/iot/shelf/status`);
         if (!res.ok || cancelled) return;
         const data = await res.json();
+        if (typeof data?.buzzerEnabled === 'boolean' && !cancelled) {
+          setIotBuzzerEnabled(data.buzzerEnabled);
+        }
         const shelvesMap = data?.shelves;
         const shelfObj = Array.isArray(shelvesMap)
           ? shelvesMap.find((s: any) => (s.code || s.shelfCode) === activePickGuide.shelfCode)
@@ -3788,216 +3858,258 @@ export default function OrderDispatch() {
                 </div>
               </div>
 
-              {/* ── GIAO DIỆN ĐỊNH HƯỚNG LẤY HÀNG THÔNG MINH (STEP-BY-STEP GUIDED PICKING CTA) ── */}
+              {/* ── GIAO DIỆN ĐỊNH HƯỚNG LẤY HÀNG THÔNG MINH (CLEAN ENTERPRISE PICKING CONSOLE) ── */}
               {(() => {
                 const allOrderItems = selectedOrder.items || [];
                 const totalCount = allOrderItems.length;
-                const pickedCount = allOrderItems.filter((_, idx) => isOrderItemPicked(selectedOrder, idx)).length;
-                const allPicked = totalCount > 0 && pickedCount >= totalCount;
                 const isGuidingThis = activePickGuide?.orderId === selectedOrder.id && activePickGuide?.status === 'WAITING_STOP';
+                const pickedCount = allOrderItems.filter((_, idx) => {
+                  if (isGuidingThis && activePickGuide?.itemIdx === idx) return false;
+                  return isOrderItemPicked(selectedOrder, idx);
+                }).length;
+                const allPicked = !isGuidingThis && totalCount > 0 && pickedCount >= totalCount;
                 const nextUnpickedIdx = allOrderItems.findIndex((_, idx) => !isOrderItemPicked(selectedOrder, idx));
                 const firstTargetLoc = nextUnpickedIdx >= 0 ? resolveOrderItemShelfTier(allOrderItems[nextUnpickedIdx], nextUnpickedIdx) : null;
-                const firstTargetItem = nextUnpickedIdx >= 0 ? allOrderItems[nextUnpickedIdx] : null;
 
-                // Tìm món kế tiếp sau món đang lấy
-                const afterActiveIdx = isGuidingThis
-                  ? allOrderItems.findIndex((_, idx) => idx !== activePickGuide.itemIdx && !isOrderItemPicked(selectedOrder, idx))
-                  : -1;
-                const afterActiveItem = afterActiveIdx >= 0 ? allOrderItems[afterActiveIdx] : null;
-                const afterActiveLoc = afterActiveIdx >= 0 && afterActiveItem ? resolveOrderItemShelfTier(afterActiveItem, afterActiveIdx) : null;
+                const getRackPalette = (rackLetter: 'A' | 'B' | 'C') => {
+                  if (rackLetter === 'A') {
+                    return { main: '#dc2626', bg: '#fef2f2', border: '#fecaca', text: '#991b1b' };
+                  }
+                  if (rackLetter === 'B') {
+                    return { main: '#0284c7', bg: '#f0f9ff', border: '#bae6fd', text: '#075985' };
+                  }
+                  return { main: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', text: '#166534' };
+                };
+
+                const activeRackLetter: 'A' | 'B' | 'C' =
+                  activePickGuide?.fullLocationLabel?.startsWith('A')
+                    ? 'A'
+                    : activePickGuide?.fullLocationLabel?.startsWith('B')
+                    ? 'B'
+                    : 'C';
+                const activeTheme = getRackPalette(activeRackLetter);
 
                 return (
-                  <div style={{
-                    padding: '14px',
-                    borderRadius: '10px',
-                    backgroundColor: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    marginBottom: '14px',
-                    fontSize: '12px',
-                  }}>
-                    {/* Thanh Tiến Độ Lấy Hàng */}
-                    <div style={{ marginBottom: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div
+                    style={{
+                      padding: '16px',
+                      borderRadius: '10px',
+                      backgroundColor: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      marginBottom: '16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '14px',
+                    }}
+                  >
+                    {/* 1. Thanh Tiến Độ Lấy Hàng */}
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 600, color: '#0f172a', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <Radio size={14} color="#0f766e" />
-                          <span>Tiến độ lấy hàng</span>
+                          <span>Tiến độ soạn hàng</span>
                         </span>
-                        <span style={{
-                          fontSize: '11.5px',
-                          fontWeight: 700,
-                          color: allPicked ? '#166534' : '#0f766e',
-                          fontVariantNumeric: 'tabular-nums',
-                        }}>
-                          {pickedCount}/{totalCount} món
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={handleToggleIotBuzzerMode}
+                            title="Chuyển đổi chế độ tín hiệu kệ IoT"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              fontSize: '11.5px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              backgroundColor: iotBuzzerEnabled ? '#f8fafc' : '#f0f9ff',
+                              color: iotBuzzerEnabled ? '#334155' : '#075985',
+                              border: `1px solid ${iotBuzzerEnabled ? '#cbd5e1' : '#bae6fd'}`,
+                            }}
+                          >
+                            {iotBuzzerEnabled ? <Volume2 size={12} /> : <Lightbulb size={12} />}
+                            <span>{iotBuzzerEnabled ? 'Đèn & còi' : 'Chỉ sáng đèn'}</span>
+                          </button>
+                          <span
+                            style={{
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              color: allPicked ? '#166534' : '#0f766e',
+                              fontVariantNumeric: 'tabular-nums',
+                            }}
+                          >
+                            {pickedCount}/{totalCount} mặt hàng
+                          </span>
+                        </div>
                       </div>
                       <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
-                        <div style={{
-                          width: `${totalCount > 0 ? Math.round((pickedCount / totalCount) * 100) : 0}%`,
-                          height: '100%',
-                          backgroundColor: allPicked ? '#16a34a' : isGuidingThis ? '#d97706' : '#0f766e',
-                          transition: 'width 0.3s ease',
-                        }} />
+                        <div
+                          style={{
+                            width: `${totalCount > 0 ? Math.round((pickedCount / totalCount) * 100) : 0}%`,
+                            height: '100%',
+                            backgroundColor: allPicked ? '#16a34a' : isGuidingThis ? activeTheme.main : '#0f766e',
+                            transition: 'width 0.3s ease',
+                          }}
+                        />
                       </div>
                     </div>
 
-                    {/* HERO ACTION CARD (ĐỊNH HƯỚNG HÀNH ĐỘNG CHÍNH CHO NHÂN VIÊN) */}
-                    <div style={{ marginBottom: '14px' }}>
-                      {isGuidingThis && activePickGuide ? (
-                        /* TRẠNG THÁI 2: ĐANG DẪN ĐƯỜNG LẤY HÀNG TẠI KỆ */
-                        <div style={{
-                          padding: '12px',
-                          borderRadius: '10px',
-                          backgroundColor: '#fffbeb',
-                          border: '2px solid #f59e0b',
+                    {/* 2. Khung Điều Hướng Bước Hiện Tại */}
+                    {isGuidingThis && activePickGuide ? (
+                      <div
+                        style={{
+                          padding: '14px',
+                          borderRadius: '8px',
+                          backgroundColor: '#ffffff',
+                          border: `1.5px solid ${activeTheme.main}`,
                           display: 'flex',
                           flexDirection: 'column',
-                          gap: '10px',
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'stretch', gap: '10px' }}>
-                            {/* Ô Vị Trí Kệ Đích Lớn */}
-                            <div style={{
-                              minWidth: '72px',
-                              padding: '8px 10px',
+                          gap: '12px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div
+                            style={{
+                              width: '56px',
+                              height: '56px',
                               borderRadius: '8px',
-                              backgroundColor: '#d97706',
+                              backgroundColor: activeTheme.main,
                               color: '#ffffff',
                               display: 'flex',
                               flexDirection: 'column',
                               alignItems: 'center',
                               justifyContent: 'center',
                               flexShrink: 0,
-                            }}>
-                              <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', opacity: 0.9 }}>
-                                Đi tới kệ
-                              </span>
-                              <span style={{ fontSize: '22px', fontWeight: 700, lineHeight: 1.15, marginTop: '2px', fontFamily: 'monospace' }}>
-                                {activePickGuide.fullLocationLabel}
-                              </span>
-                            </div>
-
-                            {/* Thông Tin Sản Phẩm Đang Lấy */}
-                            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: 700, color: '#b45309', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                  <Volume2 size={13} />
-                                  <span>Bước {activePickGuide.step}/{activePickGuide.totalSteps} • Đèn & Còi đang bật</span>
-                                </span>
-                              </div>
-                              <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginTop: '3px', lineHeight: 1.3 }}>
-                                {activePickGuide.productName}
-                              </div>
-                              <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#1d4ed8', marginTop: '2px' }}>
-                                Số lượng cần lấy: {activePickGuide.quantity}
-                              </div>
-                            </div>
+                            }}
+                          >
+                            <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', opacity: 0.9 }}>
+                              Kệ
+                            </span>
+                            <span style={{ fontSize: '20px', fontWeight: 700, lineHeight: 1.1 }}>
+                              {activePickGuide.fullLocationLabel}
+                            </span>
                           </div>
 
-                          {afterActiveItem && afterActiveLoc && (
-                            <div style={{
-                              fontSize: '11px',
-                              color: '#78350f',
-                              backgroundColor: '#fef3c7',
-                              padding: '5px 8px',
-                              borderRadius: '6px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                            }}>
-                              <span>Món kế tiếp: <b>{cleanProductDisplayName(afterActiveItem.productName)}</b></span>
-                              <span style={{ fontWeight: 700 }}>Kệ {afterActiveLoc.fullLabel}</span>
-                            </div>
-                          )}
-
-                          {/* Primary CTA để hoàn tất bước hiện tại */}
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            <button
-                              type="button"
-                              onClick={() => handleSimulatePhysicalStop(activePickGuide)}
-                              style={{
-                                flex: 1,
-                                padding: '10px 14px',
-                                borderRadius: '8px',
-                                fontSize: '13px',
-                                fontWeight: 700,
-                                backgroundColor: '#d97706',
-                                color: '#ffffff',
-                                border: 'none',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '6px',
-                              }}
-                            >
-                              <CheckCircle2 size={16} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '11.5px', fontWeight: 600, color: activeTheme.text, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                              {iotBuzzerEnabled ? <Volume2 size={13} /> : <Lightbulb size={13} />}
                               <span>
-                                {afterActiveItem
-                                  ? `Đã lấy xong tại ${activePickGuide.fullLocationLabel} — Qua món kế tiếp`
-                                  : `Đã lấy xong tại ${activePickGuide.fullLocationLabel} — Hoàn tất lấy hàng`}
+                                Bước {activePickGuide.step}/{activePickGuide.totalSteps} •{' '}
+                                {iotBuzzerEnabled ? 'Đang bật đèn & còi tại kệ' : 'Chỉ sáng đèn tại kệ'}
                               </span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleStopAllIotShelves}
+                            </div>
+                            <div
                               style={{
-                                padding: '10px 12px',
-                                borderRadius: '8px',
-                                fontSize: '12px',
-                                fontWeight: 600,
-                                backgroundColor: '#ffffff',
-                                color: '#475569',
-                                border: '1px solid #cbd5e1',
-                                cursor: 'pointer',
+                                fontSize: '14.5px',
+                                fontWeight: 700,
+                                color: '#0f172a',
+                                marginTop: '3px',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
                               }}
                             >
-                              Tạm dừng
-                            </button>
+                              {activePickGuide.productName}
+                            </div>
+                            <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#475569', marginTop: '2px' }}>
+                              Số lượng cần lấy: <strong style={{ color: '#0f172a' }}>{activePickGuide.quantity}</strong>
+                            </div>
                           </div>
                         </div>
-                      ) : allPicked ? (
-                        /* TRẠNG THÁI 3: ĐÃ LẤY ĐỦ 100% -> ĐỊNH HƯỚNG CTA CHUYỂN BƯỚC TIẾP THEO */
-                        <div style={{
-                          padding: '12px',
-                          borderRadius: '10px',
+
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleSimulatePhysicalStop(activePickGuide)}
+                            style={{
+                              flex: 1,
+                              padding: '9px 14px',
+                              borderRadius: '6px',
+                              fontSize: '13px',
+                              fontWeight: 600,
+                              backgroundColor: activeTheme.main,
+                              color: '#ffffff',
+                              border: 'none',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                            }}
+                          >
+                            <CheckCircle2 size={15} />
+                            <span>Xác nhận đã lấy tại {activePickGuide.fullLocationLabel}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleStopAllIotShelves}
+                            style={{
+                              padding: '9px 12px',
+                              borderRadius: '6px',
+                              fontSize: '12.5px',
+                              fontWeight: 500,
+                              backgroundColor: '#f8fafc',
+                              color: '#475569',
+                              border: '1px solid #cbd5e1',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Dừng
+                          </button>
+                        </div>
+                      </div>
+                    ) : allPicked ? (
+                      <div
+                        style={{
+                          padding: '12px 14px',
+                          borderRadius: '8px',
                           backgroundColor: '#f0fdf4',
-                          border: '1.5px solid #86efac',
+                          border: '1px solid #bbf7d0',
                           display: 'flex',
                           flexDirection: 'column',
                           gap: '10px',
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#166534', fontWeight: 700, fontSize: '13px' }}>
-                              <CheckCircle2 size={18} color="#16a34a" />
-                              <span>Đã lấy đủ {totalCount}/{totalCount} sản phẩm trong đơn</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => activateOrderProductShelf(selectedOrder)}
-                              style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: '#0f766e',
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                textDecoration: 'underline',
-                              }}
-                            >
-                              Lấy lại từ đầu
-                            </button>
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '7px', color: '#166534', fontWeight: 600, fontSize: '13px' }}>
+                            <CheckCircle2 size={16} color="#16a34a" />
+                            <span>Đã soạn đủ {totalCount}/{totalCount} mặt hàng</span>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPickedOrderItems(prev => ({ ...prev, [selectedOrder.id]: {} }));
+                              activateOrderProductShelf(selectedOrder, 0, {});
+                            }}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#0f766e',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Soạn lại
+                          </button>
+                        </div>
 
-                          {canOperateWarehouse && (selectedOrder.status === 'PENDING' || selectedOrder.status === 'PROCESSING' || selectedOrder.status === 'PICKING' || selectedOrder.status === 'PACKING') && (
+                        {canOperateWarehouse &&
+                          (selectedOrder.status === 'PENDING' ||
+                            selectedOrder.status === 'PROCESSING' ||
+                            selectedOrder.status === 'PICKING' ||
+                            selectedOrder.status === 'PACKING') && (
                             <button
                               type="button"
                               onClick={() => handleCompletePicking(selectedOrder)}
                               style={{
                                 width: '100%',
-                                padding: '11px 16px',
-                                borderRadius: '8px',
+                                padding: '9px 14px',
+                                borderRadius: '6px',
                                 fontSize: '13px',
-                                fontWeight: 700,
+                                fontWeight: 600,
                                 backgroundColor: '#16a34a',
                                 color: '#ffffff',
                                 border: 'none',
@@ -4008,328 +4120,122 @@ export default function OrderDispatch() {
                                 gap: '6px',
                               }}
                             >
-                              <PackageCheck size={16} />
-                              <span>Hoàn tất đóng gói & Chuyển bàn giao</span>
+                              <PackageCheck size={15} />
+                              <span>Hoàn tất đóng gói</span>
                             </button>
                           )}
-                        </div>
-                      ) : (
-                        /* TRẠNG THÁI 1: CHƯA BẮT ĐẦU -> ĐỊNH HƯỚNG LỘ TRÌNH & NÚT BẮT ĐẦU */
-                        <div style={{
-                          padding: '12px',
-                          borderRadius: '10px',
-                          backgroundColor: '#ffffff',
-                          border: '1.5px solid #0f766e',
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => activateOrderProductShelf(selectedOrder)}
+                        style={{
+                          width: '100%',
+                          padding: '10px 14px',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          backgroundColor: '#0f766e',
+                          color: '#ffffff',
+                          border: 'none',
+                          cursor: 'pointer',
                           display: 'flex',
-                          flexDirection: 'column',
-                          gap: '10px',
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>
-                              Lộ trình kệ cần tới:
-                            </span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                              {allOrderItems.map((it, idx) => {
-                                const l = resolveOrderItemShelfTier(it, idx);
-                                const picked = isOrderItemPicked(selectedOrder, idx);
-                                return (
-                                  <React.Fragment key={idx}>
-                                    {idx > 0 && <span style={{ color: '#94a3b8', fontSize: '11px' }}>→</span>}
-                                    <span style={{
-                                      fontSize: '11px',
-                                      fontWeight: 700,
-                                      padding: '2px 7px',
-                                      borderRadius: '4px',
-                                      backgroundColor: picked ? '#dcfce7' : idx === nextUnpickedIdx ? '#0f766e' : '#f1f5f9',
-                                      color: picked ? '#166534' : idx === nextUnpickedIdx ? '#ffffff' : '#334155',
-                                    }}>
-                                      {l.fullLabel}
-                                    </span>
-                                  </React.Fragment>
-                                );
-                              })}
-                            </div>
-                          </div>
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                        }}
+                      >
+                        <Radio size={15} />
+                        <span>
+                          {firstTargetLoc
+                            ? `Bắt đầu lấy hàng • Đi tới kệ ${firstTargetLoc.fullLabel}`
+                            : 'Bắt đầu lấy hàng'}
+                        </span>
+                      </button>
+                    )}
 
-                          <button
-                            type="button"
-                            onClick={() => activateOrderProductShelf(selectedOrder)}
-                            style={{
-                              width: '100%',
-                              padding: '11px 16px',
-                              borderRadius: '8px',
-                              fontSize: '13.5px',
-                              fontWeight: 700,
-                              backgroundColor: '#0f766e',
-                              color: '#ffffff',
-                              border: 'none',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              gap: '8px',
-                            }}
-                          >
-                            <Lightbulb size={16} />
-                            <span>
-                              {firstTargetLoc && firstTargetItem
-                                ? `Bắt đầu lấy hàng — Đi tới kệ ${firstTargetLoc.fullLabel}`
-                                : 'Bắt đầu lấy hàng ngay'}
-                            </span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Sơ đồ 3 Kệ (A, B, C) x 2 Tầng (A1, A2 | B1, B2 | C1, C2) */}
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(3, 1fr)',
-                      gap: '8px',
-                      marginBottom: '12px',
-                    }}>
-                      {(['A', 'B', 'C'] as const).map(rackLetter => {
-                        const hwCodeMap: Record<'A' | 'B' | 'C', DemoIotShelfCode> = { A: 'A1', B: 'A2', C: 'A3' };
-                        const orderItemLocs = allOrderItems.map((it, idx) => ({
-                          item: it,
-                          idx,
-                          loc: resolveOrderItemShelfTier(it, idx),
-                          isPicked: isOrderItemPicked(selectedOrder, idx),
-                        }));
-                        const isRackActive =
-                          isGuidingThis &&
-                          activePickGuide?.rackLabel === `Kệ ${rackLetter}`;
-
-                        return (
-                          <div
-                            key={rackLetter}
-                            style={{
-                              backgroundColor: isRackActive ? '#fffbeb' : '#ffffff',
-                              border: `1.5px solid ${isRackActive ? '#f59e0b' : '#cbd5e1'}`,
-                              borderRadius: '8px',
-                              padding: '8px',
-                            }}
-                          >
-                            <div
-                              onClick={() => {
-                                fetch(`${IOT_API}/api/iot/shelf/locate`, {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({
-                                    shelfCode: hwCodeMap[rackLetter],
-                                    slotCode: `${rackLetter}1`,
-                                    orderId: selectedOrder.orderCode,
-                                    productName: `Kiểm tra đèn Kệ ${rackLetter}`,
-                                    qty: 1,
-                                    step: 1,
-                                    totalSteps: 1,
-                                  }),
-                                }).catch(() => null);
-                                showToast(`Đã bật đèn Kệ ${rackLetter}`, 'info');
-                              }}
-                              title={`Bấm để bật thử đèn Kệ ${rackLetter}`}
-                              style={{
-                                fontSize: '12px',
-                                fontWeight: 700,
-                                color: isRackActive ? '#92400e' : '#0f172a',
-                                marginBottom: '6px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              <span>Kệ {rackLetter}</span>
-                              <Lightbulb size={13} color={isRackActive ? '#d97706' : '#94a3b8'} />
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                              {([1, 2] as const).map(tierNum => {
-                                const matching = orderItemLocs.filter(x => x.loc.rack === rackLetter && x.loc.tier === tierNum);
-                                const hasItems = matching.length > 0;
-                                const slotCode = `${rackLetter}${tierNum}`;
-                                const isTierActive =
-                                  isRackActive &&
-                                  activePickGuide?.fullLocationLabel === slotCode;
-                                const allTierPicked = hasItems && matching.every(m => m.isPicked);
-
-                                return (
-                                  <div
-                                    key={tierNum}
-                                    onClick={() => {
-                                      if (hasItems) {
-                                        activateOrderProductShelf(selectedOrder, matching[0].idx);
-                                      }
-                                    }}
-                                    style={{
-                                      padding: '4px 6px',
-                                      borderRadius: '4px',
-                                      fontSize: '11px',
-                                      fontWeight: hasItems ? 700 : 500,
-                                      cursor: hasItems ? 'pointer' : 'default',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'space-between',
-                                      backgroundColor: isTierActive
-                                        ? '#fef3c7'
-                                        : allTierPicked
-                                        ? '#f0fdf4'
-                                        : hasItems
-                                        ? '#f0fdfa'
-                                        : '#f8fafc',
-                                      color: isTierActive
-                                        ? '#92400e'
-                                        : allTierPicked
-                                        ? '#166534'
-                                        : hasItems
-                                        ? '#0f766e'
-                                        : '#94a3b8',
-                                      border: `1px solid ${
-                                        isTierActive
-                                          ? '#f59e0b'
-                                          : allTierPicked
-                                          ? '#bbf7d0'
-                                          : hasItems
-                                          ? '#99f6e4'
-                                          : '#e2e8f0'
-                                      }`,
-                                    }}
-                                  >
-                                    <span>{slotCode}</span>
-                                    <span>{hasItems ? `${matching.length} SP` : '—'}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Danh sách từng bước sản phẩm */}
+                    {/* 3. Danh sách mặt hàng trong đơn (Gọn, rõ vị trí kệ & số lượng) */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       {allOrderItems.map((item, i) => {
                         const loc = resolveOrderItemShelfTier(item, i);
                         const cleanName = cleanProductDisplayName(item.productName);
-                        const isActiveItem =
-                          isGuidingThis &&
-                          activePickGuide?.itemIdx === i;
-                        const isPicked = isOrderItemPicked(selectedOrder, i);
+                        const isActiveItem = isGuidingThis && activePickGuide?.itemIdx === i;
+                        const isPicked = !isActiveItem && isOrderItemPicked(selectedOrder, i);
                         const qty = item.requestedQuantity || item.quantity || 1;
+                        const pal = getRackPalette(loc.rack);
 
                         return (
                           <div
                             key={i}
-                            onClick={() => activateOrderProductShelf(selectedOrder, i)}
+                            onClick={() => {
+                              const currentMap = pickedOrderItems[selectedOrder.id] || {};
+                              activateOrderProductShelf(selectedOrder, i, currentMap);
+                            }}
                             style={{
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'space-between',
-                              gap: '8px',
-                              padding: '8px 10px',
+                              gap: '10px',
+                              padding: '10px 12px',
                               borderRadius: '8px',
                               cursor: 'pointer',
-                              backgroundColor: isActiveItem
-                                ? '#fffbeb'
-                                : isPicked
-                                ? '#f0fdf4'
-                                : '#ffffff',
-                              border: `1.5px solid ${
-                                isActiveItem
-                                  ? '#f59e0b'
-                                  : isPicked
-                                  ? '#86efac'
-                                  : '#e2e8f0'
-                              }`,
+                              backgroundColor: isActiveItem ? pal.bg : '#ffffff',
+                              border: `1px solid ${isActiveItem ? pal.main : isPicked ? '#bbf7d0' : '#e2e8f0'}`,
                             }}
                           >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
-                              <div style={{
-                                width: '24px',
-                                height: '24px',
-                                borderRadius: '6px',
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0,
-                                backgroundColor: isActiveItem
-                                  ? '#d97706'
-                                  : isPicked
-                                  ? '#16a34a'
-                                  : '#0f766e',
-                                color: '#ffffff',
-                                fontFamily: 'monospace',
-                              }}>
-                                {isPicked ? <Check size={13} /> : loc.fullLabel}
-                              </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                              <span
+                                style={{
+                                  minWidth: '34px',
+                                  height: '26px',
+                                  padding: '0 6px',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0,
+                                  backgroundColor: isPicked ? '#dcfce7' : pal.main,
+                                  color: isPicked ? '#166534' : '#ffffff',
+                                }}
+                              >
+                                {loc.fullLabel}
+                              </span>
 
                               <div style={{ minWidth: 0, flex: 1 }}>
-                                <div style={{
-                                  fontWeight: 600,
-                                  color: isPicked ? '#64748b' : '#0f172a',
-                                  textDecoration: isPicked ? 'line-through' : 'none',
-                                  fontSize: '12.5px',
-                                  whiteSpace: 'nowrap',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                }}>
+                                <div
+                                  style={{
+                                    fontWeight: 600,
+                                    color: isPicked ? '#64748b' : '#0f172a',
+                                    fontSize: '13px',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                  }}
+                                >
                                   {cleanName}
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#0f766e' }}>
-                                    Kệ {loc.fullLabel}
-                                  </span>
-                                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
-                                    • Số lượng: {qty} {item.unit || 'món'}
-                                  </span>
+                                <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '1px', fontVariantNumeric: 'tabular-nums' }}>
+                                  Số lượng: <strong style={{ color: '#334155' }}>{qty}</strong>
                                 </div>
                               </div>
                             </div>
 
-                            {isActiveItem ? (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (activePickGuide) handleSimulatePhysicalStop(activePickGuide);
-                                }}
-                                style={{
-                                  padding: '5px 10px',
-                                  borderRadius: '6px',
-                                  fontSize: '11px',
-                                  fontWeight: 700,
-                                  backgroundColor: '#d97706',
-                                  color: '#ffffff',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  flexShrink: 0,
-                                }}
-                              >
-                                Xác nhận lấy
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  activateOrderProductShelf(selectedOrder, i);
-                                }}
-                                style={{
-                                  padding: '5px 10px',
-                                  borderRadius: '6px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  backgroundColor: isPicked ? '#dcfce7' : '#f0fdfa',
-                                  color: isPicked ? '#166534' : '#0f766e',
-                                  border: `1px solid ${isPicked ? '#86efac' : '#99f6e4'}`,
-                                  cursor: 'pointer',
-                                  flexShrink: 0,
-                                }}
-                              >
-                                {isPicked ? 'Đã lấy' : `Bật kệ ${loc.fullLabel}`}
-                              </button>
-                            )}
+                            <span
+                              style={{
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                fontSize: '11.5px',
+                                fontWeight: 600,
+                                flexShrink: 0,
+                                backgroundColor: isActiveItem ? pal.main : isPicked ? '#f0fdf4' : '#f8fafc',
+                                color: isActiveItem ? '#ffffff' : isPicked ? '#166534' : '#475569',
+                                border: `1px solid ${isActiveItem ? pal.main : isPicked ? '#bbf7d0' : '#e2e8f0'}`,
+                              }}
+                            >
+                              {isActiveItem ? 'Đang lấy' : isPicked ? 'Đã lấy' : 'Định vị'}
+                            </span>
                           </div>
                         );
                       })}

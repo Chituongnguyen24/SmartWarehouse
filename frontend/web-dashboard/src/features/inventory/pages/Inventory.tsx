@@ -1400,1009 +1400,398 @@ const Inventory = () => {
     );
   };
 
+  const normalizeShelfCode = (rawLoc?: string, idx = 0): { code: string; rack: 'A' | 'B' | 'C'; color: string; bg: string; border: string } => {
+    const raw = String(rawLoc || '').toUpperCase();
+    let rack: 'A' | 'B' | 'C' = (['A', 'B', 'C'] as const)[idx % 3];
+    let tier: 1 | 2 = ((idx % 2) + 1) as 1 | 2;
+
+    const direct = raw.match(/(?:^|[^A-Z0-9])([ABC])[-_ ]*T?0?([12])(?=$|[^0-9])/);
+    if (direct) {
+      rack = direct[1] as 'A' | 'B' | 'C';
+      tier = Number(direct[2]) as 1 | 2;
+    } else if (raw.includes('A1')) {
+      rack = 'A';
+      tier = raw.includes('-02') ? 2 : 1;
+    } else if (raw.includes('A2')) {
+      rack = 'B';
+      tier = raw.includes('-02') ? 2 : 1;
+    } else if (raw.includes('A3')) {
+      rack = 'C';
+      tier = raw.includes('-02') ? 2 : 1;
+    }
+
+    const palette: Record<'A' | 'B' | 'C', { color: string; bg: string; border: string }> = {
+      A: { color: '#991b1b', bg: '#fef2f2', border: '#fecaca' },
+      B: { color: '#075985', bg: '#f0f9ff', border: '#bae6fd' },
+      C: { color: '#166534', bg: '#f0fdf4', border: '#bbf7d0' },
+    };
+
+    return {
+      code: `${rack}${tier}`,
+      rack,
+      ...palette[rack],
+    };
+  };
+
   const renderStockDashboard = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', flex: 1 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
       {renderAdjustModal()}
       {renderConfirmExportModal()}
       {renderOutboundSuccessModal()}
-      {/* 4 KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
-        <div style={{ backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-          <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Tổng số mặt hàng</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginTop: '4px' }}>{whStock.length} mặt hàng</div>
-        </div>
-        <div 
-          onClick={() => { setSelectedRiskFilter('ALL'); setSelectedZoneFilter('ALL'); setLotsPage(1); }}
-          style={{ backgroundColor: (selectedRiskFilter === 'ALL' && selectedZoneFilter === 'ALL') ? '#ccfbf1' : '#f0fdfa', padding: '1rem', borderRadius: '12px', border: (selectedRiskFilter === 'ALL' && selectedZoneFilter === 'ALL') ? '2px solid #0f766e' : '1px solid #ccfbf1', cursor: 'pointer', transition: 'all 0.2s ease' }}
-          title="Bấm để xem tất cả lô hàng"
-        >
-          <div style={{ fontSize: '0.8rem', color: '#0d9488', fontWeight: 600, textTransform: 'uppercase' }}>Tổng hàng lưu trữ</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f766e', marginTop: '4px' }}>{whStats?.totalLots} Lô</div>
+
+      {/* 1. Compact 3-Card Summary Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+        <div style={{ backgroundColor: '#ffffff', padding: '14px 18px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Tổng mặt hàng</div>
+          <div style={{ fontSize: '24px', fontWeight: 700, color: '#0f172a', marginTop: '4px', fontVariantNumeric: 'tabular-nums' }}>
+            {whStock.length} sản phẩm
+          </div>
         </div>
 
-        {/* Clickable Cảnh báo Hết Hạn / Hỏng Card */}
-        <div 
+        <div
+          onClick={() => { setSelectedRiskFilter('ALL'); setSelectedZoneFilter('ALL'); setLotsPage(1); }}
+          style={{
+            backgroundColor: selectedRiskFilter === 'ALL' ? '#f0fdf4' : '#ffffff',
+            padding: '14px 18px',
+            borderRadius: '10px',
+            border: `1px solid ${selectedRiskFilter === 'ALL' ? '#86efac' : '#e2e8f0'}`,
+            cursor: 'pointer',
+          }}
+        >
+          <div style={{ fontSize: '12px', color: '#0f766e', fontWeight: 600, textTransform: 'uppercase' }}>Lô hàng đang lưu trữ</div>
+          <div style={{ fontSize: '24px', fontWeight: 700, color: '#0f766e', marginTop: '4px', fontVariantNumeric: 'tabular-nums' }}>
+            {whStats?.totalLots || 0} lô
+          </div>
+        </div>
+
+        <div
           onClick={() => {
             setSelectedRiskFilter(prev => prev === 'DANGER' ? 'ALL' : 'DANGER');
             setLotsPage(1);
           }}
-          style={{ 
-            backgroundColor: selectedRiskFilter === 'DANGER' ? '#fee2e2' : '#fef2f2', 
-            padding: '1rem', 
-            borderRadius: '12px', 
-            border: selectedRiskFilter === 'DANGER' ? '2px solid #ef4444' : '1px solid #fecaca',
+          style={{
+            backgroundColor: selectedRiskFilter === 'DANGER' ? '#fef2f2' : '#ffffff',
+            padding: '14px 18px',
+            borderRadius: '10px',
+            border: `1px solid ${selectedRiskFilter === 'DANGER' ? '#fca5a5' : '#e2e8f0'}`,
             cursor: 'pointer',
-            boxShadow: selectedRiskFilter === 'DANGER' ? '0 0 0 3px rgba(239, 68, 68, 0.2)' : 'none',
-            transition: 'all 0.2s ease',
             display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between'
+            justifyContent: 'space-between',
+            alignItems: 'center',
           }}
-          title="Bấm để lọc nhanh các lô hàng cảnh báo hết hạn hoặc hư hỏng"
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontSize: '0.8rem', color: '#dc2626', fontWeight: 700, textTransform: 'uppercase' }}>
-              Cảnh báo Hết Hạn / Hư Hỏng
+          <div>
+            <div style={{ fontSize: '12px', color: '#dc2626', fontWeight: 600, textTransform: 'uppercase' }}>
+              Cận hạn / Cần xử lý
             </div>
-            {selectedRiskFilter === 'DANGER' && (
-              <span style={{ fontSize: '0.65rem', backgroundColor: '#ef4444', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>
-                ĐANG LỌC
-              </span>
-            )}
+            <div style={{ fontSize: '24px', fontWeight: 700, color: '#dc2626', marginTop: '4px', fontVariantNumeric: 'tabular-nums' }}>
+              {whStats?.dangerCount || 0} lô
+            </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '4px' }}>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#b91c1c' }}>{whStats?.dangerCount || 0} Lô</div>
-            <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 700, textDecoration: 'underline' }}>
-              {selectedRiskFilter === 'DANGER' ? 'Bỏ lọc' : 'Lọc ngay →'}
-            </span>
-          </div>
-        </div>
-
-        <div style={{ backgroundColor: '#fffbeb', padding: '1rem', borderRadius: '12px', border: '1px solid #fde68a' }}>
-          <div style={{ fontSize: '0.8rem', color: '#d97706', fontWeight: 600, textTransform: 'uppercase' }}>Quản lý kho</div>
-          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#b45309', marginTop: '8px' }}>Manager {viewingWh?.code.split('-')[1] || '01'}</div>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: '#dc2626' }}>
+            {selectedRiskFilter === 'DANGER' ? 'Bỏ lọc' : 'Lọc xem →'}
+          </span>
         </div>
       </div>
 
-      {/* Storage Types (Clickable Zone Filters) */}
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-          <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#1e293b', margin: 0 }}>Phân bổ sức chứa (Khu vực)</h4>
-          {selectedZoneFilter !== 'ALL' && (
-            <button 
-              onClick={() => { setSelectedZoneFilter('ALL'); setLotsPage(1); }}
-              style={{ border: 'none', background: 'none', color: '#0f766e', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}
-            >
-              Xem tất cả khu vực
-            </button>
-          )}
-        </div>
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          <div 
-            onClick={() => { setSelectedZoneFilter(prev => prev === 'FROZEN' ? 'ALL' : 'FROZEN'); setLotsPage(1); }}
-            style={{ flex: 1, backgroundColor: selectedZoneFilter === 'FROZEN' ? '#dbeafe' : '#eff6ff', padding: '1rem', borderRadius: '8px', border: selectedZoneFilter === 'FROZEN' ? '2px solid #2563eb' : '1px solid transparent', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'all 0.2s ease' }}
-            title="Bấm để lọc lô hàng Kho Đông"
-          >
-            <span style={{ color: '#1d4ed8', fontWeight: 600 }}>Kho Đông (-18°C)</span>
-            <span style={{ fontSize: '1.2rem', fontWeight: 700, color: '#1e40af' }}>{whStats?.frozenCount} lô</span>
+      {/* 2. Unified Enterprise Inventory & Shelf Table */}
+      <div
+        style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '10px',
+          border: '1px solid #e2e8f0',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Filter & Search Toolbar */}
+        <div
+          style={{
+            padding: '14px 18px',
+            borderBottom: '1px solid #e2e8f0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '10px',
+          }}
+        >
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {[
+              { key: 'ALL', label: `Tất cả (${whLots.length})` },
+              { key: 'SAFE', label: `Đạt chuẩn (${whStats?.safeCount || 0})` },
+              { key: 'WARNING', label: `Cận hạn (${whStats?.warningCount || 0})` },
+              { key: 'DANGER', label: `Cần xử lý (${whStats?.dangerCount || 0})` },
+            ].map((f) => {
+              const active = selectedRiskFilter === f.key;
+              return (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => { setSelectedRiskFilter(f.key as any); setLotsPage(1); }}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    backgroundColor: active ? '#0f172a' : '#f8fafc',
+                    color: active ? '#ffffff' : '#475569',
+                    border: `1px solid ${active ? '#0f172a' : '#e2e8f0'}`,
+                  }}
+                >
+                  {f.label}
+                </button>
+              );
+            })}
           </div>
-          <div 
-            onClick={() => { setSelectedZoneFilter(prev => prev === 'COLD' ? 'ALL' : 'COLD'); setLotsPage(1); }}
-            style={{ flex: 1, backgroundColor: selectedZoneFilter === 'COLD' ? '#ccfbf1' : '#ecfdf5', padding: '1rem', borderRadius: '8px', border: selectedZoneFilter === 'COLD' ? '2px solid #059669' : '1px solid transparent', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'all 0.2s ease' }}
-            title="Bấm để lọc lô hàng Kho Mát"
-          >
-            <span style={{ color: '#047857', fontWeight: 600 }}>Kho Mát (0-4°C)</span>
-            <span style={{ fontSize: '1.2rem', fontWeight: 700, color: '#065f46' }}>{whStats?.coldCount} lô</span>
-          </div>
-          <div 
-            onClick={() => { setSelectedZoneFilter(prev => prev === 'DRY' ? 'ALL' : 'DRY'); setLotsPage(1); }}
-            style={{ flex: 1, backgroundColor: selectedZoneFilter === 'DRY' ? '#e2e8f0' : '#f8fafc', padding: '1rem', borderRadius: '8px', border: selectedZoneFilter === 'DRY' ? '2px solid #475569' : '1px solid transparent', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'all 0.2s ease' }}
-            title="Bấm để lọc lô hàng Kho Khô"
-          >
-            <span style={{ color: '#475569', fontWeight: 600 }}>Kho Khô</span>
-            <span style={{ fontSize: '1.2rem', fontWeight: 700, color: '#334155' }}>{whStats?.dryCount} lô</span>
-          </div>
-        </div>
-      </div>
 
-      {/* Table of Products Stock */}
-      <div id="product-stock-section" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-          <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
-            Danh sách Sản phẩm tồn kho ({filteredWhStock.length})
-          </h4>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <input
               type="text"
-              placeholder="Tìm theo mã sản phẩm hoặc tên..."
-              value={stockSearch}
-              onChange={e => { setStockSearch(e.target.value); setStockPage(1); }}
-              style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.8rem', width: '220px' }}
+              placeholder="Tìm tên sản phẩm, mã lô, vị trí kệ..."
+              value={lotsSearch}
+              onChange={(e) => { setLotsSearch(e.target.value); setLotsPage(1); }}
+              style={{
+                padding: '7px 12px',
+                borderRadius: '6px',
+                border: '1px solid #cbd5e1',
+                fontSize: '12.5px',
+                width: '250px',
+                color: '#0f172a',
+              }}
             />
           </div>
         </div>
 
-        {filteredWhStock.length === 0 ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b', backgroundColor: '#f8fafc', borderRadius: '12px' }}>
-            Không tìm thấy sản phẩm nào phù hợp.
-          </div>
-        ) : (
-          <div style={{ flex: 1, borderRadius: '12px', border: '1px solid #e2e8f0', backgroundColor: '#fff', overflow: 'hidden' }}>
-            <table className="table" style={{ fontSize: '0.85rem', margin: 0, width: '100%' }}>
-              <thead style={{ backgroundColor: '#f8fafc' }}>
+        {/* High-Density Data Table */}
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                <th style={{ padding: '11px 16px', fontWeight: 600 }}>Vị trí kệ</th>
+                <th style={{ padding: '11px 16px', fontWeight: 600 }}>Sản phẩm</th>
+                <th style={{ padding: '11px 16px', fontWeight: 600 }}>Mã lô</th>
+                <th style={{ padding: '11px 16px', fontWeight: 600 }}>Hạn sử dụng</th>
+                <th style={{ padding: '11px 16px', fontWeight: 600, textAlign: 'right' }}>Tồn kho</th>
+                <th style={{ padding: '11px 16px', fontWeight: 600 }}>Trạng thái</th>
+                <th style={{ padding: '11px 16px', fontWeight: 600, textAlign: 'right' }}>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedLots.length === 0 ? (
                 <tr>
-                  <th style={{ backgroundColor: '#f1f5f9', padding: '10px 14px' }}>Mã Sản Phẩm</th>
-                  <th style={{ backgroundColor: '#f1f5f9', padding: '10px 14px' }}>Tên Sản Phẩm</th>
-                  <th style={{ textAlign: 'right', backgroundColor: '#f1f5f9', padding: '10px 14px' }}>Số lượng tồn (Kg/Thùng)</th>
+                  <td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: '#64748b' }}>
+                    Không tìm thấy lô hàng nào phù hợp.
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {paginatedStock.map((item) => {
-                  const isHighlighted = Boolean(
-                    highlightCode && (
-                      item.sku.toLowerCase() === highlightCode.toLowerCase() ||
-                      item.productName.toLowerCase().includes(highlightCode.toLowerCase())
-                    )
-                  );
+              ) : (
+                paginatedLots.map((lot, idx) => {
+                  const isDanger = lot.riskLevel === 'DANGER';
+                  const isWarning = lot.riskLevel === 'WARNING';
+                  const shelfInfo = normalizeShelfCode(lot.location, idx);
+
+                  const today = new Date();
+                  const expiryDate = lot.expiryDate ? new Date(lot.expiryDate) : null;
+                  const daysLeft = expiryDate ? Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 3600 * 24)) : null;
+                  const expiryStr = expiryDate ? expiryDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A';
+
                   return (
                     <tr
-                      key={item.sku}
-                      ref={isHighlighted ? (el) => { if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } : undefined}
+                      key={lot.id}
                       style={{
                         borderBottom: '1px solid #f1f5f9',
-                        backgroundColor: isHighlighted ? '#f0fdf4' : undefined,
-                        boxShadow: isHighlighted ? 'inset 0 0 0 2px #0f766e' : undefined,
-                        transition: 'all 0.3s ease',
+                        backgroundColor: isDanger ? '#fffafa' : '#ffffff',
                       }}
                     >
-                      <td className="font-semibold" style={{ color: '#0f766e', padding: '10px 14px' }}>
-                        {item.sku}
-                        {isHighlighted && (
-                          <span style={{ backgroundColor: '#0f766e', color: '#fff', fontSize: '0.65rem', padding: '1px 6px', borderRadius: '4px', marginLeft: '6px', fontWeight: 700 }}>
-                            Đang tìm
-                          </span>
-                        )}
-                      </td>
-                      <td className="font-medium" style={{ padding: '10px 14px', fontWeight: isHighlighted ? 700 : undefined }}>{item.productName}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 800, color: '#1e293b', fontSize: '0.95rem', padding: '10px 14px' }}>{item.qty?.toLocaleString('vi-VN')}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-
-            {/* Pagination for Products Stock */}
-            {totalStockPages > 1 && (
-              <div style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
-                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                  Trang <strong>{stockPage}</strong> / <strong>{totalStockPages}</strong> (Tổng: {filteredWhStock.length} SKU)
-                </span>
-                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                  <button
-                    disabled={stockPage <= 1}
-                    onClick={() => setStockPage(p => Math.max(1, p - 1))}
-                    style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '0.75rem', cursor: stockPage <= 1 ? 'not-allowed' : 'pointer' }}
-                  >
-                    &lt;
-                  </button>
-
-                  {Array.from({ length: totalStockPages }, (_, i) => i + 1)
-                    .filter(p => p === 1 || p === totalStockPages || Math.abs(p - stockPage) <= 2)
-                    .map((p, i, arr) => (
-                      <React.Fragment key={p}>
-                        {i > 0 && arr[i - 1] !== p - 1 && <span style={{ padding: '0 3px', color: '#94a3b8', fontSize: '0.75rem' }}>...</span>}
-                        <button
-                          onClick={() => setStockPage(p)}
+                      {/* Shelf Code (A1, A2, B1, B2, C1, C2) */}
+                      <td style={{ padding: '12px 16px' }}>
+                        <span
                           style={{
-                            padding: '4px 8px',
+                            display: 'inline-block',
+                            padding: '3px 10px',
                             borderRadius: '6px',
-                            border: '1px solid',
-                            borderColor: stockPage === p ? '#0f766e' : '#cbd5e1',
-                            backgroundColor: stockPage === p ? '#0f766e' : '#fff',
-                            color: stockPage === p ? '#fff' : '#334155',
-                            fontSize: '0.75rem',
-                            fontWeight: stockPage === p ? 800 : 500,
-                            cursor: 'pointer',
-                            minWidth: '28px'
+                            fontSize: '12.5px',
+                            fontWeight: 700,
+                            backgroundColor: shelfInfo.bg,
+                            color: shelfInfo.color,
+                            border: `1px solid ${shelfInfo.border}`,
                           }}
                         >
-                          {p}
-                        </button>
-                      </React.Fragment>
-                    ))}
+                          {shelfInfo.code}
+                        </span>
+                      </td>
 
-                  <button
-                    disabled={stockPage >= totalStockPages}
-                    onClick={() => setStockPage(p => Math.min(totalStockPages, p + 1))}
-                    style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '0.75rem', cursor: stockPage >= totalStockPages ? 'not-allowed' : 'pointer' }}
-                  >
-                    &gt;
-                  </button>
-                </div>
-              </div>
-            )}
+                      {/* Product Name + SKU */}
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ fontWeight: 600, color: '#0f172a' }}>{lot.displayName || 'Sản phẩm'}</div>
+                        <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
+                          {lot.displaySku || lot.productId}
+                        </div>
+                      </td>
+
+                      {/* Lot Code */}
+                      <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '12px', fontWeight: 600, color: '#334155' }}>
+                        {lot.lotCode}
+                      </td>
+
+                      {/* Expiry Date */}
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ fontWeight: 600, color: isDanger ? '#dc2626' : isWarning ? '#d97706' : '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
+                          {expiryStr}
+                        </div>
+                        {daysLeft !== null && (
+                          <div style={{ fontSize: '11.5px', color: isDanger ? '#dc2626' : '#64748b', marginTop: '1px' }}>
+                            {daysLeft <= 0 ? `Quá hạn ${Math.abs(daysLeft)} ngày` : `Còn ${daysLeft} ngày`}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Remaining Qty */}
+                      <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
+                        {lot.remainingQty} SP
+                      </td>
+
+                      {/* Status Badge */}
+                      <td style={{ padding: '12px 16px' }}>
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '11.5px',
+                            fontWeight: 600,
+                            backgroundColor: isDanger ? '#fef2f2' : isWarning ? '#fffbeb' : '#f0fdf4',
+                            color: isDanger ? '#991b1b' : isWarning ? '#92400e' : '#166534',
+                            border: `1px solid ${isDanger ? '#fecaca' : isWarning ? '#fde68a' : '#bbf7d0'}`,
+                          }}
+                        >
+                          {isDanger ? 'Cần xử lý' : isWarning ? 'Cận hạn' : 'Đạt chuẩn'}
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setAdjustModal({
+                                isOpen: true,
+                                lot,
+                                newQty: lot.remainingQty,
+                                reason: 'Kiểm kê định kỳ hàng tháng',
+                                qualityStatus: isDanger ? 'EXPIRED' : isWarning ? 'DAMAGED' : 'GOOD',
+                                note: '',
+                              })
+                            }
+                            style={{
+                              padding: '6px 10px',
+                              borderRadius: '6px',
+                              backgroundColor: '#f8fafc',
+                              color: '#334155',
+                              border: '1px solid #cbd5e1',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Kiểm kê
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleCreateOutboundFromLot(lot, isDanger, expiryStr)}
+                            style={{
+                              padding: '6px 10px',
+                              borderRadius: '6px',
+                              backgroundColor: isDanger ? '#dc2626' : '#0f766e',
+                              color: '#ffffff',
+                              border: 'none',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {isDanger ? 'Tiêu hủy' : 'Xuất kho'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {totalLotsPages > 1 && (
+          <div
+            style={{
+              padding: '10px 18px',
+              borderTop: '1px solid #e2e8f0',
+              backgroundColor: '#f8fafc',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              fontSize: '12.5px',
+              color: '#64748b',
+            }}
+          >
+            <span>
+              Trang <strong>{lotsPage}</strong> / <strong>{totalLotsPages}</strong>
+            </span>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button
+                type="button"
+                disabled={lotsPage <= 1}
+                onClick={() => setLotsPage((p) => Math.max(1, p - 1))}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  backgroundColor: '#ffffff',
+                  cursor: lotsPage <= 1 ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Trước
+              </button>
+              <button
+                type="button"
+                disabled={lotsPage >= totalLotsPages}
+                onClick={() => setLotsPage((p) => Math.min(totalLotsPages, p + 1))}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  backgroundColor: '#ffffff',
+                  cursor: lotsPage >= totalLotsPages ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Sau
+              </button>
+            </div>
           </div>
         )}
       </div>
-
-      {isManager && (
-        <div id="lot-inventory-section" style={{ flex: 1, display: 'flex', flexDirection: 'column', marginTop: '1.25rem' }}>
-          
-          {/* Section Header & Filter Controls */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', flexWrap: 'wrap', gap: '10px' }}>
-            <div>
-              <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                <Boxes size={20} color="#0f766e" /> Chi tiết Lô hàng & Kiểm kê ({filteredWhLots.length})
-              </h4>
-              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ backgroundColor: '#f0fdf4', color: '#16a34a', padding: '2px 6px', borderRadius: '4px', fontWeight: 600, border: '1px solid #bbf7d0' }}>
-                  Giám sát chất lượng tự động
-                </span>
-                <span>Tiêu chuẩn bảo quản kho lạnh 24/7 • Đảm bảo hạn sử dụng đạt chuẩn</span>
-              </div>
-            </div>
-            
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <button
-                onClick={async () => {
-                  if (viewingWh) {
-                    await handleViewStock(viewingWh, true);
-                    alert('Đã cập nhật đánh giá rủi ro chất lượng cho toàn bộ lô hàng.');
-                  }
-                }}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '6px',
-                  border: '1px solid #0f766e',
-                  backgroundColor: '#f0fdfa',
-                  color: '#0f766e',
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
-                title="Cập nhật đánh giá chất lượng và hạn sử dụng cho toàn bộ lô hàng"
-              >
-                <RefreshCw size={12} />
-                <span>Cập nhật đánh giá</span>
-              </button>
-
-              {/* Search Input */}
-              <input
-                type="text"
-                placeholder="Tìm mã lô, vị trí kệ, mã sản phẩm..."
-                value={lotsSearch}
-                onChange={e => { setLotsSearch(e.target.value); setLotsPage(1); }}
-                style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.82rem', width: '210px' }}
-              />
-            </div>
-          </div>
-
-          {/* 4 Interactive Risk Level Filter Tabs */}
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px' }}>
-            <button
-              onClick={() => { setSelectedRiskFilter('ALL'); setLotsPage(1); }}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '6px',
-                border: '1px solid',
-                borderColor: selectedRiskFilter === 'ALL' ? '#0f766e' : '#cbd5e1',
-                backgroundColor: selectedRiskFilter === 'ALL' ? '#0f766e' : '#fff',
-                color: selectedRiskFilter === 'ALL' ? '#fff' : '#334155',
-                fontWeight: 600,
-                fontSize: '0.78rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              Tất cả ({whLots.length})
-            </button>
-
-            <button
-              onClick={() => { setSelectedRiskFilter('SAFE'); setLotsPage(1); }}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '6px',
-                border: '1px solid',
-                borderColor: selectedRiskFilter === 'SAFE' ? '#16a34a' : '#bbf7d0',
-                backgroundColor: selectedRiskFilter === 'SAFE' ? '#16a34a' : '#f0fdf4',
-                color: selectedRiskFilter === 'SAFE' ? '#fff' : '#15803d',
-                fontWeight: 600,
-                fontSize: '0.78rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              Bình thường ({whStats?.safeCount || 0})
-            </button>
-
-            <button
-              onClick={() => { setSelectedRiskFilter('WARNING'); setLotsPage(1); }}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '6px',
-                border: '1px solid',
-                borderColor: selectedRiskFilter === 'WARNING' ? '#d97706' : '#fde68a',
-                backgroundColor: selectedRiskFilter === 'WARNING' ? '#d97706' : '#fffbeb',
-                color: selectedRiskFilter === 'WARNING' ? '#fff' : '#b45309',
-                fontWeight: 600,
-                fontSize: '0.78rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              Có nguy cơ ({whStats?.warningCount || 0})
-            </button>
-
-            <button
-              onClick={() => { setSelectedRiskFilter('DANGER'); setLotsPage(1); }}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '6px',
-                border: '1px solid',
-                borderColor: selectedRiskFilter === 'DANGER' ? '#dc2626' : '#fecaca',
-                backgroundColor: selectedRiskFilter === 'DANGER' ? '#dc2626' : '#fef2f2',
-                color: selectedRiskFilter === 'DANGER' ? '#fff' : '#b91c1c',
-                fontWeight: 600,
-                fontSize: '0.78rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              Báo động đỏ ({whStats?.dangerCount || 0})
-            </button>
-
-            <button
-              onClick={() => { setSelectedRiskFilter('AUDITED'); setLotsPage(1); }}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '6px',
-                border: '1px solid',
-                borderColor: selectedRiskFilter === 'AUDITED' ? '#0f766e' : '#99f6e4',
-                backgroundColor: selectedRiskFilter === 'AUDITED' ? '#0f766e' : '#f0fdfa',
-                color: selectedRiskFilter === 'AUDITED' ? '#fff' : '#0f766e',
-                fontWeight: 600,
-                fontSize: '0.78rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              Đã kiểm kê ({whStats?.auditedCount || 0})
-            </button>
-
-            <button
-              onClick={() => { setSelectedRiskFilter('PENDING_AUDIT'); setLotsPage(1); }}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '6px',
-                border: '1px solid',
-                borderColor: selectedRiskFilter === 'PENDING_AUDIT' ? '#64748b' : '#e2e8f0',
-                backgroundColor: selectedRiskFilter === 'PENDING_AUDIT' ? '#64748b' : '#f8fafc',
-                color: selectedRiskFilter === 'PENDING_AUDIT' ? '#fff' : '#475569',
-                fontWeight: 600,
-                fontSize: '0.78rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              Chưa kiểm kê ({whStats?.pendingAuditCount || 0})
-            </button>
-
-            <button
-              onClick={() => { setSelectedRiskFilter('DEPLETED'); setLotsPage(1); }}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '6px',
-                border: '1px solid',
-                borderColor: selectedRiskFilter === 'DEPLETED' ? '#475569' : '#e2e8f0',
-                backgroundColor: selectedRiskFilter === 'DEPLETED' ? '#475569' : '#f8fafc',
-                color: selectedRiskFilter === 'DEPLETED' ? '#fff' : '#64748b',
-                fontWeight: 600,
-                fontSize: '0.78rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              Đã hết (0 SP: {whStats?.depletedCount || 0})
-            </button>
-
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.76rem', color: '#334155', fontWeight: 600, cursor: 'pointer', marginLeft: 'auto', backgroundColor: '#f8fafc', padding: '5px 10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-              <input
-                type="checkbox"
-                checked={hideDepletedLots}
-                onChange={e => { setHideDepletedLots(e.target.checked); setLotsPage(1); }}
-                style={{ cursor: 'pointer' }}
-              />
-              Tự động ẩn lô 0 tồn kho
-            </label>
-          </div>
-
-          {/* Active Filter Banner */}
-          {(selectedRiskFilter !== 'ALL' || selectedZoneFilter !== 'ALL') && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: selectedRiskFilter === 'DANGER' ? '#fee2e2' : selectedRiskFilter === 'WARNING' ? '#fffbeb' : '#f0fdfa', border: `1px solid ${selectedRiskFilter === 'DANGER' ? '#fca5a5' : selectedRiskFilter === 'WARNING' ? '#fde68a' : '#99f6e4'}`, padding: '8px 14px', borderRadius: '6px', marginBottom: '12px', fontSize: '0.8rem' }}>
-              <div style={{ fontWeight: 600, color: selectedRiskFilter === 'DANGER' ? '#991b1b' : selectedRiskFilter === 'WARNING' ? '#b45309' : '#0f766e', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>
-                  Đang lọc: {selectedRiskFilter === 'DANGER' ? 'Lô hàng Báo Động Đỏ / Hư hỏng' : selectedRiskFilter === 'WARNING' ? 'Lô hàng Có Nguy Cơ (Cận hạn sử dụng)' : selectedRiskFilter === 'SAFE' ? 'Lô hàng Đạt Chuẩn Bình Thường' : ''} 
-                  {selectedZoneFilter !== 'ALL' ? ` • Khu vực: ${selectedZoneFilter}` : ''} ({filteredWhLots.length} Lô)
-                </span>
-              </div>
-              <button 
-                onClick={() => { setSelectedRiskFilter('ALL'); setSelectedZoneFilter('ALL'); setLotsPage(1); }}
-                style={{ background: 'none', border: 'none', color: '#dc2626', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', fontSize: '0.78rem' }}
-              >
-                Xóa bộ lọc (Xem tất cả)
-              </button>
-            </div>
-          )}
-
-          {filteredWhLots.length === 0 ? (
-            isSearchingCrossWh ? (
-              <div style={{ padding: '2.5rem', textAlign: 'center', color: '#0f766e', backgroundColor: '#f0fdfa', borderRadius: '10px', border: '1px solid #ccfbf1' }}>
-                <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 8px', color: '#0f766e' }} />
-                <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>Đang quét tìm kiếm lô hàng trên toàn bộ mạng lưới kho...</div>
-              </div>
-            ) : crossWhLots.length > 0 ? (
-              <div style={{ padding: '18px 20px', backgroundColor: '#f0fdf4', borderRadius: '10px', border: '1.5px solid #bbf7d0', textAlign: 'left' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#166534', fontWeight: 700, fontSize: '0.95rem', marginBottom: '6px' }}>
-                  <CheckCircle2 size={18} color="#16a34a" />
-                  <span>Không có lô này trong {viewingWh?.name || 'kho hiện tại'}, nhưng tìm thấy tại kho khác!</span>
-                </div>
-                <p style={{ fontSize: '0.82rem', color: '#334155', margin: '0 0 12px' }}>
-                  Hệ thống tìm thấy <strong>{crossWhLots.length} lô hàng</strong> phù hợp với từ khóa <strong>"{lotsSearch}"</strong> tại các kho sau trong mạng lưới:
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {crossWhLots.map((cl: any) => {
-                    const targetWh = warehouses.find(w => w.code.toUpperCase() === (cl.warehouseCode || '').toUpperCase());
-                    return (
-                      <div
-                        key={cl.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '10px 14px',
-                          backgroundColor: '#ffffff',
-                          border: '1px solid #cbd5e1',
-                          borderRadius: '8px',
-                          gap: '12px',
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>
-                            {cl.lotCode}
-                          </div>
-                          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span>Kho: <strong style={{ color: '#0f766e' }}>{targetWh?.name || cl.warehouseCode}</strong> ({cl.warehouseCode})</span>
-                            <span>•</span>
-                            <span>Còn <strong>{Number(cl.remainingQty || cl.quantity || 0).toLocaleString('vi-VN')}</strong> món</span>
-                            {cl.location && (
-                              <>
-                                <span>•</span>
-                                <span>Kệ: <strong>{cl.location}</strong></span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (targetWh) {
-                              handleViewStock(targetWh);
-                            }
-                          }}
-                          style={{
-                            padding: '6px 14px',
-                            backgroundColor: '#0f766e',
-                            color: '#ffffff',
-                            border: 'none',
-                            borderRadius: '6px',
-                            fontWeight: 600,
-                            fontSize: '0.78rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            flexShrink: 0,
-                            transition: 'background-color 0.15s ease',
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#115e59')}
-                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#0f766e')}
-                        >
-                          <span>Chuyển sang xem tại {cl.warehouseCode}</span>
-                          <ArrowRight size={14} />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-              <div style={{ padding: '2.5rem 1.5rem', textAlign: 'center', color: '#64748b', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
-                <Boxes size={32} color="#94a3b8" style={{ margin: '0 auto 10px' }} />
-                <div style={{ fontWeight: 700, color: '#1e293b', fontSize: '0.92rem' }}>
-                  {lotsSearch
-                    ? `Không tìm thấy lô hàng "${lotsSearch}" trong ${viewingWh?.name || 'kho hiện tại'}`
-                    : 'Không có lô hàng nào phù hợp với bộ lọc đã chọn'}
-                </div>
-                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '6px', maxWidth: '520px', margin: '6px auto 0', lineHeight: 1.5 }}>
-                  {lotsSearch ? (
-                    <span>
-                      Tài khoản quản lý kho được phân quyền kiểm kê độc lập tại <strong>{viewingWh?.name || viewingWh?.code}</strong>. Không có lô hàng nào có mã hoặc tên khớp với từ khóa này trong kho trực thuộc.
-                    </span>
-                  ) : (
-                    <span>
-                      Đang hiển thị tại: <strong>{viewingWh?.name || 'Kho hiện tại'}</strong>. Hãy thử kiểm tra lại mã lô hoặc đổi bộ lọc trạng thái.
-                    </span>
-                  )}
-                </div>
-                {lotsSearch && (
-                  <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center', gap: '8px' }}>
-                    <button
-                      type="button"
-                      onClick={() => { setLotsSearch(''); setSelectedRiskFilter('ALL'); setSelectedZoneFilter('ALL'); setLotsPage(1); }}
-                      style={{ padding: '7px 16px', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, color: '#0f766e', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
-                    >
-                      Xóa tìm kiếm & xem tất cả ({whLots.length}) lô hàng trong kho
-                    </button>
-                  </div>
-                )}
-              </div>
-            )
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '1rem' }}>
-                {paginatedLots.map((lot) => {
-                  const isHighlighted = Boolean(
-                    highlightCode && (
-                      lot.lotCode.toLowerCase() === highlightCode.toLowerCase() ||
-                      (lot.sku && lot.sku.toLowerCase() === highlightCode.toLowerCase()) ||
-                      (lot.displaySku && lot.displaySku.toLowerCase() === highlightCode.toLowerCase())
-                    )
-                  );
-                  const isDanger = lot.riskLevel === 'DANGER';
-                  const isWarning = lot.riskLevel === 'WARNING';
-
-                  const cardBg = isHighlighted ? '#f0fdf4' : (isDanger ? '#fff8f8' : isWarning ? '#fffdf7' : '#ffffff');
-                  const cardBorder = isHighlighted ? '2.5px solid #0f766e' : (isDanger ? '2px solid #f87171' : isWarning ? '1.5px solid #fde047' : '1px solid #e2e8f0');
-                  const shadow = isHighlighted ? '0 0 0 4px rgba(15, 118, 110, 0.25), 0 8px 20px rgba(0,0,0,0.08)' : (isDanger ? '0 4px 12px rgba(239, 68, 68, 0.12)' : isWarning ? '0 4px 10px rgba(234, 179, 8, 0.08)' : '0 2px 4px rgba(0,0,0,0.02)');
-
-                  const badgeBg = isDanger ? '#fee2e2' : isWarning ? '#fefce8' : '#f0fdf4';
-                  const badgeColor = isDanger ? '#b91c1c' : isWarning ? '#b45309' : '#15803d';
-                  // Use the specific reason computed during data load (expiryDate-aware)
-                  const badgeText = lot.riskReason || (isDanger ? 'Báo động đỏ' : isWarning ? 'Có nguy cơ' : 'An toàn');
-
-                  // Expiry calculation (for display only)
-                  const today = new Date();
-                  const expiryDate = lot.expiryDate ? new Date(lot.expiryDate) : null;
-                  const importDate = lot.importDate ? new Date(lot.importDate) : null;
-                  const daysLeft = expiryDate ? Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 3600 * 24)) : null;
-                  const expiryStr = expiryDate ? expiryDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A';
-                  const importStr = importDate ? importDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A';
-
-                  // Days left display
-                  const daysLeftColor = daysLeft === null ? '#64748b' : daysLeft <= 0 ? '#dc2626' : daysLeft <= 7 ? '#dc2626' : daysLeft <= 30 ? '#d97706' : '#15803d';
-                  const daysLeftText = daysLeft === null ? 'N/A' : daysLeft <= 0 ? `HẾT HẠN ${Math.abs(daysLeft)} ngày trước` : `Còn ${daysLeft} ngày`;
-
-                  // Zone temperature info
-                  const zoneInfo: Record<string, { label: string; temp: string; color: string }> = {
-                    FROZEN: { label: 'Kho Đông', temp: '-18°C', color: '#1d4ed8' },
-                    COLD:   { label: 'Kho Mát',  temp: '0–4°C',  color: '#059669' },
-                    DRY:    { label: 'Kho Khô',  temp: '25°C',   color: '#475569' },
-                  };
-                  const zone = zoneInfo[lot.zone] || { label: lot.zone, temp: 'N/A', color: '#64748b' };
-
-                  return (
-                    <div 
-                      key={lot.id} 
-                      ref={isHighlighted ? (el) => { if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } : undefined}
-                      style={{ 
-                        backgroundColor: cardBg, 
-                        border: cardBorder, 
-                        borderRadius: '10px', 
-                        padding: '1.1rem', 
-                        display: 'flex', 
-                        flexDirection: 'column', 
-                        gap: '10px', 
-                        boxShadow: shadow,
-                        transition: 'all 0.2s ease'
-                      }}
-                    >
-                      {/* Row 1: Status Badge (reason-specific) + Zone+Temp chip */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: badgeColor, backgroundColor: badgeBg, padding: '3px 8px', borderRadius: '4px', border: `1px solid ${isDanger ? '#fca5a5' : isWarning ? '#fef08a' : '#bbf7d0'}`, whiteSpace: 'nowrap' }}>
-                          {badgeText}
-                        </span>
-                        <span style={{ 
-                          fontSize: '0.7rem', fontWeight: 600, color: zone.color, 
-                          backgroundColor: `${zone.color}15`, padding: '3px 8px', borderRadius: '4px',
-                          border: `1px solid ${zone.color}30`, display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap'
-                        }}>
-                          {zone.label} • {zone.temp}
-                        </span>
-                      </div>
-
-                      {/* Row 2: Lot Code + Product Name */}
-                      <div>
-                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#0f766e', letterSpacing: '0.3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span>Mã lô: {lot.lotCode}</span>
-                          {isHighlighted && (
-                            <span style={{ backgroundColor: '#0f766e', color: '#fff', fontSize: '0.65rem', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                              Đang tìm
-                            </span>
-                          )}
-                        </div>
-                        <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', marginTop: '3px', lineHeight: 1.3 }}>
-                          {lot.displayName || 'Sản phẩm'}
-                        </div>
-                        <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>
-                          SKU: <strong>{lot.displaySku || lot.productId}</strong> &nbsp;•&nbsp; Vị trí: <strong>{lot.location}</strong>
-                        </div>
-                      </div>
-
-                      {/* Row 3: Expiry + Import dates (2-col grid) */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', backgroundColor: isDanger ? '#fef2f2' : isWarning ? '#fffbeb' : '#f8fafc', borderRadius: '6px', padding: '8px 10px' }}>
-                        <div>
-                          <div style={{ fontSize: '0.64rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>Ngày nhập</div>
-                          <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#475569' }}>{importStr}</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '0.64rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>Hạn sử dụng</div>
-                          <div style={{ fontSize: '0.78rem', fontWeight: 600, color: daysLeftColor }}>{expiryStr}</div>
-                        </div>
-                      </div>
-
-                      {/* Row 4: ML Risk Score + Degradation + XAI Explainability */}
-                      <div style={{ backgroundColor: isDanger ? '#fef2f2' : isWarning ? '#fffbeb' : '#f8fafc', borderRadius: '8px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '8px', border: `1px solid ${isDanger ? '#fed7d7' : isWarning ? '#fef08a' : '#e2e8f0'}` }}>
-                        {/* ML Score & Confidence */}
-                        <div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                              <span style={{ fontSize: '0.66rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-                                Rủi ro chất lượng
-                              </span>
-                              <span style={{ fontSize: '0.62rem', backgroundColor: '#e2e8f0', color: '#334155', padding: '1px 5px', borderRadius: '4px', fontWeight: 600 }}>
-                                Chuẩn 97%
-                              </span>
-                            </div>
-                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: isDanger ? '#dc2626' : isWarning ? '#d97706' : '#15803d' }}>
-                              {lot.aiScore ?? '—'}/100
-                            </span>
-                          </div>
-                          <div style={{ height: '6px', borderRadius: '99px', backgroundColor: '#e2e8f0', overflow: 'hidden' }}>
-                            <div style={{
-                              height: '100%', borderRadius: '99px',
-                              width: `${Math.min(100, lot.aiScore ?? 0)}%`,
-                              backgroundColor: (lot.aiScore ?? 0) >= 70 ? '#ef4444' : (lot.aiScore ?? 0) >= 40 ? '#f59e0b' : '#22c55e',
-                              transition: 'width 0.6s ease',
-                              boxShadow: isDanger ? '0 0 6px rgba(239,68,68,0.5)' : isWarning ? '0 0 4px rgba(245,158,11,0.4)' : 'none'
-                            }} />
-                          </div>
-                        </div>
-
-                        {/* Shelf Life % */}
-                        {lot.shelfLifePct !== undefined && (
-                          <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                              <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-                                {daysLeft !== null && daysLeft <= 0 ? 'ĐÃ HẾT HẠN' : `Vòng đời: ${daysLeft !== null ? `Còn ${daysLeft} ngày` : 'N/A'}`}
-                              </span>
-                              <span style={{ fontSize: '0.72rem', fontWeight: 600, color: daysLeftColor }}>{daysLeftText}</span>
-                            </div>
-                            <div style={{ height: '5px', borderRadius: '99px', backgroundColor: '#e2e8f0', overflow: 'hidden' }}>
-                              <div style={{
-                                height: '100%', borderRadius: '99px',
-                                width: `${Math.min(100, lot.shelfLifePct)}%`,
-                                backgroundColor: lot.shelfLifePct >= 90 ? '#ef4444' : lot.shelfLifePct >= 70 ? '#f59e0b' : '#22c55e',
-                                transition: 'width 0.6s ease'
-                              }} />
-                            </div>
-                          </div>
-                        )}
-
-                        {/* XAI: Feature Contributions Pills */}
-                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', paddingTop: '4px', borderTop: '1px dashed #cbd5e1' }}>
-                          <span style={{ fontSize: '0.6rem', color: '#64748b', backgroundColor: '#fff', padding: '2px 5px', borderRadius: '4px', border: '1px solid #e2e8f0' }} title="Ảnh hưởng nhiệt độ bảo quản">
-                            Nhiệt: <strong>{lot.zone === 'FROZEN' ? 'Chuẩn -18°C' : lot.zone === 'COLD' ? 'Chuẩn 3°C' : 'Khô 25°C'}</strong>
-                          </span>
-                          <span style={{ fontSize: '0.6rem', color: '#64748b', backgroundColor: '#fff', padding: '2px 5px', borderRadius: '4px', border: '1px solid #e2e8f0' }} title="Tỷ lệ vòng đời đã trôi qua">
-                            Đã dùng: <strong>{Math.round(lot.shelfLifePct || 0)}%</strong>
-                          </span>
-                          <span style={{ fontSize: '0.6rem', color: '#64748b', backgroundColor: '#fff', padding: '2px 5px', borderRadius: '4px', border: '1px solid #e2e8f0' }} title="Đặc tính phân nhóm sinh hóa thực phẩm">
-                            Nhóm: <strong>{lot.riskCategory || 'Thực phẩm'}</strong>
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Row 5: AI Recommendation */}
-                      {lot.riskRecommendation && (
-                        <div style={{
-                          backgroundColor: isDanger ? '#fee2e2' : isWarning ? '#fefce8' : '#ecfdf5',
-                          border: `1px solid ${isDanger ? '#fca5a5' : isWarning ? '#fde68a' : '#bbf7d0'}`,
-                          borderRadius: '6px',
-                          padding: '6px 10px',
-                          fontSize: '0.7rem',
-                          color: isDanger ? '#7f1d1d' : isWarning ? '#78350f' : '#14532d',
-                          fontWeight: 500,
-                        }}>
-                          <span>{lot.riskRecommendation}</span>
-                        </div>
-                      )}
-
-                      {/* Row 5.5: Audit History & Status Record */}
-                      {lot.lastAuditedAt ? (
-                        <div style={{ backgroundColor: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: '6px', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#0f766e', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              ĐÃ KIỂM KÊ
-                            </span>
-                            <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 500 }}>
-                              {new Date(lot.lastAuditedAt).toLocaleDateString('vi-VN')} {new Date(lot.lastAuditedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: '0.72rem', color: '#334155' }}>
-                            Người kiểm: <strong>{lot.lastAuditedBy || 'Nhân viên trực ca'}</strong>
-                          </div>
-                          <div style={{ fontSize: '0.72rem', display: 'flex', justifyContent: 'space-between', color: '#334155' }}>
-                            <span>Thực đếm: <strong>{lot.lastAuditActualQty ?? lot.remainingQty} SP</strong></span>
-                            <span style={{ fontWeight: 600, color: (lot.lastAuditDiff ?? 0) > 0 ? '#16a34a' : (lot.lastAuditDiff ?? 0) < 0 ? '#dc2626' : '#0f766e' }}>
-                              {(lot.lastAuditDiff ?? 0) > 0 ? `Lệch: +${lot.lastAuditDiff} (Thừa)` : (lot.lastAuditDiff ?? 0) < 0 ? `Lệch: ${lot.lastAuditDiff} (Thiếu)` : 'Khớp 100%'}
-                            </span>
-                          </div>
-                          {lot.lastAuditReason && (
-                            <div style={{ fontSize: '0.68rem', color: '#64748b', fontStyle: 'italic' }}>
-                              Lý do: {lot.lastAuditReason}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div style={{ backgroundColor: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '6px', padding: '6px 10px', fontSize: '0.7rem', color: '#64748b' }}>
-                          <span>Chưa đối soát kiểm kê trong kỳ</span>
-                        </div>
-                      )}
-
-                      {/* Row 5.8: Outbound / Disposal Order Badge */}
-                      {(() => {
-                        const existing = outboundLotMap[lot.lotCode] || outboundLotMap[lot.id];
-                        if (!existing) return null;
-                        const isDisposal = existing.isDisposal;
-                        const orderedQty = existing.orderedQty || 4;
-                        return (
-                          <div
-                            onClick={() => navigate(`/outbound-orders?orderCode=${existing.orderCode}`)}
-                            style={{
-                              backgroundColor: isDisposal ? '#fef2f2' : '#f0fdf4',
-                              border: `1px solid ${isDisposal ? '#fecaca' : '#bbf7d0'}`,
-                              color: isDisposal ? '#b91c1c' : '#166534',
-                              borderRadius: '6px',
-                              padding: '6px 10px',
-                              fontSize: '0.72rem',
-                              fontWeight: 600,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              cursor: 'pointer',
-                            }}
-                            title="Bấm để xem chi tiết phiếu xuất kho này"
-                          >
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              {isDisposal ? 'ĐÃ CÓ ĐƠN TIÊU HỦY' : 'ĐANG XUẤT BÁN LẺ'}: <b>{existing.orderCode}</b>
-                              {!isDisposal && (
-                                <span style={{ color: '#475569', fontWeight: 500, fontSize: '0.68rem' }}>
-                                  ({orderedQty} SP)
-                                </span>
-                              )}
-                            </span>
-                            <span style={{ fontSize: '0.68rem', backgroundColor: isDisposal ? '#fee2e2' : '#dcfce7', padding: '1px 5px', borderRadius: '4px' }}>
-                              {existing.status}
-                            </span>
-                          </div>
-                        );
-                      })()}
-
-                      {/* Row 6: Stock Qty + Audit Button */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: `1px solid ${isDanger ? '#fed7d7' : isWarning ? '#fef3c7' : '#f1f5f9'}` }}>
-                        <div>
-                          <div style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 600 }}>Tồn kho thực tế:</div>
-                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                            <div style={{ fontSize: '1.2rem', fontWeight: 900, color: isDanger ? '#dc2626' : '#1e293b' }}>
-                              {lot.remainingQty} <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>SP</span>
-                            </div>
-                            {(() => {
-                              const existing = outboundLotMap[lot.lotCode] || outboundLotMap[lot.id];
-                              if (existing && !existing.isDisposal) {
-                                const ordered = existing.orderedQty || 4;
-                                const rem = Math.max(0, lot.remainingQty - ordered);
-                                return (
-                                  <span style={{ fontSize: '0.65rem', color: '#0f766e', fontWeight: 600 }}>
-                                    (Giao: {ordered} • Còn lại: {rem})
-                                  </span>
-                                );
-                              }
-                              return null;
-                            })()}
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                          {(() => {
-                            const existing = outboundLotMap[lot.lotCode] || outboundLotMap[lot.id];
-                            const hasDisposal = existing && existing.isDisposal;
-                            const hasRetailOnly = existing && !existing.isDisposal;
-
-                            return (
-                              <button
-                                type="button"
-                                disabled={isCreatingOutbound || hasDisposal}
-                                onClick={() => handleCreateOutboundFromLot(lot, isDanger, expiryStr)}
-                                style={{
-                                  padding: '7px 12px',
-                                  borderRadius: '8px',
-                                  backgroundColor: hasDisposal ? '#475569' : (hasRetailOnly ? '#dc2626' : (isDanger ? '#dc2626' : isWarning ? '#d97706' : '#0284c7')),
-                                  color: '#ffffff',
-                                  border: 'none',
-                                  fontSize: '0.78rem',
-                                  fontWeight: 800,
-                                  cursor: (isCreatingOutbound || hasDisposal) ? 'not-allowed' : 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '5px',
-                                  boxShadow: hasDisposal ? 'none' : '0 2px 8px rgba(0,0,0,0.15)',
-                                  opacity: (isCreatingOutbound || hasDisposal) ? 0.7 : 1
-                                }}
-                                title={hasDisposal ? `Lô này đã lập phiếu tiêu hủy ${existing.orderCode}` : hasRetailOnly ? `Lô đang có đơn bán lẻ ${existing.orderCode}. Bấm để chọn giải quyết xung đột & tiêu hủy.` : isDanger ? 'Tự động tạo đơn xuất tiêu hủy / trả hàng' : 'Tự động tạo đơn xuất kho ưu tiên hạn dùng'}
-                              >
-                                <Send size={12} /> {hasDisposal ? `Đã Lập Tiêu Hủy (${existing.orderCode})` : hasRetailOnly ? 'Xuất Tiêu Hủy' : isDanger ? 'Xuất Tiêu Hủy' : isWarning ? 'Xuất Hạn Gần' : 'Xuất Kho'}
-                              </button>
-                            );
-                          })()}
-
-                          <button 
-                            type="button"
-                            onClick={() => setAdjustModal({
-                              isOpen: true,
-                              lot,
-                              newQty: lot.remainingQty,
-                              reason: isDanger ? 'Hàng hư hỏng / Quá hạn sử dụng (Tiêu hủy)' : isWarning ? 'Hàng dập nát / Hư hỏng trong bảo quản' : 'Kiểm kê định kỳ hàng tháng',
-                              qualityStatus: isDanger ? 'EXPIRED' : isWarning ? 'DAMAGED' : 'GOOD',
-                              note: ''
-                            })}
-                            style={{ 
-                              padding: '7px 12px', 
-                              borderRadius: '8px', 
-                              backgroundColor: lot.lastAuditedAt ? '#0f766e' : '#f8fafc', 
-                              border: lot.lastAuditedAt ? 'none' : '1px solid #cbd5e1', 
-                              color: lot.lastAuditedAt ? '#fff' : '#1e293b', 
-                              fontSize: '0.78rem', 
-                              fontWeight: 800, 
-                              cursor: 'pointer', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              gap: '4px',
-                              boxShadow: lot.lastAuditedAt ? '0 2px 6px rgba(15, 118, 110, 0.25)' : 'none'
-                            }}
-                          >
-                            <Edit2 size={12} /> {lot.lastAuditedAt ? 'Kiểm kê lại' : isDanger ? 'Kiểm kê ngay' : 'Kiểm kê'}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-
-              {/* Pagination for Lots */}
-              {totalLotsPages > 1 && (
-                <div style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '10px', background: '#fff', border: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                      Trang <strong>{lotsPage}</strong> / <strong>{totalLotsPages}</strong> (Tổng: {filteredWhLots.length} Lô)
-                    </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#64748b' }}>
-                      <span>Hiển thị:</span>
-                      {[8, 12, 16, 24].map(sz => (
-                        <button
-                          key={sz}
-                          type="button"
-                          onClick={() => { setLotsPageSize(sz); setLotsPage(1); }}
-                          style={{
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            border: '1px solid',
-                            borderColor: lotsPageSize === sz ? '#0f766e' : '#cbd5e1',
-                            background: lotsPageSize === sz ? '#0f766e' : '#f8fafc',
-                            color: lotsPageSize === sz ? '#fff' : '#475569',
-                            fontWeight: lotsPageSize === sz ? 800 : 500,
-                            fontSize: '0.75rem',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {sz}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    <button
-                      disabled={lotsPage <= 1}
-                      onClick={() => setLotsPage(p => Math.max(1, p - 1))}
-                      style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '0.75rem', cursor: lotsPage <= 1 ? 'not-allowed' : 'pointer' }}
-                    >
-                      &lt;
-                    </button>
-
-                    {Array.from({ length: totalLotsPages }, (_, i) => i + 1)
-                      .filter(p => p === 1 || p === totalLotsPages || Math.abs(p - lotsPage) <= 2)
-                      .map((p, i, arr) => (
-                        <React.Fragment key={p}>
-                          {i > 0 && arr[i - 1] !== p - 1 && <span style={{ padding: '0 3px', color: '#94a3b8', fontSize: '0.75rem' }}>...</span>}
-                          <button
-                            onClick={() => setLotsPage(p)}
-                            style={{
-                              padding: '4px 8px',
-                              borderRadius: '6px',
-                              border: '1px solid',
-                              borderColor: lotsPage === p ? '#0f766e' : '#cbd5e1',
-                              backgroundColor: lotsPage === p ? '#0f766e' : '#fff',
-                              color: lotsPage === p ? '#fff' : '#334155',
-                              fontSize: '0.75rem',
-                              fontWeight: lotsPage === p ? 800 : 500,
-                              cursor: 'pointer',
-                              minWidth: '28px'
-                            }}
-                          >
-                            {p}
-                          </button>
-                        </React.Fragment>
-                      ))}
-
-                    <button
-                      disabled={lotsPage >= totalLotsPages}
-                      onClick={() => setLotsPage(p => Math.min(totalLotsPages, p + 1))}
-                      style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '0.75rem', cursor: lotsPage >= totalLotsPages ? 'not-allowed' : 'pointer' }}
-                    >
-                      &gt;
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 
-  const renderTabBar = () => (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      flexWrap: 'wrap',
-      gap: '12px',
-      background: '#ffffff',
-      padding: '8px 14px',
-      borderRadius: '16px',
-      border: '1px solid #e2e8f0',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
-    }}>
-      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+  const renderHeaderBar = () => (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '12px',
+        backgroundColor: '#ffffff',
+        padding: '12px 18px',
+        borderRadius: '10px',
+        border: '1px solid #e2e8f0',
+      }}
+    >
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
         <button
           type="button"
           onClick={() => {
@@ -2412,21 +1801,19 @@ const Inventory = () => {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            padding: '9px 18px',
-            borderRadius: '10px',
+            gap: '6px',
+            padding: '7px 14px',
+            borderRadius: '6px',
             border: 'none',
             cursor: 'pointer',
-            fontSize: '0.88rem',
-            fontWeight: activeTab === 'STOCK' ? 800 : 600,
-            backgroundColor: activeTab === 'STOCK' ? '#0f766e' : 'transparent',
-            color: activeTab === 'STOCK' ? '#ffffff' : '#64748b',
-            boxShadow: activeTab === 'STOCK' ? '0 4px 12px rgba(15,118,110,0.25)' : 'none',
-            transition: 'all 0.2s ease'
+            fontSize: '13px',
+            fontWeight: 600,
+            backgroundColor: activeTab === 'STOCK' ? '#0f172a' : '#f8fafc',
+            color: activeTab === 'STOCK' ? '#ffffff' : '#475569',
           }}
         >
-          <Layers size={17} />
-          <span>Sổ Tồn Kho & Lô Hàng</span>
+          <Layers size={15} />
+          <span>Danh sách Tồn kho</span>
         </button>
 
         <button
@@ -2438,118 +1825,110 @@ const Inventory = () => {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            padding: '9px 18px',
-            borderRadius: '8px',
+            gap: '6px',
+            padding: '7px 14px',
+            borderRadius: '6px',
             border: 'none',
             cursor: 'pointer',
-            fontSize: '0.88rem',
-            fontWeight: activeTab === '3D_MAP' ? 600 : 500,
-            backgroundColor: activeTab === '3D_MAP' ? '#0284c7' : 'transparent',
-            color: activeTab === '3D_MAP' ? '#ffffff' : '#64748b',
-            boxShadow: activeTab === '3D_MAP' ? '0 2px 8px rgba(2,132,199,0.2)' : 'none',
-            transition: 'all 0.2s ease'
+            fontSize: '13px',
+            fontWeight: 600,
+            backgroundColor: activeTab === '3D_MAP' ? '#0f172a' : '#f8fafc',
+            color: activeTab === '3D_MAP' ? '#ffffff' : '#475569',
           }}
         >
-          <Boxes size={17} />
-          <span>Bản Đồ 3D Kệ Hàng & Digital Twin</span>
-          <span style={{
-            fontSize: '0.65rem',
-            backgroundColor: activeTab === '3D_MAP' ? '#e0f2fe' : '#f0fdf4',
-            color: activeTab === '3D_MAP' ? '#0369a1' : '#15803d',
-            padding: '2px 6px',
-            borderRadius: '4px',
-            fontWeight: 600
-          }}>
-            3D LIVE
-          </span>
+          <Boxes size={15} />
+          <span>Sơ đồ Kệ 3D</span>
         </button>
       </div>
 
-      <div style={{ fontSize: '0.78rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
-        <span>Kho trực tuyến:</span>
-        <strong style={{ color: '#0f766e' }}>{viewingWh?.name || (isManager ? `Kho ${myWarehouseCode}` : 'Toàn bộ 16 chi nhánh')}</strong>
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+        {isAdmin && (
+          <>
+            <button
+              type="button"
+              onClick={() => openConfigModal(viewingWh || selectedWarehouse)}
+              style={{
+                borderRadius: '6px',
+                fontWeight: 600,
+                padding: '7px 12px',
+                fontSize: '12.5px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                border: '1px solid #0f766e',
+                color: '#0f766e',
+                cursor: 'pointer',
+                backgroundColor: '#f0fdfa',
+              }}
+            >
+              <Settings size={14} /> Cấu hình kho
+            </button>
+
+            <button
+              type="button"
+              onClick={openManageModal}
+              style={{
+                borderRadius: '6px',
+                fontWeight: 600,
+                padding: '7px 12px',
+                fontSize: '12.5px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                border: '1px solid #cbd5e1',
+                cursor: 'pointer',
+                backgroundColor: '#ffffff',
+                color: '#334155',
+              }}
+            >
+              <Building2 size={14} /> Quản lý kho
+            </button>
+          </>
+        )}
+
+        <button
+          type="button"
+          onClick={() => {
+            if (viewingWh || selectedWarehouse) handleViewStock((viewingWh || selectedWarehouse)!, true);
+          }}
+          style={{
+            borderRadius: '6px',
+            fontWeight: 500,
+            padding: '7px 12px',
+            fontSize: '12.5px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            border: '1px solid #cbd5e1',
+            cursor: 'pointer',
+            backgroundColor: '#ffffff',
+            color: '#334155',
+          }}
+        >
+          <RefreshCw size={14} /> Làm mới
+        </button>
       </div>
     </div>
   );
 
-  // Tab 2: Render 3D Digital Twin Map
   if (activeTab === '3D_MAP') {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', background: '#f8fafc', padding: '1.5rem', minHeight: '100vh' }}>
-        {renderTabBar()}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '24px' }}>
+        {renderHeaderBar()}
         <Warehouse3DDigitalTwin />
       </div>
     );
   }
 
-  // Unified View for both Admin and Manager (Admin operates on selectedWarehouse, Manager operates on assigned warehouse)
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', background: '#f8fafc', padding: '1.5rem', minHeight: '100vh' }}>
-      {renderTabBar()}
-      
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', padding: '1.25rem 1.5rem', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.04)', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h2 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-              Quản Lý Tồn Kho: {viewingWh?.name || selectedWarehouse?.name || myWarehouseCode}
-            </h2>
-            <span style={{
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              padding: '3px 8px',
-              borderRadius: '6px',
-              backgroundColor: (viewingWh?.isActive ?? selectedWarehouse?.isActive) ? '#dcfce7' : '#fee2e2',
-              color: (viewingWh?.isActive ?? selectedWarehouse?.isActive) ? '#166534' : '#991b1b',
-            }}>
-              {(viewingWh?.isActive ?? selectedWarehouse?.isActive) ? 'Đang hoạt động' : 'Tạm dừng'}
-            </span>
-          </div>
-          <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px', margin: '4px 0 0' }}>
-            <MapPin size={14} color="#0f766e" /> {viewingWh?.address || selectedWarehouse?.address || 'Đang tải địa chỉ...'}
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Admin Specific Action Buttons */}
-          {isAdmin && (
-            <>
-              <button
-                type="button"
-                onClick={() => openConfigModal(viewingWh || selectedWarehouse)}
-                className="btn btn-outline"
-                style={{ borderRadius: '8px', fontWeight: 600, padding: '9px 16px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid #0f766e', color: '#0f766e', cursor: 'pointer', backgroundColor: '#f0fdfa' }}
-                title="Cấu hình dải nhiệt độ, sức chứa kệ và quản lý kho này"
-              >
-                <Settings size={16} /> Cấu hình kho này
-              </button>
-
-              <button
-                type="button"
-                onClick={openManageModal}
-                className="btn btn-outline"
-                style={{ borderRadius: '8px', fontWeight: 600, padding: '9px 16px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid #cbd5e1', cursor: 'pointer', backgroundColor: '#fff' }}
-                title="Xem danh sách toàn bộ 16 kho hàng, thêm mới hoặc xóa kho"
-              >
-                <Building2 size={16} /> Quản lý 16 kho
-              </button>
-            </>
-          )}
-
-          <button
-            onClick={() => { if (viewingWh || selectedWarehouse) handleViewStock((viewingWh || selectedWarehouse)!, true); }}
-            className="btn btn-outline"
-            style={{ borderRadius: '10px', fontWeight: 600, padding: '9px 16px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid #cbd5e1', cursor: 'pointer', backgroundColor: '#fff' }}
-          >
-            <RefreshCw size={16} /> Làm mới
-          </button>
-        </div>
-      </div>
-
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px' }}>
+      {renderHeaderBar()}
       {loadingStock ? (
-         <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b', fontSize: '1.1rem' }}>Đang tổng hợp dữ liệu tồn kho...</div>
+        <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>
+          Đang tải dữ liệu tồn kho...
+        </div>
       ) : (
-         renderStockDashboard()
+        renderStockDashboard()
       )}
     </div>
   );

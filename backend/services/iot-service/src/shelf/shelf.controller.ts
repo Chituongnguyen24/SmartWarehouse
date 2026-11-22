@@ -1,7 +1,7 @@
 import { Controller, Post, Get, Body, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ShelfService } from './shelf.service';
-import { LocateShelfDto, ChirpShelfDto, StopShelfDto, CompleteShelfDto } from './shelf.dto';
+import { LocateShelfDto, ChirpShelfDto, StopShelfDto, CompleteShelfDto, SetBuzzerModeDto } from './shelf.dto';
 
 @ApiTags('IoT Shelves')
 @ApiBearerAuth()
@@ -37,6 +37,18 @@ export class ShelfController {
   @ApiOperation({ summary: 'Đặt lại toàn bộ 3 kệ hàng về trạng thái Sẵn sàng (IDLE)' })
   resetAll() {
     return this.shelfService.resetAllShelves();
+  }
+
+  @Post('buzzer')
+  @ApiOperation({ summary: 'Bật/tắt chế độ còi báo khi lấy hàng (tắt còi chỉ sáng đèn)' })
+  setBuzzerMode(@Body() dto: SetBuzzerModeDto) {
+    const enabled =
+      typeof dto.enabled === 'boolean'
+        ? dto.enabled
+        : typeof dto.muted === 'boolean'
+          ? !dto.muted
+          : true;
+    return this.shelfService.setBuzzerMode(enabled);
   }
 
   @Get('status')

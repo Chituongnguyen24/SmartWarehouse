@@ -767,6 +767,7 @@ const OutboundOrders: React.FC = () => {
   const [isWebAutoIotEnabled, setIsWebAutoIotEnabled] = useState<boolean>(false);
   const [webGuidedSession, setWebGuidedSession] = useState<WebGuidedIotSession | null>(null);
   const [webIotDoneOrderCode, setWebIotDoneOrderCode] = useState<string | null>(null);
+  const [iotBuzzerEnabled, setIotBuzzerEnabled] = useState<boolean>(true);
   const webGuidedRef = React.useRef<WebGuidedIotSession | null>(null);
   const webTransitioningRef = React.useRef<boolean>(false);
   const webTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -818,6 +819,9 @@ const OutboundOrders: React.FC = () => {
           }),
         });
         const data = res.ok ? await res.json().catch(() => ({})) : {};
+        if (typeof data?.buzzerEnabled === 'boolean') {
+          setIotBuzzerEnabled(data.buzzerEnabled);
+        }
 
         let baselineStopSeq = 0;
         if (typeof data?.stopSeq === 'number') baselineStopSeq = data.stopSeq;
@@ -825,6 +829,9 @@ const OutboundOrders: React.FC = () => {
         else {
           const stRes = await fetch(`${IOT_API}/api/iot/shelf/status`).catch(() => null);
           const stData = stRes?.ok ? await stRes.json().catch(() => null) : null;
+          if (typeof stData?.buzzerEnabled === 'boolean') {
+            setIotBuzzerEnabled(stData.buzzerEnabled);
+          }
           if (typeof stData?.shelves?.[shelfCode]?.stopSeq === 'number') {
             baselineStopSeq = stData.shelves[shelfCode].stopSeq;
           }
@@ -895,11 +902,13 @@ const OutboundOrders: React.FC = () => {
       );
       const loc = resolveOutboundShelfTier(firstItem, pendingIdx);
       showToast(
-        `Đã bật đèn LED & Còi tại ${loc.fullLabel} — Sản phẩm "${cleanOutboundProductName(firstItem.productName)}". Tới kệ bấm STOP để lấy hàng!`,
+        iotBuzzerEnabled
+          ? `Đã bật đèn LED & Còi tại ${loc.fullLabel} — "${cleanOutboundProductName(firstItem.productName)}".`
+          : `Đã bật đèn LED tại ${loc.fullLabel} — "${cleanOutboundProductName(firstItem.productName)}" ở chế độ chỉ sáng đèn.`,
         'success'
       );
     },
-    [activateWebGuidedStep, showToast]
+    [activateWebGuidedStep, showToast, iotBuzzerEnabled]
   );
 
   const advanceWebGuidedStep = useCallback(
@@ -996,7 +1005,9 @@ const OutboundOrders: React.FC = () => {
           setIsWebAutoIotEnabled(false);
           setWebIotDoneOrderCode(ord.orderCode);
           showToast(
-            `Hoàn thành lấy hàng toàn bộ đơn ${ord.orderCode}! Đèn và còi trên 3 kệ A, B, C đã tắt.`,
+            iotBuzzerEnabled
+              ? `Hoàn thành lấy hàng toàn bộ đơn ${ord.orderCode}. Đèn và còi trên 3 kệ đã tắt.`
+              : `Hoàn thành lấy hàng toàn bộ đơn ${ord.orderCode}. Đèn dẫn hướng trên 3 kệ đã tắt.`,
             'success'
           );
         }
@@ -1004,10 +1015,10 @@ const OutboundOrders: React.FC = () => {
         webTransitioningRef.current = false;
       }
     },
-    [activateWebGuidedStep, showToast]
+    [activateWebGuidedStep, showToast, iotBuzzerEnabled]
   );
 
-  // Khi mở hoặc đóng popup đơn hàng trên Web Dashboard -> Chỉ hiển thị sơ đồ vị trí & chờ nhân viên bấm nút "Lấy hàng"
+  // Khi mở hoặc đóng popup đơn hàng trên Web Dashboard -> Chỉ hiển thị sơ đồ vị trí & đồng bộ chế độ còi IoT
   useEffect(() => {
     if (lastWebOrderIdRef.current !== selectedOrderId) {
       if (lastWebOrderIdRef.current) {
@@ -1016,6 +1027,16 @@ const OutboundOrders: React.FC = () => {
       lastWebOrderIdRef.current = selectedOrderId;
       setWebIotDoneOrderCode(null);
       setIsWebAutoIotEnabled(false);
+    }
+    if (selectedOrderId) {
+      fetch(`${IOT_API}/api/iot/shelf/status`)
+        .then(r => (r.ok ? r.json() : null))
+        .then(d => {
+          if (typeof d?.buzzerEnabled === 'boolean') {
+            setIotBuzzerEnabled(d.buzzerEnabled);
+          }
+        })
+        .catch(() => {});
     }
   }, [selectedOrderId, stopWebGuidedIot]);
 
@@ -1029,6 +1050,9 @@ const OutboundOrders: React.FC = () => {
         const res = await fetch(`${IOT_API}/api/iot/shelf/status`);
         if (!res.ok) return;
         const data = await res.json();
+        if (typeof data?.buzzerEnabled === 'boolean') {
+          setIotBuzzerEnabled(data.buzzerEnabled);
+        }
         const sh = data?.shelves?.[session.shelfCode];
         if (!sh) return;
         const hasNewStop =
@@ -1945,7 +1969,8 @@ const OutboundOrders: React.FC = () => {
 
                           <div style={{ flex: 1, minWidth: '180px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                             <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#b45309' }}>
-                              Bước {webGuidedSession.step}/{webGuidedSession.totalSteps} • Đèn &amp; Còi đang bật
+                              Bước {webGuidedSession.step}/{webGuidedSession.totalSteps} •{' '}
+                              {iotBuzzerEnabled ? 'Đèn & Còi đang bật' : 'Chỉ sáng đèn tại kệ'}
                             </span>
                             <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
                               {webGuidedSession.productName}
@@ -2328,7 +2353,9 @@ const OutboundOrders: React.FC = () => {
                                 idx
                               );
                               showToast(
-                                `Đã bật đèn LED & Còi tại ${loc.fullLabel} cho "${cleanOutboundProductName(item.productName)}".`,
+                                iotBuzzerEnabled
+                                  ? `Đã bật đèn LED & Còi tại ${loc.fullLabel} cho "${cleanOutboundProductName(item.productName)}".`
+                                  : `Đã bật đèn LED tại ${loc.fullLabel} cho "${cleanOutboundProductName(item.productName)}" ở chế độ chỉ sáng đèn.`,
                                 'info'
                               );
                             }}

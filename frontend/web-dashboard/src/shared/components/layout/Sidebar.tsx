@@ -72,13 +72,10 @@ const menuItems: MenuItem[] = [
   { path: '/audit-log', label: 'Nhật ký Hệ thống', icon: <Activity size={18} />, section: 'QUẢN TRỊ HỆ THỐNG', allowedRoles: ['ADMIN'] },
   { path: '/settings', label: 'Cài đặt Hệ thống', icon: <Settings size={18} />, section: 'QUẢN TRỊ HỆ THỐNG', allowedRoles: ['ADMIN'] },
 
-  // NHÂN VIÊN KHO - các tab chức năng chi tiết
-  { path: '/orders?tab=packing', label: 'Đơn hàng chờ đóng gói', icon: <Boxes size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
-  { path: '/outbound', label: 'Soạn hàng Pick-to-Light', icon: <ArrowUpRight size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
+  // NHÂN VIÊN KHO - Tinh gọn đúng 3 chức năng cốt lõi, loại bỏ các mục trùng lặp
+  { path: '/orders', label: 'Soạn hàng & Bàn giao', icon: <Boxes size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
   { path: '/iot-controller', label: 'Điều khiển Kệ IoT', icon: <Wifi size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
-  { path: '/orders?tab=map', label: 'Sơ đồ vị trí kệ', icon: <Grid3X3 size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
-  { path: '/orders?tab=delivery', label: 'Bàn giao cho tài xế', icon: <Truck size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
-  { path: '/cod-reconciliation', label: 'Đối soát Quỹ COD', icon: <Receipt size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
+  { path: '/inventory', label: 'Tồn kho & Vị trí kệ', icon: <Layers size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
 
   // TÀI XẾ
   { path: '/transport', label: 'Tối ưu vận chuyển', icon: <Truck size={18} />, section: 'VẬN HÀNH KHO', allowedRoles: ['DRIVER'] },

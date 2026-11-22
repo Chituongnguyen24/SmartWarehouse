@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class LocateShelfDto {
@@ -41,6 +41,23 @@ export class LocateShelfDto {
   @IsString()
   @IsOptional()
   warehouseCode?: string;
+
+  @ApiPropertyOptional({ description: 'Bật/tắt còi khi định vị kệ (mặc định theo cấu hình hệ thống)', example: true })
+  @IsBoolean()
+  @IsOptional()
+  buzzerEnabled?: boolean;
+}
+
+export class SetBuzzerModeDto {
+  @ApiPropertyOptional({ description: 'Bật còi báo (true = Đèn + Còi, false = Chỉ sáng đèn)', example: false })
+  @IsBoolean()
+  @IsOptional()
+  enabled?: boolean;
+
+  @ApiPropertyOptional({ description: 'Tắt còi báo (true = Chỉ sáng đèn, false = Đèn + Còi)', example: true })
+  @IsBoolean()
+  @IsOptional()
+  muted?: boolean;
 }
 
 export class ChirpShelfDto {

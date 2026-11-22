@@ -89,14 +89,18 @@ $port.Encoding = [System.Text.Encoding]::UTF8
 $port.DtrEnable = $false
 $port.RtsEnable = $false
 $port.Open()
-Write-Output "[SERIAL_CONNECTED]$portName"
+[Console]::Out.WriteLine("[SERIAL_CONNECTED]$portName")
+[Console]::Out.Flush()
 $stdin = [Console]::In
 $readTask = $stdin.ReadLineAsync()
 while ($port.IsOpen) {
   while ($port.BytesToRead -gt 0) {
     try {
       $line = $port.ReadLine()
-      if ($line) { Write-Output $line.Trim() }
+      if ($line) {
+        [Console]::Out.WriteLine($line.Trim())
+        [Console]::Out.Flush()
+      }
     } catch {}
   }
   if ($readTask.IsCompleted) {
@@ -105,10 +109,11 @@ while ($port.IsOpen) {
     $cmdTrim = $cmd.Trim()
     if ($cmdTrim.Length -gt 0) {
       $port.WriteLine($cmdTrim)
+      $port.BaseStream.Flush()
     }
     $readTask = $stdin.ReadLineAsync()
   }
-  Start-Sleep -Milliseconds 12
+  Start-Sleep -Milliseconds 10
 }
 $port.Close()
 `;
@@ -148,6 +153,7 @@ $port.Close()
       this.serialConnected = true;
       this.lastEsp32SeenAt = new Date();
       this.logger.log(`USB Serial Bridge connected directly to ESP32 on ${port} (115200 baud)`);
+      this.emit('esp32_ready');
       return;
     }
 
@@ -155,6 +161,7 @@ $port.Close()
       this.serialConnected = true;
       this.lastEsp32SeenAt = new Date();
       this.logger.log(`ESP32 Serial Ready: ${line}`);
+      this.emit('esp32_ready');
       return;
     }
 
@@ -183,7 +190,12 @@ $port.Close()
       return;
     }
 
-    if (line.startsWith('[ACTIVATE]') || line.startsWith('[STOP CONFIRMED]') || line.startsWith('[REMOTE OFF]')) {
+    if (
+      line.startsWith('[ACTIVATE]') ||
+      line.startsWith('[STOP CONFIRMED]') ||
+      line.startsWith('[REMOTE OFF]') ||
+      line.startsWith('[BUZZER_MODE]')
+    ) {
       this.lastEsp32SeenAt = new Date();
       this.logger.log(`[ESP32 Serial] ${line}`);
     }
@@ -195,7 +207,7 @@ $port.Close()
     }
     try {
       const json = typeof payload === 'string' ? payload : JSON.stringify(payload);
-      this.serialBridgeProc.stdin.write('\n' + json + '\n');
+      this.serialBridgeProc.stdin.write(json + '\n');
       return true;
     } catch {
       return false;

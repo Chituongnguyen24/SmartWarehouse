@@ -561,7 +561,7 @@ export const PickingScreen: React.FC = () => {
         <View style={styles.activeLocatingBanner}>
           <Radio size={16} color="#d97706" />
           <Text style={styles.activeLocatingText}>
-            Đang bật đèn và còi tại <Text style={{ fontWeight: '700', color: '#92400e' }}>{activeLocatingShelf}</Text>. Tới kệ bấm nút STOP khi lấy hàng.
+            Đang định vị kệ <Text style={{ fontWeight: '700', color: '#92400e' }}>{activeLocatingShelf}</Text>. Tới kệ bấm nút STOP khi lấy hàng.
           </Text>
           <TouchableOpacity onPress={() => stopGuidedSequence(true)}>
             <X size={16} color="#92400e" />

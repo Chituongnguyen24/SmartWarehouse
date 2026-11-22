@@ -363,8 +363,17 @@ export const WarehouseFloorMap: React.FC = () => {
               </h2>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setBuzzerEnabled((v) => !v)}
-                  title={buzzerEnabled ? 'Tắt còi' : 'Bật còi'}
+                  onClick={() => {
+                    const next = !buzzerEnabled;
+                    setBuzzerEnabled(next);
+                    publish(MQTT_TOPICS.CMD_SYSTEM, { action: 'SET_BUZZER', enabled: next, muted: !next });
+                    fetch('http://localhost:3002/api/iot/shelf/buzzer', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ enabled: next }),
+                    }).catch(() => {});
+                  }}
+                  title={buzzerEnabled ? 'Tắt còi (Chỉ sáng đèn)' : 'Bật còi báo'}
                   className={`p-2 rounded-lg border transition-colors ${
                     buzzerEnabled
                       ? 'bg-indigo-900 border-indigo-500 text-indigo-300'

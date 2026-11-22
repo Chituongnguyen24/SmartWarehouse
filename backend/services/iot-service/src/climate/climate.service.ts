@@ -11,6 +11,8 @@ export interface ClimateStatus {
   zoneName: string;
   temperature: number;
   humidity: number;
+  realTemperature: number;
+  realHumidity: number;
   safeEnvelope: {
     minTemp: number;
     maxTemp: number;
@@ -52,8 +54,10 @@ export class ClimateService implements OnModuleInit, OnModuleDestroy {
   readonly SENSOR_TIMEOUT_MS = 15 * 1000;
 
   // Real-time telemetry
-  private currentTemp = 2.8;
-  private currentHum = 68.0;
+  private currentTemp = 31.2;
+  private currentHum = 65.0;
+  private realTemp = 31.2;
+  private realHum = 65.0;
   private lastTelemetryAt: Date | null = null;
   private isSimulated = false;
 
@@ -96,18 +100,23 @@ export class ClimateService implements OnModuleInit, OnModuleDestroy {
    * Process telemetry arriving from ESP32 SHT30 sensor
    */
   private handleIncomingTelemetry(data: any) {
-    if (this.isSimulated) {
-      // Ignore real sensor data while simulation mode is active
-      return;
-    }
-
     const t = parseFloat(data.temperature);
     const h = parseFloat(data.humidity);
 
     if (!isNaN(t) && !isNaN(h)) {
-      this.currentTemp = Math.round(t * 10) / 10;
-      this.currentHum = Math.round(h * 10) / 10;
+      this.realTemp = Math.round(t * 10) / 10;
+      this.realHum = Math.round(h * 10) / 10;
       this.lastTelemetryAt = new Date();
+    }
+
+    if (this.isSimulated) {
+      // Keep realTemp/realHum updated above, while maintaining simulated currentTemp/currentHum
+      return;
+    }
+
+    if (!isNaN(t) && !isNaN(h)) {
+      this.currentTemp = this.realTemp;
+      this.currentHum = this.realHum;
 
       // If alarm was triggered solely due to SHT30 disconnect, and telemetry is flowing again, restore safe state
       if (this.isAlarmActive && this.alarmReason === 'MẤT KẾT NỐI CẢM BIẾN SHT30 (>15s)') {
@@ -215,10 +224,44 @@ export class ClimateService implements OnModuleInit, OnModuleDestroy {
       this.lastTelemetryAt = new Date();
 
       this.logger.log(`[CLIMATE SIMULATION] Enabled: ${this.currentTemp}°C, ${this.currentHum}%`);
-      this.evaluateSafetyEnvelope(this.currentTemp, this.currentHum);
+      const isTempHigh = this.currentTemp > this.SAFE_ENVELOPE.maxTemp;
+      const isTempLow = this.currentTemp < this.SAFE_ENVELOPE.minTemp;
+      const isHumHigh = this.currentHum > this.SAFE_ENVELOPE.maxHumidity;
+      const isHumLow = this.currentHum < this.SAFE_ENVELOPE.minHumidity;
+      const isViolating = isTempHigh || isTempLow || isHumHigh || isHumLow;
+
+      if (isViolating) {
+        let reason = '';
+        if (isTempHigh) reason = `Nhiệt độ vượt ngưỡng an toàn: ${this.currentTemp}°C > ${this.SAFE_ENVELOPE.maxTemp}°C`;
+        else if (isTempLow) reason = `Nhiệt độ thấp hơn ngưỡng: ${this.currentTemp}°C < ${this.SAFE_ENVELOPE.minTemp}°C`;
+        else if (isHumHigh) reason = `Độ ẩm vượt ngưỡng an toàn: ${this.currentHum}% > ${this.SAFE_ENVELOPE.maxHumidity}%`;
+        else if (isHumLow) reason = `Độ ẩm thấp hơn ngưỡng: ${this.currentHum}% < ${this.SAFE_ENVELOPE.minHumidity}%`;
+
+        this.violationStartedAt = new Date();
+        this.violationType = reason;
+        this.isAlarmActive = true;
+        this.alarmReason = reason;
+        this.shelfService.triggerAllShelvesAlarm(reason);
+      } else {
+        this.violationStartedAt = null;
+        this.violationType = null;
+        if (this.isAlarmActive) {
+          this.isAlarmActive = false;
+          this.alarmReason = null;
+          this.shelfService.resetAllShelves();
+        }
+      }
     } else {
       this.logger.log('[CLIMATE SIMULATION] Disabled. Reverting to real SHT30 sensor data.');
+      this.currentTemp = this.realTemp;
+      this.currentHum = this.realHum;
       this.violationStartedAt = null;
+      this.violationType = null;
+      if (this.isAlarmActive) {
+        this.isAlarmActive = false;
+        this.alarmReason = null;
+        this.shelfService.resetAllShelves();
+      }
     }
 
     return this.getStatus();
@@ -357,6 +400,8 @@ export class ClimateService implements OnModuleInit, OnModuleDestroy {
       zoneName: 'Khu Vực Kệ A1, A2, A3 (Gò Vấp)',
       temperature: this.currentTemp,
       humidity: this.currentHum,
+      realTemperature: this.realTemp,
+      realHumidity: this.realHum,
       safeEnvelope: this.SAFE_ENVELOPE,
       sensorStatus,
       isSimulated: this.isSimulated,
