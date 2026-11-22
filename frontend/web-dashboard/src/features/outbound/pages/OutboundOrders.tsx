@@ -9,7 +9,8 @@ import {
   PackageMinus, Search, ArrowRight, CheckCircle2, FileText, 
   Layers, Box, Truck, Plus, X, ScanBarcode, Printer,
   ChevronLeft, ChevronRight, RefreshCw, Edit2, Save, RotateCcw,
-  Lock, Wifi, WifiOff, Building2, MapPin, Calendar, Tag, Check, User, Eye, AlertCircle
+  Lock, Wifi, WifiOff, Building2, MapPin, Calendar, Tag, Check, User, Eye, AlertCircle,
+  Radio, Lightbulb, SkipForward, Square, Play
 } from 'lucide-react';
 import { OutboundReceiptModal } from '../components/OutboundReceiptModal';
 import { CreateOutboundModal } from '../components/CreateOutboundModal';
@@ -18,6 +19,90 @@ import { PrintOrderSlipModal, detectSlipClassification } from '../components/Pri
 const API_BASE = getApiHost(3007); // outbound-service
 const INVENTORY_API = getApiHost(3011); // inventory-service for FEFO
 const SOCKET_URL = getApiHost(3004); // order-service realtime gateway
+const IOT_API = getApiHost(3002); // iot-service Pick-to-Light gateway
+
+type DemoIotShelfCode = 'A1' | 'A2' | 'A3';
+type DemoRackLetter = 'A' | 'B' | 'C';
+type DemoTierNumber = 1 | 2;
+
+interface OutboundShelfTierLoc {
+  rack: DemoRackLetter;
+  rackLabel: string;      // "Kệ A" | "Kệ B" | "Kệ C"
+  tier: DemoTierNumber;
+  tierLabel: string;      // "Tầng 1" | "Tầng 2"
+  fullLabel: string;      // "Kệ A - Tầng 1"
+  shortCode: string;      // "A-T1"
+  hwShelfCode: DemoIotShelfCode; // A -> A1, B -> A2, C -> A3
+}
+
+const cleanOutboundProductName = (name?: string): string =>
+  String(name || '').replace(/\s*\[[A-C][123]?-\d+\]/gi, '').trim();
+
+const resolveOutboundShelfTier = (
+  item: { slotId?: string | null; productName?: string; sku?: string },
+  idx = 0
+): OutboundShelfTierLoc => {
+  const rawCombined = `${item.slotId || ''} ${item.productName || ''} ${item.sku || ''}`.toUpperCase();
+
+  let rack: DemoRackLetter | null = null;
+  let tier: DemoTierNumber | null = null;
+
+  const tierMatch = rawCombined.match(/(?:^|[^A-Z0-9])([ABC])[-_ ]*T([12])(?=$|[^0-9])/);
+  if (tierMatch) {
+    rack = tierMatch[1] as DemoRackLetter;
+    tier = Number(tierMatch[2]) as DemoTierNumber;
+  }
+
+  if (!rack) {
+    const legacyHyphen = rawCombined.match(/(?:^|[^A-Z0-9])(A1|A2|A3)[-_ ]+0?([123])(?=$|[^0-9])/);
+    if (legacyHyphen) {
+      const token = legacyHyphen[1];
+      const subNum = Number(legacyHyphen[2]);
+      if (token === 'A1') rack = 'A';
+      else if (token === 'A2') rack = 'B';
+      else rack = 'C';
+      tier = subNum === 2 ? 2 : 1;
+    } else {
+      const directMatch = rawCombined.match(/(?:^|[^A-Z0-9])([ABC])([12])(?=$|[^0-9])/);
+      if (directMatch) {
+        rack = directMatch[1] as DemoRackLetter;
+        tier = Number(directMatch[2]) as DemoTierNumber;
+      }
+    }
+  }
+
+  if (!rack) {
+    const text = `${item.productName || ''} ${item.sku || ''}`.toLowerCase();
+    if (/thịt|heo|bò|gà|cá|tôm|hải sản|xúc xích|chả/.test(text)) rack = 'A';
+    else if (/sữa|trứng|phô mai|bơ|yogurt|sữa chua|nước/.test(text)) rack = 'B';
+    else if (/rau|củ|cà|xà lách|táo|cam|nấm|trái|dưa|bắp/.test(text)) rack = 'C';
+    else rack = (['A', 'B', 'C'] as DemoRackLetter[])[idx % 3];
+  }
+
+  if (!tier) {
+    tier = ((idx % 2) + 1) as DemoTierNumber;
+  }
+
+  const hwMap: Record<DemoRackLetter, DemoIotShelfCode> = {
+    A: 'A1',
+    B: 'A2',
+    C: 'A3',
+  };
+
+  return {
+    rack,
+    rackLabel: `Kệ ${rack}`,
+    tier,
+    tierLabel: `${rack}${tier}`,
+    fullLabel: `${rack}${tier}`,
+    shortCode: `${rack}${tier}`,
+    hwShelfCode: hwMap[rack],
+  };
+};
+
+const extractDemoIotShelf = (slotId?: string | null, productName?: string, sku?: string, idx = 0): DemoIotShelfCode => {
+  return resolveOutboundShelfTier({ slotId, productName, sku }, idx).hwShelfCode;
+};
 
 interface OutboundOrderItem {
   id: string;
@@ -90,47 +175,14 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string; 
   CANCELLED: { label: 'Đã hủy', bg: '#ffe4e6', color: '#be123c', border: '#fecdd3' },
 };
 
-const formatShelfLocation = (slotId?: string): string => {
-  if (!slotId) return 'Chưa cấp kệ';
-  const loc = slotId.trim();
-  if (loc === 'TRANSFER_DOCK' || loc.includes('TRANSFER') || loc.includes('CHỜ NHẬP') || loc.includes('TRUNG CHUYỂN')) {
-    return 'Khu vực nhận hàng điều chuyển (Dock Nhập)';
+const formatShelfLocation = (slotId?: string, productName?: string, sku?: string, idx = 0): string => {
+  if (slotId) {
+    const loc = slotId.trim();
+    if (loc === 'TRANSFER_DOCK' || loc.includes('TRANSFER') || loc.includes('CHỜ NHẬP') || loc.includes('TRUNG CHUYỂN')) {
+      return 'Dock điều chuyển';
+    }
   }
-
-  // 1. Match DRY shelf
-  const dryMatch = loc.match(/(?:dry|kho\s*khô)[-_ ]*shelf[-_ ]*(\d+)(?:[-_ ]*slot[-_ ]*(\d+))?/i);
-  if (dryMatch) {
-    const rawShelf = parseInt(dryMatch[1], 10);
-    const rawSlot = dryMatch[2] ? parseInt(dryMatch[2], 10) : 4;
-    const rackNum = ((rawShelf - 1) % 10) + 1;
-    const level = ((rawSlot - 1) % 5) + 1;
-    const col = ((rawSlot - 1) % 8) + 1;
-    return `Kệ C${rackNum} • Tầng ${level} Cột ${col}`;
-  }
-
-  // 2. Match COOL shelf
-  const coolMatch = loc.match(/(?:cool|cld|cold|kho\s*mát|lạnh)[-_ ]*shelf[-_ ]*(\d+)(?:[-_ ]*slot[-_ ]*(\d+))?/i);
-  if (coolMatch) {
-    const rawShelf = parseInt(coolMatch[1], 10);
-    const rawSlot = coolMatch[2] ? parseInt(coolMatch[2], 10) : 3;
-    const rackNum = ((rawShelf - 1) % 8) + 1;
-    const level = ((rawSlot - 1) % 5) + 1;
-    const col = ((rawSlot - 1) % 8) + 1;
-    return `Kệ A${rackNum} • Tầng ${level} Cột ${col}`;
-  }
-
-  // 3. Match FROZEN shelf
-  const fzMatch = loc.match(/(?:frozen|frz|đông|hầm)[-_ ]*shelf[-_ ]*(\d+)(?:[-_ ]*slot[-_ ]*(\d+))?/i);
-  if (fzMatch) {
-    const rawShelf = parseInt(fzMatch[1], 10);
-    const rawSlot = fzMatch[2] ? parseInt(fzMatch[2], 10) : 2;
-    const rackNum = ((rawShelf - 1) % 8) + 1;
-    const level = ((rawSlot - 1) % 5) + 1;
-    const col = ((rawSlot - 1) % 8) + 1;
-    return `Kệ B${rackNum} • Tầng ${level} Cột ${col}`;
-  }
-
-  return slotId;
+  return resolveOutboundShelfTier({ slotId, productName, sku }, idx).fullLabel;
 };
 
 const OutboundOrders: React.FC = () => {
@@ -694,6 +746,302 @@ const OutboundOrders: React.FC = () => {
     return orders.find(o => o.id === selectedOrderId) || null;
   }, [orders, selectedOrderId]);
 
+  // ── SEQUENTIAL PICK-TO-LIGHT (3 KỆ DEMO IOT: KỆ A, KỆ B, KỆ C — TẦNG 1 & 2) TRÊN WEB DASHBOARD ──
+  interface WebGuidedIotSession {
+    orderId: string;
+    orderCode: string;
+    itemId: string;
+    shelfCode: DemoIotShelfCode;
+    rackLabel: string;
+    tierLabel: string;
+    fullLocationLabel: string;
+    slotId: string;
+    productName: string;
+    quantity: number;
+    step: number;
+    totalSteps: number;
+    baselineStopSeq: number;
+    startedAt: number;
+  }
+
+  const [isWebAutoIotEnabled, setIsWebAutoIotEnabled] = useState<boolean>(false);
+  const [webGuidedSession, setWebGuidedSession] = useState<WebGuidedIotSession | null>(null);
+  const [webIotDoneOrderCode, setWebIotDoneOrderCode] = useState<string | null>(null);
+  const webGuidedRef = React.useRef<WebGuidedIotSession | null>(null);
+  const webTransitioningRef = React.useRef<boolean>(false);
+  const webTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastWebOrderIdRef = React.useRef<string | null>(null);
+  const selectedOrderRef = React.useRef<OutboundOrder | null>(null);
+  selectedOrderRef.current = selectedOrder;
+
+  const stopWebGuidedIot = useCallback(async (notifyHw = true) => {
+    if (webTimerRef.current) {
+      clearTimeout(webTimerRef.current);
+      webTimerRef.current = null;
+    }
+    const active = webGuidedRef.current;
+    webGuidedRef.current = null;
+    webTransitioningRef.current = false;
+    setWebGuidedSession(null);
+    if (notifyHw && active) {
+      fetch(`${IOT_API}/api/iot/shelf/stop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          warehouseCode: selectedOrderRef.current?.warehouseCode || 'WH-006',
+          shelfCode: active.shelfCode,
+        }),
+      }).catch(() => {});
+    }
+  }, []);
+
+  const activateWebGuidedStep = useCallback(
+    async (ord: OutboundOrder, item: OutboundOrderItem, step: number, totalSteps: number, itemIdx = 0) => {
+      const loc = resolveOutboundShelfTier(item, itemIdx);
+      const shelfCode = loc.hwShelfCode;
+      const cleanName = cleanOutboundProductName(item.productName);
+
+      webTransitioningRef.current = true;
+      try {
+        const res = await fetch(`${IOT_API}/api/iot/shelf/locate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            warehouseCode: ord.warehouseCode || 'WH-006',
+            shelfCode,
+            slotCode: loc.shortCode,
+            productName: `${cleanName} (${loc.fullLabel})`,
+            qty: item.requestedQuantity || 1,
+            step,
+            totalSteps,
+            orderId: ord.orderCode || ord.id,
+          }),
+        });
+        const data = res.ok ? await res.json().catch(() => ({})) : {};
+
+        let baselineStopSeq = 0;
+        if (typeof data?.stopSeq === 'number') baselineStopSeq = data.stopSeq;
+        else if (typeof data?.shelf?.stopSeq === 'number') baselineStopSeq = data.shelf.stopSeq;
+        else {
+          const stRes = await fetch(`${IOT_API}/api/iot/shelf/status`).catch(() => null);
+          const stData = stRes?.ok ? await stRes.json().catch(() => null) : null;
+          if (typeof stData?.shelves?.[shelfCode]?.stopSeq === 'number') {
+            baselineStopSeq = stData.shelves[shelfCode].stopSeq;
+          }
+        }
+
+        const session: WebGuidedIotSession = {
+          orderId: ord.id,
+          orderCode: ord.orderCode,
+          itemId: item.id,
+          shelfCode,
+          rackLabel: loc.rackLabel,
+          tierLabel: loc.tierLabel,
+          fullLocationLabel: loc.fullLabel,
+          slotId: loc.shortCode,
+          productName: cleanName,
+          quantity: item.requestedQuantity || 1,
+          step,
+          totalSteps,
+          baselineStopSeq,
+          startedAt: Date.now(),
+        };
+
+        webGuidedRef.current = session;
+        setWebGuidedSession(session);
+        setWebIotDoneOrderCode(null);
+        return true;
+      } catch (e) {
+        console.warn('activateWebGuidedStep error:', e);
+        return false;
+      } finally {
+        webTransitioningRef.current = false;
+      }
+    },
+    []
+  );
+
+  const startOrderPickingScenario = useCallback(
+    async (ord: OutboundOrder) => {
+      const allItems = ord.items || [];
+      if (allItems.length === 0) return;
+
+      let pendingIdx = allItems.findIndex(
+        it => it.status !== 'PICKED' && (it.pickedQuantity || 0) < (it.requestedQuantity || 1)
+      );
+
+      // Nếu tất cả đã lấy xong mà bấm Bắt đầu lấy hàng -> reset tiến độ để chạy lại từ món đầu tiên
+      let targetOrder = ord;
+      if (pendingIdx === -1) {
+        const resetItems = allItems.map(it => ({ ...it, pickedQuantity: 0, status: 'PENDING' }));
+        targetOrder = { ...ord, items: resetItems };
+        selectedOrderRef.current = targetOrder;
+        setOrders(prev => prev.map(o => (o.id === ord.id ? targetOrder : o)));
+        pendingIdx = 0;
+      }
+
+      const firstItem = targetOrder.items[pendingIdx];
+      const pickedSoFar = targetOrder.items.filter(
+        (it, idx) => idx !== pendingIdx && (it.status === 'PICKED' || (it.pickedQuantity || 0) >= (it.requestedQuantity || 1))
+      ).length;
+
+      setIsWebAutoIotEnabled(true);
+      await activateWebGuidedStep(
+        targetOrder,
+        firstItem,
+        pickedSoFar + 1,
+        targetOrder.items.length,
+        pendingIdx
+      );
+      const loc = resolveOutboundShelfTier(firstItem, pendingIdx);
+      showToast(
+        `Đã bật đèn LED & Còi tại ${loc.fullLabel} — Sản phẩm "${cleanOutboundProductName(firstItem.productName)}". Tới kệ bấm STOP để lấy hàng!`,
+        'success'
+      );
+    },
+    [activateWebGuidedStep, showToast]
+  );
+
+  const advanceWebGuidedStep = useCallback(
+    async (manualStop = false) => {
+      const session = webGuidedRef.current;
+      const ord = selectedOrderRef.current;
+      if (!session || !ord || webTransitioningRef.current) return;
+
+      webTransitioningRef.current = true;
+      webGuidedRef.current = null;
+      setWebGuidedSession(null);
+
+      try {
+        if (manualStop) {
+          await fetch(`${IOT_API}/api/iot/shelf/stop`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              warehouseCode: ord.warehouseCode || 'WH-006',
+              shelfCode: session.shelfCode,
+            }),
+          }).catch(() => {});
+        }
+
+        const updatedItems = (ord.items || []).map(it =>
+          it.id === session.itemId
+            ? { ...it, pickedQuantity: it.requestedQuantity || 1, status: 'PICKED' }
+            : it
+        );
+
+        const allOrderItemsPicked =
+          updatedItems.length > 0 &&
+          updatedItems.every(it => it.status === 'PICKED' || (it.pickedQuantity || 0) >= (it.requestedQuantity || 1));
+
+        // Cập nhật cục bộ ngay lập tức
+        const updatedOrder: OutboundOrder = {
+          ...ord,
+          status: allOrderItemsPicked && (ord.status === 'PENDING' || ord.status === 'PICKING' || ord.status === 'PROCESSING') ? 'PACKED' : ord.status,
+          items: updatedItems,
+        };
+        selectedOrderRef.current = updatedOrder;
+        setOrders(prev => prev.map(o => (o.id === ord.id ? updatedOrder : o)));
+
+        // Đồng bộ tiến độ món lên outbound-service
+        await fetch(`${API_BASE}/outbound-orders/${ord.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: [
+              {
+                id: session.itemId,
+                pickedQuantity: session.quantity,
+                status: 'PICKED',
+              },
+            ],
+            status: allOrderItemsPicked ? 'PACKED' : 'PICKING',
+          }),
+        }).catch(() => {});
+
+        const nextIdx = updatedItems.findIndex(
+          it => it.status !== 'PICKED' && (it.pickedQuantity || 0) < (it.requestedQuantity || 1)
+        );
+
+        if (nextIdx !== -1) {
+          const nextItem = updatedItems[nextIdx];
+          const nextLoc = resolveOutboundShelfTier(nextItem, nextIdx);
+          const pickedCount = updatedItems.filter(
+            it => it.status === 'PICKED' || (it.pickedQuantity || 0) >= (it.requestedQuantity || 1)
+          ).length;
+          showToast(
+            `Đã xác nhận STOP tại ${session.fullLocationLabel}. Tự động nhảy sang ${nextLoc.fullLabel}: ${cleanOutboundProductName(nextItem.productName)}`,
+            'success'
+          );
+          webTimerRef.current = setTimeout(() => {
+            webTimerRef.current = null;
+            webTransitioningRef.current = false;
+            if (selectedOrderRef.current) {
+              activateWebGuidedStep(
+                selectedOrderRef.current,
+                nextItem,
+                pickedCount + 1,
+                updatedItems.length,
+                nextIdx
+              );
+            }
+          }, 650);
+        } else {
+          await fetch(`${IOT_API}/api/iot/shelf/reset`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ warehouseCode: ord.warehouseCode || 'WH-006' }),
+          }).catch(() => {});
+          webTransitioningRef.current = false;
+          setIsWebAutoIotEnabled(false);
+          setWebIotDoneOrderCode(ord.orderCode);
+          showToast(
+            `Hoàn thành lấy hàng toàn bộ đơn ${ord.orderCode}! Đèn và còi trên 3 kệ A, B, C đã tắt.`,
+            'success'
+          );
+        }
+      } catch (e) {
+        webTransitioningRef.current = false;
+      }
+    },
+    [activateWebGuidedStep, showToast]
+  );
+
+  // Khi mở hoặc đóng popup đơn hàng trên Web Dashboard -> Chỉ hiển thị sơ đồ vị trí & chờ nhân viên bấm nút "Lấy hàng"
+  useEffect(() => {
+    if (lastWebOrderIdRef.current !== selectedOrderId) {
+      if (lastWebOrderIdRef.current) {
+        stopWebGuidedIot(true);
+      }
+      lastWebOrderIdRef.current = selectedOrderId;
+      setWebIotDoneOrderCode(null);
+      setIsWebAutoIotEnabled(false);
+    }
+  }, [selectedOrderId, stopWebGuidedIot]);
+
+  // Poll nút STOP vật lý từ ESP32 (mỗi 800ms) để tắt đèn/còi & tự nhảy sang sản phẩm kế tiếp
+  useEffect(() => {
+    if (!webGuidedSession) return;
+    const poll = setInterval(async () => {
+      const session = webGuidedRef.current;
+      if (!session || webTransitioningRef.current) return;
+      try {
+        const res = await fetch(`${IOT_API}/api/iot/shelf/status`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const sh = data?.shelves?.[session.shelfCode];
+        if (!sh) return;
+        const hasNewStop =
+          (typeof sh.stopSeq === 'number' && sh.stopSeq > session.baselineStopSeq) ||
+          (sh.status === 'ARRIVED' && sh.arrivedAt && new Date(sh.arrivedAt).getTime() >= session.startedAt - 1500);
+        if (hasNewStop) {
+          await advanceWebGuidedStep(false);
+        }
+      } catch (e) {}
+    }, 800);
+    return () => clearInterval(poll);
+  }, [webGuidedSession, advanceWebGuidedStep]);
+
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredOrders.length / pageSize));
   const paginatedOrders = useMemo(() => {
@@ -796,10 +1144,10 @@ const OutboundOrders: React.FC = () => {
             </div>
             <div>
               <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                Quản lý Xuất Kho (Outbound)
+                Quản lý Xuất kho
               </h2>
               <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '2px 0 0 0' }}>
-                Tự động xuất kho ưu tiên lô cận hạn dùng, hỗ trợ quét mã vạch và in Phiếu xuất kho Mẫu 02-VT.
+                Điều phối lấy hàng theo kệ, quét mã vạch và in Phiếu xuất kho Mẫu 02-VT.
               </p>
             </div>
           </div>
@@ -1053,13 +1401,19 @@ const OutboundOrders: React.FC = () => {
                 return (
                   <tr
                     key={o.id}
+                    onClick={() => {
+                      setSelectedOrderId(o.id);
+                      setIsEditingOrder(false);
+                    }}
                     ref={isTargetHighlight ? (el) => { if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } : undefined}
                     style={{
                       borderBottom: '1px solid #f1f5f9',
                       backgroundColor: isTargetHighlight ? '#f0fdf4' : undefined,
                       boxShadow: isTargetHighlight ? 'inset 0 0 0 2px #0f766e' : undefined,
                       transition: 'all 0.25s ease',
+                      cursor: 'pointer',
                     }}
+                    title="Bấm vào đơn hàng để mở danh sách sản phẩm và chạy Pick-to-Light (Kệ A1–A3)"
                   >
                     <td style={{ padding: '14px 18px' }}>
                       <div style={{ fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1104,9 +1458,33 @@ const OutboundOrders: React.FC = () => {
                     </td>
 
                     <td style={{ padding: '14px 18px', fontWeight: 600 }}>
-                      {o.totalItems || o.items?.length || 1} món
-                      <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>
-                        SL: {o.totalQuantity || o.items?.reduce((s, i) => s + (i.requestedQuantity || 1), 0) || 1} sp
+                      <div>
+                        {o.totalItems || o.items?.length || 1} món ({o.totalQuantity || o.items?.reduce((s, i) => s + (i.requestedQuantity || 1), 0) || 1} sp)
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+                        {Array.from(
+                          new Map(
+                            (o.items || []).map((it, i) => {
+                              const loc = resolveOutboundShelfTier(it, i);
+                              return [loc.shortCode, loc];
+                            })
+                          ).values()
+                        ).map(loc => (
+                          <span
+                            key={loc.shortCode}
+                            style={{
+                              fontSize: '10.5px',
+                              fontWeight: 600,
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              backgroundColor: '#f0fdfa',
+                              color: '#0f766e',
+                              border: '1px solid #99f6e4',
+                            }}
+                          >
+                            {loc.fullLabel}
+                          </span>
+                        ))}
                       </div>
                     </td>
 
@@ -1488,27 +1866,386 @@ const OutboundOrders: React.FC = () => {
 
             {renderStepper(selectedOrder.status)}
 
-            <div style={{ marginTop: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h4 style={{ fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                  Danh sách hàng cần lấy (Ưu tiên hạn gần) {isEditingOrder && <span style={{ fontSize: '12px', color: '#b45309', fontWeight: 600 }}>[Cho phép sửa số lượng từng món bên dưới]</span>}
+            {/* ── BẢNG ĐIỀU HƯỚNG LẤY HÀNG THÔNG MINH (CTA-DRIVEN GUIDED PICKING) ── */}
+            {(() => {
+              const allItems = selectedOrder.items || [];
+              const totalCount = allItems.length;
+              const pickedCount = allItems.filter(it => it.status === 'PICKED' || (it.pickedQuantity || 0) >= (it.requestedQuantity || 1)).length;
+              const allPicked = totalCount > 0 && pickedCount >= totalCount;
+              const nextUnpickedIdx = allItems.findIndex(it => it.status !== 'PICKED' && (it.pickedQuantity || 0) < (it.requestedQuantity || 1));
+              const firstTargetItem = nextUnpickedIdx >= 0 ? allItems[nextUnpickedIdx] : null;
+              const firstTargetLoc = nextUnpickedIdx >= 0 && firstTargetItem ? resolveOutboundShelfTier(firstTargetItem, nextUnpickedIdx) : null;
+
+              const afterActiveIdx = webGuidedSession
+                ? allItems.findIndex(it => it.id !== webGuidedSession.itemId && it.status !== 'PICKED' && (it.pickedQuantity || 0) < (it.requestedQuantity || 1))
+                : -1;
+              const afterActiveItem = afterActiveIdx >= 0 ? allItems[afterActiveIdx] : null;
+              const afterActiveLoc = afterActiveIdx >= 0 && afterActiveItem ? resolveOutboundShelfTier(afterActiveItem, afterActiveIdx) : null;
+
+              return (
+                <div
+                  style={{
+                    marginTop: '14px',
+                    padding: '14px 16px',
+                    borderRadius: '10px',
+                    backgroundColor: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                  }}
+                >
+                  {/* Thanh Tiến Độ */}
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Radio size={15} color="#0f766e" />
+                        <span>Tiến độ lấy hàng</span>
+                      </span>
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: allPicked ? '#166534' : '#0f766e' }}>
+                        {pickedCount}/{totalCount} món
+                      </span>
+                    </div>
+                    <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${totalCount > 0 ? Math.round((pickedCount / totalCount) * 100) : 0}%`,
+                        height: '100%',
+                        backgroundColor: allPicked ? '#16a34a' : webGuidedSession ? '#d97706' : '#0f766e',
+                        transition: 'width 0.3s ease',
+                      }} />
+                    </div>
+                  </div>
+
+                  {/* HERO CTA CARD */}
+                  <div style={{ marginBottom: '14px' }}>
+                    {webGuidedSession ? (
+                      <div style={{
+                        padding: '14px',
+                        borderRadius: '10px',
+                        backgroundColor: '#fffbeb',
+                        border: '2px solid #f59e0b',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'stretch', gap: '12px', flexWrap: 'wrap' }}>
+                          <div style={{
+                            minWidth: '84px',
+                            padding: '10px 14px',
+                            borderRadius: '8px',
+                            backgroundColor: '#d97706',
+                            color: '#ffffff',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}>
+                            <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase' }}>Đi tới kệ</span>
+                            <span style={{ fontSize: '24px', fontWeight: 700, fontFamily: 'monospace', lineHeight: 1.15 }}>
+                              {webGuidedSession.fullLocationLabel}
+                            </span>
+                          </div>
+
+                          <div style={{ flex: 1, minWidth: '180px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                            <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#b45309' }}>
+                              Bước {webGuidedSession.step}/{webGuidedSession.totalSteps} • Đèn &amp; Còi đang bật
+                            </span>
+                            <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
+                              {webGuidedSession.productName}
+                            </div>
+                            <div style={{ fontSize: '13px', fontWeight: 700, color: '#1d4ed8', marginTop: '2px' }}>
+                              Số lượng cần lấy: {webGuidedSession.quantity}
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <button
+                              type="button"
+                              onClick={() => advanceWebGuidedStep(true)}
+                              style={{
+                                backgroundColor: '#d97706',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '8px',
+                                padding: '10px 16px',
+                                fontSize: '13px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                              }}
+                            >
+                              <CheckCircle2 size={16} />
+                              <span>
+                                {afterActiveItem && afterActiveLoc
+                                  ? `Đã lấy tại ${webGuidedSession.fullLocationLabel} — Qua kệ ${afterActiveLoc.fullLabel}`
+                                  : `Đã lấy tại ${webGuidedSession.fullLocationLabel} — Hoàn tất`}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsWebAutoIotEnabled(false);
+                                stopWebGuidedIot(true);
+                              }}
+                              style={{
+                                backgroundColor: '#ffffff',
+                                color: '#475569',
+                                border: '1px solid #cbd5e1',
+                                borderRadius: '8px',
+                                padding: '10px 12px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Tạm dừng
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : allPicked ? (
+                      <div style={{
+                        padding: '12px 14px',
+                        borderRadius: '10px',
+                        backgroundColor: '#f0fdf4',
+                        border: '1.5px solid #86efac',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '10px',
+                        flexWrap: 'wrap',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', fontWeight: 700, color: '#166534' }}>
+                          <CheckCircle2 size={18} color="#16a34a" />
+                          <span>Đã lấy đủ {totalCount}/{totalCount} sản phẩm</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={() => startOrderPickingScenario(selectedOrder)}
+                            style={{
+                              padding: '8px 12px',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              backgroundColor: '#ffffff',
+                              color: '#0f766e',
+                              border: '1px solid #99f6e4',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Lấy lại từ đầu
+                          </button>
+                          {canOperateWarehouse && (selectedOrder.status === 'PENDING' || selectedOrder.status === 'PROCESSING' || selectedOrder.status === 'PICKING' || selectedOrder.status === 'PACKING') && (
+                            <button
+                              type="button"
+                              onClick={() => advanceState(selectedOrder.id, 'confirm', { confirmedBy: user?.id || 'USR-01' })}
+                              style={{
+                                padding: '9px 16px',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                fontWeight: 700,
+                                backgroundColor: '#16a34a',
+                                color: '#ffffff',
+                                border: 'none',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                              }}
+                            >
+                              <CheckCircle2 size={16} />
+                              <span>Hoàn tất xuất kho &amp; Bàn giao</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{
+                        padding: '12px 14px',
+                        borderRadius: '10px',
+                        backgroundColor: '#ffffff',
+                        border: '1.5px solid #0f766e',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '12px',
+                        flexWrap: 'wrap',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#475569' }}>Lộ trình lấy hàng:</span>
+                          {allItems.map((it, idx) => {
+                            const l = resolveOutboundShelfTier(it, idx);
+                            const picked = it.status === 'PICKED' || (it.pickedQuantity || 0) >= (it.requestedQuantity || 1);
+                            return (
+                              <React.Fragment key={it.id || idx}>
+                                {idx > 0 && <span style={{ color: '#94a3b8', fontSize: '11px' }}>→</span>}
+                                <span style={{
+                                  fontSize: '11.5px',
+                                  fontWeight: 700,
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  backgroundColor: picked ? '#dcfce7' : idx === nextUnpickedIdx ? '#0f766e' : '#f1f5f9',
+                                  color: picked ? '#166534' : idx === nextUnpickedIdx ? '#ffffff' : '#334155',
+                                }}>
+                                  {l.fullLabel}
+                                </span>
+                              </React.Fragment>
+                            );
+                          })}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => startOrderPickingScenario(selectedOrder)}
+                          style={{
+                            backgroundColor: '#0f766e',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '10px 18px',
+                            fontSize: '13px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                          }}
+                        >
+                          <Lightbulb size={16} />
+                          <span>
+                            {firstTargetLoc
+                              ? `Bắt đầu lấy hàng — Đi tới kệ ${firstTargetLoc.fullLabel}`
+                              : 'Bắt đầu lấy hàng ngay'}
+                          </span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Sơ đồ 3 Kệ (Kệ A, Kệ B, Kệ C) × 2 Tầng (A1, A2 | B1, B2 | C1, C2) */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                    {(['A', 'B', 'C'] as const).map(rackLetter => {
+                      const mappedItems = allItems.map((it, idx) => ({
+                        item: it,
+                        idx,
+                        loc: resolveOutboundShelfTier(it, idx),
+                        isPicked: it.status === 'PICKED' || (it.pickedQuantity || 0) >= (it.requestedQuantity || 1),
+                      }));
+                      const isRackActive = webGuidedSession?.rackLabel === `Kệ ${rackLetter}`;
+
+                      return (
+                        <div
+                          key={rackLetter}
+                          style={{
+                            backgroundColor: isRackActive ? '#fffbeb' : '#ffffff',
+                            border: `1.5px solid ${isRackActive ? '#f59e0b' : '#cbd5e1'}`,
+                            borderRadius: '8px',
+                            padding: '10px',
+                          }}
+                        >
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            marginBottom: '6px',
+                            fontSize: '12.5px',
+                            fontWeight: 700,
+                            color: isRackActive ? '#92400e' : '#0f172a',
+                          }}>
+                            <span>Kệ {rackLetter}</span>
+                            {isRackActive && (
+                              <span style={{ fontSize: '10.5px', fontWeight: 600, color: '#d97706', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                <Lightbulb size={12} /> Đang sáng
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                            {([1, 2] as const).map(tierNum => {
+                              const matching = mappedItems.filter(m => m.loc.rack === rackLetter && m.loc.tier === tierNum);
+                              const hasItems = matching.length > 0;
+                              const slotCode = `${rackLetter}${tierNum}`;
+                              const isTierActive = isRackActive && webGuidedSession?.fullLocationLabel === slotCode;
+                              const allTierPicked = hasItems && matching.every(m => m.isPicked);
+
+                              return (
+                                <div
+                                  key={tierNum}
+                                  onClick={() => {
+                                    if (hasItems) {
+                                      const m = matching[0];
+                                      setIsWebAutoIotEnabled(true);
+                                      activateWebGuidedStep(selectedOrder, m.item, m.idx + 1, allItems.length, m.idx);
+                                    }
+                                  }}
+                                  style={{
+                                    padding: '5px 8px',
+                                    borderRadius: '6px',
+                                    fontSize: '11px',
+                                    fontWeight: hasItems ? 700 : 500,
+                                    cursor: hasItems ? 'pointer' : 'default',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    backgroundColor: isTierActive
+                                      ? '#fef3c7'
+                                      : allTierPicked
+                                      ? '#f0fdf4'
+                                      : hasItems
+                                      ? '#f0fdfa'
+                                      : '#f8fafc',
+                                    color: isTierActive
+                                      ? '#92400e'
+                                      : allTierPicked
+                                      ? '#166534'
+                                      : hasItems
+                                      ? '#0f766e'
+                                      : '#94a3b8',
+                                    border: `1px solid ${
+                                      isTierActive
+                                        ? '#f59e0b'
+                                        : allTierPicked
+                                        ? '#bbf7d0'
+                                        : hasItems
+                                        ? '#99f6e4'
+                                        : '#e2e8f0'
+                                    }`,
+                                  }}
+                                >
+                                  <span>{slotCode}</span>
+                                  <span>{hasItems ? `${matching.length} SP` : '—'}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div style={{ marginTop: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <h4 style={{ fontWeight: 700, fontSize: '14px', color: '#0f172a', margin: 0 }}>
+                  Danh sách sản phẩm &amp; Vị trí kệ {isEditingOrder && <span style={{ fontSize: '12px', color: '#b45309', fontWeight: 600 }}>[Chỉnh sửa]</span>}
                 </h4>
                 {canOperateWarehouse && selectedOrder.status === 'PENDING' && !isEditingOrder && (
-                  <button className="btn btn-primary" style={{ backgroundColor: 'var(--color-primary-600)', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => runFefoAndApply(selectedOrder.id)}>
-                    <Layers size={16} /> Tự Động Chọn Lô Hạn Gần (FEFO)
+                  <button className="btn btn-primary" style={{ backgroundColor: 'var(--color-primary-600)', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '12px' }} onClick={() => runFefoAndApply(selectedOrder.id)}>
+                    <Layers size={14} /> Chọn lô FEFO
                   </button>
                 )}
               </div>
               
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
                   <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                     <tr>
-                      <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700 }}>Mã & Tên Sản Phẩm</th>
-                      <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700, width: '130px' }}>SL Yêu cầu</th>
-                      <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700 }}>Lô Đề Xuất (Hạn Dùng)</th>
-                      <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700 }}>Vị Trí Kệ</th>
-                      <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 700 }}>HSD Lô Hàng</th>
+                      <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 600 }}>Sản phẩm</th>
+                      <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 600, width: '90px' }}>Số lượng</th>
+                      <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 600 }}>Vị trí Kệ &amp; Tầng</th>
+                      <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 600 }}>Mã lô / HSD</th>
+                      <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 600, textAlign: 'right' }}>Lấy hàng</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1516,7 +2253,7 @@ const OutboundOrders: React.FC = () => {
                       editFormData.items.map((item, idx) => (
                         <tr key={item.id || idx} style={{ borderTop: idx > 0 ? '1px solid #f1f5f9' : 'none', backgroundColor: '#fffbeb' }}>
                           <td style={{ padding: '10px 14px' }}>
-                            <div style={{ fontWeight: 700, color: '#0f172a' }}>{item.productName}</div>
+                            <div style={{ fontWeight: 600, color: '#0f172a' }}>{cleanOutboundProductName(item.productName)}</div>
                             <div style={{ fontSize: '0.75rem', color: '#64748b', fontFamily: 'monospace' }}>{item.sku}</div>
                           </td>
                           <td style={{ padding: '10px 14px' }}>
@@ -1531,7 +2268,22 @@ const OutboundOrders: React.FC = () => {
                                   items: prev.items.map((it, i) => i === idx ? { ...it, requestedQuantity: newQty } : it)
                                 }));
                               }}
-                              style={{ width: '90px', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: 800, color: '#0f172a', background: '#fff' }}
+                              style={{ width: '75px', padding: '5px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px', fontWeight: 700, color: '#0f172a', background: '#fff' }}
+                            />
+                          </td>
+                          <td style={{ padding: '10px 14px' }}>
+                            <input
+                              type="text"
+                              value={item.slotId || ''}
+                              placeholder="A-T1, B-T2..."
+                              onChange={e => {
+                                const val = e.target.value;
+                                setEditFormData(prev => ({
+                                  ...prev,
+                                  items: prev.items.map((it, i) => i === idx ? { ...it, slotId: val } : it)
+                                }));
+                              }}
+                              style={{ width: '110px', padding: '5px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', background: '#fff' }}
                             />
                           </td>
                           <td style={{ padding: '10px 14px' }}>
@@ -1546,85 +2298,148 @@ const OutboundOrders: React.FC = () => {
                                   items: prev.items.map((it, i) => i === idx ? { ...it, lotCode: val } : it)
                                 }));
                               }}
-                              style={{ width: '140px', padding: '5px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', background: '#fff' }}
+                              style={{ width: '130px', padding: '5px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', background: '#fff' }}
                             />
                           </td>
-                          <td style={{ padding: '10px 14px' }}>
-                            <input
-                              type="text"
-                              value={item.slotId || ''}
-                              placeholder="Kệ..."
-                              onChange={e => {
-                                const val = e.target.value;
-                                setEditFormData(prev => ({
-                                  ...prev,
-                                  items: prev.items.map((it, i) => i === idx ? { ...it, slotId: val } : it)
-                                }));
-                              }}
-                              style={{ width: '110px', padding: '5px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', background: '#fff' }}
-                            />
-                          </td>
-                          <td style={{ padding: '10px 14px', color: '#64748b' }}>
-                            {selectedOrder.items?.[idx]?.expiryDate ? new Date(selectedOrder.items[idx].expiryDate!).toLocaleDateString('vi-VN') : '15/09/2026'}
-                          </td>
+                          <td style={{ padding: '10px 14px', textAlign: 'right', color: '#64748b' }}>—</td>
                         </tr>
                       ))
                     ) : (
                       selectedOrder.items?.map((item, idx) => {
-                        const isMismatchBogusLot = Boolean(
-                          item.lotCode &&
-                          item.lotCode.includes('TOMATO') &&
-                          !item.sku?.toUpperCase().includes('TOMATO') &&
-                          !item.productName?.toLowerCase().includes('cà chua')
-                        );
                         const isTransferWaiting = item.slotId === 'TRANSFER_DOCK' ||
                           selectedOrder.status === 'WAITING_TRANSFER' ||
-                          selectedOrder.notes?.includes('[CHỜ HÀNG ĐIỀU CHUYỂN]') ||
-                          isMismatchBogusLot;
+                          selectedOrder.notes?.includes('[CHỜ HÀNG ĐIỀU CHUYỂN]');
+
+                        const loc = resolveOutboundShelfTier(item, idx);
+                        const isItemPicked = item.status === 'PICKED' || (item.pickedQuantity || 0) >= (item.requestedQuantity || 1);
+                        const isItemGuidedNow = webGuidedSession?.itemId === item.id;
+                        const totalItemsCount = (selectedOrder.items || []).length;
 
                         return (
-                          <tr key={item.id || idx} style={{ borderTop: idx > 0 ? '1px solid #f1f5f9' : 'none', backgroundColor: (item.lotCode && !isTransferWaiting) ? 'rgba(59, 130, 246, 0.03)' : 'transparent' }}>
-                            <td style={{ padding: '12px 14px' }}>
-                              <div style={{ fontWeight: 700, color: '#0f172a' }}>{item.productName}</div>
-                              <div style={{ fontSize: '0.75rem', color: '#64748b', fontFamily: 'monospace' }}>{item.sku}</div>
+                          <tr
+                            key={item.id || idx}
+                            onClick={() => {
+                              setIsWebAutoIotEnabled(true);
+                              activateWebGuidedStep(
+                                selectedOrder,
+                                item,
+                                idx + 1,
+                                Math.max(1, totalItemsCount),
+                                idx
+                              );
+                              showToast(
+                                `Đã bật đèn LED & Còi tại ${loc.fullLabel} cho "${cleanOutboundProductName(item.productName)}".`,
+                                'info'
+                              );
+                            }}
+                            style={{
+                              borderTop: idx > 0 ? '1px solid #f1f5f9' : 'none',
+                              backgroundColor: isItemGuidedNow
+                                ? '#fffbeb'
+                                : isItemPicked
+                                ? '#f0fdf4'
+                                : '#ffffff',
+                              cursor: 'pointer',
+                              transition: 'background-color 0.15s ease',
+                            }}
+                          >
+                            <td style={{ padding: '10px 14px' }}>
+                              <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '13px' }}>
+                                {cleanOutboundProductName(item.productName)}
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#64748b', fontFamily: 'monospace' }}>
+                                {item.sku}
+                              </div>
                             </td>
-                            <td style={{ padding: '12px 14px', fontWeight: 700 }}>{item.requestedQuantity} sp</td>
-                            <td style={{ padding: '12px 14px' }}>
-                              {isTransferWaiting ? (
-                                <span style={{ padding: '3px 8px', borderRadius: '6px', backgroundColor: '#fff7ed', color: '#c2410c', fontWeight: 700, fontSize: '0.75rem', border: '1px solid #fed7aa' }}>
-                                  Chờ xe trung chuyển
-                                </span>
-                              ) : item.lotCode ? (
-                                <span style={{ padding: '3px 8px', borderRadius: '6px', backgroundColor: '#dcfce7', color: '#166534', fontWeight: 700, fontSize: '0.75rem', border: '1px solid #bbf7d0' }}>
-                                  {item.lotCode} ({item.pickedQuantity || item.requestedQuantity} sp)
-                                </span>
-                              ) : (
-                                <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.75rem' }}>Chưa cấp lô</span>
-                              )}
+
+                            <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
+                              ×{item.requestedQuantity}
                             </td>
-                            <td style={{ padding: '12px 14px' }}>
-                              <span style={{ 
-                                display: 'inline-flex', 
-                                alignItems: 'center', 
-                                gap: '4px',
-                                padding: '4px 9px', 
-                                borderRadius: '6px', 
-                                backgroundColor: isTransferWaiting ? '#fff7ed' : item.slotId ? '#f0fdf4' : '#f1f5f9', 
-                                color: isTransferWaiting ? '#c2410c' : item.slotId ? '#15803d' : '#64748b', 
-                                fontWeight: 600, 
-                                fontSize: '0.8rem', 
-                                border: isTransferWaiting ? '1px solid #fed7aa' : item.slotId ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
+
+                            <td style={{ padding: '10px 14px' }}>
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                padding: '3px 9px',
+                                borderRadius: '6px',
+                                backgroundColor: isItemGuidedNow ? '#fef3c7' : isTransferWaiting ? '#fff7ed' : '#f0fdfa',
+                                color: isItemGuidedNow ? '#92400e' : isTransferWaiting ? '#c2410c' : '#0f766e',
+                                fontWeight: 600,
+                                fontSize: '12px',
+                                border: `1px solid ${isItemGuidedNow ? '#f59e0b' : isTransferWaiting ? '#fed7aa' : '#99f6e4'}`,
                               }}>
-                                <MapPin size={12} /> {isTransferWaiting ? 'Khu nhận hàng điều chuyển' : formatShelfLocation(item.slotId)}
+                                <Radio size={12} />
+                                <span>{isTransferWaiting ? 'Dock điều chuyển' : loc.fullLabel}</span>
                               </span>
                             </td>
-                            <td style={{ padding: '12px 14px', color: '#64748b' }}>
+
+                            <td style={{ padding: '10px 14px', fontSize: '11.5px', color: '#475569' }}>
                               {isTransferWaiting ? (
-                                <span style={{ color: '#c2410c', fontStyle: 'italic', fontSize: '0.75rem' }}>Theo phiếu nhập TRF</span>
-                              ) : item.lotCode && item.expiryDate ? (
-                                new Date(item.expiryDate).toLocaleDateString('vi-VN')
+                                <span style={{ color: '#c2410c' }}>Chờ điều chuyển</span>
                               ) : (
-                                '15/09/2026'
+                                <span>
+                                  {item.lotCode || 'Lô tiêu chuẩn'} • {item.expiryDate ? new Date(item.expiryDate).toLocaleDateString('vi-VN') : '15/09/2026'}
+                                </span>
+                              )}
+                            </td>
+
+                            <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                              {isItemGuidedNow ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    advanceWebGuidedStep(true);
+                                  }}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '5px 10px',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    backgroundColor: '#d97706',
+                                    color: '#ffffff',
+                                    fontSize: '11.5px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  <CheckCircle2 size={12} />
+                                  <span>Bấm STOP</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsWebAutoIotEnabled(true);
+                                    activateWebGuidedStep(
+                                      selectedOrder,
+                                      item,
+                                      idx + 1,
+                                      Math.max(1, totalItemsCount),
+                                      idx
+                                    );
+                                  }}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '5px 10px',
+                                    borderRadius: '6px',
+                                    border: isItemPicked ? '1px solid #86efac' : '1px solid #0f766e',
+                                    backgroundColor: isItemPicked ? '#dcfce7' : '#0f766e',
+                                    color: isItemPicked ? '#166534' : '#ffffff',
+                                    fontSize: '11.5px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  {isItemPicked ? <Check size={12} /> : <Lightbulb size={12} />}
+                                  <span>{isItemPicked ? 'Đã lấy' : 'Lấy hàng'}</span>
+                                </button>
                               )}
                             </td>
                           </tr>
@@ -1694,7 +2509,7 @@ const OutboundOrders: React.FC = () => {
                             showToast('Đã hoàn tất đóng gói kiện hàng! Sẵn sàng bàn giao shipper.', 'success');
                           }}
                         >
-                          <CheckCircle2 size={18} /> Hoàn Tất Đóng Gói (Chuyển Sang PACKED)
+                          <CheckCircle2 size={18} /> Hoàn tất đóng gói
                         </button>
                       </div>
                     )}
@@ -1704,7 +2519,7 @@ const OutboundOrders: React.FC = () => {
                         style={{ padding: '12px 24px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', width: '100%', justifyContent: 'center', boxShadow: '0 4px 10px rgba(5,150,105,0.25)' }} 
                         onClick={() => advanceState(selectedOrder.id, 'confirm', { confirmedBy: user?.id || 'USR-01' })}
                       >
-                        <CheckCircle2 size={22} /> Xác Nhận Xuất Kho (Bàn Giao Shipper)
+                        <CheckCircle2 size={22} /> Xác nhận xuất kho & Bàn giao
                       </button>
                     )}
                   </>

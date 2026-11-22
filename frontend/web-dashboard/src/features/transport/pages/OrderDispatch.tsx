@@ -33,6 +33,9 @@ import {
   User,
   AlertCircle,
   DollarSign,
+  Radio,
+  Lightbulb,
+  Volume2,
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { useAuth } from '@/features/auth';
@@ -47,18 +50,139 @@ const ORDER_API = `${getApiHost(3004)}/orders`;
 const OUTBOUND_API = getApiHost(3007);
 const WAREHOUSE_API = getApiHost(3005);
 const INBOUND_API = getApiHost(3006);
+const IOT_API = getApiHost(3002);
 
 export { DEFAULT_VERIFIED_POD_PHOTO, resolvePodUrl } from '@/shared/utils/podUtils';
 import { DEFAULT_VERIFIED_POD_PHOTO, resolvePodUrl } from '@/shared/utils/podUtils';
 
 interface OrderItem {
+  id?: string;
   sku: string;
   productId?: string;
   productName: string;
   requestedQuantity: number;
   quantity?: number;
+  pickedQuantity?: number;
+  slotId?: string;
   unit?: string;
   price?: number;
+}
+
+const DEMO_IOT_SHELVES = ['A1', 'A2', 'A3'] as const;
+type DemoIotShelfCode = (typeof DEMO_IOT_SHELVES)[number];
+type DemoRackLetter = 'A' | 'B' | 'C';
+type DemoTierNumber = 1 | 2;
+
+interface ShelfTierLocation {
+  rack: DemoRackLetter;
+  rackLabel: string;      // "Kệ A" | "Kệ B" | "Kệ C"
+  tier: DemoTierNumber;
+  tierLabel: string;      // "Tầng 1" | "Tầng 2"
+  fullLabel: string;      // "Kệ A - Tầng 1"
+  shortCode: string;      // "A-T1"
+  hwShelfCode: DemoIotShelfCode; // Kệ A -> A1, Kệ B -> A2, Kệ C -> A3
+}
+
+function cleanProductDisplayName(name: string): string {
+  return String(name || '').replace(/\s*\[[A-C][123]?-\d+\]/gi, '').trim();
+}
+
+function resolveOrderItemShelfTier(item: OrderItem, idx = 0): ShelfTierLocation {
+  const rawCombined = `${item.slotId || ''} ${item.productName || ''} ${item.sku || ''}`.toUpperCase();
+
+  let rack: DemoRackLetter | null = null;
+  let tier: DemoTierNumber | null = null;
+
+  // 1. Check explicit A-T1, B-T2, C-T1 or [A1-01], [A2-02], [A3-02], [B1-01]
+  const tierMatch = rawCombined.match(/(?:^|[^A-Z0-9])([ABC])[-_ ]*T([12])(?=$|[^0-9])/);
+  if (tierMatch) {
+    rack = tierMatch[1] as DemoRackLetter;
+    tier = Number(tierMatch[2]) as DemoTierNumber;
+  }
+
+  if (!rack) {
+    const legacyHyphen = rawCombined.match(/(?:^|[^A-Z0-9])(A1|A2|A3)[-_ ]+0?([123])(?=$|[^0-9])/);
+    if (legacyHyphen) {
+      const token = legacyHyphen[1];
+      const subNum = Number(legacyHyphen[2]);
+      if (token === 'A1') rack = 'A';
+      else if (token === 'A2') rack = 'B';
+      else rack = 'C';
+      tier = subNum === 2 ? 2 : 1;
+    } else {
+      const directMatch = rawCombined.match(/(?:^|[^A-Z0-9])([ABC])([12])(?=$|[^0-9])/);
+      if (directMatch) {
+        rack = directMatch[1] as DemoRackLetter;
+        tier = Number(directMatch[2]) as DemoTierNumber;
+      }
+    }
+  }
+
+  // 2. Fallback by product keywords
+  if (!rack) {
+    const text = `${item.productName || ''} ${item.sku || ''}`.toLowerCase();
+    if (/thịt|heo|bò|gà|cá|tôm|hải sản|xúc xích|chả/.test(text)) {
+      rack = 'A';
+    } else if (/sữa|trứng|phô mai|bơ|yogurt|sữa chua|nước/.test(text)) {
+      rack = 'B';
+    } else if (/rau|củ|cà|xà lách|táo|cam|nấm|trái|dưa|bắp/.test(text)) {
+      rack = 'C';
+    } else {
+      const racks: DemoRackLetter[] = ['A', 'B', 'C'];
+      rack = racks[idx % 3];
+    }
+  }
+
+  if (!tier) {
+    tier = ((idx % 2) + 1) as DemoTierNumber;
+  }
+
+  const hwMap: Record<DemoRackLetter, DemoIotShelfCode> = {
+    A: 'A1',
+    B: 'A2',
+    C: 'A3',
+  };
+
+  return {
+    rack,
+    rackLabel: `Kệ ${rack}`,
+    tier,
+    tierLabel: `${rack}${tier}`,
+    fullLabel: `${rack}${tier}`,
+    shortCode: `${rack}${tier}`,
+    hwShelfCode: hwMap[rack],
+  };
+}
+
+function getOrderUniqueLocations(items: OrderItem[] = []): ShelfTierLocation[] {
+  const seen = new Set<string>();
+  const list: ShelfTierLocation[] = [];
+  items.forEach((item, idx) => {
+    const loc = resolveOrderItemShelfTier(item, idx);
+    if (!seen.has(loc.shortCode)) {
+      seen.add(loc.shortCode);
+      list.push(loc);
+    }
+  });
+  return list;
+}
+
+interface ActiveOrderPickGuide {
+  orderId: string;
+  orderCode: string;
+  itemIdx: number;
+  itemId?: string;
+  productName: string;
+  sku: string;
+  quantity: number;
+  shelfCode: DemoIotShelfCode;
+  rackLabel: string;
+  tierLabel: string;
+  fullLocationLabel: string;
+  step: number;
+  totalSteps: number;
+  status: 'LOCATING' | 'WAITING_STOP' | 'STOP_CONFIRMED' | 'COMPLETED';
+  baselineStopSeq: number;
 }
 
 interface UnifiedOrder {
@@ -106,9 +230,9 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
   PICKING:             { label: 'Đang soạn hàng', color: '#6d28d9', bg: '#ede9fe', border: '#ddd6fe', icon: <Boxes size={12} /> },
   PACKING:             { label: 'Đang đóng gói', color: '#0f766e', bg: '#ccfbf1', border: '#99f6e4', icon: <PackageCheck size={12} /> },
   PICKED:              { label: 'Đang đóng gói', color: '#0f766e', bg: '#ccfbf1', border: '#99f6e4', icon: <PackageCheck size={12} /> },
-  PACKED:              { label: 'Đã đóng gói (Chờ bàn giao)', color: '#0f766e', bg: '#ccfbf1', border: '#99f6e4', icon: <PackageCheck size={12} /> },
+  PACKED:              { label: 'Đã đóng gói', color: '#0f766e', bg: '#ccfbf1', border: '#99f6e4', icon: <PackageCheck size={12} /> },
   CONFIRMED:           { label: 'Đã xuất kho', color: '#c2410c', bg: '#ffedd5', border: '#fed7aa', icon: <PackageCheck size={12} /> },
-  READY_FOR_DELIVERY:  { label: 'Đã bàn giao (Chờ phân tuyến)', color: '#c2410c', bg: '#fff7ed', border: '#fed7aa', icon: <Clock size={12} /> },
+  READY_FOR_DELIVERY:  { label: 'Chờ phân tuyến', color: '#c2410c', bg: '#fff7ed', border: '#fed7aa', icon: <Clock size={12} /> },
   SHIPPED:             { label: 'Đang giao hàng', color: '#0284c7', bg: '#e0f2fe', border: '#bae6fd', icon: <Truck size={12} /> },
   DELIVERING:          { label: 'Đang giao hàng', color: '#0284c7', bg: '#e0f2fe', border: '#bae6fd', icon: <Truck size={12} /> },
   COMPLETED:           { label: 'Giao thành công', color: '#15803d', bg: '#dcfce7', border: '#bbf7d0', icon: <CheckCircle2 size={12} /> },
@@ -121,7 +245,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
 const getOrderStatusConfig = (status: string, assignedDriverName?: string) => {
   if ((status === 'READY_FOR_DELIVERY' || status === 'CONFIRMED') && assignedDriverName) {
     return {
-      label: 'Chờ xuất bến (Đã gán xe)',
+      label: 'Đã gán xe',
       color: '#075985',
       bg: '#f0f9ff',
       border: '#bae6fd',
@@ -192,8 +316,29 @@ export default function OrderDispatch() {
     'ALL' | 'STEP_1_PICKING' | 'STEP_2_DISPATCH' | 'STEP_3_DELIVERING' | 'STEP_EXCEPTION' | 'STEP_COMPLETED'
   >('ALL');
 
-  // Control Tower Map Collapse
-  const [showMap, setShowMap] = useState<boolean>(true);
+  // Control Tower Map Collapse (default hidden on mobile or packing tab so orders are immediately visible)
+  const [showMap, setShowMap] = useState<boolean>(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'map') return true;
+    if (tabParam === 'packing' || tabParam === 'delivery') return false;
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) return false;
+    if (user?.role === 'WAREHOUSE_STAFF') return false;
+    return true;
+  });
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'map') {
+      setShowMap(true);
+    } else if (tabParam === 'packing') {
+      setShowMap(false);
+    }
+  }, [searchParams]);
+
+  // Sequential Pick-to-Light (Kệ IoT A1, A2, A3) state
+  const [pickedOrderItems, setPickedOrderItems] = useState<Record<string, Record<number, boolean>>>({});
+  const [activePickGuide, setActivePickGuide] = useState<ActiveOrderPickGuide | null>(null);
+  const autoAdvanceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Modals & Action States
   const [manualDriverModalOrder, setManualDriverModalOrder] = useState<UnifiedOrder | null>(null);
@@ -416,10 +561,13 @@ export default function OrderDispatch() {
               createdAt: new Date(o.createdAt || Date.now()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
               rawCreatedAt: o.createdAt || new Date().toISOString(),
               items: (o.items || []).map((i: any) => ({
+                id: i.id,
                 sku: i.sku || 'SKU-01',
                 productName: i.productName || 'Hàng xuất kho',
                 requestedQuantity: i.requestedQuantity || i.quantity || 1,
-                quantity: i.requestedQuantity || 1,
+                quantity: i.requestedQuantity || i.quantity || 1,
+                pickedQuantity: i.pickedQuantity || 0,
+                slotId: i.slotId || undefined,
                 price: isDisposal ? 0 : Number(i.price || 50000),
                 unit: i.unit || 'Kg',
               })),
@@ -1653,6 +1801,11 @@ export default function OrderDispatch() {
 
       return true;
     }).sort((a, b) => {
+      // 0. Ưu tiên đơn demo IoT Pick-to-Light (XK-IOT-DEMO-...) lên đầu danh sách để nhân viên kho thao tác ngay
+      const isIotA = a.orderCode.toUpperCase().includes('IOT-DEMO') ? 1 : 0;
+      const isIotB = b.orderCode.toUpperCase().includes('IOT-DEMO') ? 1 : 0;
+      if (isIotA !== isIotB) return isIotB - isIotA;
+
       // 1. Luôn đưa đơn hàng mới nhất lên trên đầu
       const timeA = new Date(a.rawCreatedAt || 0).getTime();
       const timeB = new Date(b.rawCreatedAt || 0).getTime();
@@ -1686,7 +1839,241 @@ export default function OrderDispatch() {
   // Pagination State
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(9);
-  const [viewMode, setViewMode] = useState<'CARD' | 'LIST'>('LIST');
+  const [viewMode, setViewMode] = useState<'CARD' | 'LIST'>(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) return 'CARD';
+    if (user?.role === 'WAREHOUSE_STAFF') return 'CARD';
+    return 'CARD';
+  });
+
+  const isOrderItemPicked = useCallback((order: UnifiedOrder, idx: number, overrideMap?: Record<number, boolean>) => {
+    const orderMap = overrideMap || pickedOrderItems[order.id] || {};
+    if (orderMap[idx]) return true;
+    const item = order.items?.[idx];
+    if (!item) return false;
+    const req = item.requestedQuantity || item.quantity || 1;
+    if ((item.pickedQuantity || 0) >= req) return true;
+    if (['PACKED', 'READY_FOR_DELIVERY', 'CONFIRMED', 'SHIPPED', 'DELIVERING', 'COMPLETED', 'DELIVERED'].includes(order.status)) {
+      return true;
+    }
+    return false;
+  }, [pickedOrderItems]);
+
+  const handleStopAllIotShelves = useCallback(async () => {
+    if (autoAdvanceTimerRef.current) {
+      clearTimeout(autoAdvanceTimerRef.current);
+      autoAdvanceTimerRef.current = null;
+    }
+    await fetch(`${IOT_API}/api/iot/shelf/reset`, { method: 'POST' }).catch(() => null);
+    setActivePickGuide(null);
+    showToast('Đã tắt toàn bộ đèn LED và còi trên 3 kệ IoT (A1, A2, A3).', 'info');
+  }, [showToast]);
+
+  const activateOrderProductShelf = useCallback(async (
+    order: UnifiedOrder,
+    targetItemIdx?: number,
+    pickedOverride?: Record<number, boolean>
+  ) => {
+    if (autoAdvanceTimerRef.current) {
+      clearTimeout(autoAdvanceTimerRef.current);
+      autoAdvanceTimerRef.current = null;
+    }
+
+    const items = order.items || [];
+    if (items.length === 0) {
+      showToast(`Đơn #${order.orderCode} không có sản phẩm nào.`, 'info');
+      return;
+    }
+
+    let chosenIdx = typeof targetItemIdx === 'number' ? targetItemIdx : -1;
+    if (chosenIdx < 0 || chosenIdx >= items.length) {
+      chosenIdx = items.findIndex((_, idx) => !isOrderItemPicked(order, idx, pickedOverride));
+    }
+
+    // Nếu tất cả sản phẩm đã lấy xong mà nhân viên bấm vào cả đơn -> reset để lấy lại từ sản phẩm đầu tiên
+    let effectivePickedMap = pickedOverride || pickedOrderItems[order.id] || {};
+    if (chosenIdx === -1) {
+      if (typeof targetItemIdx === 'number') {
+        chosenIdx = targetItemIdx;
+      } else {
+        effectivePickedMap = {};
+        setPickedOrderItems(prev => ({ ...prev, [order.id]: {} }));
+        chosenIdx = 0;
+      }
+    }
+
+    const item = items[chosenIdx];
+    const loc = resolveOrderItemShelfTier(item, chosenIdx);
+    const shelfCode = loc.hwShelfCode;
+    const cleanName = cleanProductDisplayName(item.productName);
+    const totalSteps = items.length;
+    const pickedCount = items.filter((_, idx) => idx !== chosenIdx && Boolean(effectivePickedMap[idx])).length;
+    const step = Math.min(totalSteps, pickedCount + 1);
+    const qty = item.requestedQuantity || item.quantity || 1;
+
+    // 1. Lấy baseline stopSeq hiện tại từ IoT Service (:3002)
+    let baselineStopSeq = 0;
+    try {
+      const statusRes = await fetch(`${IOT_API}/api/iot/shelf/status`).catch(() => null);
+      if (statusRes && statusRes.ok) {
+        const statusData = await statusRes.json();
+        const shelvesMap = statusData?.shelves;
+        const shelfObj = Array.isArray(shelvesMap)
+          ? shelvesMap.find((s: any) => (s.code || s.shelfCode) === shelfCode)
+          : shelvesMap?.[shelfCode];
+        if (shelfObj && typeof shelfObj.stopSeq === 'number') {
+          baselineStopSeq = shelfObj.stopSeq;
+        }
+      }
+    } catch (e) {}
+
+    setActivePickGuide({
+      orderId: order.id,
+      orderCode: order.orderCode,
+      itemIdx: chosenIdx,
+      itemId: item.id,
+      productName: cleanName,
+      sku: item.sku,
+      quantity: qty,
+      shelfCode,
+      rackLabel: loc.rackLabel,
+      tierLabel: loc.tierLabel,
+      fullLocationLabel: loc.fullLabel,
+      step,
+      totalSteps,
+      status: 'LOCATING',
+      baselineStopSeq,
+    });
+
+    // 2. Gửi lệnh bật LED + Còi xuống ESP32 qua IoT Service (:3002)
+    try {
+      await fetch(`${IOT_API}/api/iot/shelf/locate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shelfCode,
+          slotCode: loc.shortCode,
+          orderId: order.orderCode,
+          sku: item.sku,
+          productName: `${cleanName} (${loc.fullLabel})`,
+          qty,
+          quantity: qty,
+          step,
+          totalSteps,
+        }),
+      });
+
+      if (item.id && !order.isEcommerce) {
+        fetch(`${OUTBOUND_API}/outbound-orders/${order.id}/items/${item.id}/locate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ step, totalSteps }),
+        }).catch(() => null);
+      }
+
+      setActivePickGuide(prev => prev ? { ...prev, status: 'WAITING_STOP' } : null);
+      showToast(
+        `Đã bật Đèn LED & Còi tại ${loc.fullLabel} — Sản phẩm "${cleanName}" (Bước ${step}/${totalSteps}). Tới kệ bấm nút STOP để lấy hàng!`,
+        'success'
+      );
+    } catch (err) {
+      showToast(`Không thể kết nối IoT Service để bật ${loc.fullLabel}`, 'error');
+    }
+  }, [isOrderItemPicked, pickedOrderItems, showToast]);
+
+  const handleSelectAndLocateOrder = useCallback((order: UnifiedOrder, itemIdx?: number) => {
+    setSelectedOrder(order);
+    activateOrderProductShelf(order, itemIdx);
+  }, [activateOrderProductShelf]);
+
+  const confirmCurrentGuideStepAndAdvance = useCallback(async (guide: ActiveOrderPickGuide) => {
+    const targetOrder = orders.find(o => o.id === guide.orderId || o.orderCode === guide.orderCode) || selectedOrder;
+    if (!targetOrder) return;
+
+    const currentMap = pickedOrderItems[targetOrder.id] || {};
+    const nextMap: Record<number, boolean> = { ...currentMap, [guide.itemIdx]: true };
+    setPickedOrderItems(prev => ({
+      ...prev,
+      [targetOrder.id]: nextMap,
+    }));
+
+    // Đồng bộ trạng thái đã lấy sản phẩm lên outbound-service (:3007) nếu có itemId
+    if (guide.itemId && !targetOrder.isEcommerce) {
+      fetch(`${OUTBOUND_API}/outbound-orders/${targetOrder.id}/items/${guide.itemId}/pick`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pickedQuantity: guide.quantity, pickerId: user?.id || 'staff-govap' }),
+      }).catch(() => null);
+    }
+
+    const items = targetOrder.items || [];
+    const nextUnpickedIdx = items.findIndex((_, idx) => !nextMap[idx]);
+
+    if (nextUnpickedIdx !== -1) {
+      setActivePickGuide(prev => prev ? { ...prev, status: 'STOP_CONFIRMED' } : null);
+      const nextItem = items[nextUnpickedIdx];
+      const nextLoc = resolveOrderItemShelfTier(nextItem, nextUnpickedIdx);
+      showToast(
+        `Đã bấm STOP tắt đèn & còi ${guide.fullLocationLabel}! Tự động nhảy sang sản phẩm tiếp theo tại ${nextLoc.fullLabel}...`,
+        'success'
+      );
+      autoAdvanceTimerRef.current = setTimeout(() => {
+        activateOrderProductShelf(targetOrder, nextUnpickedIdx, nextMap);
+      }, 650);
+    } else {
+      await fetch(`${IOT_API}/api/iot/shelf/reset`, { method: 'POST' }).catch(() => null);
+      setActivePickGuide(prev => prev ? { ...prev, status: 'COMPLETED' } : null);
+      showToast(
+        `Hoàn thành lấy đủ ${items.length}/${items.length} sản phẩm của đơn #${targetOrder.orderCode}! Đèn và còi trên 3 kệ A, B, C đã tắt.`,
+        'success'
+      );
+    }
+  }, [orders, selectedOrder, pickedOrderItems, user?.id, showToast, activateOrderProductShelf]);
+
+  const handleSimulatePhysicalStop = useCallback(async (guide: ActiveOrderPickGuide) => {
+    await fetch(`${IOT_API}/api/iot/shelf/stop`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shelfCode: guide.shelfCode }),
+    }).catch(() => null);
+    await confirmCurrentGuideStepAndAdvance(guide);
+  }, [confirmCurrentGuideStepAndAdvance]);
+
+  // Poll trạng thái nút bấm vật lý STOP từ ESP32 (mỗi 800ms khi đang WAITING_STOP)
+  useEffect(() => {
+    if (!activePickGuide || activePickGuide.status !== 'WAITING_STOP') return;
+    let cancelled = false;
+
+    const timer = setInterval(async () => {
+      try {
+        const res = await fetch(`${IOT_API}/api/iot/shelf/status`);
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const shelvesMap = data?.shelves;
+        const shelfObj = Array.isArray(shelvesMap)
+          ? shelvesMap.find((s: any) => (s.code || s.shelfCode) === activePickGuide.shelfCode)
+          : shelvesMap?.[activePickGuide.shelfCode];
+        if (!shelfObj) return;
+
+        const currentStopSeq = typeof shelfObj.stopSeq === 'number' ? shelfObj.stopSeq : 0;
+        const ledOff = shelfObj.ledOn === false || shelfObj.led === false;
+        const buzzerOff = shelfObj.buzzerOn === false || shelfObj.buzzer === false;
+        const wasStopped =
+          currentStopSeq > activePickGuide.baselineStopSeq ||
+          (ledOff && buzzerOff && shelfObj.status === 'ARRIVED' && Boolean(shelfObj.arrivedAt));
+
+        if (wasStopped && !cancelled) {
+          cancelled = true;
+          clearInterval(timer);
+          confirmCurrentGuideStepAndAdvance(activePickGuide);
+        }
+      } catch (e) {}
+    }, 800);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [activePickGuide, confirmCurrentGuideStepAndAdvance]);
 
   // Reset page when filter or search changes
   useEffect(() => {
@@ -1879,79 +2266,67 @@ export default function OrderDispatch() {
         </div>
       )}
 
-      {/* ── Top Executive Header ── */}
+      {/* ── Top Executive Header (Compact Enterprise WMS Bar) ── */}
       <div style={{
         backgroundColor: '#ffffff',
-        borderRadius: '20px',
-        padding: '20px 24px',
+        borderRadius: '10px',
+        padding: '12px 16px',
         border: '1px solid #e2e8f0',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
-        marginBottom: '20px',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+        marginBottom: '12px',
         display: 'flex',
         flexWrap: 'wrap',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '16px',
+        gap: '12px',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: '10px',
-            backgroundColor: '#eff6ff',
-            border: '1px solid #bfdbfe',
-            color: '#2563eb',
+            width: '36px',
+            height: '36px',
+            borderRadius: '8px',
+            backgroundColor: '#f0fdfa',
+            border: '1px solid #99f6e4',
+            color: '#0f766e',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-            <Truck size={22} color="#2563eb" />
+            <Boxes size={18} color="#0f766e" />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{
-                fontSize: '10px',
-                fontWeight: 900,
-                textTransform: 'uppercase',
-                padding: '2px 8px',
-                borderRadius: '999px',
-                backgroundColor: '#dbeafe',
-                color: '#1e40af',
-                letterSpacing: '0.5px',
-              }}>
-                ĐIỀU PHỐI ĐỘI XE
-              </span>
-              <span style={{ fontSize: '12px', color: '#0f766e', fontWeight: 700, backgroundColor: '#f0fdfa', padding: '2px 8px', borderRadius: '6px', border: '1px solid #ccfbf1' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <h1 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', margin: 0 }}>
+                Điều phối & Soạn hàng
+              </h1>
+              <span style={{ fontSize: '11.5px', color: '#0f766e', fontWeight: 600, backgroundColor: '#f0fdfa', padding: '2px 8px', borderRadius: '6px', border: '1px solid #ccfbf1' }}>
                 {(() => {
                   const curWh = warehouses.find(w => w.code === activeWh);
-                  return activeWh === 'ALL' ? 'Tất Cả Các Kho' : (curWh ? `${curWh.name} (${curWh.code})` : `Kho ${activeWh}`);
+                  return activeWh === 'ALL' ? 'Tất cả kho' : (curWh ? `${curWh.name} (${curWh.code})` : `Kho ${activeWh}`);
                 })()}
               </span>
             </div>
-            <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', margin: '3px 0 0 0' }}>
-              Trung Tâm Điều Phối Đơn Hàng & Giám Sát Đội Xe
-            </h1>
           </div>
         </div>
 
         {/* Quick Action Control Bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           {!isManager && !isSaler && (
             <select
               value={selectedWhFilter}
               onChange={e => setSelectedWhFilter(e.target.value)}
               style={{
-                padding: '9px 14px',
-                borderRadius: '8px',
+                padding: '7px 12px',
+                borderRadius: '6px',
                 border: '1px solid #cbd5e1',
                 background: '#ffffff',
-                color: '#1e40af',
+                color: '#0f172a',
                 fontWeight: 600,
-                fontSize: '0.85rem',
+                fontSize: '12px',
                 cursor: 'pointer'
               }}
             >
-              <option value="ALL">Tất cả các Kho ({orders.length} đơn)</option>
+              <option value="ALL">Tất cả kho ({orders.length})</option>
               {warehouses.map(w => (
                 <option key={w.id || w.code} value={w.code}>
                   {w.name} ({w.code})
@@ -1962,38 +2337,33 @@ export default function OrderDispatch() {
 
           {canOperateWarehouse ? (
             <>
-              {/* 1-Chạm Soạn Hàng Loạt FEFO */}
               <button
                 onClick={handleAutoFEFOPicking}
                 disabled={autoPickingLoading}
                 style={{
                   backgroundColor: '#2563eb',
                   color: '#ffffff',
-                  padding: '9px 16px',
-                  borderRadius: '8px',
+                  padding: '7px 12px',
+                  borderRadius: '6px',
                   fontSize: '12px',
                   fontWeight: 600,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  gap: '5px',
                   border: 'none',
-                  boxShadow: '0 2px 6px rgba(37,99,235,0.2)',
+                  cursor: 'pointer',
                   opacity: autoPickingLoading ? 0.6 : 1,
                 }}
               >
-                <Boxes size={16} />
-                <span>{autoPickingLoading ? 'Đang xuất kho...' : 'Soạn Hàng Nhanh (FEFO)'}</span>
+                <Boxes size={14} />
+                <span>{autoPickingLoading ? 'Đang xử lý...' : 'Soạn nhanh FEFO'}</span>
               </button>
 
-              {/* Bàn Giao Hàng Loạt Cho Shipper */}
               {whScopedOrders.filter(o => o.status === 'PACKED').length > 0 && (
                 <button
                   onClick={() => {
                     const packedOrders = whScopedOrders.filter(o => o.status === 'PACKED');
-                    if (packedOrders.length === 0) {
-                      showToast('Không có đơn hàng nào đang ở trạng thái Đã đóng gói (PACKED) để bàn giao.', 'info');
-                      return;
-                    }
+                    if (packedOrders.length === 0) return;
                     setConfirmDispatchModal({
                       type: 'HANDOVER_BATCH',
                       orders: packedOrders,
@@ -2002,25 +2372,22 @@ export default function OrderDispatch() {
                   style={{
                     backgroundColor: '#0f766e',
                     color: '#ffffff',
-                    padding: '9px 16px',
-                    borderRadius: '8px',
+                    padding: '7px 12px',
+                    borderRadius: '6px',
                     fontSize: '12px',
                     fontWeight: 600,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px',
+                    gap: '5px',
                     border: 'none',
-                    boxShadow: '0 2px 6px rgba(15,118,110,0.2)',
                     cursor: 'pointer',
                   }}
-                  title="Xác nhận bàn giao tất cả đơn đã đóng gói cho shipper để sẵn sàng phân tuyến"
                 >
-                  <PackageCheck size={16} />
-                  <span>Bàn Giao Shipper ({whScopedOrders.filter(o => o.status === 'PACKED').length})</span>
+                  <PackageCheck size={14} />
+                  <span>Bàn giao ({whScopedOrders.filter(o => o.status === 'PACKED').length})</span>
                 </button>
               )}
 
-              {/* 1-Chạm Gom Tuyến */}
               <button
                 onClick={() => {
                   const candidateOrders = whScopedOrders.filter(o => {
@@ -2028,7 +2395,7 @@ export default function OrderDispatch() {
                     return isWaitingOrReady && !o.assignedDriverId;
                   });
                   if (candidateOrders.length === 0) {
-                    showToast('Không có đơn hàng nào chờ gán xe hoặc đã gán hết.', 'info');
+                    showToast('Không có đơn chờ gán xe.', 'info');
                     return;
                   }
                   setConfirmDispatchModal({
@@ -2040,20 +2407,20 @@ export default function OrderDispatch() {
                 style={{
                   backgroundColor: '#059669',
                   color: '#ffffff',
-                  padding: '9px 16px',
-                  borderRadius: '8px',
+                  padding: '7px 12px',
+                  borderRadius: '6px',
                   fontSize: '12px',
                   fontWeight: 600,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  gap: '5px',
                   border: 'none',
-                  boxShadow: '0 2px 6px rgba(5,150,105,0.2)',
+                  cursor: 'pointer',
                   opacity: autoDispatchLoading ? 0.6 : 1,
                 }}
               >
-                <Route size={16} />
-                <span>{autoDispatchLoading ? 'Đang tối ưu lộ trình...' : 'Tự Động Phân Tuyến'}</span>
+                <Route size={14} />
+                <span>{autoDispatchLoading ? 'Đang phân tuyến...' : 'Phân tuyến'}</span>
               </button>
             </>
           ) : (
@@ -2061,58 +2428,58 @@ export default function OrderDispatch() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                padding: '9px 16px',
-                borderRadius: '8px',
+                gap: '5px',
+                padding: '6px 10px',
+                borderRadius: '6px',
                 backgroundColor: '#f0f9ff',
                 border: '1px solid #bae6fd',
                 color: '#0369a1',
-                fontSize: '12px',
+                fontSize: '11.5px',
                 fontWeight: 600,
               }}
             >
-              <Eye size={16} color="#0284c7" />
-              <span>Chế độ Giám Sát Tiến Độ Đơn Hàng (Chỉ Xem)</span>
+              <Eye size={14} color="#0284c7" />
+              <span>Chỉ xem</span>
             </div>
           )}
 
-          {/* Map Toggle Button */}
           <button
             onClick={() => setShowMap(!showMap)}
             style={{
-              backgroundColor: showMap ? '#f8fafc' : '#ffffff',
-              color: '#334155',
-              padding: '10px 16px',
-              borderRadius: '12px',
+              backgroundColor: showMap ? '#eff6ff' : '#ffffff',
+              color: showMap ? '#1d4ed8' : '#334155',
+              padding: '7px 12px',
+              borderRadius: '6px',
               fontSize: '12px',
-              fontWeight: 700,
+              fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              border: '1px solid #cbd5e1',
+              gap: '5px',
+              border: `1px solid ${showMap ? '#bfdbfe' : '#cbd5e1'}`,
+              cursor: 'pointer',
             }}
           >
-            <Compass size={16} color="#2563eb" />
-            <span>{showMap ? 'Thu Gọn Bản Đồ' : 'Mở Bản Đồ Đội Xe'}</span>
+            <Compass size={14} />
+            <span>Bản đồ</span>
           </button>
 
-          {/* Refresh Data */}
           <button
             onClick={() => fetchAllData(true)}
             disabled={isRefreshing}
             style={{
               backgroundColor: '#ffffff',
               color: '#475569',
-              padding: '10px',
-              borderRadius: '12px',
+              padding: '7px',
+              borderRadius: '6px',
               border: '1px solid #cbd5e1',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              cursor: 'pointer',
             }}
-            title="Làm mới dữ liệu"
+            title="Làm mới"
           >
-            <RefreshCw size={16} color="#2563eb" className={isRefreshing ? 'animate-spin' : ''} />
+            <RefreshCw size={14} color="#2563eb" className={isRefreshing ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
@@ -2120,322 +2487,251 @@ export default function OrderDispatch() {
       {/* ── Control Tower GIS Map Section (Collapsible) ── */}
       {showMap && (
         <div style={{
-          marginBottom: '20px',
-          borderRadius: '20px',
+          marginBottom: '16px',
+          borderRadius: '10px',
           overflow: 'hidden',
           backgroundColor: '#ffffff',
           border: '1px solid #e2e8f0',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
         }}>
           <ControlTowerMap />
         </div>
       )}
 
-      {/* ── 5 PIPELINE WORKFLOW TABS ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '20px' }}>
-        
-        {/* 1. SOẠN KHO FEFO */}
-        <div
-          onClick={() => setActivePipelineStep(activePipelineStep === 'STEP_1_PICKING' ? 'ALL' : 'STEP_1_PICKING')}
-          style={{
-            backgroundColor: activePipelineStep === 'STEP_1_PICKING' ? '#eff6ff' : '#ffffff',
-            border: `1.5px solid ${activePipelineStep === 'STEP_1_PICKING' ? '#3b82f6' : '#e2e8f0'}`,
-            borderRadius: '16px',
-            padding: '14px 16px',
-            cursor: 'pointer',
-            boxShadow: activePipelineStep === 'STEP_1_PICKING' ? '0 4px 12px rgba(59,130,246,0.15)' : '0 2px 6px rgba(0,0,0,0.02)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, color: '#1d4ed8', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Boxes size={14} /> 1. SOẠN HÀNG XUẤT KHO
+      {/* ── COMPACT PICK-TO-LIGHT LIVE BAR (ONLY VISIBLE WHEN ACTIVE) ── */}
+      {activePickGuide && (
+        <div style={{
+          backgroundColor: activePickGuide.status === 'COMPLETED' ? '#f0fdf4' : '#fffbeb',
+          border: `1.5px solid ${activePickGuide.status === 'COMPLETED' ? '#86efac' : '#f59e0b'}`,
+          borderRadius: '8px',
+          padding: '10px 14px',
+          marginBottom: '12px',
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '10px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <span style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              padding: '3px 8px',
+              borderRadius: '6px',
+              backgroundColor: activePickGuide.status === 'COMPLETED' ? '#16a34a' : '#d97706',
+              color: '#ffffff',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+            }}>
+              <Radio size={13} />
+              <span>
+                {activePickGuide.status === 'COMPLETED'
+                  ? `Hoàn tất #${activePickGuide.orderCode}`
+                  : `${activePickGuide.fullLocationLabel} • Bước ${activePickGuide.step}/${activePickGuide.totalSteps}`}
+              </span>
             </span>
-            <span style={{ fontSize: '13px', fontWeight: 900, padding: '2px 8px', borderRadius: '999px', backgroundColor: '#dbeafe', color: '#1e40af' }}>
-              {step1Count}
-            </span>
+            {activePickGuide.status !== 'COMPLETED' && (
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
+                {activePickGuide.productName} <b style={{ color: '#2563eb' }}>×{activePickGuide.quantity}</b>
+              </span>
+            )}
           </div>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Chờ duyệt & đang lấy hàng từ kệ</div>
-        </div>
 
-        {/* 2. GOM CHUYẾN VRP */}
-        <div
-          onClick={() => setActivePipelineStep(activePipelineStep === 'STEP_2_DISPATCH' ? 'ALL' : 'STEP_2_DISPATCH')}
-          style={{
-            backgroundColor: activePipelineStep === 'STEP_2_DISPATCH' ? '#fffbeb' : '#ffffff',
-            border: `1.5px solid ${activePipelineStep === 'STEP_2_DISPATCH' ? '#f59e0b' : '#e2e8f0'}`,
-            borderRadius: '16px',
-            padding: '14px 16px',
-            cursor: 'pointer',
-            boxShadow: activePipelineStep === 'STEP_2_DISPATCH' ? '0 4px 12px rgba(245,158,11,0.15)' : '0 2px 6px rgba(0,0,0,0.02)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <PackageCheck size={14} /> 2. ĐÓNG GÓI & GOM XE
-            </span>
-            <span style={{ fontSize: '13px', fontWeight: 900, padding: '2px 8px', borderRadius: '999px', backgroundColor: '#fef3c7', color: '#92400e' }}>
-              {step2Count}
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {activePickGuide.status === 'WAITING_STOP' && (
+              <button
+                type="button"
+                onClick={() => handleSimulatePhysicalStop(activePickGuide)}
+                style={{
+                  backgroundColor: '#d97706',
+                  color: '#ffffff',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                }}
+              >
+                <CheckCircle2 size={14} />
+                <span>Xác nhận STOP</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleStopAllIotShelves}
+              style={{
+                backgroundColor: '#ffffff',
+                color: '#475569',
+                padding: '6px 10px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 600,
+                border: '1px solid #cbd5e1',
+                cursor: 'pointer',
+              }}
+            >
+              Đóng
+            </button>
           </div>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Đang đóng gói, sẵn sàng gán xe</div>
         </div>
+      )}
 
-        {/* 3. ĐANG VẬN CHUYỂN */}
-        <div
-          onClick={() => setActivePipelineStep(activePipelineStep === 'STEP_3_DELIVERING' ? 'ALL' : 'STEP_3_DELIVERING')}
-          style={{
-            backgroundColor: activePipelineStep === 'STEP_3_DELIVERING' ? '#f0f9ff' : '#ffffff',
-            border: `1.5px solid ${activePipelineStep === 'STEP_3_DELIVERING' ? '#0ea5e9' : '#e2e8f0'}`,
-            borderRadius: '16px',
-            padding: '14px 16px',
-            cursor: 'pointer',
-            boxShadow: activePipelineStep === 'STEP_3_DELIVERING' ? '0 4px 12px rgba(14,165,233,0.15)' : '0 2px 6px rgba(0,0,0,0.02)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, color: '#0369a1', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Truck size={14} /> 3. CHỜ XUẤT BẾN & ĐANG GIAO
-            </span>
-            <span style={{ fontSize: '13px', fontWeight: 900, padding: '2px 8px', borderRadius: '999px', backgroundColor: '#e0f2fe', color: '#075985' }}>
-              {step3Count}
-            </span>
-          </div>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Đã gán xe & đang di chuyển tới khách</div>
-        </div>
-
-        {/* 4. ĐÃ HOÀN TẤT POD */}
-        <div
-          onClick={() => setActivePipelineStep(activePipelineStep === 'STEP_COMPLETED' ? 'ALL' : 'STEP_COMPLETED')}
-          style={{
-            backgroundColor: activePipelineStep === 'STEP_COMPLETED' ? '#f0fdf4' : '#ffffff',
-            border: `1.5px solid ${activePipelineStep === 'STEP_COMPLETED' ? '#10b981' : '#e2e8f0'}`,
-            borderRadius: '16px',
-            padding: '14px 16px',
-            cursor: 'pointer',
-            boxShadow: activePipelineStep === 'STEP_COMPLETED' ? '0 4px 12px rgba(16,185,129,0.15)' : '0 2px 6px rgba(0,0,0,0.02)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, color: '#047857', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <CheckCircle2 size={14} /> 4. ĐÃ GIAO THÀNH CÔNG
-            </span>
-            <span style={{ fontSize: '13px', fontWeight: 900, padding: '2px 8px', borderRadius: '999px', backgroundColor: '#dcfce7', color: '#166534' }}>
-              {completedCount}
-            </span>
-          </div>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Đã giao tận tay & có ảnh ký nhận</div>
-        </div>
-
-        {/* 5. SỰ CỐ & HÀNG HOÀN */}
-        <div
-          onClick={() => setActivePipelineStep(activePipelineStep === 'STEP_EXCEPTION' ? 'ALL' : 'STEP_EXCEPTION')}
-          style={{
-            backgroundColor: activePipelineStep === 'STEP_EXCEPTION' ? '#fef2f2' : '#ffffff',
-            border: `1.5px solid ${activePipelineStep === 'STEP_EXCEPTION' ? '#ef4444' : '#e2e8f0'}`,
-            borderRadius: '16px',
-            padding: '14px 16px',
-            cursor: 'pointer',
-            boxShadow: activePipelineStep === 'STEP_EXCEPTION' ? '0 4px 12px rgba(239,68,68,0.15)' : '0 2px 6px rgba(0,0,0,0.02)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, color: '#b91c1c', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <RotateCcw size={14} /> 5. SỰ CỐ & HÀNG HOÀN
-            </span>
-            <span style={{ fontSize: '13px', fontWeight: 900, padding: '2px 8px', borderRadius: '999px', backgroundColor: stepExceptionCount > 0 ? '#ef4444' : '#f1f5f9', color: stepExceptionCount > 0 ? '#ffffff' : '#64748b' }}>
-              {stepExceptionCount}
-            </span>
-          </div>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Đơn hủy, giao thất bại & hàng hoàn</div>
-        </div>
-
+      {/* ── COMPACT PIPELINE FILTER TABS ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px', marginBottom: '12px' }}>
+        {[
+          { key: 'STEP_1_PICKING', label: '1. Soạn hàng', count: step1Count, color: '#1d4ed8', bg: '#eff6ff', border: '#3b82f6', badgeBg: '#dbeafe', icon: <Boxes size={14} /> },
+          { key: 'STEP_2_DISPATCH', label: '2. Đóng gói', count: step2Count, color: '#b45309', bg: '#fffbeb', border: '#f59e0b', badgeBg: '#fef3c7', icon: <PackageCheck size={14} /> },
+          { key: 'STEP_3_DELIVERING', label: '3. Đang giao', count: step3Count, color: '#0369a1', bg: '#f0f9ff', border: '#0ea5e9', badgeBg: '#e0f2fe', icon: <Truck size={14} /> },
+          { key: 'STEP_COMPLETED', label: '4. Hoàn tất', count: completedCount, color: '#047857', bg: '#f0fdf4', border: '#10b981', badgeBg: '#dcfce7', icon: <CheckCircle2 size={14} /> },
+          { key: 'STEP_EXCEPTION', label: '5. Sự cố / Hoàn', count: stepExceptionCount, color: '#b91c1c', bg: '#fef2f2', border: '#ef4444', badgeBg: '#fee2e2', icon: <RotateCcw size={14} /> },
+        ].map(tab => {
+          const isActive = activePipelineStep === tab.key;
+          return (
+            <div
+              key={tab.key}
+              onClick={() => setActivePipelineStep(isActive ? 'ALL' : (tab.key as any))}
+              style={{
+                backgroundColor: isActive ? tab.bg : '#ffffff',
+                border: `1.5px solid ${isActive ? tab.border : '#e2e8f0'}`,
+                borderRadius: '8px',
+                padding: '10px 12px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '8px',
+              }}
+            >
+              <span style={{ fontSize: '12px', fontWeight: 600, color: isActive ? tab.color : '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {tab.icon}
+                <span>{tab.label}</span>
+              </span>
+              <span style={{
+                fontSize: '12px',
+                fontWeight: 700,
+                padding: '1px 8px',
+                borderRadius: '999px',
+                backgroundColor: tab.badgeBg,
+                color: tab.color,
+                fontVariantNumeric: 'tabular-nums',
+              }}>
+                {tab.count}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       {/* ── Search & Filter Toolbar ── */}
       <div style={{
         backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        padding: '14px 18px',
+        borderRadius: '10px',
+        padding: '10px 14px',
         border: '1px solid #e2e8f0',
-        marginBottom: '16px',
+        marginBottom: '12px',
         display: 'flex',
         flexWrap: 'wrap',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '12px',
-        boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+        gap: '10px',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, maxWidth: '420px', position: 'relative' }}>
-          <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '10px' }} />
+        <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: '220px', maxWidth: '360px', position: 'relative' }}>
+          <Search size={15} color="#94a3b8" style={{ position: 'absolute', left: '10px' }} />
           <input
             type="text"
-            placeholder="Tìm kiếm theo mã đơn, khách hàng, số điện thoại, địa chỉ, tài xế..."
+            placeholder="Tìm mã đơn, khách hàng, SĐT..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             style={{
               width: '100%',
-              padding: '8px 14px 8px 36px',
+              padding: '7px 12px 7px 32px',
               backgroundColor: '#f8fafc',
               border: '1px solid #cbd5e1',
-              borderRadius: '10px',
+              borderRadius: '6px',
               fontSize: '12px',
               color: '#0f172a',
               outline: 'none',
-              fontWeight: 600,
+              fontWeight: 500,
             }}
           />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {/* View Mode Toggle: List vs Card */}
-          <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#f1f5f9', padding: '3px', borderRadius: '10px', border: '1px solid #cbd5e1' }}>
-            <button
-              onClick={() => setViewMode('LIST')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '5px 10px',
-                borderRadius: '8px',
-                fontSize: '11px',
-                fontWeight: 800,
-                backgroundColor: viewMode === 'LIST' ? '#ffffff' : 'transparent',
-                color: viewMode === 'LIST' ? '#2563eb' : '#64748b',
-                border: 'none',
-                boxShadow: viewMode === 'LIST' ? '0 1px 4px rgba(0,0,0,0.06)' : 'none',
-                cursor: 'pointer',
-              }}
-            >
-              <List size={14} />
-              <span>Dạng Danh Sách</span>
-            </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#f1f5f9', padding: '2px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
             <button
               onClick={() => setViewMode('CARD')}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '4px',
-                padding: '5px 10px',
-                borderRadius: '8px',
+                padding: '4px 8px',
+                borderRadius: '4px',
                 fontSize: '11px',
-                fontWeight: 800,
+                fontWeight: 600,
                 backgroundColor: viewMode === 'CARD' ? '#ffffff' : 'transparent',
-                color: viewMode === 'CARD' ? '#2563eb' : '#64748b',
+                color: viewMode === 'CARD' ? '#0f172a' : '#64748b',
                 border: 'none',
-                boxShadow: viewMode === 'CARD' ? '0 1px 4px rgba(0,0,0,0.06)' : 'none',
                 cursor: 'pointer',
               }}
             >
-              <LayoutGrid size={14} />
-              <span>Dạng Thẻ Card</span>
+              <LayoutGrid size={13} />
+              <span>Thẻ</span>
             </button>
-          </div>
-
-          {viewMode === 'LIST' && (
             <button
-              onClick={handleResetAllColWidths}
-              title="Khôi phục độ rộng mặc định của tất cả các cột (Hoặc nhấn đúp vào vạch ngăn cột)"
+              onClick={() => setViewMode('LIST')}
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '5px',
-                padding: '6px 12px',
-                borderRadius: '8px',
+                gap: '4px',
+                padding: '4px 8px',
+                borderRadius: '4px',
                 fontSize: '11px',
                 fontWeight: 600,
-                backgroundColor: '#ffffff',
-                color: '#475569',
-                border: '1px solid #cbd5e1',
-                cursor: 'pointer',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-              }}
-            >
-              <RotateCcw size={12} />
-              <span>Khôi phục cột</span>
-            </button>
-          )}
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setClassificationFilter('ALL')}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '8px',
-                fontSize: '11px',
-                fontWeight: 800,
-                backgroundColor: classificationFilter === 'ALL' ? '#0f172a' : '#f1f5f9',
-                color: classificationFilter === 'ALL' ? '#ffffff' : '#475569',
+                backgroundColor: viewMode === 'LIST' ? '#ffffff' : 'transparent',
+                color: viewMode === 'LIST' ? '#0f172a' : '#64748b',
                 border: 'none',
                 cursor: 'pointer',
               }}
             >
-              Tất Cả Loại
-            </button>
-            <button
-              onClick={() => setClassificationFilter('SALE')}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '11px',
-                fontWeight: 600,
-                backgroundColor: classificationFilter === 'SALE' ? '#1d4ed8' : '#eff6ff',
-                color: classificationFilter === 'SALE' ? '#ffffff' : '#1d4ed8',
-                border: '1px solid #bfdbfe',
-                cursor: 'pointer',
-              }}
-            >
-              Mua Bán Lẻ
-            </button>
-            <button
-              onClick={() => setClassificationFilter('DISPOSAL')}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '11px',
-                fontWeight: 600,
-                backgroundColor: classificationFilter === 'DISPOSAL' ? '#7c3aed' : '#faf5ff',
-                color: classificationFilter === 'DISPOSAL' ? '#ffffff' : '#7c3aed',
-                border: '1px solid #e9d5ff',
-                cursor: 'pointer',
-              }}
-            >
-              Xuất Tiêu Hủy
-            </button>
-            <button
-              onClick={() => setClassificationFilter('RETURN')}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '11px',
-                fontWeight: 600,
-                backgroundColor: classificationFilter === 'RETURN' ? '#b91c1c' : '#fef2f2',
-                color: classificationFilter === 'RETURN' ? '#ffffff' : '#b91c1c',
-                border: '1px solid #fecaca',
-                cursor: 'pointer',
-              }}
-            >
-              Trả Hàng / Hoàn
-            </button>
-            <button
-              onClick={() => setClassificationFilter('TRANSFER')}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '11px',
-                fontWeight: 600,
-                backgroundColor: classificationFilter === 'TRANSFER' ? '#15803d' : '#f0fdf4',
-                color: classificationFilter === 'TRANSFER' ? '#ffffff' : '#15803d',
-                border: '1px solid #bbf7d0',
-                cursor: 'pointer',
-              }}
-            >
-              Điều Chuyển Liên Kho
+              <List size={13} />
+              <span>Bảng</span>
             </button>
           </div>
 
-          <span style={{ fontSize: '12px', color: '#cbd5e1' }}>|</span>
-          <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>
-            Đang hiển thị: <b style={{ color: '#2563eb', fontWeight: 900 }}>{filteredOrders.length}</b> đơn hàng
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+            {[
+              { key: 'ALL', label: 'Tất cả' },
+              { key: 'SALE', label: 'Bán lẻ' },
+              { key: 'DISPOSAL', label: 'Tiêu hủy' },
+              { key: 'RETURN', label: 'Hoàn trả' },
+              { key: 'TRANSFER', label: 'Điều chuyển' },
+            ].map(f => (
+              <button
+                key={f.key}
+                onClick={() => setClassificationFilter(f.key as any)}
+                style={{
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  backgroundColor: classificationFilter === f.key ? '#0f172a' : '#f8fafc',
+                  color: classificationFilter === f.key ? '#ffffff' : '#475569',
+                  border: `1px solid ${classificationFilter === f.key ? '#0f172a' : '#e2e8f0'}`,
+                  cursor: 'pointer',
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+            <b style={{ color: '#0f172a' }}>{filteredOrders.length}</b> đơn
           </span>
         </div>
       </div>
@@ -2619,7 +2915,7 @@ export default function OrderDispatch() {
                           </div>
                         </td>
 
-                        {/* Customer & Address */}
+                        {/* Customer & Address + Clickable Products in Order */}
                         <td style={{ padding: '12px 16px', verticalAlign: 'middle', width: `${colWidths.customer}px`, overflow: 'hidden' }}>
                           <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '13px', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {order.customerName}
@@ -2639,7 +2935,7 @@ export default function OrderDispatch() {
                             <MapPin size={11} color="#ef4444" style={{ flexShrink: 0, marginTop: '2px' }} />
                             <span style={{
                               display: '-webkit-box',
-                              WebkitLineClamp: 2,
+                              WebkitLineClamp: 1,
                               WebkitBoxOrient: 'vertical',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
@@ -2648,6 +2944,34 @@ export default function OrderDispatch() {
                               {order.customerAddress}
                             </span>
                           </div>
+                          {/* Vị trí Kệ (A, B, C) & Tầng (1, 2) của đơn hàng — Compact Pills */}
+                          {order.items && order.items.length > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px', marginTop: '5px' }}>
+                              {getOrderUniqueLocations(order.items).map((loc) => (
+                                <span
+                                  key={loc.shortCode}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    fontSize: '10.5px',
+                                    fontWeight: 600,
+                                    backgroundColor: '#f0fdfa',
+                                    color: '#0f766e',
+                                    border: '1px solid #99f6e4',
+                                  }}
+                                >
+                                  <Radio size={9} />
+                                  <span>{loc.fullLabel}</span>
+                                </span>
+                              ))}
+                              <span style={{ fontSize: '10.5px', color: '#64748b', fontWeight: 500 }}>
+                                • {order.items.length} SP
+                              </span>
+                            </div>
+                          )}
                         </td>
 
                         {/* Driver & Trip */}
@@ -2963,29 +3287,35 @@ export default function OrderDispatch() {
             </div>
           ) : (
             /* ── DẠNG LƯỚI THẺ CARD ── */
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px', marginBottom: '20px' }}>
               {paginatedOrders.map(order => {
                 const cfg = getOrderStatusConfig(order.status, order.assignedDriverName);
                 const isTargetHighlight = Boolean(highlightCode && (
                   order.orderCode.toLowerCase().includes(highlightCode.toLowerCase()) ||
                   order.id === highlightCode
                 ));
+                const isOrderGuiding = activePickGuide?.orderId === order.id && activePickGuide?.status !== 'COMPLETED';
+                const orderLocations = getOrderUniqueLocations(order.items);
                 return (
                   <div
                     key={order.id}
                     ref={isTargetHighlight ? (el) => { if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } : undefined}
                     onClick={() => setSelectedOrder(order)}
                     style={{
-                      backgroundColor: isTargetHighlight ? '#f0fdf4' : '#ffffff',
-                      borderRadius: '16px',
-                      border: isTargetHighlight ? '2px solid #0f766e' : '1px solid #e2e8f0',
-                      padding: '16px',
-                      boxShadow: isTargetHighlight ? '0 0 0 4px rgba(15, 118, 110, 0.2), 0 8px 16px rgba(0,0,0,0.06)' : '0 2px 8px rgba(0,0,0,0.03)',
+                      backgroundColor: isOrderGuiding ? '#fffdf5' : isTargetHighlight ? '#f0fdf4' : '#ffffff',
+                      borderRadius: '10px',
+                      border: isOrderGuiding
+                        ? '2px solid #f59e0b'
+                        : isTargetHighlight
+                        ? '2px solid #0f766e'
+                        : '1px solid #e2e8f0',
+                      padding: '14px',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
                       cursor: 'pointer',
                       display: 'flex',
                       flexDirection: 'column',
                       justifyContent: 'space-between',
-                      transition: 'all 0.25s ease',
+                      transition: 'all 0.2s ease',
                     }}
                   >
                     <div>
@@ -3065,34 +3395,85 @@ export default function OrderDispatch() {
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{order.customerAddress}</span>
                       </div>
 
-                      {/* Driver / Trip Assigned Box */}
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        fontSize: '12px',
-                        color: '#1e293b',
-                        marginBottom: '12px',
-                        backgroundColor: '#f8fafc',
-                        padding: '8px 10px',
-                        borderRadius: '10px',
-                        border: '1px solid #e2e8f0',
-                      }}>
-                        <Truck size={14} color={order.assignedDriverName ? '#059669' : '#94a3b8'} />
-                        {order.assignedDriverName ? (
-                          <span style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {order.assignedDriverName} <b style={{ color: '#047857', fontFamily: 'monospace', fontSize: '11px' }}>(Chuyến #{order.tripNumber || 1})</b>
+                      {/* ── VỊ TRÍ KỆ (A, B, C • TẦNG 1, 2) & TÀI XẾ GỌN GÀNG ── */}
+                      <div
+                        style={{
+                          marginBottom: '12px',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          backgroundColor: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px',
+                        }}
+                      >
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '6px',
+                          flexWrap: 'wrap',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                            {orderLocations.map(loc => (
+                              <span
+                                key={loc.shortCode}
+                                style={{
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  padding: '2px 7px',
+                                  borderRadius: '4px',
+                                  backgroundColor: '#f0fdfa',
+                                  color: '#0f766e',
+                                  border: '1px solid #99f6e4',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                }}
+                              >
+                                <Radio size={10} />
+                                <span>{loc.fullLabel}</span>
+                              </span>
+                            ))}
+                          </div>
+                          <span style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>
+                            {order.items?.length || 0} sản phẩm
                           </span>
-                        ) : (
-                          <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Chưa gán tài xế</span>
-                        )}
+                        </div>
+
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          fontSize: '11.5px',
+                          color: '#475569',
+                          paddingTop: '6px',
+                          borderTop: '1px dashed #e2e8f0',
+                        }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
+                            <Truck size={13} color={order.assignedDriverName ? '#059669' : '#94a3b8'} />
+                            {order.assignedDriverName ? (
+                              <span style={{ fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {order.assignedDriverName}
+                              </span>
+                            ) : (
+                              <span style={{ color: '#94a3b8' }}>Chưa gán xe</span>
+                            )}
+                          </span>
+                          {order.assignedDriverName && (
+                            <span style={{ fontSize: '10.5px', color: '#047857', fontWeight: 600 }}>
+                              Chuyến #{order.tripNumber || 1}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Card Bottom: Total Amount & Action Button */}
+                    {/* Card Bottom: Total Amount & Clean Action Buttons */}
                     <div
                       style={{
-                        paddingTop: '12px',
+                        paddingTop: '10px',
                         borderTop: '1px solid #f1f5f9',
                         display: 'flex',
                         alignItems: 'center',
@@ -3102,270 +3483,51 @@ export default function OrderDispatch() {
                       onClick={e => e.stopPropagation()}
                     >
                       <div>
-                        <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>
-                          {order.paymentMethod === 'cod' ? 'Thu hộ COD' : 'VNPay'}
-                        </div>
-                        <div style={{ fontSize: '14px', fontWeight: 900, color: '#0f172a' }}>
+                        <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
                           {order.totalAmount.toLocaleString('vi-VN')}đ
+                        </div>
+                        <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 500 }}>
+                          {order.paymentMethod === 'cod' ? 'COD' : 'VNPay'}
                         </div>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {canOperateWarehouse && (
-                          <>
-                            {order.status === 'PENDING' && (
-                              <button
-                                onClick={() => handleReceiveAndStartPicking(order)}
-                                style={{
-                                  backgroundColor: '#2563eb',
-                                  color: '#ffffff',
-                                  padding: '6px 12px',
-                                  borderRadius: '6px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                Tiếp Nhận & Soạn Hàng
-                              </button>
-                            )}
-
-                            {(order.status === 'PROCESSING' || order.status === 'PICKING') && (
-                              <button
-                                onClick={() => handleMoveToPacking(order)}
-                                style={{
-                                  backgroundColor: '#0284c7',
-                                  color: '#ffffff',
-                                  padding: '6px 12px',
-                                  borderRadius: '6px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                }}
-                                title="Chuyển đơn sang khâu đóng gói kiện hàng"
-                              >
-                                Đã Soạn Xong (Chuyển Đóng Gói)
-                              </button>
-                            )}
-
-                            {(order.status === 'PACKING' || order.status === 'PICKED') && (
-                              <button
-                                onClick={() => handleCompletePicking(order)}
-                                style={{
-                                  backgroundColor: '#059669',
-                                  color: '#ffffff',
-                                  padding: '6px 12px',
-                                  borderRadius: '6px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                }}
-                                title="Xác nhận đóng gói hoàn tất để chuyển sang bàn giao shipper"
-                              >
-                                Hoàn Tất Đóng Gói
-                              </button>
-                            )}
-
-                            {order.status === 'PACKED' && (
-                              <button
-                                onClick={() => setConfirmDispatchModal({ type: 'HANDOVER_SINGLE', order })}
-                                disabled={handoverLoadingId === order.id}
-                                style={{
-                                  backgroundColor: '#0f766e',
-                                  color: '#ffffff',
-                                  padding: '6px 12px',
-                                  borderRadius: '6px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  opacity: handoverLoadingId === order.id ? 0.7 : 1,
-                                }}
-                                title="Quản lý xác nhận bàn giao cho shipper để sẵn sàng phân tuyến"
-                              >
-                                <PackageCheck size={12} color="#ffffff" />
-                                <span>{handoverLoadingId === order.id ? 'Đang bàn giao...' : 'Bàn Giao Shipper'}</span>
-                              </button>
-                            )}
-
-                            {(order.status === 'READY_FOR_DELIVERY' || order.status === 'CONFIRMED') && (
-                              <button
-                                onClick={() => {
-                                  setManualDriverModalOrder(order);
-                                  setSelectedDriverForAssign(getInitialDriverForOrder(order));
-                                }}
-                                style={{
-                                  backgroundColor: order.assignedDriverName ? '#475569' : '#d97706',
-                                  color: '#ffffff',
-                                  padding: '6px 12px',
-                                  borderRadius: '6px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                }}
-                                title={order.assignedDriverName ? `Đổi tài xế (Hiện tại: ${order.assignedDriverName})` : 'Gán tài xế thủ công hoặc dùng nút Tự Động Phân Tuyến'}
-                              >
-                                <Truck size={12} color="#ffffff" />
-                                <span>{order.assignedDriverName ? 'Đổi Tài Xế' : 'Gán Xe'}</span>
-                              </button>
-                            )}
-
-                            {(order.status === 'SHIPPED' || order.status === 'DELIVERING' || order.status === 'IN_TRANSIT') && (
-                              <button
-                                onClick={() => setConfirmDispatchModal({ type: 'CONFIRM_DELIVERY', order })}
-                                style={{
-                                  backgroundColor: '#0f766e',
-                                  color: '#ffffff',
-                                  padding: '6px 12px',
-                                  borderRadius: '6px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                }}
-                                title="Xác nhận đơn đã hoàn thành giao hàng"
-                              >
-                                <CheckCircle2 size={12} color="#ffffff" />
-                                <span>Xác Nhận Đã Giao</span>
-                              </button>
-                            )}
-
-                            {(order.status === 'FAILED_DELIVERY' || order.status === 'RETURN_TO_WAREHOUSE') && (
-                              <button
-                                onClick={() => setReverseLogisticsModalOrder(order)}
-                                style={{
-                                  backgroundColor: '#dc2626',
-                                  color: '#ffffff',
-                                  padding: '6px 12px',
-                                  borderRadius: '8px',
-                                  fontSize: '11px',
-                                  fontWeight: 800,
-                                  border: 'none',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  boxShadow: '0 2px 6px rgba(220,38,38,0.25)',
-                                }}
-                              >
-                                <RotateCcw size={12} color="#ffffff" />
-                                <span>Xử Lý Hoàn</span>
-                              </button>
-                            )}
-                          </>
-                        )}
-
-                        {(order.status === 'COMPLETED' || order.status === 'DELIVERED' || !!order.podPhotoUrl) && (
-                          <button
-                            onClick={() => setPodPreviewModalOrder(order)}
-                            style={{
-                              backgroundColor: '#059669',
-                              color: '#ffffff',
-                              padding: '6px 12px',
-                              borderRadius: '8px',
-                              fontSize: '11px',
-                              fontWeight: 800,
-                              border: 'none',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              boxShadow: '0 2px 6px rgba(5,150,105,0.25)',
-                            }}
-                          >
-                            <Camera size={12} color="#ffffff" />
-                            <span>Ảnh Giao Hàng</span>
-                          </button>
-                        )}
-
-                        {(order.status === 'FAILED_DELIVERY' || order.status === 'RETURN_TO_WAREHOUSE') && (
-                          <button
-                            onClick={() => setReverseLogisticsModalOrder(order)}
-                            style={{
-                              backgroundColor: '#dc2626',
-                              color: '#ffffff',
-                              padding: '6px 12px',
-                              borderRadius: '8px',
-                              fontSize: '11px',
-                              fontWeight: 800,
-                              border: 'none',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              boxShadow: '0 2px 6px rgba(220,38,38,0.25)',
-                            }}
-                          >
-                            <RotateCcw size={12} color="#ffffff" />
-                            <span>Xử Lý Hoàn</span>
-                          </button>
-                        )}
-
                         <button
-                          onClick={() => setPrintModalOrder(order)}
-                          title="In phiếu giao hàng / vận chuyển"
+                          type="button"
+                          onClick={() => handleSelectAndLocateOrder(order)}
                           style={{
-                            backgroundColor: '#f8fafc',
-                            color: '#0f172a',
-                            padding: '6px 8px',
-                            borderRadius: '8px',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            border: '1px solid #cbd5e1',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '3px',
+                            backgroundColor: '#0f766e',
+                            color: '#ffffff',
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            fontSize: '11.5px',
+                            fontWeight: 600,
+                            border: 'none',
                             cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
                           }}
                         >
-                          <Printer size={12} color="#2563eb" />
-                          <span>Phiếu Giao</span>
+                          <Lightbulb size={13} />
+                          <span>Lấy hàng</span>
                         </button>
 
                         <button
-                          onClick={() => setReceiptModalOrder(order)}
-                          title="In phiếu xuất kho 02 - VT (Bộ Tài Chính)"
-                          style={{
-                            backgroundColor: '#f0fdfa',
-                            color: '#0f766e',
-                            padding: '6px 8px',
-                            borderRadius: '8px',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            border: '1px solid #99f6e4',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '3px',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <FileText size={12} color="#0f766e" />
-                          <span>Phiếu 02-VT</span>
-                        </button>
-
-                        <button
+                          type="button"
                           onClick={() => setSelectedOrder(order)}
                           style={{
-                            backgroundColor: '#f1f5f9',
+                            backgroundColor: '#f8fafc',
                             color: '#334155',
                             padding: '6px 10px',
-                            borderRadius: '8px',
-                            fontSize: '11px',
-                            fontWeight: 700,
+                            borderRadius: '6px',
+                            fontSize: '11.5px',
+                            fontWeight: 600,
                             border: '1px solid #cbd5e1',
+                            cursor: 'pointer',
                           }}
                         >
-                          Chi Tiết
+                          Chi tiết
                         </button>
                       </div>
                     </div>
@@ -3572,97 +3734,609 @@ export default function OrderDispatch() {
             }}
           >
             <div>
-              {/* Top Drawer Header */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '16px', borderBottom: '1px solid #f1f5f9', marginBottom: '18px' }}>
-                <div>
-                  <span style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: 800, color: '#2563eb' }}>#{selectedOrder.orderCode}</span>
-                  <h3 style={{ fontSize: '17px', fontWeight: 900, color: '#0f172a', margin: '2px 0 0 0' }}>{selectedOrder.customerName}</h3>
+              {/* Top Drawer Header (Compact with Status & Address) */}
+              <div style={{ paddingBottom: '14px', borderBottom: '1px solid #e2e8f0', marginBottom: '14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '12px', fontFamily: 'monospace', fontWeight: 700, color: '#1d4ed8', backgroundColor: '#eff6ff', padding: '2px 8px', borderRadius: '6px', border: '1px solid #dbeafe' }}>
+                      #{selectedOrder.orderCode}
+                    </span>
+                    {(() => {
+                      const detailCfg = getOrderStatusConfig(selectedOrder.status, selectedOrder.assignedDriverName);
+                      return (
+                        <span
+                          style={{
+                            padding: '2px 8px',
+                            borderRadius: '999px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            color: detailCfg.color,
+                            backgroundColor: detailCfg.bg,
+                            border: `1px solid ${detailCfg.border}`,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          {detailCfg.icon}
+                          <span>{detailCfg.label}</span>
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  <button
+                    onClick={() => setSelectedOrder(null)}
+                    style={{ padding: '6px', borderRadius: '6px', backgroundColor: '#f1f5f9', color: '#64748b', border: 'none', cursor: 'pointer' }}
+                  >
+                    <X size={16} />
+                  </button>
                 </div>
-                <button
-                  onClick={() => setSelectedOrder(null)}
-                  style={{ padding: '6px', borderRadius: '8px', backgroundColor: '#f1f5f9', color: '#64748b', border: 'none' }}
-                >
-                  <X size={18} />
-                </button>
+
+                <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', margin: '0 0 6px 0' }}>
+                  {selectedOrder.customerName}
+                </h3>
+
+                <div style={{ fontSize: '12px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <MapPin size={13} color="#ef4444" style={{ flexShrink: 0 }} />
+                    <span>{selectedOrder.customerAddress}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b' }}>
+                    <Phone size={12} color="#64748b" style={{ flexShrink: 0 }} />
+                    <span>{selectedOrder.customerPhone}</span>
+                  </div>
+                </div>
               </div>
 
-              {/* Status Banner */}
+              {/* ── GIAO DIỆN ĐỊNH HƯỚNG LẤY HÀNG THÔNG MINH (STEP-BY-STEP GUIDED PICKING CTA) ── */}
               {(() => {
-                const detailCfg = getOrderStatusConfig(selectedOrder.status, selectedOrder.assignedDriverName);
+                const allOrderItems = selectedOrder.items || [];
+                const totalCount = allOrderItems.length;
+                const pickedCount = allOrderItems.filter((_, idx) => isOrderItemPicked(selectedOrder, idx)).length;
+                const allPicked = totalCount > 0 && pickedCount >= totalCount;
+                const isGuidingThis = activePickGuide?.orderId === selectedOrder.id && activePickGuide?.status === 'WAITING_STOP';
+                const nextUnpickedIdx = allOrderItems.findIndex((_, idx) => !isOrderItemPicked(selectedOrder, idx));
+                const firstTargetLoc = nextUnpickedIdx >= 0 ? resolveOrderItemShelfTier(allOrderItems[nextUnpickedIdx], nextUnpickedIdx) : null;
+                const firstTargetItem = nextUnpickedIdx >= 0 ? allOrderItems[nextUnpickedIdx] : null;
+
+                // Tìm món kế tiếp sau món đang lấy
+                const afterActiveIdx = isGuidingThis
+                  ? allOrderItems.findIndex((_, idx) => idx !== activePickGuide.itemIdx && !isOrderItemPicked(selectedOrder, idx))
+                  : -1;
+                const afterActiveItem = afterActiveIdx >= 0 ? allOrderItems[afterActiveIdx] : null;
+                const afterActiveLoc = afterActiveIdx >= 0 && afterActiveItem ? resolveOrderItemShelfTier(afterActiveItem, afterActiveIdx) : null;
+
                 return (
-                  <div style={{ padding: '12px 14px', borderRadius: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 700 }}>Trạng thái đơn:</span>
-                    <span
-                      style={{
-                        padding: '3px 10px',
-                        borderRadius: '999px',
-                        fontSize: '11px',
-                        fontWeight: 800,
-                        color: detailCfg.color,
-                        backgroundColor: detailCfg.bg,
-                        border: `1px solid ${detailCfg.border}`,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                      }}
-                    >
-                      {detailCfg.icon}
-                      <span>{detailCfg.label}</span>
-                    </span>
+                  <div style={{
+                    padding: '14px',
+                    borderRadius: '10px',
+                    backgroundColor: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    marginBottom: '14px',
+                    fontSize: '12px',
+                  }}>
+                    {/* Thanh Tiến Độ Lấy Hàng */}
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Radio size={14} color="#0f766e" />
+                          <span>Tiến độ lấy hàng</span>
+                        </span>
+                        <span style={{
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          color: allPicked ? '#166534' : '#0f766e',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}>
+                          {pickedCount}/{totalCount} món
+                        </span>
+                      </div>
+                      <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
+                        <div style={{
+                          width: `${totalCount > 0 ? Math.round((pickedCount / totalCount) * 100) : 0}%`,
+                          height: '100%',
+                          backgroundColor: allPicked ? '#16a34a' : isGuidingThis ? '#d97706' : '#0f766e',
+                          transition: 'width 0.3s ease',
+                        }} />
+                      </div>
+                    </div>
+
+                    {/* HERO ACTION CARD (ĐỊNH HƯỚNG HÀNH ĐỘNG CHÍNH CHO NHÂN VIÊN) */}
+                    <div style={{ marginBottom: '14px' }}>
+                      {isGuidingThis && activePickGuide ? (
+                        /* TRẠNG THÁI 2: ĐANG DẪN ĐƯỜNG LẤY HÀNG TẠI KỆ */
+                        <div style={{
+                          padding: '12px',
+                          borderRadius: '10px',
+                          backgroundColor: '#fffbeb',
+                          border: '2px solid #f59e0b',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '10px',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'stretch', gap: '10px' }}>
+                            {/* Ô Vị Trí Kệ Đích Lớn */}
+                            <div style={{
+                              minWidth: '72px',
+                              padding: '8px 10px',
+                              borderRadius: '8px',
+                              backgroundColor: '#d97706',
+                              color: '#ffffff',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                            }}>
+                              <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', opacity: 0.9 }}>
+                                Đi tới kệ
+                              </span>
+                              <span style={{ fontSize: '22px', fontWeight: 700, lineHeight: 1.15, marginTop: '2px', fontFamily: 'monospace' }}>
+                                {activePickGuide.fullLocationLabel}
+                              </span>
+                            </div>
+
+                            {/* Thông Tin Sản Phẩm Đang Lấy */}
+                            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                                <span style={{ fontSize: '11px', fontWeight: 700, color: '#b45309', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <Volume2 size={13} />
+                                  <span>Bước {activePickGuide.step}/{activePickGuide.totalSteps} • Đèn & Còi đang bật</span>
+                                </span>
+                              </div>
+                              <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginTop: '3px', lineHeight: 1.3 }}>
+                                {activePickGuide.productName}
+                              </div>
+                              <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#1d4ed8', marginTop: '2px' }}>
+                                Số lượng cần lấy: {activePickGuide.quantity}
+                              </div>
+                            </div>
+                          </div>
+
+                          {afterActiveItem && afterActiveLoc && (
+                            <div style={{
+                              fontSize: '11px',
+                              color: '#78350f',
+                              backgroundColor: '#fef3c7',
+                              padding: '5px 8px',
+                              borderRadius: '6px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                            }}>
+                              <span>Món kế tiếp: <b>{cleanProductDisplayName(afterActiveItem.productName)}</b></span>
+                              <span style={{ fontWeight: 700 }}>Kệ {afterActiveLoc.fullLabel}</span>
+                            </div>
+                          )}
+
+                          {/* Primary CTA để hoàn tất bước hiện tại */}
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleSimulatePhysicalStop(activePickGuide)}
+                              style={{
+                                flex: 1,
+                                padding: '10px 14px',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                fontWeight: 700,
+                                backgroundColor: '#d97706',
+                                color: '#ffffff',
+                                border: 'none',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                              }}
+                            >
+                              <CheckCircle2 size={16} />
+                              <span>
+                                {afterActiveItem
+                                  ? `Đã lấy xong tại ${activePickGuide.fullLocationLabel} — Qua món kế tiếp`
+                                  : `Đã lấy xong tại ${activePickGuide.fullLocationLabel} — Hoàn tất lấy hàng`}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleStopAllIotShelves}
+                              style={{
+                                padding: '10px 12px',
+                                borderRadius: '8px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                backgroundColor: '#ffffff',
+                                color: '#475569',
+                                border: '1px solid #cbd5e1',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Tạm dừng
+                            </button>
+                          </div>
+                        </div>
+                      ) : allPicked ? (
+                        /* TRẠNG THÁI 3: ĐÃ LẤY ĐỦ 100% -> ĐỊNH HƯỚNG CTA CHUYỂN BƯỚC TIẾP THEO */
+                        <div style={{
+                          padding: '12px',
+                          borderRadius: '10px',
+                          backgroundColor: '#f0fdf4',
+                          border: '1.5px solid #86efac',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '10px',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#166534', fontWeight: 700, fontSize: '13px' }}>
+                              <CheckCircle2 size={18} color="#16a34a" />
+                              <span>Đã lấy đủ {totalCount}/{totalCount} sản phẩm trong đơn</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => activateOrderProductShelf(selectedOrder)}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: '#0f766e',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                textDecoration: 'underline',
+                              }}
+                            >
+                              Lấy lại từ đầu
+                            </button>
+                          </div>
+
+                          {canOperateWarehouse && (selectedOrder.status === 'PENDING' || selectedOrder.status === 'PROCESSING' || selectedOrder.status === 'PICKING' || selectedOrder.status === 'PACKING') && (
+                            <button
+                              type="button"
+                              onClick={() => handleCompletePicking(selectedOrder)}
+                              style={{
+                                width: '100%',
+                                padding: '11px 16px',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                fontWeight: 700,
+                                backgroundColor: '#16a34a',
+                                color: '#ffffff',
+                                border: 'none',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                              }}
+                            >
+                              <PackageCheck size={16} />
+                              <span>Hoàn tất đóng gói & Chuyển bàn giao</span>
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        /* TRẠNG THÁI 1: CHƯA BẮT ĐẦU -> ĐỊNH HƯỚNG LỘ TRÌNH & NÚT BẮT ĐẦU */
+                        <div style={{
+                          padding: '12px',
+                          borderRadius: '10px',
+                          backgroundColor: '#ffffff',
+                          border: '1.5px solid #0f766e',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '10px',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>
+                              Lộ trình kệ cần tới:
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                              {allOrderItems.map((it, idx) => {
+                                const l = resolveOrderItemShelfTier(it, idx);
+                                const picked = isOrderItemPicked(selectedOrder, idx);
+                                return (
+                                  <React.Fragment key={idx}>
+                                    {idx > 0 && <span style={{ color: '#94a3b8', fontSize: '11px' }}>→</span>}
+                                    <span style={{
+                                      fontSize: '11px',
+                                      fontWeight: 700,
+                                      padding: '2px 7px',
+                                      borderRadius: '4px',
+                                      backgroundColor: picked ? '#dcfce7' : idx === nextUnpickedIdx ? '#0f766e' : '#f1f5f9',
+                                      color: picked ? '#166534' : idx === nextUnpickedIdx ? '#ffffff' : '#334155',
+                                    }}>
+                                      {l.fullLabel}
+                                    </span>
+                                  </React.Fragment>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => activateOrderProductShelf(selectedOrder)}
+                            style={{
+                              width: '100%',
+                              padding: '11px 16px',
+                              borderRadius: '8px',
+                              fontSize: '13.5px',
+                              fontWeight: 700,
+                              backgroundColor: '#0f766e',
+                              color: '#ffffff',
+                              border: 'none',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '8px',
+                            }}
+                          >
+                            <Lightbulb size={16} />
+                            <span>
+                              {firstTargetLoc && firstTargetItem
+                                ? `Bắt đầu lấy hàng — Đi tới kệ ${firstTargetLoc.fullLabel}`
+                                : 'Bắt đầu lấy hàng ngay'}
+                            </span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sơ đồ 3 Kệ (A, B, C) x 2 Tầng (A1, A2 | B1, B2 | C1, C2) */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(3, 1fr)',
+                      gap: '8px',
+                      marginBottom: '12px',
+                    }}>
+                      {(['A', 'B', 'C'] as const).map(rackLetter => {
+                        const hwCodeMap: Record<'A' | 'B' | 'C', DemoIotShelfCode> = { A: 'A1', B: 'A2', C: 'A3' };
+                        const orderItemLocs = allOrderItems.map((it, idx) => ({
+                          item: it,
+                          idx,
+                          loc: resolveOrderItemShelfTier(it, idx),
+                          isPicked: isOrderItemPicked(selectedOrder, idx),
+                        }));
+                        const isRackActive =
+                          isGuidingThis &&
+                          activePickGuide?.rackLabel === `Kệ ${rackLetter}`;
+
+                        return (
+                          <div
+                            key={rackLetter}
+                            style={{
+                              backgroundColor: isRackActive ? '#fffbeb' : '#ffffff',
+                              border: `1.5px solid ${isRackActive ? '#f59e0b' : '#cbd5e1'}`,
+                              borderRadius: '8px',
+                              padding: '8px',
+                            }}
+                          >
+                            <div
+                              onClick={() => {
+                                fetch(`${IOT_API}/api/iot/shelf/locate`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    shelfCode: hwCodeMap[rackLetter],
+                                    slotCode: `${rackLetter}1`,
+                                    orderId: selectedOrder.orderCode,
+                                    productName: `Kiểm tra đèn Kệ ${rackLetter}`,
+                                    qty: 1,
+                                    step: 1,
+                                    totalSteps: 1,
+                                  }),
+                                }).catch(() => null);
+                                showToast(`Đã bật đèn Kệ ${rackLetter}`, 'info');
+                              }}
+                              title={`Bấm để bật thử đèn Kệ ${rackLetter}`}
+                              style={{
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                color: isRackActive ? '#92400e' : '#0f172a',
+                                marginBottom: '6px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <span>Kệ {rackLetter}</span>
+                              <Lightbulb size={13} color={isRackActive ? '#d97706' : '#94a3b8'} />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              {([1, 2] as const).map(tierNum => {
+                                const matching = orderItemLocs.filter(x => x.loc.rack === rackLetter && x.loc.tier === tierNum);
+                                const hasItems = matching.length > 0;
+                                const slotCode = `${rackLetter}${tierNum}`;
+                                const isTierActive =
+                                  isRackActive &&
+                                  activePickGuide?.fullLocationLabel === slotCode;
+                                const allTierPicked = hasItems && matching.every(m => m.isPicked);
+
+                                return (
+                                  <div
+                                    key={tierNum}
+                                    onClick={() => {
+                                      if (hasItems) {
+                                        activateOrderProductShelf(selectedOrder, matching[0].idx);
+                                      }
+                                    }}
+                                    style={{
+                                      padding: '4px 6px',
+                                      borderRadius: '4px',
+                                      fontSize: '11px',
+                                      fontWeight: hasItems ? 700 : 500,
+                                      cursor: hasItems ? 'pointer' : 'default',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      backgroundColor: isTierActive
+                                        ? '#fef3c7'
+                                        : allTierPicked
+                                        ? '#f0fdf4'
+                                        : hasItems
+                                        ? '#f0fdfa'
+                                        : '#f8fafc',
+                                      color: isTierActive
+                                        ? '#92400e'
+                                        : allTierPicked
+                                        ? '#166534'
+                                        : hasItems
+                                        ? '#0f766e'
+                                        : '#94a3b8',
+                                      border: `1px solid ${
+                                        isTierActive
+                                          ? '#f59e0b'
+                                          : allTierPicked
+                                          ? '#bbf7d0'
+                                          : hasItems
+                                          ? '#99f6e4'
+                                          : '#e2e8f0'
+                                      }`,
+                                    }}
+                                  >
+                                    <span>{slotCode}</span>
+                                    <span>{hasItems ? `${matching.length} SP` : '—'}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Danh sách từng bước sản phẩm */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {allOrderItems.map((item, i) => {
+                        const loc = resolveOrderItemShelfTier(item, i);
+                        const cleanName = cleanProductDisplayName(item.productName);
+                        const isActiveItem =
+                          isGuidingThis &&
+                          activePickGuide?.itemIdx === i;
+                        const isPicked = isOrderItemPicked(selectedOrder, i);
+                        const qty = item.requestedQuantity || item.quantity || 1;
+
+                        return (
+                          <div
+                            key={i}
+                            onClick={() => activateOrderProductShelf(selectedOrder, i)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '8px',
+                              padding: '8px 10px',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              backgroundColor: isActiveItem
+                                ? '#fffbeb'
+                                : isPicked
+                                ? '#f0fdf4'
+                                : '#ffffff',
+                              border: `1.5px solid ${
+                                isActiveItem
+                                  ? '#f59e0b'
+                                  : isPicked
+                                  ? '#86efac'
+                                  : '#e2e8f0'
+                              }`,
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                              <div style={{
+                                width: '24px',
+                                height: '24px',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                                backgroundColor: isActiveItem
+                                  ? '#d97706'
+                                  : isPicked
+                                  ? '#16a34a'
+                                  : '#0f766e',
+                                color: '#ffffff',
+                                fontFamily: 'monospace',
+                              }}>
+                                {isPicked ? <Check size={13} /> : loc.fullLabel}
+                              </div>
+
+                              <div style={{ minWidth: 0, flex: 1 }}>
+                                <div style={{
+                                  fontWeight: 600,
+                                  color: isPicked ? '#64748b' : '#0f172a',
+                                  textDecoration: isPicked ? 'line-through' : 'none',
+                                  fontSize: '12.5px',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}>
+                                  {cleanName}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#0f766e' }}>
+                                    Kệ {loc.fullLabel}
+                                  </span>
+                                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
+                                    • Số lượng: {qty} {item.unit || 'món'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {isActiveItem ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (activePickGuide) handleSimulatePhysicalStop(activePickGuide);
+                                }}
+                                style={{
+                                  padding: '5px 10px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  backgroundColor: '#d97706',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  flexShrink: 0,
+                                }}
+                              >
+                                Xác nhận lấy
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  activateOrderProductShelf(selectedOrder, i);
+                                }}
+                                style={{
+                                  padding: '5px 10px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  backgroundColor: isPicked ? '#dcfce7' : '#f0fdfa',
+                                  color: isPicked ? '#166534' : '#0f766e',
+                                  border: `1px solid ${isPicked ? '#86efac' : '#99f6e4'}`,
+                                  cursor: 'pointer',
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {isPicked ? 'Đã lấy' : `Bật kệ ${loc.fullLabel}`}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               })()}
-
-              {selectedOrder.status === 'WAITING_TRANSFER' && (
-                <div style={{
-                  padding: '10px 14px',
-                  borderRadius: '10px',
-                  backgroundColor: '#fff7ed',
-                  border: '1px solid #fed7aa',
-                  color: '#c2410c',
-                  fontSize: '11.5px',
-                  fontWeight: 600,
-                  marginBottom: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
-                  <RotateCcw size={14} color="#ea580c" style={{ flexShrink: 0 }} />
-                  <span>Đơn hàng đang chờ nhập hàng điều chuyển từ chi nhánh khác về kho Gò Vấp. Khi thủ kho tiếp nhận đủ hàng tại Inbound, hệ thống sẽ tự động chuyển sang đóng gói.</span>
-                </div>
-              )}
-
-              {/* Destination Address Card */}
-              <div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: '16px', fontSize: '12px' }}>
-                <div style={{ fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                  <MapPin size={14} color="#ef4444" />
-                  <span>Địa chỉ nhận hàng:</span>
-                </div>
-                <div style={{ color: '#0f172a', fontWeight: 600, paddingLeft: '20px' }}>{selectedOrder.customerAddress}</div>
-                <div style={{ color: '#64748b', paddingLeft: '20px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Phone size={12} color="#64748b" />
-                  <span>{selectedOrder.customerPhone}</span>
-                </div>
-              </div>
-
-              {/* Items List */}
-              <div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: '16px', fontSize: '12px' }}>
-                <div style={{ fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-                  <Boxes size={14} color="#2563eb" />
-                  <span>Mặt hàng bảo quản mát:</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {(selectedOrder.items || []).map((item, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px', borderRadius: '10px', backgroundColor: '#ffffff', border: '1px solid #e2e8f0' }}>
-                      <div>
-                        <div style={{ fontWeight: 800, color: '#0f172a' }}>{item.productName}</div>
-                        <div style={{ fontSize: '10px', color: '#94a3b8', fontFamily: 'monospace' }}>Mã: {item.sku} • 0°C - 4°C</div>
-                      </div>
-                      <div style={{ fontWeight: 900, color: '#2563eb' }}>x{item.quantity || 1} {item.unit || 'món'}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
 
               {/* Assigned Driver Box */}
               <div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: '16px', fontSize: '12px' }}>

@@ -192,6 +192,13 @@ export const OutboundShipping: React.FC = () => {
             return (
               <div
                 key={order.id}
+                onClick={() => {
+                  if (isPickingStage) {
+                    navigate(`/picking?orderId=${order.id}`);
+                  } else if (isPackedStage) {
+                    navigate(`/packing?orderId=${order.id}`);
+                  }
+                }}
                 style={{
                   backgroundColor: '#ffffff',
                   borderRadius: '18px',
@@ -201,6 +208,7 @@ export const OutboundShipping: React.FC = () => {
                   flexDirection: 'column',
                   gap: '12px',
                   boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
+                  cursor: isPickingStage || isPackedStage ? 'pointer' : 'default',
                 }}
               >
                 {/* Header Row */}
@@ -265,6 +273,71 @@ export const OutboundShipping: React.FC = () => {
                     <span style={{ color: '#64748b' }}>Số lượng sản phẩm:</span>
                     <strong style={{ color: '#0284c7' }}>{order.totalQuantity || order.items?.length || 0} sản phẩm</strong>
                   </div>
+
+                  {/* Clickable Products List inside the Order Card */}
+                  {Array.isArray(order.items) && order.items.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: '6px',
+                        paddingTop: '8px',
+                        borderTop: '1px dashed #cbd5e1',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                      }}
+                    >
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>
+                        Danh sách sản phẩm trong đơn (Bấm vào đơn hoặc sản phẩm để bật đèn &amp; còi kệ):
+                      </div>
+                      {order.items.map((it, idx) => {
+                        const rawSlot = it.slotId || it.location || `A${(idx % 3) + 1}-01`;
+                        return (
+                          <div
+                            key={it.id || `${order.id}-it-${idx}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/picking?orderId=${order.id}&itemId=${encodeURIComponent(it.id || it.sku || String(idx))}`);
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '8px',
+                              padding: '7px 10px',
+                              borderRadius: '6px',
+                              backgroundColor: '#ffffff',
+                              border: '1px solid #cbd5e1',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{ fontSize: '12px', fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {idx + 1}. {it.productName || it.sku || 'Sản phẩm xuất kho'}
+                              </div>
+                              <div style={{ fontSize: '10.5px', color: '#64748b' }}>
+                                Kệ: <strong style={{ color: '#0f766e' }}>{rawSlot}</strong> • Lô: {it.lotCode || 'FEFO'}
+                              </div>
+                            </div>
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                color: '#0f766e',
+                                backgroundColor: '#f0fdfa',
+                                border: '1px solid #99f6e4',
+                                padding: '2px 7px',
+                                borderRadius: '6px',
+                                whiteSpace: 'nowrap',
+                                fontVariantNumeric: 'tabular-nums',
+                              }}
+                            >
+                              x{(it as any).requestedQuantity || it.quantity || 1} {it.unit || 'sp'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* Action */}

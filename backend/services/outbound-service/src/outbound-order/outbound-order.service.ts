@@ -1707,11 +1707,15 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
   private iotMqttClient: any = null;
   private readonly IOT_GATEWAY_URL = process.env.IOT_SERVICE_URL || 'http://localhost:3002';
 
-  private async callIotGateway(path: string, payload: any): Promise<any> {
+  private async callIotGateway(path: string, payload: any, authHeader?: string): Promise<any> {
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (authHeader) {
+        headers['Authorization'] = authHeader;
+      }
       const res = await fetch(`${this.IOT_GATEWAY_URL}${path}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload),
       });
       if (res.ok) {
@@ -1739,18 +1743,27 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
   private normalizeShelfCode(input: string): string | null {
     if (!input) return null;
     const clean = input.toUpperCase().trim();
-    if (clean.includes('A1') || clean === '1') return 'A1';
-    if (clean.includes('A2') || clean === '2') return 'A2';
-    if (clean.includes('A3') || clean === '3') return 'A3';
+    if (clean === '1' || clean === 'A1' || clean === 'A' || clean === 'A-T1' || clean === 'A-T2') return 'A1';
+    if (clean === '2' || clean === 'A2' || clean === 'B' || clean === 'B1' || clean === 'B2' || clean === 'B-T1' || clean === 'B-T2') return 'A2';
+    if (clean === '3' || clean === 'A3' || clean === 'C' || clean === 'C1' || clean === 'C2' || clean === 'C-T1' || clean === 'C-T2') return 'A3';
 
-    const match = clean.match(/(?:COLD[-_ ]*SHELF|COOL|(?:KỆ|KE)[-_ ]*A)[-_ ]*0?([123])/);
+    if (/(?:^|[^A-Z0-9])B[-_ ]*T?[12](?:$|[^0-9])/.test(clean) || /(?:KỆ|KE)[-_ ]*B/.test(clean)) return 'A2';
+    if (/(?:^|[^A-Z0-9])C[-_ ]*T?[12](?:$|[^0-9])/.test(clean) || /(?:KỆ|KE)[-_ ]*C/.test(clean)) return 'A3';
+
+    const directA = clean.match(/(?:^|[^A-Z0-9])A([123])(?:$|[^0-9])/);
+    if (directA) return `A${directA[1]}`;
+
+    const match = clean.match(/(?:RACK[-_ ]*COOL|COLD[-_ ]*SHELF|COOL|(?:KỆ|KE)[-_ ]*A)[-_ ]*0?([123])(?:$|[^0-9])/);
     if (match) return `A${match[1]}`;
 
     return null;
   }
 
   // IoT Pick-to-Light: Locate Shelf (Blink & Beep)
-  async triggerIotLocateShelf(dto: { warehouseCode?: string; shelfCode: string; slotCode?: string; productName?: string; qty?: number; step?: number }) {
+  async triggerIotLocateShelf(
+    dto: { warehouseCode?: string; shelfCode: string; slotCode?: string; productName?: string; qty?: number; step?: number; totalSteps?: number; orderId?: string },
+    authHeader?: string,
+  ) {
     const warehouseCode = dto.warehouseCode || 'WH-006';
     const normShelf = this.normalizeShelfCode(dto.shelfCode);
     if (!normShelf) {
@@ -1761,14 +1774,16 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
       warehouseCode,
       shelfCode: normShelf,
       slotCode: dto.slotCode,
+      orderId: dto.orderId,
       productName: dto.productName || 'Sản phẩm xuất kho',
       qty: dto.qty || 1,
       step: dto.step || 1,
+      totalSteps: dto.totalSteps,
       timestamp: Date.now(),
     };
 
     // Forward to centralized IoT Gateway (iot-service)
-    const gatewayRes = await this.callIotGateway('/api/iot/shelf/locate', payload);
+    const gatewayRes = await this.callIotGateway('/api/iot/shelf/locate', payload, authHeader);
     if (gatewayRes) {
       return gatewayRes;
     }
@@ -1782,9 +1797,12 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
   }
 
   // IoT Pick-to-Light: Smartkey Horn Chirp (Bóp còi tìm kệ như Smartkey ô tô / xe máy)
-  async triggerIotChirpShelf(dto: { warehouseCode?: string; shelfCode: string }) {
+  async triggerIotChirpShelf(dto: { warehouseCode?: string; shelfCode: string }, authHeader?: string) {
     const warehouseCode = dto.warehouseCode || 'WH-006';
     const normShelf = this.normalizeShelfCode(dto.shelfCode);
+    if (!normShelf) {
+      return { success: false, message: `Kệ ${dto.shelfCode} không thuộc hệ thống Pick-to-Light IoT (chỉ hỗ trợ A1, A2, A3).` };
+    }
     const payload = {
       action: 'SMARTKEY_CHIRP',
       warehouseCode,
@@ -1792,7 +1810,7 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
       timestamp: Date.now(),
     };
 
-    const gatewayRes = await this.callIotGateway('/api/iot/shelf/chirp', payload);
+    const gatewayRes = await this.callIotGateway('/api/iot/shelf/chirp', payload, authHeader);
     if (gatewayRes) {
       return gatewayRes;
     }
@@ -1805,45 +1823,46 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
   }
 
   // IoT Pick-to-Light: Complete Shelf (Auto turn off LED and mark picked)
-  async triggerIotCompleteShelf(dto: { warehouseCode?: string; shelfCode: string }) {
+  async triggerIotCompleteShelf(dto: { warehouseCode?: string; shelfCode: string; orderId?: string }, authHeader?: string) {
     const warehouseCode = dto.warehouseCode || 'WH-006';
     const normShelf = this.normalizeShelfCode(dto.shelfCode);
+    if (!normShelf) {
+      return { success: false, message: `Kệ ${dto.shelfCode} không thuộc hệ thống Pick-to-Light IoT (chỉ hỗ trợ A1, A2, A3).` };
+    }
     const payload = {
       action: 'SCAN_COMPLETED',
       warehouseCode,
       shelfCode: normShelf,
+      orderId: dto.orderId,
       timestamp: Date.now(),
     };
 
     // Forward to centralized IoT Gateway
-    await this.callIotGateway('/api/iot/shelf/complete', payload);
+    await this.callIotGateway('/api/iot/shelf/complete', payload, authHeader);
 
     // Fallback publish to both WH-006 and GV topics
     await this.publishToMqtt(`citymart/warehouse/WH-006/picking/command`, payload);
     await this.publishToMqtt(`citymart/warehouse/GV/picking/command`, payload);
     await this.publishToMqtt(`citymart/wh006/shelf/command`, payload);
 
-    // Auto sync picked status for matching shelf in pending picking orders
+    // Auto sync picked status for matching shelf in pending/picking orders
     try {
       const pendingOrders = await this.orderRepository.find({
-        where: { warehouseCode, status: 'PENDING' },
+        where: [
+          { warehouseCode, status: 'PENDING' },
+          { warehouseCode, status: 'PICKING' },
+        ],
         relations: ['items'],
         order: { createdAt: 'DESC' },
       });
 
       for (const order of pendingOrders) {
+        if (dto.orderId && order.id !== dto.orderId && order.orderCode !== dto.orderId) continue;
         let orderChanged = false;
         for (const item of order.items) {
           if (item.status !== 'PICKED') {
-            const itemShelf = (item.slotId || '').toLowerCase();
-            const targetShelf = normShelf.toLowerCase();
-            const isMatch = (targetShelf.includes('a1') && itemShelf.includes('a1')) ||
-                            (targetShelf.includes('a2') && itemShelf.includes('a2')) ||
-                            (targetShelf.includes('a3') && itemShelf.includes('a3')) ||
-                            (targetShelf.includes('1') && itemShelf.includes('a1')) ||
-                            (targetShelf.includes('2') && itemShelf.includes('a2')) ||
-                            (targetShelf.includes('3') && itemShelf.includes('a3'));
-            if (isMatch) {
+            const itemShelfNorm = this.normalizeShelfCode(item.slotId || '');
+            if (itemShelfNorm === normShelf) {
               item.status = 'PICKED';
               item.pickedQuantity = item.requestedQuantity || 1;
               await this.itemRepository.save(item);
@@ -1859,22 +1878,26 @@ export class OutboundOrderService implements OnModuleInit, OnModuleDestroy {
       console.warn('[IoT Complete Shelf] Auto-pick error:', e);
     }
 
-    return { success: true, message: `Đã quét xong. Tắt đèn kệ ${normShelf}`, payload };
+    return { success: true, message: `Đã hoàn tất. Tắt đèn kệ ${normShelf}`, payload };
   }
 
   // IoT Pick-to-Light: Stop Shelf (Turn off LED and Buzzer)
-  async triggerIotStopShelf(dto: { warehouseCode?: string; shelfCode: string }) {
+  async triggerIotStopShelf(dto: { warehouseCode?: string; shelfCode: string }, authHeader?: string) {
     const warehouseCode = dto.warehouseCode || 'WH-006';
-    const normShelf = this.normalizeShelfCode(dto.shelfCode);
+    const isAll = !dto.shelfCode || dto.shelfCode.toUpperCase().includes('ALL');
+    const normShelf = isAll ? 'ALL' : this.normalizeShelfCode(dto.shelfCode);
+    if (!normShelf) {
+      return { success: false, message: `Kệ ${dto.shelfCode} không thuộc hệ thống Pick-to-Light IoT (chỉ hỗ trợ A1, A2, A3).` };
+    }
     const payload = {
-      action: 'OFF',
+      action: isAll ? 'RESET' : 'OFF',
       warehouseCode,
       shelfCode: normShelf,
       timestamp: Date.now(),
     };
 
     // 1. Forward to centralized IoT Gateway (iot-service)
-    const gatewayRes = await this.callIotGateway('/api/iot/shelf/stop', payload);
+    const gatewayRes = await this.callIotGateway('/api/iot/shelf/stop', payload, authHeader);
     if (gatewayRes) {
       return gatewayRes;
     }

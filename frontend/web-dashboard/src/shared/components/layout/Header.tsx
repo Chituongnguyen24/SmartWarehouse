@@ -13,7 +13,8 @@ import {
   Truck, 
   MessageSquare, 
   AlertTriangle, 
-  Info 
+  Info,
+  Menu
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, ROLE_LABELS } from '@/features/auth';
@@ -24,9 +25,10 @@ import { GlobalSearch } from './GlobalSearch';
 
 interface HeaderProps {
   title: string;
+  onToggleMobileMenu?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ title }) => {
+const Header: React.FC<HeaderProps> = ({ title, onToggleMobileMenu }) => {
   const { user } = useAuth();
   const {
     warehouses,
@@ -98,7 +100,15 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
   return (
     <>
       <header className="top-header" style={{ position: 'relative', zIndex: 100 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+          <button
+            type="button"
+            className="mobile-menu-btn"
+            onClick={onToggleMobileMenu}
+            title="Mở menu điều hướng"
+          >
+            <Menu size={20} />
+          </button>
           <div className="page-title">{title}</div>
 
           {/* Warehouse Selector for ADMIN */}

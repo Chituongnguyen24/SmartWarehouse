@@ -30,6 +30,10 @@ import {
   MoreVertical,
   ChevronDown,
   ChevronUp,
+  Lightbulb,
+  Play,
+  Square,
+  SkipForward,
 } from 'lucide-react';
 import { PickingItem } from '@/types';
 import { CameraScannerModal } from '@/shared';
@@ -54,6 +58,8 @@ import {
   completeShelfIotApi,
   stopShelfIotApi,
   getIotShelvesStatusApi,
+  extractDemoIotShelf,
+  DemoIotShelfCode,
   API_URLS,
 } from '@/shared';
 import { useStaffWebSocket } from '@/features/dashboard';
@@ -63,6 +69,7 @@ export const PickingWave: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const targetOrderId = searchParams.get('orderId');
+  const targetItemId = searchParams.get('itemId');
 
   const { user, activeWarehouse } = useAuth();
   const effectiveWhCode = user?.warehouseCode || activeWarehouse || 'WH-006';
@@ -92,32 +99,32 @@ export const PickingWave: React.FC = () => {
   const [arrivedShelf, setArrivedShelf] = useState<string | null>(null);
   const [smartkeyPingingShelf, setSmartkeyPingingShelf] = useState<string | null>(null);
 
-  // Poll IoT shelf state when locating to detect physical STOP button press (LOCATING -> ARRIVED)
-  useEffect(() => {
-    if (!activeLocatingShelf) return;
-    const checkArrival = async () => {
-      try {
-        const res = await getIotShelvesStatusApi();
-        if (res?.shelves) {
-          const normCode = activeLocatingShelf.toUpperCase();
-          const matchedKey = Object.keys(res.shelves).find(k => normCode.includes(k));
-          if (matchedKey) {
-            const sh = res.shelves[matchedKey];
-            if (sh.status === 'ARRIVED') {
-              setArrivedShelf(activeLocatingShelf);
-              setActiveLocatingShelf(null);
-              voiceAssistant.playTone('SUCCESS');
-            }
-          }
-        }
-      } catch (e) {
-        // silent pass
-      }
-    };
+  // Sequential Pick-to-Light Guided Mode (Chỉ kích hoạt LED & còi trên 3 kệ demo IoT: A1, A2, A3)
+  interface GuidedIotSession {
+    orderId: string;
+    orderCode: string;
+    itemId: string;
+    shelfCode: DemoIotShelfCode;
+    shelfLocation: string;
+    productName: string;
+    quantity: number;
+    unit: string;
+    step: number;
+    totalSteps: number;
+    baselineStopSeq: number;
+    startedAt: number;
+  }
 
-    const interval = setInterval(checkArrival, 1500);
-    return () => clearInterval(interval);
-  }, [activeLocatingShelf]);
+  const [isAutoIotEnabled, setIsAutoIotEnabled] = useState<boolean>(true);
+  const [guidedIotSession, setGuidedIotSession] = useState<GuidedIotSession | null>(null);
+  const [iotCompletedOrderCode, setIotCompletedOrderCode] = useState<string | null>(null);
+
+  const guidedSessionRef = React.useRef<GuidedIotSession | null>(null);
+  const isTransitioningIotRef = React.useRef<boolean>(false);
+  const iotTransitionTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const itemsRef = React.useRef<PickingItem[]>([]);
+  const orderedItemsRef = React.useRef<PickingItem[]>([]);
+  const lastSelectedOrderRef = React.useRef<string>('ALL');
 
   const toggleExpandPicked = (id: string) => {
     setExpandedPickedIds(prev => ({ ...prev, [id]: !prev[id] }));
@@ -214,11 +221,26 @@ export const PickingWave: React.FC = () => {
   };
 
   const handleLocateShelf = async (item: PickingItem) => {
+    const demoShelf = extractDemoIotShelf(item.shelfLocation);
+    if (!demoShelf) {
+      setActiveLocatingShelf(null);
+      setToastMessage({
+        type: 'ERROR',
+        text: `Kệ ${item.shelfLocation} không thuộc 3 kệ demo IoT (hệ thống chỉ bật đèn và còi cho Kệ A1, A2, A3).`,
+      });
+      voiceAssistant.playTone('ERROR');
+      return;
+    }
+
     if (activeLocatingShelf === item.shelfLocation) {
       setActiveLocatingShelf(null);
+      if (guidedSessionRef.current?.itemId === item.id) {
+        guidedSessionRef.current = null;
+        setGuidedIotSession(null);
+      }
       await stopShelfIotApi({
         warehouseCode: effectiveWhCode || 'WH-006',
-        shelfCode: item.shelfLocation,
+        shelfCode: demoShelf,
       });
       return;
     }
@@ -227,24 +249,24 @@ export const PickingWave: React.FC = () => {
 
     const res = await locateShelfIotApi({
       warehouseCode: effectiveWhCode || 'WH-006',
-      shelfCode: item.shelfLocation,
+      shelfCode: demoShelf,
+      slotCode: item.shelfLocation,
       productName: item.productName,
       qty: item.quantity,
-      orderId: item.orderCode || item.orderId || activeWaveId || 'WAVE-PICK',
+      orderId: item.orderCode || item.orderId || 'WAVE-PICK',
     });
 
     if (res && res.success === false) {
       setActiveLocatingShelf(null);
       setToastMessage({
         type: 'ERROR',
-        text: res.message || `Kệ ${item.shelfLocation} không thuộc phạm vi IoT (Hệ thống IoT hiện tại hỗ trợ Kệ A1, A2, A3 - Kho mát Gò Vấp).`,
+        text: res.message || `Kệ ${item.shelfLocation} không thuộc phạm vi IoT (chỉ hỗ trợ Kệ A1, A2, A3).`,
       });
       voiceAssistant.playTone('ERROR');
       return;
     }
 
     setActiveLocatingShelf(item.shelfLocation);
-    // Play radar sonar ping sound effect on mobile (default: visual LED blink on IoT)
     voiceAssistant.playTone('LOCATE');
   };
 
@@ -502,6 +524,392 @@ export const PickingWave: React.FC = () => {
   const pickedUnits = items.reduce((s, i) => s + (i.status === 'PICKED' ? i.quantity : i.pickedQuantity), 0);
   const progressPercent = Math.round((pickedUnits / Math.max(1, totalUnits)) * 100);
 
+  // Keep refs synchronized for async Sequential Pick-to-Light callbacks
+  itemsRef.current = items;
+  orderedItemsRef.current = orderedItems;
+
+  // Danh sách các sản phẩm thuộc đúng 3 kệ Demo IoT (A1, A2, A3) trong đơn đang mở
+  const orderDemoIotItems = useMemo(() => {
+    if (selectedOrderId === 'ALL') return [];
+    return orderedItems.filter(
+      it =>
+        (it.orderId === selectedOrderId || it.orderCode === selectedOrderId) &&
+        extractDemoIotShelf(it.shelfLocation) !== null
+    );
+  }, [selectedOrderId, orderedItems]);
+
+  const pendingDemoIotItems = useMemo(
+    () => orderDemoIotItems.filter(it => it.status !== 'PICKED'),
+    [orderDemoIotItems]
+  );
+
+  // Tắt đèn & còi kệ hiện tại khi tạm dừng / đổi đơn / rời trang
+  const stopGuidedIotSession = useCallback(
+    async (sendStopToHardware: boolean = true) => {
+      if (iotTransitionTimerRef.current) {
+        clearTimeout(iotTransitionTimerRef.current);
+        iotTransitionTimerRef.current = null;
+      }
+      const active = guidedSessionRef.current;
+      guidedSessionRef.current = null;
+      isTransitioningIotRef.current = false;
+      setGuidedIotSession(null);
+      setActiveLocatingShelf(null);
+
+      if (sendStopToHardware && active) {
+        await stopShelfIotApi({
+          warehouseCode: effectiveWhCode || 'WH-006',
+          shelfCode: active.shelfCode,
+        }).catch(() => {});
+      }
+    },
+    [effectiveWhCode]
+  );
+
+  // Đánh dấu 1 sản phẩm đã lấy khi bấm STOP vật lý (hoặc xác nhận thủ công) & đồng bộ backend
+  const markItemPickedByIot = useCallback(async (targetItem: PickingItem) => {
+    const fullQty = targetItem.quantity || 1;
+
+    const currentItemsSnapshot = itemsRef.current;
+    const currentOrderedSnapshot = orderedItemsRef.current;
+
+    const updatedItems = currentItemsSnapshot.map(it =>
+      it.id === targetItem.id
+        ? { ...it, pickedQuantity: fullQty, status: 'PICKED' as const }
+        : it
+    );
+    itemsRef.current = updatedItems;
+    setItems(updatedItems);
+
+    const updatedOrdered = currentOrderedSnapshot.map(it =>
+      it.id === targetItem.id
+        ? { ...it, pickedQuantity: fullQty, status: 'PICKED' as const }
+        : it
+    );
+    orderedItemsRef.current = updatedOrdered;
+
+    setAllWaveItems(prev =>
+      prev.map(it =>
+        it.id === targetItem.id
+          ? { ...it, pickedQuantity: fullQty, status: 'PICKED' as const }
+          : it
+      )
+    );
+
+    try {
+      localStorage.setItem(`citymart_picked_qty_${targetItem.id}`, String(fullQty));
+      if (targetItem.orderCode && targetItem.sku) {
+        localStorage.setItem(`citymart_picked_qty_${targetItem.orderCode}_${targetItem.sku}`, String(fullQty));
+      }
+    } catch (e) {}
+
+    if (targetItem.orderId) {
+      updatePickedItemsApi(targetItem.orderId, [
+        {
+          id: targetItem.id,
+          sku: targetItem.sku,
+          pickedQuantity: fullQty,
+          status: 'PICKED',
+          lotCode: targetItem.lotCode,
+        },
+      ]).catch(err => console.warn('Sync picked item error (IoT STOP):', err));
+    }
+
+    const sameOrderItems = updatedOrdered.filter(
+      it => it.orderId === targetItem.orderId || it.orderCode === targetItem.orderCode
+    );
+    const isOrderFullyPicked =
+      sameOrderItems.length > 0 && sameOrderItems.every(it => it.status === 'PICKED');
+
+    const sameOrderIotItems = sameOrderItems.filter(it => extractDemoIotShelf(it.shelfLocation) !== null);
+    const remainingIotItems = sameOrderIotItems.filter(it => it.status !== 'PICKED');
+
+    if (targetItem.orderId) {
+      const targetStatus = isOrderFullyPicked ? 'PACKING' : 'PICKING';
+      updateOutboundStatus(targetItem.orderId, targetStatus).catch(() => {});
+
+      if (isOrderFullyPicked) {
+        try {
+          localStorage.setItem(`citymart_order_just_transferred_${targetItem.orderId}`, 'true');
+          localStorage.setItem(`citymart_order_ready_pack_${targetItem.orderId}`, 'true');
+          if (targetItem.orderCode) {
+            localStorage.setItem(`citymart_order_just_transferred_${targetItem.orderCode}`, 'true');
+            localStorage.setItem(`citymart_order_ready_pack_${targetItem.orderCode}`, 'true');
+          }
+        } catch (e) {}
+
+        const cleanId = targetItem.orderId.replace(/^ECOMM-/, '').replace(/^OB-/, '');
+        fetch(`${API_URLS.ORDER}/orders/sync-status/${cleanId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'PACKING' }),
+        }).catch(() => {});
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('staff_badge_refresh'));
+        }
+        setIotCompletedOrderCode(targetItem.orderCode || targetItem.orderId);
+      }
+    }
+
+    return {
+      isOrderFullyPicked,
+      remainingIotItems,
+      totalIotCount: sameOrderIotItems.length,
+    };
+  }, []);
+
+  // Bật đèn LED + còi cho 1 sản phẩm trên đúng 1 trong 3 kệ A1, A2, A3
+  const activateGuidedIotForItem = useCallback(
+    async (targetItem: PickingItem, step: number, totalSteps: number) => {
+      const shelfCode = extractDemoIotShelf(targetItem.shelfLocation);
+      if (!shelfCode) return false;
+
+      isTransitioningIotRef.current = true;
+      try {
+        // Đọc baseline stopSeq trước hoặc từ response locate để bắt chính xác lần bấm STOP mới
+        let preStopSeq = 0;
+        const res = await locateShelfIotApi({
+          warehouseCode: effectiveWhCode || 'WH-006',
+          shelfCode,
+          slotCode: targetItem.shelfLocation,
+          productName: targetItem.productName,
+          qty: targetItem.quantity,
+          step,
+          totalSteps,
+          orderId: targetItem.orderCode || targetItem.orderId,
+        });
+
+        if (res && res.success === false) {
+          setToastMessage({
+            type: 'ERROR',
+            text: res.message || `Không thể kích hoạt Kệ ${shelfCode}.`,
+          });
+          isTransitioningIotRef.current = false;
+          return false;
+        }
+
+        if (typeof res?.stopSeq === 'number') {
+          preStopSeq = res.stopSeq;
+        } else if (typeof res?.shelf?.stopSeq === 'number') {
+          preStopSeq = res.shelf.stopSeq;
+        } else {
+          const statusRes = await getIotShelvesStatusApi();
+          const sh = statusRes?.shelves?.[shelfCode];
+          if (typeof sh?.stopSeq === 'number') preStopSeq = sh.stopSeq;
+        }
+
+        const session: GuidedIotSession = {
+          orderId: targetItem.orderId,
+          orderCode: targetItem.orderCode || targetItem.orderId,
+          itemId: targetItem.id,
+          shelfCode,
+          shelfLocation: targetItem.shelfLocation,
+          productName: targetItem.productName,
+          quantity: targetItem.quantity,
+          unit: targetItem.unit,
+          step,
+          totalSteps,
+          baselineStopSeq: preStopSeq,
+          startedAt: Date.now(),
+        };
+
+        guidedSessionRef.current = session;
+        setGuidedIotSession(session);
+        setActiveLocatingShelf(targetItem.shelfLocation);
+        setArrivedShelf(null);
+        setIotCompletedOrderCode(null);
+
+        if (targetItem.orderId) {
+          updateOutboundStatus(targetItem.orderId, 'PICKING').catch(() => {});
+        }
+
+        voiceAssistant.playTone('LOCATE');
+        return true;
+      } catch (err) {
+        console.warn('activateGuidedIotForItem error:', err);
+        return false;
+      } finally {
+        isTransitioningIotRef.current = false;
+      }
+    },
+    [effectiveWhCode]
+  );
+
+  // Khi nhân viên bấm STOP (vật lý trên kệ hoặc nút xác nhận trên app): tắt đèn/còi -> đánh dấu đã lấy -> tự nhảy món tiếp theo
+  const completeCurrentGuidedStepAndAdvance = useCallback(
+    async (triggeredBy: 'HARDWARE_STOP' | 'MANUAL_STOP') => {
+      const session = guidedSessionRef.current;
+      if (!session || isTransitioningIotRef.current) return;
+
+      isTransitioningIotRef.current = true;
+      guidedSessionRef.current = null;
+      setGuidedIotSession(null);
+      setActiveLocatingShelf(null);
+
+      try {
+        if (triggeredBy === 'MANUAL_STOP') {
+          await stopShelfIotApi({
+            warehouseCode: effectiveWhCode || 'WH-006',
+            shelfCode: session.shelfCode,
+          }).catch(() => {});
+        }
+
+        const currentItem = orderedItemsRef.current.find(it => it.id === session.itemId);
+        voiceAssistant.playTone('SUCCESS');
+
+        if (!currentItem) {
+          isTransitioningIotRef.current = false;
+          return;
+        }
+
+        const { isOrderFullyPicked, remainingIotItems, totalIotCount } = await markItemPickedByIot(currentItem);
+
+        if (remainingIotItems.length > 0) {
+          const nextItem = remainingIotItems[0];
+          const nextShelf = extractDemoIotShelf(nextItem.shelfLocation);
+          const nextStep = totalIotCount - remainingIotItems.length + 1;
+
+          setToastMessage({
+            type: 'SUCCESS',
+            text: `Đã xác nhận lấy hàng tại Kệ ${session.shelfCode} (${session.productName}). Chuyển sang Kệ ${nextShelf}: ${nextItem.productName}.`,
+          });
+
+          iotTransitionTimerRef.current = setTimeout(() => {
+            iotTransitionTimerRef.current = null;
+            isTransitioningIotRef.current = false;
+            activateGuidedIotForItem(nextItem, nextStep, totalIotCount);
+          }, 650);
+        } else {
+          isTransitioningIotRef.current = false;
+          if (isOrderFullyPicked) {
+            setToastMessage({
+              type: 'SUCCESS',
+              text: `Hoàn thành lấy toàn bộ sản phẩm đơn ${session.orderCode}. Đơn đã sẵn sàng chuyển sang Đóng gói.`,
+            });
+          } else {
+            setToastMessage({
+              type: 'SUCCESS',
+              text: `Đã lấy xong toàn bộ sản phẩm trên 3 kệ IoT (A1–A3) của đơn ${session.orderCode}.`,
+            });
+          }
+          setTimeout(() => setToastMessage(null), 4500);
+        }
+      } catch (err) {
+        console.warn('completeCurrentGuidedStepAndAdvance error:', err);
+        isTransitioningIotRef.current = false;
+      }
+    },
+    [effectiveWhCode, markItemPickedByIot, activateGuidedIotForItem]
+  );
+
+  // Reset trạng thái dẫn đường khi chuyển sang đơn hàng khác hoặc về chế độ ALL
+  useEffect(() => {
+    if (lastSelectedOrderRef.current !== selectedOrderId) {
+      const prevOrder = lastSelectedOrderRef.current;
+      lastSelectedOrderRef.current = selectedOrderId;
+      if (prevOrder !== 'ALL') {
+        stopGuidedIotSession(true);
+      }
+      setIotCompletedOrderCode(null);
+      if (selectedOrderId !== 'ALL') {
+        setIsAutoIotEnabled(true);
+      }
+    }
+  }, [selectedOrderId, stopGuidedIotSession]);
+
+  // Tự động kiểm tra kệ (A1, A2, A3) và bật LED + Còi cho sản phẩm đầu tiên khi nhân viên bấm vào đơn hàng
+  useEffect(() => {
+    if (selectedOrderId === 'ALL') return;
+    if (!isAutoIotEnabled) return;
+    if (isLoading) return;
+    if (isTransitioningIotRef.current) return;
+    if (guidedSessionRef.current) return;
+    if (pendingDemoIotItems.length === 0) return;
+
+    let nextItem = pendingDemoIotItems[0];
+    if (targetItemId) {
+      const clickedTarget = pendingDemoIotItems.find(
+        it => it.id === targetItemId || it.sku === targetItemId
+      );
+      if (clickedTarget) {
+        nextItem = clickedTarget;
+      }
+    }
+    const stepIdx = orderDemoIotItems.findIndex(it => it.id === nextItem.id);
+    const currentStep = stepIdx >= 0 ? stepIdx + 1 : orderDemoIotItems.length - pendingDemoIotItems.length + 1;
+    activateGuidedIotForItem(nextItem, currentStep, orderDemoIotItems.length);
+  }, [
+    selectedOrderId,
+    targetItemId,
+    isAutoIotEnabled,
+    isLoading,
+    orderDemoIotItems,
+    pendingDemoIotItems,
+    activateGuidedIotForItem,
+  ]);
+
+  // Lắng nghe nút STOP vật lý từ ESP32 qua iot-service (polling nhanh 800ms) để tự tắt & nhảy sang sản phẩm kế tiếp
+  useEffect(() => {
+    if (!guidedIotSession && !activeLocatingShelf) return;
+
+    const pollIotStop = async () => {
+      try {
+        const res = await getIotShelvesStatusApi();
+        if (!res?.shelves) return;
+
+        const session = guidedSessionRef.current;
+        if (session && !isTransitioningIotRef.current) {
+          const sh = res.shelves[session.shelfCode];
+          if (!sh) return;
+
+          const hasNewStopSeq =
+            typeof sh.stopSeq === 'number' && sh.stopSeq > session.baselineStopSeq;
+          const hasArrivedAfterStart =
+            sh.status === 'ARRIVED' &&
+            Boolean(sh.arrivedAt) &&
+            new Date(sh.arrivedAt).getTime() >= session.startedAt - 1500;
+
+          if (hasNewStopSeq || hasArrivedAfterStart) {
+            await completeCurrentGuidedStepAndAdvance('HARDWARE_STOP');
+          }
+          return;
+        }
+
+        // Chế độ định vị lẻ thủ công khi xem ALL
+        if (activeLocatingShelf) {
+          const demoShelf = extractDemoIotShelf(activeLocatingShelf);
+          if (demoShelf && res.shelves[demoShelf]?.status === 'ARRIVED') {
+            setArrivedShelf(activeLocatingShelf);
+            setActiveLocatingShelf(null);
+            voiceAssistant.playTone('SUCCESS');
+          }
+        }
+      } catch (e) {
+        // silent pass
+      }
+    };
+
+    const interval = setInterval(pollIotStop, 800);
+    return () => clearInterval(interval);
+  }, [guidedIotSession, activeLocatingShelf, completeCurrentGuidedStepAndAdvance]);
+
+  // Dọn dẹp đèn/còi & timer khi nhân viên rời khỏi màn hình Soạn hàng
+  useEffect(() => {
+    return () => {
+      if (iotTransitionTimerRef.current) {
+        clearTimeout(iotTransitionTimerRef.current);
+      }
+      const active = guidedSessionRef.current;
+      if (active) {
+        stopShelfIotApi({
+          warehouseCode: effectiveWhCode || 'WH-006',
+          shelfCode: active.shelfCode,
+        }).catch(() => {});
+      }
+    };
+  }, [effectiveWhCode]);
+
   // Trigger Barcode/QR Scanning with Mutex Lock Acquisition
   const handleStartScan = async (item: PickingItem) => {
     const itemLock = item.orderId ? activeLocks[item.orderId] : null;
@@ -592,10 +1000,18 @@ export const PickingWave: React.FC = () => {
       });
 
       // IoT: Quét xong sản phẩm -> Tự động gửi lệnh hoàn tất và tắt đèn kệ
-      completeShelfIotApi({
-        warehouseCode: effectiveWhCode || 'WH-006',
-        shelfCode: activeScanItem.shelfLocation,
-      });
+      const scannedDemoShelf = extractDemoIotShelf(activeScanItem.shelfLocation);
+      if (scannedDemoShelf) {
+        completeShelfIotApi({
+          warehouseCode: effectiveWhCode || 'WH-006',
+          shelfCode: scannedDemoShelf,
+          orderId: activeScanItem.orderCode || activeScanItem.orderId,
+        });
+      }
+      if (guidedSessionRef.current?.itemId === activeScanItem.id) {
+        guidedSessionRef.current = null;
+        setGuidedIotSession(null);
+      }
       if (activeLocatingShelf === activeScanItem.shelfLocation) {
         setActiveLocatingShelf(null);
       }
@@ -1008,8 +1424,375 @@ export const PickingWave: React.FC = () => {
         )}
       </div>
 
-      {/* Active IoT Shelf Finding Banner (LOCATING) */}
-      {activeLocatingShelf && (
+      {/* Interactive Orders & Products Panel when viewing ALL orders -> click Order OR Product inside Order to start Sequential IoT Pick-to-Light */}
+      {selectedOrderId === 'ALL' && availableOrders.length > 0 && (
+        <div
+          style={{
+            backgroundColor: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '8px',
+            padding: '12px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 700, color: '#0f172a' }}>
+              <Lightbulb size={16} color="#0f766e" />
+              <span>Danh Sách Đơn Hàng &amp; Sản Phẩm Cần Lấy (Pick-to-Light Kệ A1–A3)</span>
+            </div>
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+              Bấm vào đơn hoặc từng sản phẩm để bật đèn &amp; còi
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {availableOrders.map(ord => {
+              const ordItems = allWaveItems.filter(i => i.orderId === ord.id || i.orderCode === ord.orderCode);
+              const iotPendingCount = ordItems.filter(i => extractDemoIotShelf(i.shelfLocation) !== null && i.status !== 'PICKED').length;
+              return (
+                <div
+                  key={ord.id}
+                  style={{
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    backgroundColor: '#f8fafc',
+                    padding: '10px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                  }}
+                >
+                  {/* Clickable Order Header */}
+                  <div
+                    onClick={() => handleSelectOrderFilter(ord.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span
+                        style={{
+                          backgroundColor: '#0f766e',
+                          color: '#ffffff',
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <Play size={11} />
+                        {ord.orderCode}
+                      </span>
+                      <span style={{ fontSize: '11.5px', color: '#475569', fontWeight: 500 }}>
+                        {ord.destination || 'Kho Gò Vấp'}
+                      </span>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        color: iotPendingCount > 0 ? '#075985' : '#166534',
+                        backgroundColor: iotPendingCount > 0 ? '#f0f9ff' : '#f0fdf4',
+                        border: `1px solid ${iotPendingCount > 0 ? '#bae6fd' : '#bbf7d0'}`,
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      {iotPendingCount > 0 ? `Bấm đơn để chạy (${iotPendingCount} kệ IoT)` : 'Đã lấy xong'}
+                    </span>
+                  </div>
+
+                  {/* Clickable Products inside this Order */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    {ordItems.map((it, idx) => {
+                      const shelfCode = extractDemoIotShelf(it.shelfLocation);
+                      const isDone = it.status === 'PICKED';
+                      return (
+                        <div
+                          key={it.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedOrderId(ord.id);
+                            setSearchParams({ orderId: ord.id, itemId: it.id });
+                            setItems(allWaveItems.filter(i => i.orderId === ord.id || i.orderCode === ord.orderCode));
+                            if (shelfCode) {
+                              setIsAutoIotEnabled(true);
+                              const ordIotItems = ordItems.filter(x => extractDemoIotShelf(x.shelfLocation) !== null);
+                              const stepIndex = ordIotItems.findIndex(x => x.id === it.id);
+                              activateGuidedIotForItem(
+                                it,
+                                stepIndex >= 0 ? stepIndex + 1 : 1,
+                                Math.max(1, ordIotItems.length)
+                              );
+                            }
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '8px',
+                            padding: '7px 10px',
+                            borderRadius: '6px',
+                            backgroundColor: isDone ? '#f0fdf4' : '#ffffff',
+                            border: `1px solid ${isDone ? '#bbf7d0' : '#e2e8f0'}`,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                backgroundColor: shelfCode ? '#0f766e' : '#64748b',
+                                color: '#ffffff',
+                                flexShrink: 0,
+                              }}
+                            >
+                              {shelfCode ? `Kệ ${shelfCode}` : it.shelfLocation}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                color: isDone ? '#166534' : '#0f172a',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {idx + 1}. {it.productName}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
+                              x{it.quantity} {it.unit}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: '10.5px',
+                                fontWeight: 600,
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                backgroundColor: isDone ? '#dcfce7' : shelfCode ? '#fffbeb' : '#f1f5f9',
+                                color: isDone ? '#166534' : shelfCode ? '#92400e' : '#64748b',
+                                border: `1px solid ${isDone ? '#bbf7d0' : shelfCode ? '#fde68a' : '#cbd5e1'}`,
+                              }}
+                            >
+                              {isDone ? 'Đã lấy' : shelfCode ? 'Bấm bật đèn' : 'Ngoài IoT'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Sequential Pick-to-Light Active Guided Banner (Kệ A1, A2, A3) */}
+      {guidedIotSession && (
+        <div
+          style={{
+            backgroundColor: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderRadius: '8px',
+            padding: '12px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Radio size={16} color="#92400e" />
+              <span style={{ fontSize: '12px', fontWeight: 700, color: '#92400e' }}>
+                Pick-to-Light • Bước {guidedIotSession.step}/{guidedIotSession.totalSteps}
+              </span>
+            </div>
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                backgroundColor: '#0f766e',
+                color: '#ffffff',
+                padding: '2px 8px',
+                borderRadius: '6px',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              Kệ {guidedIotSession.shelfCode} ({guidedIotSession.shelfLocation})
+            </span>
+          </div>
+
+          <div style={{ fontSize: '12.5px', color: '#0f172a', fontWeight: 600, lineHeight: 1.35 }}>
+            {guidedIotSession.productName}{' '}
+            <span style={{ color: '#0f766e', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+              (x{guidedIotSession.quantity} {guidedIotSession.unit})
+            </span>
+          </div>
+
+          <div style={{ fontSize: '11.5px', color: '#92400e' }}>
+            Đèn LED và còi tại Kệ {guidedIotSession.shelfCode} đang bật. Tới kệ lấy hàng và bấm nút STOP vật lý để tắt và tự chuyển sản phẩm kế tiếp.
+          </div>
+
+          <div style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
+            <button
+              type="button"
+              onClick={() => completeCurrentGuidedStepAndAdvance('MANUAL_STOP')}
+              style={{
+                flex: 1,
+                backgroundColor: '#0f766e',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '7px 10px',
+                fontSize: '11.5px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '5px',
+              }}
+            >
+              <SkipForward size={14} />
+              <span>Xác nhận STOP &amp; Qua món kế</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsAutoIotEnabled(false);
+                stopGuidedIotSession(true);
+              }}
+              style={{
+                backgroundColor: '#ffffff',
+                color: '#334155',
+                border: '1px solid #cbd5e1',
+                borderRadius: '6px',
+                padding: '7px 10px',
+                fontSize: '11.5px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <Square size={12} />
+              <span>Tạm dừng</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Resume Sequential Pick-to-Light Banner when paused on a specific order */}
+      {selectedOrderId !== 'ALL' && !guidedIotSession && !isAutoIotEnabled && pendingDemoIotItems.length > 0 && (
+        <div
+          style={{
+            backgroundColor: '#f8fafc',
+            border: '1px solid #cbd5e1',
+            borderRadius: '8px',
+            padding: '8px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '8px',
+          }}
+        >
+          <span style={{ fontSize: '11.5px', color: '#475569', fontWeight: 500 }}>
+            Đang tạm dừng dẫn đường Pick-to-Light (còn {pendingDemoIotItems.length} món trên kệ A1–A3).
+          </span>
+          <button
+            type="button"
+            onClick={() => setIsAutoIotEnabled(true)}
+            style={{
+              backgroundColor: '#0f766e',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '5px 10px',
+              fontSize: '11.5px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <Play size={12} />
+            <span>Tiếp tục IoT</span>
+          </button>
+        </div>
+      )}
+
+      {/* Order has no items on the 3 Demo IoT shelves (A1, A2, A3) */}
+      {selectedOrderId !== 'ALL' && !isLoading && items.length > 0 && orderDemoIotItems.length === 0 && (
+        <div
+          style={{
+            backgroundColor: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '8px',
+            padding: '8px 12px',
+            fontSize: '11.5px',
+            color: '#475569',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <Lightbulb size={14} color="#64748b" />
+          <span>Đơn hàng này không có sản phẩm nằm trên 3 kệ demo IoT (A1, A2, A3). Đèn và còi không kích hoạt.</span>
+        </div>
+      )}
+
+      {/* IoT Sequential Completion Banner */}
+      {iotCompletedOrderCode && (
+        <div
+          style={{
+            backgroundColor: '#f0fdf4',
+            border: '1px solid #bbf7d0',
+            borderRadius: '8px',
+            padding: '10px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '8px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#166534', fontWeight: 600 }}>
+            <CheckCircle2 size={16} color="#166534" />
+            <span>Đã hoàn thành lấy hàng đơn {iotCompletedOrderCode} qua Pick-to-Light.</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIotCompletedOrderCode(null)}
+            style={{ background: 'none', border: 'none', color: '#166534', cursor: 'pointer', padding: '2px' }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* Active IoT Shelf Finding Banner (Manual single-shelf LOCATING when not in guided session) */}
+      {activeLocatingShelf && !guidedIotSession && (
         <div
           style={{
             backgroundColor: '#fffbeb',
@@ -1024,7 +1807,7 @@ export const PickingWave: React.FC = () => {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: '#92400e', fontWeight: 600 }}>
             <Radio size={15} color="#d97706" />
-            <span>Đang định vị kệ: <b>{activeLocatingShelf}</b> (Đèn đang nhấp nháy. Bấm nút STOP khi đến nơi)</span>
+            <span>Đang định vị kệ: <b>{activeLocatingShelf}</b> (Đèn và còi đang bật. Bấm nút STOP khi đến nơi)</span>
           </div>
           <button
             onClick={() => {
@@ -1332,21 +2115,70 @@ export const PickingWave: React.FC = () => {
 
               // FULL ACTIVE ITEM CARD (OR EXPANDED PICKED)
               const isNext = !isPicked && item.id === currentPendingItem?.id;
+              const isGuidedNow = !isPicked && guidedIotSession?.itemId === item.id;
 
               return (
                 <div
                   key={item.id}
+                  onClick={() => {
+                    if (selectedOrderId === 'ALL' && item.orderId) {
+                      handleSelectOrderFilter(item.orderId);
+                    }
+                    const demoShelf = extractDemoIotShelf(item.shelfLocation);
+                    if (demoShelf) {
+                      setIsAutoIotEnabled(true);
+                      const sameOrderIot = orderedItems.filter(
+                        it =>
+                          (it.orderId === item.orderId || it.orderCode === item.orderCode) &&
+                          extractDemoIotShelf(it.shelfLocation) !== null
+                      );
+                      const stepIdx = sameOrderIot.findIndex(it => it.id === item.id);
+                      activateGuidedIotForItem(
+                        item,
+                        stepIdx >= 0 ? stepIdx + 1 : 1,
+                        Math.max(1, sameOrderIot.length)
+                      );
+                    } else {
+                      handleLocateShelf(item);
+                    }
+                  }}
                   style={{
-                    backgroundColor: isPicked ? '#f0fdf4' : '#ffffff',
+                    backgroundColor: isPicked ? '#f0fdf4' : isGuidedNow ? '#fffbeb' : '#ffffff',
                     borderRadius: '8px',
-                    border: `1px solid ${isPicked ? '#bbf7d0' : isNext ? '#0f766e' : '#e2e8f0'}`,
+                    border: `1px solid ${isPicked ? '#bbf7d0' : isGuidedNow ? '#d97706' : isNext ? '#0f766e' : '#e2e8f0'}`,
                     padding: '12px',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '8px',
                     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+                    cursor: 'pointer',
                   }}
+                  title="Bấm vào sản phẩm để bật đèn LED & Còi tại kệ của sản phẩm này"
                 >
+                  {isGuidedNow && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        backgroundColor: '#fef3c7',
+                        border: '1px solid #fde68a',
+                        borderRadius: '6px',
+                        padding: '4px 8px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        color: '#92400e',
+                      }}
+                    >
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <Radio size={13} color="#92400e" />
+                        LED &amp; Còi đang bật tại Kệ {guidedIotSession?.shelfCode} — Chờ bấm nút STOP
+                      </span>
+                      <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                        {guidedIotSession?.step}/{guidedIotSession?.totalSteps}
+                      </span>
+                    </div>
+                  )}
                   {/* Top Row: Shelf Location & Zone + Target Quantity */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

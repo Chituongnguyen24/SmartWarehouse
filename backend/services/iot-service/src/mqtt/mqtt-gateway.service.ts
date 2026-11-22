@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import * as mqtt from 'mqtt';
 import { EventEmitter } from 'events';
+import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 
 export interface MqttMessageEvent {
   topic: string;
@@ -16,6 +17,11 @@ export class MqttGatewayService extends EventEmitter implements OnModuleInit, On
   private brokerUrl: string;
   private lastMessageAt: Date | null = null;
   private lastEsp32SeenAt: Date | null = null;
+  private serialBridgeProc: ChildProcessWithoutNullStreams | null = null;
+  private serialConnected = false;
+  private serialPortName: string = process.env.ESP32_SERIAL_PORT || 'COM11';
+  private serialReconnectTimer: NodeJS.Timeout | null = null;
+  private isDestroying = false;
 
   // Topics subscribed
   readonly TOPIC_CMD_SHELF = 'citymart/wh006/shelf/command';
@@ -38,12 +44,161 @@ export class MqttGatewayService extends EventEmitter implements OnModuleInit, On
 
   async onModuleInit() {
     this.connect();
+    this.startSerialBridge();
   }
 
   onModuleDestroy() {
+    this.isDestroying = true;
+    if (this.serialReconnectTimer) {
+      clearTimeout(this.serialReconnectTimer);
+    }
+    if (this.serialBridgeProc) {
+      try {
+        this.serialBridgeProc.kill();
+      } catch {}
+    }
     if (this.client) {
       this.logger.log('Disconnecting MQTT client...');
       this.client.end(true);
+    }
+  }
+
+  /**
+   * Direct USB Serial Bridge (COM11, 115200 baud) for zero-latency Pick-to-Light & STOP events
+   * Works even when Wi-Fi is 5GHz-only or offline.
+   */
+  private startSerialBridge() {
+    if (this.isDestroying || process.platform !== 'win32') return;
+    if (this.serialBridgeProc) {
+      try {
+        this.serialBridgeProc.kill();
+      } catch {}
+      this.serialBridgeProc = null;
+    }
+
+    const psScript = `
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$portName = '${this.serialPortName}'
+$avail = [System.IO.Ports.SerialPort]::GetPortNames()
+if ($avail -notcontains $portName -and $avail.Count -gt 0) {
+  $portName = $avail[0]
+}
+$port = New-Object System.IO.Ports.SerialPort $portName, 115200, 'None', 8, 'One'
+$port.Encoding = [System.Text.Encoding]::UTF8
+$port.DtrEnable = $false
+$port.RtsEnable = $false
+$port.Open()
+Write-Output "[SERIAL_CONNECTED]$portName"
+$stdin = [Console]::In
+$readTask = $stdin.ReadLineAsync()
+while ($port.IsOpen) {
+  while ($port.BytesToRead -gt 0) {
+    try {
+      $line = $port.ReadLine()
+      if ($line) { Write-Output $line.Trim() }
+    } catch {}
+  }
+  if ($readTask.IsCompleted) {
+    $cmd = $readTask.Result
+    if ($null -eq $cmd) { break }
+    $cmdTrim = $cmd.Trim()
+    if ($cmdTrim.Length -gt 0) {
+      $port.WriteLine($cmdTrim)
+    }
+    $readTask = $stdin.ReadLineAsync()
+  }
+  Start-Sleep -Milliseconds 12
+}
+$port.Close()
+`;
+
+    try {
+      const proc = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', psScript], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      this.serialBridgeProc = proc;
+
+      let stdoutBuf = '';
+      proc.stdout.on('data', (chunk: Buffer) => {
+        stdoutBuf += chunk.toString('utf8');
+        let nlIdx: number;
+        while ((nlIdx = stdoutBuf.indexOf('\n')) >= 0) {
+          const line = stdoutBuf.slice(0, nlIdx).trim();
+          stdoutBuf = stdoutBuf.slice(nlIdx + 1);
+          if (line) this.handleSerialLine(line);
+        }
+      });
+
+      proc.on('exit', () => {
+        this.serialConnected = false;
+        this.serialBridgeProc = null;
+        if (!this.isDestroying) {
+          this.serialReconnectTimer = setTimeout(() => this.startSerialBridge(), 3000);
+        }
+      });
+    } catch (err: any) {
+      this.logger.warn(`Failed to start USB Serial bridge: ${err.message}`);
+    }
+  }
+
+  private handleSerialLine(line: string) {
+    if (line.startsWith('[SERIAL_CONNECTED]')) {
+      const port = line.replace('[SERIAL_CONNECTED]', '').trim();
+      this.serialConnected = true;
+      this.lastEsp32SeenAt = new Date();
+      this.logger.log(`USB Serial Bridge connected directly to ESP32 on ${port} (115200 baud)`);
+      return;
+    }
+
+    if (line.includes('[READY]')) {
+      this.serialConnected = true;
+      this.lastEsp32SeenAt = new Date();
+      this.logger.log(`ESP32 Serial Ready: ${line}`);
+      return;
+    }
+
+    const evtIdx = line.indexOf('[IOT_EVENT]');
+    if (evtIdx >= 0) {
+      const jsonPart = line.slice(evtIdx + '[IOT_EVENT]'.length).trim();
+      try {
+        const parsed = JSON.parse(jsonPart);
+        this.lastMessageAt = new Date();
+        this.lastEsp32SeenAt = new Date();
+        this.logger.log(`[ESP32 Serial Event] ${jsonPart}`);
+        this.emit('shelf_event', parsed);
+      } catch (e) {}
+      return;
+    }
+
+    const envIdx = line.indexOf('[IOT_ENV]');
+    if (envIdx >= 0) {
+      const jsonPart = line.slice(envIdx + '[IOT_ENV]'.length).trim();
+      try {
+        const parsed = JSON.parse(jsonPart);
+        this.lastMessageAt = new Date();
+        this.lastEsp32SeenAt = new Date();
+        this.emit('climate_telemetry', parsed);
+      } catch (e) {}
+      return;
+    }
+
+    if (line.startsWith('[ACTIVATE]') || line.startsWith('[STOP CONFIRMED]') || line.startsWith('[REMOTE OFF]')) {
+      this.lastEsp32SeenAt = new Date();
+      this.logger.log(`[ESP32 Serial] ${line}`);
+    }
+  }
+
+  private writeToSerial(payload: any): boolean {
+    if (!this.serialBridgeProc || !this.serialBridgeProc.stdin.writable) {
+      return false;
+    }
+    try {
+      const json = typeof payload === 'string' ? payload : JSON.stringify(payload);
+      this.serialBridgeProc.stdin.write('\n' + json + '\n');
+      return true;
+    } catch {
+      return false;
     }
   }
 
@@ -158,37 +313,41 @@ export class MqttGatewayService extends EventEmitter implements OnModuleInit, On
   }
 
   /**
-   * Publish shelf command across standard and legacy topics in parallel
+   * Publish shelf command across USB Serial (COM11) and MQTT topics in parallel
    */
   async publishShelfCommand(payload: any): Promise<boolean> {
+    const serialSent = this.writeToSerial(payload);
     const results = await Promise.all([
       this.publish(this.TOPIC_CMD_SHELF, payload),
       this.publish(this.TOPIC_CMD_LEGACY, payload),
       this.publish(this.TOPIC_CMD_GV, payload),
     ]);
-    return results.some(Boolean);
+    return serialSent || results.some(Boolean);
   }
 
   /**
-   * Publish system command (all-off, test, alarm) in parallel
+   * Publish system command (all-off, test, alarm) in parallel across USB Serial and MQTT
    */
   async publishSystemCommand(payload: any): Promise<boolean> {
+    const serialSent = this.writeToSerial(payload);
     const results = await Promise.all([
       this.publish(this.TOPIC_CMD_SYSTEM, payload),
       this.publish(this.TOPIC_CMD_SHELF, payload),
       this.publish(this.TOPIC_CMD_LEGACY, payload),
     ]);
-    return results.some(Boolean);
+    return serialSent || results.some(Boolean);
   }
 
   getConnectionStatus() {
     const now = Date.now();
-    const esp32Online = this.lastEsp32SeenAt
-      ? now - this.lastEsp32SeenAt.getTime() < 30000
-      : false;
+    const esp32Online =
+      this.serialConnected ||
+      (this.lastEsp32SeenAt ? now - this.lastEsp32SeenAt.getTime() < 30000 : false);
 
     return {
-      connected: this.isConnected,
+      connected: this.isConnected || this.serialConnected,
+      serialConnected: this.serialConnected,
+      serialPort: this.serialPortName,
       brokerUrl: this.brokerUrl,
       lastMessageAt: this.lastMessageAt,
       lastEsp32SeenAt: this.lastEsp32SeenAt,

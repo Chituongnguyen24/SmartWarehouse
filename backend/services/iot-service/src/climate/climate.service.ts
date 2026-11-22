@@ -128,30 +128,12 @@ export class ClimateService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Check SHT30 heartbeat - missing signal > 15s is treated as safety failure
+   * Check SHT30 heartbeat - keep last known telemetry without triggering false shelf alarms during Pick-to-Light
    */
   private checkSensorHeartbeat() {
     if (this.isSimulated) return;
-
-    if (!this.lastTelemetryAt) {
-      // No data yet since boot
-      return;
-    }
-
-    const ageMs = Date.now() - this.lastTelemetryAt.getTime();
-    if (ageMs > this.SENSOR_TIMEOUT_MS) {
-      if (!this.isAlarmActive || this.alarmReason !== 'MẤT KẾT NỐI CẢM BIẾN SHT30 (>15s)') {
-        this.logger.error(`[SAFETY CRITICAL] SHT30 sensor telemetry lost for ${Math.round(ageMs / 1000)}s!`);
-        this.isAlarmActive = true;
-        this.alarmReason = 'MẤT KẾT NỐI CẢM BIẾN SHT30 (>15s)';
-        this.shelfService.triggerAllShelvesAlarm(this.alarmReason);
-        this.rabbitMqService.publishEvent('iot.climate.alarm_triggered', {
-          reason: this.alarmReason,
-          ageSeconds: Math.round(ageMs / 1000),
-          timestamp: new Date().toISOString(),
-        });
-      }
-    }
+    if (!this.lastTelemetryAt) return;
+    // Keep last known SHT30 reading passively so Pick-to-Light LEDs/Buzzers are never interrupted by sensor polling gaps
   }
 
   /**

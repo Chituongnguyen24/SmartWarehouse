@@ -29,9 +29,35 @@ import {
   Key,
 } from 'lucide-react-native';
 import { useAuth } from '@/features/auth';
-import { fetchPickingTasksApi, confirmPickingApi, locateShelfIotApi, chirpShelfIotApi, completeShelfIotApi } from '@/shared';
+import {
+  fetchPickingTasksApi,
+  confirmPickingApi,
+  locateShelfIotApi,
+  chirpShelfIotApi,
+  completeShelfIotApi,
+  stopShelfIotApi,
+  getIotShelvesStatusApi,
+  updatePickedItemsApi,
+  extractDemoIotShelf,
+  DemoIotShelfCode,
+} from '@/shared';
 import { PickingItem } from '@/types';
 import { COLORS } from '@/shared';
+
+interface MobileGuidedIotSession {
+  orderId: string;
+  orderCode: string;
+  itemId: string;
+  shelfCode: DemoIotShelfCode;
+  shelfLocation: string;
+  productName: string;
+  quantity: number;
+  unit: string;
+  step: number;
+  totalSteps: number;
+  baselineStopSeq: number;
+  startedAt: number;
+}
 
 export const PickingScreen: React.FC = () => {
   const { activeWarehouse } = useAuth();
@@ -40,6 +66,15 @@ export const PickingScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [completedOrders, setCompletedOrders] = useState<string[]>([]);
   const [activeLocatingShelf, setActiveLocatingShelf] = useState<string | null>(null);
+  const [guidedSession, setGuidedSession] = useState<MobileGuidedIotSession | null>(null);
+  const guidedSessionRef = React.useRef<MobileGuidedIotSession | null>(null);
+  const tasksRef = React.useRef<PickingItem[]>([]);
+  const isAdvancingRef = React.useRef<boolean>(false);
+  const advanceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
 
   // Barcode Scanner State
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -133,22 +168,215 @@ export const PickingScreen: React.FC = () => {
 
   const [smartkeyPingingShelf, setSmartkeyPingingShelf] = useState<string | null>(null);
 
+  const stopGuidedSequence = async (notifyHardware = true) => {
+    if (advanceTimerRef.current) {
+      clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
+    }
+    const active = guidedSessionRef.current;
+    guidedSessionRef.current = null;
+    isAdvancingRef.current = false;
+    setGuidedSession(null);
+    setActiveLocatingShelf(null);
+    if (notifyHardware && active) {
+      await stopShelfIotApi({
+        warehouseCode: activeWarehouse || 'WH-006',
+        shelfCode: active.shelfCode,
+      }).catch(() => {});
+    }
+  };
+
+  const activateGuidedItem = async (item: PickingItem, step: number, totalSteps: number) => {
+    const shelfCode = extractDemoIotShelf(item.shelfLocation);
+    if (!shelfCode) return;
+
+    isAdvancingRef.current = true;
+    try {
+      const res = await locateShelfIotApi({
+        warehouseCode: activeWarehouse || 'WH-006',
+        shelfCode,
+        slotCode: item.shelfLocation,
+        productName: item.productName,
+        qty: item.quantity,
+        step,
+        totalSteps,
+        orderId: item.orderCode || item.orderId,
+      });
+
+      if (res && res.success === false) {
+        Alert.alert('Thông báo IoT', res.message || `Kệ ${item.shelfLocation} không thuộc 3 kệ demo IoT (A1, A2, A3).`);
+        return;
+      }
+
+      let baselineStopSeq = 0;
+      if (typeof res?.stopSeq === 'number') baselineStopSeq = res.stopSeq;
+      else if (typeof res?.shelf?.stopSeq === 'number') baselineStopSeq = res.shelf.stopSeq;
+      else {
+        const st = await getIotShelvesStatusApi();
+        if (typeof st?.shelves?.[shelfCode]?.stopSeq === 'number') {
+          baselineStopSeq = st.shelves[shelfCode].stopSeq;
+        }
+      }
+
+      const session: MobileGuidedIotSession = {
+        orderId: item.orderId,
+        orderCode: item.orderCode || item.orderId,
+        itemId: item.id,
+        shelfCode,
+        shelfLocation: item.shelfLocation,
+        productName: item.productName,
+        quantity: item.quantity,
+        unit: item.unit,
+        step,
+        totalSteps,
+        baselineStopSeq,
+        startedAt: Date.now(),
+      };
+
+      guidedSessionRef.current = session;
+      setGuidedSession(session);
+      setActiveLocatingShelf(item.shelfLocation);
+      triggerAudioFeedback(true);
+    } finally {
+      isAdvancingRef.current = false;
+    }
+  };
+
+  const handleStartOrderIotSequence = async (orderItems: PickingItem[]) => {
+    await stopGuidedSequence(true);
+    const iotItems = orderItems.filter(it => extractDemoIotShelf(it.shelfLocation) !== null);
+    const pendingIot = iotItems.filter(it => it.status !== 'PICKED');
+    if (pendingIot.length === 0) {
+      Alert.alert('Pick-to-Light (Kệ A1–A3)', 'Đơn hàng này không còn sản phẩm chờ lấy trên 3 kệ demo IoT (A1, A2, A3).');
+      return;
+    }
+    const first = pendingIot[0];
+    const step = iotItems.length - pendingIot.length + 1;
+    await activateGuidedItem(first, step, iotItems.length);
+  };
+
+  const advanceGuidedStep = async (manualStop: boolean) => {
+    const session = guidedSessionRef.current;
+    if (!session || isAdvancingRef.current) return;
+
+    isAdvancingRef.current = true;
+    guidedSessionRef.current = null;
+    setGuidedSession(null);
+    setActiveLocatingShelf(null);
+
+    try {
+      if (manualStop) {
+        await stopShelfIotApi({
+          warehouseCode: activeWarehouse || 'WH-006',
+          shelfCode: session.shelfCode,
+        }).catch(() => {});
+      }
+
+      triggerAudioFeedback(true);
+      const updatedTasks = tasksRef.current.map(t =>
+        t.id === session.itemId ? { ...t, pickedQuantity: t.quantity, status: 'PICKED' as const } : t
+      );
+      tasksRef.current = updatedTasks;
+      setTasks(updatedTasks);
+
+      const pickedItem = updatedTasks.find(t => t.id === session.itemId);
+      if (pickedItem?.orderId) {
+        updatePickedItemsApi(pickedItem.orderId, [
+          {
+            id: pickedItem.id,
+            sku: pickedItem.sku,
+            pickedQuantity: pickedItem.quantity,
+            status: 'PICKED',
+            lotCode: pickedItem.lotCode,
+          },
+        ]).catch(() => {});
+      }
+
+      const orderAllItems = updatedTasks.filter(
+        t => t.orderId === session.orderId || t.orderCode === session.orderCode
+      );
+      const orderIotItems = orderAllItems.filter(t => extractDemoIotShelf(t.shelfLocation) !== null);
+      const remainingIot = orderIotItems.filter(t => t.status !== 'PICKED');
+
+      if (remainingIot.length > 0) {
+        const nextItem = remainingIot[0];
+        const nextStep = orderIotItems.length - remainingIot.length + 1;
+        advanceTimerRef.current = setTimeout(() => {
+          advanceTimerRef.current = null;
+          isAdvancingRef.current = false;
+          activateGuidedItem(nextItem, nextStep, orderIotItems.length);
+        }, 650);
+      } else {
+        isAdvancingRef.current = false;
+        const isOrderAllPicked = orderAllItems.length > 0 && orderAllItems.every(t => t.status === 'PICKED');
+        if (isOrderAllPicked && session.orderId) {
+          await confirmPickingApi(session.orderId).catch(() => {});
+          setCompletedOrders(prev => (prev.includes(session.orderId) ? prev : [...prev, session.orderId]));
+          Alert.alert('Hoàn thành đơn hàng', `Đã lấy xong toàn bộ sản phẩm đơn ${session.orderCode} qua Pick-to-Light.`);
+        } else {
+          Alert.alert('Hoàn tất kệ IoT', `Đã lấy xong toàn bộ sản phẩm trên 3 kệ demo A1–A3 của đơn ${session.orderCode}.`);
+        }
+      }
+    } catch (err) {
+      isAdvancingRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    if (!guidedSession) return;
+    const poll = setInterval(async () => {
+      const session = guidedSessionRef.current;
+      if (!session || isAdvancingRef.current) return;
+      try {
+        const res = await getIotShelvesStatusApi();
+        const sh = res?.shelves?.[session.shelfCode];
+        if (!sh) return;
+        const hasNewStop =
+          (typeof sh.stopSeq === 'number' && sh.stopSeq > session.baselineStopSeq) ||
+          (sh.status === 'ARRIVED' && sh.arrivedAt && new Date(sh.arrivedAt).getTime() >= session.startedAt - 1500);
+        if (hasNewStop) {
+          await advanceGuidedStep(false);
+        }
+      } catch (e) {}
+    }, 800);
+    return () => clearInterval(poll);
+  }, [guidedSession]);
+
+  useEffect(() => {
+    return () => {
+      if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+      if (guidedSessionRef.current) {
+        stopShelfIotApi({
+          warehouseCode: activeWarehouse || 'WH-006',
+          shelfCode: guidedSessionRef.current.shelfCode,
+        }).catch(() => {});
+      }
+    };
+  }, [activeWarehouse]);
+
   const handleLocateShelfIot = async (item: PickingItem) => {
+    const demoShelf = extractDemoIotShelf(item.shelfLocation);
+    if (!demoShelf) {
+      Alert.alert('Ngoài phạm vi demo IoT', `Kệ ${item.shelfLocation} không thuộc 3 kệ demo IoT (A1, A2, A3).`);
+      return;
+    }
     if (activeLocatingShelf === item.shelfLocation) {
       setActiveLocatingShelf(null);
-      await completeShelfIotApi({
-        warehouseCode: activeWarehouse || 'GV',
-        shelfCode: item.shelfLocation,
+      await stopShelfIotApi({
+        warehouseCode: activeWarehouse || 'WH-006',
+        shelfCode: demoShelf,
       });
       return;
     }
     setActiveLocatingShelf(item.shelfLocation);
     triggerAudioFeedback(true);
     await locateShelfIotApi({
-      warehouseCode: activeWarehouse || 'GV',
-      shelfCode: item.shelfLocation,
+      warehouseCode: activeWarehouse || 'WH-006',
+      shelfCode: demoShelf,
+      slotCode: item.shelfLocation,
       productName: item.productName,
       qty: item.quantity,
+      orderId: item.orderCode || item.orderId,
     });
   };
 
@@ -167,7 +395,14 @@ export const PickingScreen: React.FC = () => {
   const loadTasks = async () => {
     try {
       const data = await fetchPickingTasksApi(activeWarehouse);
-      setTasks(data);
+      setTasks(prev => {
+        const pickedMap = new Map(prev.filter(p => p.status === 'PICKED').map(p => [p.id, p]));
+        return data.map(item =>
+          pickedMap.has(item.id)
+            ? { ...item, status: 'PICKED' as const, pickedQuantity: item.quantity }
+            : item
+        );
+      });
     } catch (e) {
       console.error(e);
     } finally {
@@ -273,15 +508,63 @@ export const PickingScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Active IoT Finding Banner */}
-      {activeLocatingShelf && (
+      {/* Sequential Pick-to-Light Active Banner */}
+      {guidedSession && (
+        <View
+          style={{
+            backgroundColor: '#fffbeb',
+            borderWidth: 1,
+            borderColor: '#fde68a',
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 10,
+            gap: 6,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Radio size={15} color="#92400e" />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#92400e' }}>
+                Pick-to-Light • Bước {guidedSession.step}/{guidedSession.totalSteps} • Kệ {guidedSession.shelfCode}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => stopGuidedSequence(true)}>
+              <X size={16} color="#92400e" />
+            </TouchableOpacity>
+          </View>
+          <Text style={{ fontSize: 13, fontWeight: '600', color: '#0f172a' }}>
+            {guidedSession.productName} (x{guidedSession.quantity} {guidedSession.unit})
+          </Text>
+          <Text style={{ fontSize: 11.5, color: '#92400e' }}>
+            Đèn LED và còi tại Kệ {guidedSession.shelfCode} đang bật. Bấm nút STOP tại kệ để tắt và tự chuyển sản phẩm kế tiếp.
+          </Text>
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#0f766e',
+              paddingVertical: 8,
+              borderRadius: 6,
+              alignItems: 'center',
+              marginTop: 2,
+            }}
+            onPress={() => advanceGuidedStep(true)}
+            activeOpacity={0.8}
+          >
+            <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '600' }}>
+              Xác nhận STOP &amp; Qua món kế
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Active IoT Finding Banner (Manual single locate) */}
+      {activeLocatingShelf && !guidedSession && (
         <View style={styles.activeLocatingBanner}>
           <Radio size={16} color="#d97706" />
           <Text style={styles.activeLocatingText}>
-            Đang phát lệnh tới <Text style={{ fontWeight: '900', color: '#b45309' }}>{activeLocatingShelf}</Text> (Nháy đèn LED). Hãy tới nơi và ấn Check-in!
+            Đang bật đèn và còi tại <Text style={{ fontWeight: '700', color: '#92400e' }}>{activeLocatingShelf}</Text>. Tới kệ bấm nút STOP khi lấy hàng.
           </Text>
-          <TouchableOpacity onPress={() => setActiveLocatingShelf(null)}>
-            <X size={16} color="#b45309" />
+          <TouchableOpacity onPress={() => stopGuidedSequence(true)}>
+            <X size={16} color="#92400e" />
           </TouchableOpacity>
         </View>
       )}
@@ -348,20 +631,48 @@ export const PickingScreen: React.FC = () => {
 
           return (
             <View key={orderCode} style={[styles.orderCard, isDone && styles.orderCardDone]}>
-              <View style={styles.orderHeader}>
+              <TouchableOpacity
+                style={styles.orderHeader}
+                activeOpacity={0.75}
+                onPress={() => {
+                  if (!isDone && !isAllPicked) {
+                    handleStartOrderIotSequence(items);
+                  }
+                }}
+              >
                 <View>
                   <Text style={styles.orderCodeText}>{orderCode}</Text>
-                  <Text style={styles.orderMetaText}>{items.length} mặt hàng cần lấy từ kho</Text>
+                  <Text style={styles.orderMetaText}>
+                    {items.length} mặt hàng • Chạm để bật Pick-to-Light (Kệ A1–A3)
+                  </Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  {!isDone && !isAllPicked && (
+                  {!isDone && !isAllPicked && items.some(i => extractDemoIotShelf(i.shelfLocation) !== null && i.status !== 'PICKED') && (
                     <TouchableOpacity
-                      style={styles.pickAllBtn}
-                      onPress={() => handlePickAllInOrder(items)}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 4,
+                        backgroundColor: guidedSession?.orderCode === orderCode ? '#0f766e' : '#f0fdfa',
+                        borderWidth: 1,
+                        borderColor: guidedSession?.orderCode === orderCode ? '#0f766e' : '#99f6e4',
+                        paddingHorizontal: 8,
+                        paddingVertical: 5,
+                        borderRadius: 6,
+                      }}
+                      onPress={() => handleStartOrderIotSequence(items)}
                       activeOpacity={0.7}
                     >
-                      <Zap size={12} color="#059669" />
-                      <Text style={styles.pickAllBtnText}>Lấy nhanh</Text>
+                      <Radio size={12} color={guidedSession?.orderCode === orderCode ? '#ffffff' : '#0f766e'} />
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontWeight: '600',
+                          color: guidedSession?.orderCode === orderCode ? '#ffffff' : '#0f766e',
+                        }}
+                      >
+                        {guidedSession?.orderCode === orderCode ? 'Đang chạy IoT' : 'Lấy hàng IoT'}
+                      </Text>
                     </TouchableOpacity>
                   )}
                   {isDone ? (
@@ -375,7 +686,7 @@ export const PickingScreen: React.FC = () => {
                     </View>
                   )}
                 </View>
-              </View>
+              </TouchableOpacity>
 
               {/* Items List */}
               {items.map(item => {

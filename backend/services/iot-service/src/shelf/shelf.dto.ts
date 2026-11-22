@@ -22,6 +22,16 @@ export class LocateShelfDto {
   @IsOptional()
   qty?: number;
 
+  @ApiPropertyOptional({ description: 'Thứ tự bước lấy hàng hiện tại', example: 1 })
+  @IsNumber()
+  @IsOptional()
+  step?: number;
+
+  @ApiPropertyOptional({ description: 'Tổng số bước lấy hàng trên 3 kệ IoT của đơn', example: 3 })
+  @IsNumber()
+  @IsOptional()
+  totalSteps?: number;
+
   @ApiPropertyOptional({ description: 'Mã vị trí slot', example: 'A1-01' })
   @IsString()
   @IsOptional()
