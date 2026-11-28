@@ -283,9 +283,6 @@ export const DashboardHome: React.FC = () => {
           </div>
           <div>
             <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700 }}>Quét mã tra cứu</h3>
-            <p style={{ margin: '2px 0 0 0', fontSize: '11px', opacity: 0.9 }}>
-              Kiểm tra tồn kho & vị trí kệ
-            </p>
           </div>
         </div>
 
@@ -300,7 +297,7 @@ export const DashboardHome: React.FC = () => {
             flexDirection: 'column',
             justifyContent: 'space-between',
             cursor: 'pointer',
-            minHeight: '110px',
+            minHeight: '96px',
           }}
         >
           <div
@@ -318,9 +315,6 @@ export const DashboardHome: React.FC = () => {
           </div>
           <div>
             <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700 }}>Sơ Đồ Kho 3D</h3>
-            <p style={{ margin: '2px 0 0 0', fontSize: '11px', opacity: 0.9 }}>
-              Xem vị trí kệ & hàng hóa
-            </p>
           </div>
         </div>
       </div>
@@ -330,8 +324,8 @@ export const DashboardHome: React.FC = () => {
         onClick={() => navigate('/iot-center')}
         style={{
           backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          padding: '14px 16px',
+          borderRadius: '8px',
+          padding: '12px 14px',
           border: '1px solid #e2e8f0',
           cursor: 'pointer',
           display: 'flex',
@@ -343,8 +337,8 @@ export const DashboardHome: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div
             style={{
-              width: '40px',
-              height: '40px',
+              width: '38px',
+              height: '38px',
               borderRadius: '8px',
               backgroundColor: '#f0fdf4',
               color: '#0f766e',
@@ -375,9 +369,6 @@ export const DashboardHome: React.FC = () => {
                 Kệ A1, A2, A3
               </span>
             </div>
-            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-              Điều khiển Pick-to-Light, Giám sát SHT30 & Báo động kho
-            </div>
           </div>
         </div>
         <ChevronRight size={18} color="#94a3b8" />
@@ -396,31 +387,30 @@ export const DashboardHome: React.FC = () => {
             onClick={() => navigate('/picking')}
             style={{
               backgroundColor: '#ffffff',
-              borderRadius: '18px',
-              padding: '18px 16px',
-              border: '1.5px solid #e2e8f0',
+              borderRadius: '8px',
+              padding: '14px',
+              border: '1px solid #e2e8f0',
               cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              minHeight: '100px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+              minHeight: '88px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
               transition: 'all 0.15s ease',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ width: '42px', height: '42px', borderRadius: '12px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Boxes size={24} color="#0284c7" />
+              <div style={{ width: '38px', height: '38px', borderRadius: '8px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Boxes size={20} color="#0284c7" />
               </div>
               {pickingCount > 0 && (
-                <span style={{ fontSize: '11px', backgroundColor: '#0284c7', color: '#fff', padding: '3px 9px', borderRadius: '999px', fontWeight: 900 }}>
+                <span style={{ fontSize: '11px', backgroundColor: '#f0f9ff', color: '#075985', border: '1px solid #bae6fd', padding: '2px 8px', borderRadius: '6px', fontWeight: 600 }}>
                   {pickingCount} đơn
                 </span>
               )}
             </div>
             <div>
-              <div style={{ fontSize: '16px', fontWeight: 900, color: '#0f172a', marginTop: '12px' }}>Soạn hàng</div>
-              <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>Theo lộ trình kệ tối ưu</div>
+              <div style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a', marginTop: '10px' }}>Soạn hàng</div>
             </div>
           </div>
 
@@ -429,31 +419,30 @@ export const DashboardHome: React.FC = () => {
             onClick={() => navigate('/packing')}
             style={{
               backgroundColor: '#ffffff',
-              borderRadius: '18px',
-              padding: '18px 16px',
-              border: '1.5px solid #e2e8f0',
+              borderRadius: '8px',
+              padding: '14px',
+              border: '1px solid #e2e8f0',
               cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              minHeight: '100px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+              minHeight: '88px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
               transition: 'all 0.15s ease',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ width: '42px', height: '42px', borderRadius: '12px', backgroundColor: '#f3e8ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <PackageCheck size={24} color="#9333ea" />
+              <div style={{ width: '38px', height: '38px', borderRadius: '8px', backgroundColor: '#f3e8ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <PackageCheck size={20} color="#9333ea" />
               </div>
               {packingCount > 0 && (
-                <span style={{ fontSize: '11px', backgroundColor: '#9333ea', color: '#fff', padding: '3px 9px', borderRadius: '999px', fontWeight: 900 }}>
+                <span style={{ fontSize: '11px', backgroundColor: '#faf5ff', color: '#7e22ce', border: '1px solid #e9d5ff', padding: '2px 8px', borderRadius: '6px', fontWeight: 600 }}>
                   {packingCount} đơn
                 </span>
               )}
             </div>
             <div>
-              <div style={{ fontSize: '16px', fontWeight: 900, color: '#0f172a', marginTop: '12px' }}>Đóng gói</div>
-              <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>Niêm phong & dán tem</div>
+              <div style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a', marginTop: '10px' }}>Đóng gói</div>
             </div>
           </div>
 
@@ -462,26 +451,25 @@ export const DashboardHome: React.FC = () => {
             onClick={() => navigate('/lookup')}
             style={{
               backgroundColor: '#ffffff',
-              borderRadius: '18px',
-              padding: '18px 16px',
-              border: '1.5px solid #e2e8f0',
+              borderRadius: '8px',
+              padding: '14px',
+              border: '1px solid #e2e8f0',
               cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              minHeight: '100px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+              minHeight: '88px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
               transition: 'all 0.15s ease',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ width: '42px', height: '42px', borderRadius: '12px', backgroundColor: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Search size={24} color="#ea580c" />
+              <div style={{ width: '38px', height: '38px', borderRadius: '8px', backgroundColor: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Search size={20} color="#ea580c" />
               </div>
             </div>
             <div>
-              <div style={{ fontSize: '16px', fontWeight: 900, color: '#0f172a', marginTop: '12px' }}>Kiểm kê</div>
-              <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>Tra cứu tồn kho & hạn dùng</div>
+              <div style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a', marginTop: '10px' }}>Kiểm kê</div>
             </div>
           </div>
 
@@ -490,31 +478,30 @@ export const DashboardHome: React.FC = () => {
             onClick={() => navigate('/inbound')}
             style={{
               backgroundColor: '#ffffff',
-              borderRadius: '18px',
-              padding: '18px 16px',
-              border: '1.5px solid #e2e8f0',
+              borderRadius: '8px',
+              padding: '14px',
+              border: '1px solid #e2e8f0',
               cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              minHeight: '100px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+              minHeight: '88px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
               transition: 'all 0.15s ease',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ width: '42px', height: '42px', borderRadius: '12px', backgroundColor: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Download size={24} color="#16a34a" />
+              <div style={{ width: '38px', height: '38px', borderRadius: '8px', backgroundColor: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Download size={20} color="#16a34a" />
               </div>
               {inboundCount > 0 && (
-                <span style={{ fontSize: '11px', backgroundColor: '#16a34a', color: '#fff', padding: '3px 9px', borderRadius: '999px', fontWeight: 900 }}>
+                <span style={{ fontSize: '11px', backgroundColor: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', padding: '2px 8px', borderRadius: '6px', fontWeight: 600 }}>
                   {inboundCount} phiếu
                 </span>
               )}
             </div>
             <div>
-              <div style={{ fontSize: '16px', fontWeight: 900, color: '#0f172a', marginTop: '12px' }}>Nhập kho</div>
-              <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>Kiểm tra & xếp kệ mới</div>
+              <div style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a', marginTop: '10px' }}>Nhập kho</div>
             </div>
           </div>
 
@@ -530,7 +517,7 @@ export const DashboardHome: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
               transition: 'all 0.15s ease',
               gridColumn: 'span 2',
             }}
@@ -540,8 +527,7 @@ export const DashboardHome: React.FC = () => {
                 <Truck size={18} color="#166534" />
               </div>
               <div>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>Danh Sách Phiếu Xuất Kho</div>
-                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>Theo dõi & điều phối gom hàng xuất theo ca</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a' }}>Danh Sách Phiếu Xuất Kho</div>
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

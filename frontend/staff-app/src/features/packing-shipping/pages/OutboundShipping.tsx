@@ -287,7 +287,7 @@ export const OutboundShipping: React.FC = () => {
                       }}
                     >
                       <div style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>
-                        Danh sách sản phẩm trong đơn (Bấm vào đơn hoặc sản phẩm để bật đèn &amp; còi kệ):
+                        Sản phẩm trong đơn
                       </div>
                       {order.items.map((it, idx) => {
                         const rawSlot = it.slotId || it.location || `A${(idx % 3) + 1}-01`;

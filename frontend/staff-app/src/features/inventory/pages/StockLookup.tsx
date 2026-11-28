@@ -814,8 +814,7 @@ export const StockLookup: React.FC = () => {
               <Boxes size={22} />
             </div>
             <div>
-              <h1 style={{ margin: 0, fontSize: '17px', fontWeight: 900, color: '#0f172a', letterSpacing: '-0.2px' }}>Sổ Tồn Kho & Tra Cứu Hàng Hóa</h1>
-              <p style={{ margin: 0, fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Đồng bộ trực tiếp 100% cơ sở dữ liệu kho CityMart</p>
+              <h1 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: '#0f172a', letterSpacing: '-0.2px' }}>Sổ Tồn Kho & Tra Cứu Hàng Hóa</h1>
             </div>
           </div>
 

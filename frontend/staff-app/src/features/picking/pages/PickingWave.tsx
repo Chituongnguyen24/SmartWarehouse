@@ -95,6 +95,14 @@ export const PickingWave: React.FC = () => {
   const [isIncidentModalOpen, setIsIncidentModalOpen] = useState<boolean>(false);
   const [isToolsMenuOpen, setIsToolsMenuOpen] = useState<boolean>(false);
   const [expandedPickedIds, setExpandedPickedIds] = useState<Record<string, boolean>>({});
+  const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
+
+  const formatCleanShelf = (raw?: string): string => {
+    if (!raw) return 'Kệ A1';
+    return raw
+      .replace(/^(?:Kệ\s+)?(?:dry|cold|cool|frozen)-shelf-/i, 'Kệ ')
+      .replace(/\s*•\s*Tầng\s*(\d+)\s*Cột\s*(\d+)/i, ' • T$1-C$2');
+  };
   const [activeLocatingShelf, setActiveLocatingShelf] = useState<string | null>(null);
   const [arrivedShelf, setArrivedShelf] = useState<string | null>(null);
   const [smartkeyPingingShelf, setSmartkeyPingingShelf] = useState<string | null>(null);
@@ -1424,273 +1432,94 @@ export const PickingWave: React.FC = () => {
               </button>
             </div>
 
-            {/* Filter Chips: Single Horizontal Row */}
+            {/* Filter Chips: Clean 2-group flex wrap without clipping */}
             {activeTab === 'ITEMS_LIST' && (
-              <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '2px' }}>
-                {[
-                  { id: 'PENDING', label: `Chưa lấy (${orderedItems.filter(i => i.status !== 'PICKED').length})` },
-                  { id: 'PICKED', label: `Đã xong (${orderedItems.filter(i => i.status === 'PICKED').length})` },
-                  { id: 'ALL', label: `Tất cả (${orderedItems.length})` },
-                ].map(chip => (
-                  <button
-                    key={chip.id}
-                    type="button"
-                    onClick={() => setItemFilterTab(chip.id as any)}
-                    style={{
-                      backgroundColor: itemFilterTab === chip.id ? '#0f766e' : '#ffffff',
-                      color: itemFilterTab === chip.id ? '#ffffff' : '#475569',
-                      border: `1px solid ${itemFilterTab === chip.id ? '#0f766e' : '#cbd5e1'}`,
-                      borderRadius: '6px',
-                      padding: '3px 8px',
-                      fontSize: '10.5px',
-                      fontWeight: 500,
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {chip.label}
-                  </button>
-                ))}
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {[
+                    { id: 'PENDING', label: `Chưa lấy (${orderedItems.filter(i => i.status !== 'PICKED').length})` },
+                    { id: 'PICKED', label: `Đã xong (${orderedItems.filter(i => i.status === 'PICKED').length})` },
+                    { id: 'ALL', label: `Tất cả` },
+                  ].map(chip => (
+                    <button
+                      key={chip.id}
+                      type="button"
+                      onClick={() => setItemFilterTab(chip.id as any)}
+                      style={{
+                        backgroundColor: itemFilterTab === chip.id ? '#0f766e' : '#ffffff',
+                        color: itemFilterTab === chip.id ? '#ffffff' : '#475569',
+                        border: `1px solid ${itemFilterTab === chip.id ? '#0f766e' : '#cbd5e1'}`,
+                        borderRadius: '6px',
+                        padding: '4px 8px',
+                        fontSize: '11px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
 
-                <div style={{ width: '1px', backgroundColor: '#e2e8f0', margin: '0 2px' }} />
-
-                {[
-                  { id: 'ALL', label: 'Tất cả khu' },
-                  { id: 'COOL', label: 'Kho Lạnh' },
-                  { id: 'FROZEN', label: 'Kho Đông' },
-                  { id: 'DRY', label: 'Kho Khô' },
-                ].map(z => (
-                  <button
-                    key={z.id}
-                    type="button"
-                    onClick={() => setZoneFilter(z.id as any)}
-                    style={{
-                      backgroundColor: zoneFilter === z.id ? '#0f172a' : '#f8fafc',
-                      color: zoneFilter === z.id ? '#ffffff' : '#64748b',
-                      border: `1px solid ${zoneFilter === z.id ? '#0f172a' : '#e2e8f0'}`,
-                      borderRadius: '6px',
-                      padding: '3px 7px',
-                      fontSize: '10.5px',
-                      fontWeight: 500,
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {z.label}
-                  </button>
-                ))}
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {[
+                    { id: 'ALL', label: 'Tất cả' },
+                    { id: 'COOL', label: 'Lạnh' },
+                    { id: 'FROZEN', label: 'Đông' },
+                    { id: 'DRY', label: 'Khô' },
+                  ].map(z => (
+                    <button
+                      key={z.id}
+                      type="button"
+                      onClick={() => setZoneFilter(z.id as any)}
+                      style={{
+                        backgroundColor: zoneFilter === z.id ? '#0f172a' : '#f8fafc',
+                        color: zoneFilter === z.id ? '#ffffff' : '#64748b',
+                        border: `1px solid ${zoneFilter === z.id ? '#0f172a' : '#e2e8f0'}`,
+                        borderRadius: '6px',
+                        padding: '4px 7px',
+                        fontSize: '11px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {z.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
         )}
       </div>
 
-      {/* Interactive Orders & Products Panel when viewing ALL orders -> click Order OR Product inside Order to start Sequential IoT Pick-to-Light */}
-      {selectedOrderId === 'ALL' && availableOrders.length > 0 && (
-        <div
-          style={{
-            backgroundColor: '#ffffff',
-            border: '1px solid #e2e8f0',
-            borderRadius: '8px',
-            padding: '12px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 700, color: '#0f172a' }}>
-              <Lightbulb size={16} color="#0f766e" />
-              <span>Danh Sách Đơn Hàng &amp; Sản Phẩm Cần Lấy (Pick-to-Light Kệ A1–A3)</span>
-            </div>
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
-              Bấm vào đơn hoặc từng sản phẩm để bật đèn &amp; còi
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {availableOrders.map(ord => {
-              const ordItems = allWaveItems.filter(i => i.orderId === ord.id || i.orderCode === ord.orderCode);
-              const iotPendingCount = ordItems.filter(i => extractDemoIotShelf(i.shelfLocation) !== null && i.status !== 'PICKED').length;
-              return (
-                <div
-                  key={ord.id}
-                  style={{
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '8px',
-                    backgroundColor: '#f8fafc',
-                    padding: '10px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px',
-                  }}
-                >
-                  {/* Clickable Order Header */}
-                  <div
-                    onClick={() => handleSelectOrderFilter(ord.id)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '8px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span
-                        style={{
-                          backgroundColor: '#0f766e',
-                          color: '#ffffff',
-                          fontSize: '11.5px',
-                          fontWeight: 700,
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                        }}
-                      >
-                        <Play size={11} />
-                        {ord.orderCode}
-                      </span>
-                      <span style={{ fontSize: '11.5px', color: '#475569', fontWeight: 500 }}>
-                        {ord.destination || 'Kho Gò Vấp'}
-                      </span>
-                    </div>
-                    <span
-                      style={{
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        color: iotPendingCount > 0 ? '#075985' : '#166534',
-                        backgroundColor: iotPendingCount > 0 ? '#f0f9ff' : '#f0fdf4',
-                        border: `1px solid ${iotPendingCount > 0 ? '#bae6fd' : '#bbf7d0'}`,
-                        padding: '2px 8px',
-                        borderRadius: '6px',
-                        fontVariantNumeric: 'tabular-nums',
-                      }}
-                    >
-                      {iotPendingCount > 0 ? `Bấm đơn để chạy (${iotPendingCount} kệ IoT)` : 'Đã lấy xong'}
-                    </span>
-                  </div>
-
-                  {/* Clickable Products inside this Order */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    {ordItems.map((it, idx) => {
-                      const shelfCode = extractDemoIotShelf(it.shelfLocation);
-                      const isDone = it.status === 'PICKED';
-                      return (
-                        <div
-                          key={it.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedOrderId(ord.id);
-                            setSearchParams({ orderId: ord.id, itemId: it.id });
-                            setItems(allWaveItems.filter(i => i.orderId === ord.id || i.orderCode === ord.orderCode));
-                            if (shelfCode) {
-                              setIsAutoIotEnabled(true);
-                              const ordIotItems = ordItems.filter(x => extractDemoIotShelf(x.shelfLocation) !== null);
-                              const stepIndex = ordIotItems.findIndex(x => x.id === it.id);
-                              activateGuidedIotForItem(
-                                it,
-                                stepIndex >= 0 ? stepIndex + 1 : 1,
-                                Math.max(1, ordIotItems.length)
-                              );
-                            }
-                          }}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: '8px',
-                            padding: '7px 10px',
-                            borderRadius: '6px',
-                            backgroundColor: isDone ? '#f0fdf4' : '#ffffff',
-                            border: `1px solid ${isDone ? '#bbf7d0' : '#e2e8f0'}`,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                            <span
-                              style={{
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                                backgroundColor: shelfCode ? '#0f766e' : '#64748b',
-                                color: '#ffffff',
-                                flexShrink: 0,
-                              }}
-                            >
-                              {shelfCode ? `Kệ ${shelfCode}` : it.shelfLocation}
-                            </span>
-                            <span
-                              style={{
-                                fontSize: '12px',
-                                fontWeight: 600,
-                                color: isDone ? '#166534' : '#0f172a',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {idx + 1}. {it.productName}
-                            </span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
-                              x{it.quantity} {it.unit}
-                            </span>
-                            <span
-                              style={{
-                                fontSize: '10.5px',
-                                fontWeight: 600,
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                                backgroundColor: isDone ? '#dcfce7' : shelfCode ? '#fffbeb' : '#f1f5f9',
-                                color: isDone ? '#166534' : shelfCode ? '#92400e' : '#64748b',
-                                border: `1px solid ${isDone ? '#bbf7d0' : shelfCode ? '#fde68a' : '#cbd5e1'}`,
-                              }}
-                            >
-                              {isDone ? 'Đã lấy' : shelfCode ? 'Bấm bật đèn' : 'Ngoài IoT'}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Sequential Pick-to-Light Active Guided Banner (Kệ A1, A2, A3) */}
-      {guidedIotSession && (
+      {/* Active Pick-to-Light Focus Card (only shown standalone on 3D Map tab; integrated into Focused Card on List tab) */}
+      {guidedIotSession && activeTab !== 'ITEMS_LIST' && (
         <div
           style={{
             backgroundColor: '#fffbeb',
             border: '1px solid #fde68a',
+            borderLeft: '3px solid #d97706',
             borderRadius: '8px',
             padding: '12px',
             display: 'flex',
             flexDirection: 'column',
             gap: '8px',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Radio size={16} color="#92400e" />
-              <span style={{ fontSize: '12px', fontWeight: 700, color: '#92400e' }}>
-                Pick-to-Light • Bước {guidedIotSession.step}/{guidedIotSession.totalSteps}
+              <Radio size={15} color="#92400e" />
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#92400e', fontVariantNumeric: 'tabular-nums' }}>
+                Pick-to-Light • {guidedIotSession.step}/{guidedIotSession.totalSteps}
               </span>
             </div>
             <span
               style={{
                 fontSize: '11px',
-                fontWeight: 700,
+                fontWeight: 600,
                 backgroundColor: '#0f766e',
                 color: '#ffffff',
                 padding: '2px 8px',
@@ -1698,22 +1527,20 @@ export const PickingWave: React.FC = () => {
                 fontVariantNumeric: 'tabular-nums',
               }}
             >
-              Kệ {guidedIotSession.shelfCode} ({guidedIotSession.shelfLocation})
+              Kệ {guidedIotSession.shelfCode} • {guidedIotSession.shelfLocation}
             </span>
           </div>
 
-          <div style={{ fontSize: '12.5px', color: '#0f172a', fontWeight: 600, lineHeight: 1.35 }}>
-            {guidedIotSession.productName}{' '}
-            <span style={{ color: '#0f766e', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-              (x{guidedIotSession.quantity} {guidedIotSession.unit})
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px' }}>
+            <span style={{ fontSize: '13.5px', color: '#0f172a', fontWeight: 600, lineHeight: 1.3 }}>
+              {guidedIotSession.productName}
+            </span>
+            <span style={{ fontSize: '13px', color: '#0f766e', fontWeight: 700, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+              x{guidedIotSession.quantity} {guidedIotSession.unit}
             </span>
           </div>
 
-          <div style={{ fontSize: '11.5px', color: '#92400e' }}>
-            Đèn LED và còi tại Kệ {guidedIotSession.shelfCode} đang bật. Tới kệ lấy hàng và bấm nút STOP vật lý để tắt và tự chuyển sản phẩm kế tiếp.
-          </div>
-
-          <div style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
+          <div style={{ display: 'flex', gap: '6px' }}>
             <button
               type="button"
               onClick={() => completeCurrentGuidedStepAndAdvance('MANUAL_STOP')}
@@ -1723,9 +1550,9 @@ export const PickingWave: React.FC = () => {
                 color: '#ffffff',
                 border: 'none',
                 borderRadius: '6px',
-                padding: '7px 10px',
-                fontSize: '11.5px',
-                fontWeight: 600,
+                padding: '8px 10px',
+                fontSize: '12px',
+                fontWeight: 500,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -1734,7 +1561,7 @@ export const PickingWave: React.FC = () => {
               }}
             >
               <SkipForward size={14} />
-              <span>Xác nhận STOP &amp; Qua món kế</span>
+              <span>Xác nhận STOP &amp; Tiếp theo</span>
             </button>
             <button
               type="button"
@@ -1747,8 +1574,8 @@ export const PickingWave: React.FC = () => {
                 color: '#334155',
                 border: '1px solid #cbd5e1',
                 borderRadius: '6px',
-                padding: '7px 10px',
-                fontSize: '11.5px',
+                padding: '8px 10px',
+                fontSize: '12px',
                 fontWeight: 500,
                 cursor: 'pointer',
                 display: 'flex',
@@ -1763,12 +1590,12 @@ export const PickingWave: React.FC = () => {
         </div>
       )}
 
-      {/* Resume Sequential Pick-to-Light Banner when paused on a specific order */}
+      {/* Resume Sequential Pick-to-Light Strip */}
       {selectedOrderId !== 'ALL' && !guidedIotSession && !isAutoIotEnabled && pendingDemoIotItems.length > 0 && (
         <div
           style={{
             backgroundColor: '#f8fafc',
-            border: '1px solid #cbd5e1',
+            border: '1px solid #e2e8f0',
             borderRadius: '8px',
             padding: '8px 12px',
             display: 'flex',
@@ -1777,8 +1604,8 @@ export const PickingWave: React.FC = () => {
             gap: '8px',
           }}
         >
-          <span style={{ fontSize: '11.5px', color: '#475569', fontWeight: 500 }}>
-            Đang tạm dừng dẫn đường Pick-to-Light (còn {pendingDemoIotItems.length} món trên kệ A1–A3).
+          <span style={{ fontSize: '12px', color: '#475569', fontWeight: 500 }}>
+            Pick-to-Light tạm dừng ({pendingDemoIotItems.length} món)
           </span>
           <button
             type="button"
@@ -1790,7 +1617,7 @@ export const PickingWave: React.FC = () => {
               borderRadius: '6px',
               padding: '5px 10px',
               fontSize: '11.5px',
-              fontWeight: 600,
+              fontWeight: 500,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -1799,28 +1626,8 @@ export const PickingWave: React.FC = () => {
             }}
           >
             <Play size={12} />
-            <span>Tiếp tục IoT</span>
+            <span>Tiếp tục</span>
           </button>
-        </div>
-      )}
-
-      {/* Order has no items on the 3 Demo IoT shelves (A1, A2, A3) */}
-      {selectedOrderId !== 'ALL' && !isLoading && items.length > 0 && orderDemoIotItems.length === 0 && (
-        <div
-          style={{
-            backgroundColor: '#f8fafc',
-            border: '1px solid #e2e8f0',
-            borderRadius: '8px',
-            padding: '8px 12px',
-            fontSize: '11.5px',
-            color: '#475569',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <Lightbulb size={14} color="#64748b" />
-          <span>Đơn hàng này không có sản phẩm nằm trên 3 kệ demo IoT (A1, A2, A3). Đèn và còi không kích hoạt.</span>
         </div>
       )}
 
@@ -1831,7 +1638,7 @@ export const PickingWave: React.FC = () => {
             backgroundColor: '#f0fdf4',
             border: '1px solid #bbf7d0',
             borderRadius: '8px',
-            padding: '10px 12px',
+            padding: '8px 12px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -1839,8 +1646,8 @@ export const PickingWave: React.FC = () => {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#166534', fontWeight: 600 }}>
-            <CheckCircle2 size={16} color="#166534" />
-            <span>Đã hoàn thành lấy hàng đơn {iotCompletedOrderCode} qua Pick-to-Light.</span>
+            <CheckCircle2 size={15} color="#166534" />
+            <span>Hoàn tất Pick-to-Light đơn {iotCompletedOrderCode}</span>
           </div>
           <button
             type="button"
@@ -1852,7 +1659,7 @@ export const PickingWave: React.FC = () => {
         </div>
       )}
 
-      {/* Active IoT Shelf Finding Banner (Manual single-shelf LOCATING when not in guided session) */}
+      {/* Active IoT Shelf Finding Banner (Manual single-shelf LOCATING) */}
       {activeLocatingShelf && !guidedIotSession && (
         <div
           style={{
@@ -1866,9 +1673,9 @@ export const PickingWave: React.FC = () => {
             gap: '8px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: '#92400e', fontWeight: 600 }}>
-            <Radio size={15} color="#d97706" />
-            <span>Đang định vị kệ: <b>{activeLocatingShelf}</b> — Tới kệ bấm nút STOP khi lấy hàng</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#92400e', fontWeight: 600 }}>
+            <Radio size={14} color="#d97706" />
+            <span>Đang định vị: <b>{activeLocatingShelf}</b></span>
           </div>
           <button
             onClick={() => {
@@ -1884,7 +1691,7 @@ export const PickingWave: React.FC = () => {
         </div>
       )}
 
-      {/* IoT Shelf Arrived Banner (ARRIVED - Staff pressed STOP button on hardware) */}
+      {/* IoT Shelf Arrived Banner */}
       {arrivedShelf && (
         <div
           style={{
@@ -1898,9 +1705,9 @@ export const PickingWave: React.FC = () => {
             gap: '8px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: '#075985', fontWeight: 600 }}>
-            <CheckCircle2 size={15} color="#0284c7" />
-            <span>Đã đến kệ: <b>{arrivedShelf}</b> (Đã bấm nút STOP). Vui lòng quét mã sản phẩm để hoàn tất!</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#075985', fontWeight: 600 }}>
+            <CheckCircle2 size={14} color="#0284c7" />
+            <span>Đã đến kệ <b>{arrivedShelf}</b></span>
           </div>
           <button
             onClick={() => setArrivedShelf(null)}
@@ -1963,9 +1770,6 @@ export const PickingWave: React.FC = () => {
           <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>
             Chưa có đợt lấy hàng nào đang chờ
           </h3>
-          <p style={{ margin: 0, fontSize: '12px', color: '#64748b', maxWidth: '300px', lineHeight: 1.4 }}>
-            Hệ thống đang kết nối và chờ đơn xuất kho mới được tiếp nhận.
-          </p>
           <button
             onClick={() => loadLiveData()}
             style={{
@@ -2126,16 +1930,35 @@ export const PickingWave: React.FC = () => {
       {/* ITEMS LIST TAB */}
       {items.length > 0 && activeTab === 'ITEMS_LIST' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {orderedItems
-            .filter(item => {
+          {(() => {
+            const visibleItems = orderedItems.filter(item => {
               if (itemFilterTab === 'PENDING' && item.status === 'PICKED') return false;
               if (itemFilterTab === 'PICKED' && item.status !== 'PICKED') return false;
               if (zoneFilter !== 'ALL' && item.zone !== zoneFilter) return false;
               return true;
-            })
-            .map((item, idx) => {
+            });
+            const activeTargetId =
+              guidedIotSession?.itemId ||
+              (focusedItemId && visibleItems.some(i => i.id === focusedItemId && i.status !== 'PICKED') ? focusedItemId : null) ||
+              visibleItems.find(i => i.status !== 'PICKED')?.id;
+
+            const focusedItem = visibleItems.find(i => !i.status || i.status !== 'PICKED' ? i.id === activeTargetId : false) || null;
+            const otherItems = visibleItems.filter(i => i.id !== focusedItem?.id);
+            const pendingQueueCount = otherItems.filter(i => i.status !== 'PICKED').length;
+
+            const renderItemCard = (item: PickingItem, isQueueLabelShown: boolean = false) => {
               const isPicked = item.status === 'PICKED';
               const isExpanded = Boolean(expandedPickedIds[item.id]);
+              const isFocused = !isPicked && item.id === focusedItem?.id;
+              const isGuidedNow = !isPicked && guidedIotSession?.itemId === item.id;
+              const cleanShelf = formatCleanShelf(item.shelfLocation);
+              const zm = resolveStorageZone({
+                zone: item.zone,
+                shelfLocation: item.shelfLocation,
+                productName: item.productName,
+                sku: item.sku,
+                temperatureRequired: item.temperatureRequired,
+              });
 
               // COLLAPSED PICKED ITEM ROW
               if (isPicked && !isExpanded) {
@@ -2156,16 +1979,16 @@ export const PickingWave: React.FC = () => {
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                      <CheckCircle2 size={16} color="#166534" style={{ flexShrink: 0 }} />
-                      <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#166534', flexShrink: 0 }}>
-                        {item.shelfLocation}
+                      <CheckCircle2 size={15} color="#166534" style={{ flexShrink: 0 }} />
+                      <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#166534', flexShrink: 0 }}>
+                        {cleanShelf}
                       </span>
-                      <span style={{ fontSize: '12px', color: '#166534', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontSize: '12.5px', color: '#166534', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {item.productName}
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                      <span style={{ fontSize: '11px', fontWeight: 600, color: '#166534', fontVariantNumeric: 'tabular-nums' }}>
+                      <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#166534', fontVariantNumeric: 'tabular-nums' }}>
                         {item.quantity} {item.unit}
                       </span>
                       <ChevronDown size={14} color="#166534" />
@@ -2174,150 +1997,213 @@ export const PickingWave: React.FC = () => {
                 );
               }
 
-              // FULL ACTIVE ITEM CARD (OR EXPANDED PICKED)
-              const isNext = !isPicked && item.id === currentPendingItem?.id;
-              const isGuidedNow = !isPicked && guidedIotSession?.itemId === item.id;
+              // COMPACT QUEUE ROW (calm, single-tap to promote to Focused Card — no repetitive CTA buttons)
+              if (!isPicked && !isFocused) {
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => {
+                      setFocusedItemId(item.id);
+                      const demoShelf = extractDemoIotShelf(item.shelfLocation);
+                      if (demoShelf) {
+                        setIsAutoIotEnabled(true);
+                        const sameOrderIot = orderedItems.filter(
+                          it =>
+                            (it.orderId === item.orderId || it.orderCode === item.orderCode) &&
+                            extractDemoIotShelf(it.shelfLocation) !== null
+                        );
+                        const stepIdx = sameOrderIot.findIndex(it => it.id === item.id);
+                        activateGuidedIotForItem(
+                          item,
+                          stepIdx >= 0 ? stepIdx + 1 : 1,
+                          Math.max(1, sameOrderIot.length)
+                        );
+                      }
+                    }}
+                    style={{
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      padding: '10px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '10px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0, flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            color: '#0f172a',
+                            backgroundColor: '#f1f5f9',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {cleanShelf}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            color: '#0f172a',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {item.productName}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>{zm.label}</span>
+                        <span>•</span>
+                        <span>HSD {item.expiryDate}</span>
+                        {selectedOrderId === 'ALL' && item.orderCode && (
+                          <>
+                            <span>•</span>
+                            <span style={{ fontVariantNumeric: 'tabular-nums' }}>#{item.orderCode.slice(-6)}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
 
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                      <span
+                        style={{
+                          fontSize: '12.5px',
+                          fontWeight: 600,
+                          color: '#0f172a',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        x{item.quantity} {item.unit}
+                      </span>
+                      <ChevronRight size={15} color="#94a3b8" />
+                    </div>
+                  </div>
+                );
+              }
+
+              // HERO FOCUSED TASK CARD (1 dominant task + 1 clear primary CTA)
               return (
                 <div
                   key={item.id}
-                  onClick={() => {
-                    if (selectedOrderId === 'ALL' && item.orderId) {
-                      handleSelectOrderFilter(item.orderId);
-                    }
-                    const demoShelf = extractDemoIotShelf(item.shelfLocation);
-                    if (demoShelf) {
-                      setIsAutoIotEnabled(true);
-                      const sameOrderIot = orderedItems.filter(
-                        it =>
-                          (it.orderId === item.orderId || it.orderCode === item.orderCode) &&
-                          extractDemoIotShelf(it.shelfLocation) !== null
-                      );
-                      const stepIdx = sameOrderIot.findIndex(it => it.id === item.id);
-                      activateGuidedIotForItem(
-                        item,
-                        stepIdx >= 0 ? stepIdx + 1 : 1,
-                        Math.max(1, sameOrderIot.length)
-                      );
-                    } else {
-                      handleLocateShelf(item);
-                    }
-                  }}
                   style={{
-                    backgroundColor: isPicked ? '#f0fdf4' : isGuidedNow ? '#fffbeb' : '#ffffff',
-                    borderRadius: '8px',
-                    border: `1px solid ${isPicked ? '#bbf7d0' : isGuidedNow ? '#d97706' : isNext ? '#0f766e' : '#e2e8f0'}`,
-                    padding: '12px',
+                    backgroundColor: isPicked ? '#f0fdf4' : '#ffffff',
+                    borderRadius: '10px',
+                    border: `1px solid ${isPicked ? '#bbf7d0' : isGuidedNow ? '#f59e0b' : '#0f766e'}`,
+                    padding: '14px',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '8px',
-                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-                    cursor: 'pointer',
+                    gap: '10px',
+                    boxShadow: isPicked ? 'none' : '0 2px 8px rgba(15, 118, 110, 0.08)',
                   }}
-                  title="Bấm vào sản phẩm để bật đèn LED & Còi tại kệ của sản phẩm này"
                 >
-                  {isGuidedNow && (
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        backgroundColor: '#fef3c7',
-                        border: '1px solid #fde68a',
-                        borderRadius: '6px',
-                        padding: '4px 8px',
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        color: '#92400e',
-                      }}
-                    >
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <Radio size={13} color="#92400e" />
-                        LED &amp; Còi đang bật tại Kệ {guidedIotSession?.shelfCode} — Chờ bấm nút STOP
-                      </span>
-                      <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-                        {guidedIotSession?.step}/{guidedIotSession?.totalSteps}
-                      </span>
-                    </div>
-                  )}
-                  {/* Top Row: Shelf Location & Zone + Target Quantity */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          backgroundColor: isNext ? '#0f766e' : '#0f172a',
-                          color: '#ffffff',
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          fontSize: '11.5px',
-                          fontWeight: 700,
-                        }}
-                      >
-                        <MapPin size={12} />
-                        <span>{item.shelfLocation}</span>
-                      </div>
-                      {(() => {
-                        const zm = resolveStorageZone({
-                          zone: item.zone,
-                          shelfLocation: item.shelfLocation,
-                          productName: item.productName,
-                          sku: item.sku,
-                          temperatureRequired: item.temperatureRequired,
-                        });
-                        return (
+                  {/* Focus Status Strip */}
+                  {!isPicked && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {isGuidedNow ? (
                           <span
-                            title={`${zm.label} (${zm.tempRange})`}
                             style={{
-                              fontSize: '10px',
+                              fontSize: '10.5px',
                               fontWeight: 600,
-                              padding: '2px 6px',
+                              color: '#92400e',
+                              backgroundColor: '#fffbeb',
+                              border: '1px solid #fde68a',
+                              padding: '2px 7px',
                               borderRadius: '4px',
-                              backgroundColor: zm.badgeStyle.backgroundColor,
-                              color: zm.badgeStyle.color,
-                              border: zm.badgeStyle.border,
-                              whiteSpace: 'nowrap',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
                             }}
                           >
-                            {zm.label}
+                            <Radio size={11} color="#d97706" />
+                            Pick-to-Light • {guidedIotSession?.step}/{guidedIotSession?.totalSteps}
                           </span>
-                        );
-                      })()}
+                        ) : (
+                          <span
+                            style={{
+                              fontSize: '10.5px',
+                              fontWeight: 600,
+                              color: '#0f766e',
+                              backgroundColor: '#f0fdfa',
+                              border: '1px solid #ccfbf1',
+                              padding: '2px 7px',
+                              borderRadius: '4px',
+                            }}
+                          >
+                            ĐANG LẤY
+                          </span>
+                        )}
+                        <span
+                          style={{
+                            fontSize: '10.5px',
+                            fontWeight: 500,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            backgroundColor: zm.badgeStyle.backgroundColor,
+                            color: zm.badgeStyle.color,
+                            border: zm.badgeStyle.border,
+                          }}
+                        >
+                          {zm.label}
+                        </span>
+                      </div>
                       {item.orderCode && (
-                        <span style={{ fontSize: '10px', fontWeight: 500, color: '#64748b' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 500, color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>
                           #{item.orderCode.slice(-6)}
                         </span>
                       )}
                     </div>
+                  )}
 
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: isPicked ? '#166534' : '#0f766e', fontVariantNumeric: 'tabular-nums' }}>
-                      {isPicked
-                        ? `Đủ: ${item.quantity} ${item.unit}`
-                        : (item.pickedQuantity || 0) > 0
-                        ? `Lấy: ${item.pickedQuantity}/${item.quantity} ${item.unit}`
-                        : `Cần: ${item.quantity} ${item.unit}`}
+                  {/* Hero 2-Column Split: WHERE (Shelf) + HOW MANY (Quantity) */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                      <MapPin size={17} color="#0f766e" style={{ flexShrink: 0 }} />
+                      <span style={{ fontSize: '17px', fontWeight: 700, color: '#0f172a', letterSpacing: '-0.2px' }}>
+                        {cleanShelf}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', flexShrink: 0 }}>
+                      <span style={{ fontSize: '22px', fontWeight: 700, color: isPicked ? '#166534' : '#0f766e', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+                        {isPicked
+                          ? item.quantity
+                          : (item.pickedQuantity || 0) > 0
+                          ? `${item.pickedQuantity}/${item.quantity}`
+                          : item.quantity}
+                      </span>
+                      <span style={{ fontSize: '12px', fontWeight: 500, color: '#475569' }}>
+                        {item.unit}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Product Name & SKU / Lot */}
-                  <div>
-                    <div style={{ fontSize: '13.5px', fontWeight: 600, color: '#0f172a', lineHeight: 1.3 }}>
+                  {/* Product Name & Calm Metadata */}
+                  <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
+                    <div style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a', lineHeight: 1.35 }}>
                       {item.productName}
                     </div>
-                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      <span>SKU: <strong style={{ color: '#0f172a' }}>{item.sku}</strong></span>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '3px', display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                      <span>SKU: {item.sku}</span>
                       <span>•</span>
-                      <span>Lô: <strong style={{ color: '#0284c7' }}>{item.lotCode}</strong></span>
+                      <span>Lô: {item.lotCode}</span>
                       <span>•</span>
-                      <span>HSD: <strong style={{ color: '#92400e' }}>{item.expiryDate}</strong></span>
+                      <span>HSD: {item.expiryDate}</span>
                     </div>
                   </div>
 
                   {/* Partial Progress if started */}
                   {!isPicked && (item.pickedQuantity || 0) > 0 && (
-                    <div style={{ height: '3px', backgroundColor: '#e2e8f0', borderRadius: '9999px', overflow: 'hidden' }}>
+                    <div style={{ height: '4px', backgroundColor: '#e2e8f0', borderRadius: '9999px', overflow: 'hidden' }}>
                       <div
                         style={{
                           height: '100%',
@@ -2328,128 +2214,135 @@ export const PickingWave: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Action Buttons Row */}
+                  {/* Thumb-Friendly Primary CTA + Quiet Secondary Actions */}
                   {!isPicked ? (
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                      {/* Main Scan Button */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '2px' }}>
                       <button
                         disabled={isLockedByOther}
                         onClick={() => handleStartScan(item)}
                         style={{
-                          flex: 1,
-                          height: '38px',
-                          backgroundColor: isLockedByOther ? '#cbd5e1' : isNext ? '#0f766e' : '#0284c7',
+                          width: '100%',
+                          height: '44px',
+                          backgroundColor: isLockedByOther ? '#cbd5e1' : '#0f766e',
                           color: isLockedByOther ? '#64748b' : '#ffffff',
                           border: 'none',
-                          borderRadius: '6px',
+                          borderRadius: '8px',
                           fontWeight: 600,
-                          fontSize: '12.5px',
+                          fontSize: '14px',
                           cursor: isLockedByOther ? 'not-allowed' : 'pointer',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          gap: '6px',
+                          gap: '8px',
                         }}
                       >
-                        {isLockedByOther ? <Lock size={15} /> : <ScanBarcode size={15} />}
+                        {isLockedByOther ? <Lock size={16} /> : <ScanBarcode size={17} />}
                         <span>
                           {isLockedByOther
-                            ? `Khóa bởi ${currentLock?.userName}`
+                            ? `Đang khóa bởi ${currentLock?.userName}`
                             : (item.pickedQuantity || 0) > 0
                             ? `Quét tiếp (${item.pickedQuantity}/${item.quantity})`
                             : 'Quét lấy hàng'}
                         </span>
                       </button>
 
-                      {/* IoT LED locate button */}
-                      <button
-                        type="button"
-                        onClick={e => {
-                          e.stopPropagation();
-                          handleLocateShelf(item);
-                        }}
-                        style={{
-                          height: '38px',
-                          padding: '0 8px',
-                          borderRadius: '6px',
-                          border: `1px solid ${
-                            arrivedShelf === item.shelfLocation
-                              ? '#bbf7d0'
-                              : activeLocatingShelf === item.shelfLocation
-                              ? '#0284c7'
-                              : '#cbd5e1'
-                          }`,
-                          backgroundColor:
-                            arrivedShelf === item.shelfLocation
-                              ? '#f0fdf4'
-                              : activeLocatingShelf === item.shelfLocation
-                              ? '#0284c7'
-                              : '#f8fafc',
-                          color:
-                            arrivedShelf === item.shelfLocation
-                              ? '#166534'
-                              : activeLocatingShelf === item.shelfLocation
-                              ? '#ffffff'
-                              : '#334155',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '4px',
-                          cursor: 'pointer',
-                          flexShrink: 0,
-                          fontSize: '11px',
-                          fontWeight: 600,
-                        }}
-                        title={
-                          arrivedShelf === item.shelfLocation
-                            ? 'Đã đến kệ (Đã bấm STOP)'
-                            : activeLocatingShelf === item.shelfLocation
-                            ? 'Đang nhấp nháy định vị kệ'
-                            : 'Nháy đèn LED định vị kệ'
-                        }
-                      >
-                        {arrivedShelf === item.shelfLocation ? (
-                          <>
-                            <CheckCircle2 size={13} color="#166534" />
-                            <span>Đã đến</span>
-                          </>
-                        ) : activeLocatingShelf === item.shelfLocation ? (
-                          <>
-                            <Radio size={13} color="#ffffff" />
-                            <span>Đang nháy</span>
-                          </>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        {isGuidedNow ? (
+                          <button
+                            type="button"
+                            onClick={() => completeCurrentGuidedStepAndAdvance('MANUAL_STOP')}
+                            style={{
+                              flex: 1,
+                              height: '36px',
+                              borderRadius: '6px',
+                              border: '1px solid #fde68a',
+                              backgroundColor: '#fffbeb',
+                              color: '#92400e',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '5px',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: 500,
+                            }}
+                          >
+                            <SkipForward size={14} />
+                            <span>Xác nhận STOP</span>
+                          </button>
                         ) : (
-                          <>
-                            <Radio size={13} color="#475569" />
-                            <span>Định vị</span>
-                          </>
+                          <button
+                            type="button"
+                            onClick={() => handleLocateShelf(item)}
+                            style={{
+                              flex: 1,
+                              height: '36px',
+                              borderRadius: '6px',
+                              border: `1px solid ${
+                                arrivedShelf === item.shelfLocation
+                                  ? '#bbf7d0'
+                                  : activeLocatingShelf === item.shelfLocation
+                                  ? '#0284c7'
+                                  : '#cbd5e1'
+                              }`,
+                              backgroundColor:
+                                arrivedShelf === item.shelfLocation
+                                  ? '#f0fdf4'
+                                  : activeLocatingShelf === item.shelfLocation
+                                  ? '#f0f9ff'
+                                  : '#ffffff',
+                              color:
+                                arrivedShelf === item.shelfLocation
+                                  ? '#166534'
+                                  : activeLocatingShelf === item.shelfLocation
+                                  ? '#0284c7'
+                                  : '#334155',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '5px',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: 500,
+                            }}
+                          >
+                            {arrivedShelf === item.shelfLocation ? (
+                              <>
+                                <CheckCircle2 size={14} />
+                                <span>Đã đến kệ</span>
+                              </>
+                            ) : (
+                              <>
+                                <Radio size={14} />
+                                <span>{activeLocatingShelf === item.shelfLocation ? 'Đang định vị' : 'Định vị kệ'}</span>
+                              </>
+                            )}
+                          </button>
                         )}
-                      </button>
 
-                      {/* Shortage Exception button */}
-                      <button
-                        type="button"
-                        onClick={e => {
-                          e.stopPropagation();
-                          handleOpenShortage(item);
-                        }}
-                        style={{
-                          width: '38px',
-                          height: '38px',
-                          borderRadius: '6px',
-                          border: '1px solid #fde68a',
-                          backgroundColor: '#fffbeb',
-                          color: '#92400e',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                          flexShrink: 0,
-                        }}
-                        title="Báo thiếu hàng / Đổi lô"
-                      >
-                        <AlertTriangle size={16} />
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenShortage(item)}
+                          style={{
+                            height: '36px',
+                            padding: '0 12px',
+                            borderRadius: '6px',
+                            border: '1px solid #e2e8f0',
+                            backgroundColor: '#ffffff',
+                            color: '#64748b',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '5px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                          }}
+                        >
+                          <AlertTriangle size={14} />
+                          <span>Báo thiếu</span>
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px', borderTop: '1px dashed #bbf7d0' }}>
@@ -2467,7 +2360,20 @@ export const PickingWave: React.FC = () => {
                   )}
                 </div>
               );
-            })}
+            };
+
+            return (
+              <>
+                {focusedItem && renderItemCard(focusedItem)}
+                {pendingQueueCount > 0 && focusedItem && (
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px', marginTop: '4px', paddingLeft: '2px' }}>
+                    Tiếp theo ({pendingQueueCount})
+                  </div>
+                )}
+                {otherItems.map(it => renderItemCard(it))}
+              </>
+            );
+          })()}
 
           {/* Full Wave Completion Card */}
           {isAllPicked && (
@@ -2485,15 +2391,10 @@ export const PickingWave: React.FC = () => {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CheckCircle2 size={20} color="#166534" />
-                <div>
-                  <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
-                    ĐÃ GOM ĐỦ 100% SẢN PHẨM!
-                  </h4>
-                  <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#64748b' }}>
-                    Tất cả các món đã gom đủ. Bấm nút dưới để chuyển sang khâu đóng gói.
-                  </p>
-                </div>
+                <CheckCircle2 size={18} color="#166534" />
+                <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#0f172a' }}>
+                  Đã gom đủ 100% sản phẩm
+                </h4>
               </div>
 
               <button

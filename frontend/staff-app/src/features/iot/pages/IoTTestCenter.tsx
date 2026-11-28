@@ -430,9 +430,6 @@ export const IoTTestCenter: React.FC = () => {
             <h1 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
               Trung Tâm Kiểm Thử IoT
             </h1>
-            <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#64748b' }}>
-              Điều khiển Pick-to-Light & Giám sát Kho Mát (A1, A2, A3)
-            </p>
           </div>
         </div>
 
@@ -568,11 +565,8 @@ export const IoTTestCenter: React.FC = () => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
               <Layers size={16} color="#0f766e" />
-              <span>Đơn Hàng &amp; Sản Phẩm Cần Lấy (Pick-to-Light Kệ A1–A3)</span>
+              <span>Đơn Hàng &amp; Sản Phẩm (Kệ A1–A3)</span>
             </div>
-            <span style={{ fontSize: '11px', color: '#64748b' }}>
-              Bấm đơn hoặc sản phẩm để bật đèn &amp; còi
-            </span>
           </div>
 
           {guidedStep && (
@@ -610,7 +604,7 @@ export const IoTTestCenter: React.FC = () => {
                 </button>
               </div>
               <div style={{ fontSize: '12px', color: '#0f172a', fontWeight: 600 }}>
-                Đang bật LED &amp; Còi: <b>{guidedStep.productName}</b> (x{guidedStep.qty}) — Bấm STOP tại kệ để qua món tiếp theo.
+                <b>{guidedStep.productName}</b> (x{guidedStep.qty})
               </div>
             </div>
           )}
@@ -1280,9 +1274,6 @@ export const IoTTestCenter: React.FC = () => {
                 <div style={{ fontWeight: 600, color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <ShieldCheck size={15} />
                   <span>Hệ thống vận hành bình thường</span>
-                </div>
-                <div style={{ marginTop: '2px', fontSize: '11px', color: '#64748b' }}>
-                  Nhiệt độ và độ ẩm trong ngưỡng quy chuẩn kho mát. 3 kệ hàng hoạt động ổn định.
                 </div>
               </div>
             )}
