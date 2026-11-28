@@ -32,16 +32,21 @@ const copyFileSafe = (src, dest) => {
   fs.copyFileSync(src, dest);
 };
 
-// 1. Setup Icons
+// 1. Setup Icons (nếu có)
 console.log('==============================================================================');
-console.log('[1/3] ĐỒNG BỘ ICON C.T MART VÀO CẢ 2 ỨNG DỤNG...');
+console.log('[1/3] KIỂM TRA ĐỒNG BỘ ICON...');
 console.log('==============================================================================');
-require('./setup-app-icons');
+const setupIconsPath = path.join(__dirname, 'setup-app-icons.js');
+if (fs.existsSync(setupIconsPath)) {
+  require('./setup-app-icons');
+} else {
+  console.log('>> [INFO] Bỏ qua bước đồng bộ icon (icon đã được cài đặt sẵn trong project).');
+}
 
 const buildApksDir = path.join(rootDir, 'build-apks');
-if (!fs.existsSync(buildApksDir)) {
-  fs.mkdirSync(buildApksDir, { recursive: true });
-}
+const releasesDir = path.join(rootDir, 'releases');
+if (!fs.existsSync(buildApksDir)) fs.mkdirSync(buildApksDir, { recursive: true });
+if (!fs.existsSync(releasesDir)) fs.mkdirSync(releasesDir, { recursive: true });
 
 // 2. Build Staff App
 console.log('\n==============================================================================');
@@ -59,8 +64,10 @@ const staffApkDest = path.join(buildApksDir, 'CT-Mart-Staff.apk');
 
 if (fs.existsSync(staffApkSrc)) {
   copyFileSafe(staffApkSrc, staffApkDest);
+  copyFileSafe(staffApkSrc, path.join(releasesDir, 'CT-Mart-Staff.apk'));
   const sizeMb = (fs.statSync(staffApkDest).size / (1024 * 1024)).toFixed(2);
   console.log(`\n✓ Đã tạo thành công: ${staffApkDest} (${sizeMb} MB)`);
+  console.log(`✓ Đã sao lưu sang releases: ${path.join(releasesDir, 'CT-Mart-Staff.apk')}`);
 } else {
   console.error(`\n[ERROR] Không tìm thấy file APK tại: ${staffApkSrc}`);
   process.exit(1);
@@ -93,8 +100,10 @@ const driverApkDest = path.join(buildApksDir, 'CT-Mart-Driver.apk');
 
 if (fs.existsSync(driverApkSrc)) {
   copyFileSafe(driverApkSrc, driverApkDest);
+  copyFileSafe(driverApkSrc, path.join(releasesDir, 'CT-Mart-Driver.apk'));
   const sizeMb = (fs.statSync(driverApkDest).size / (1024 * 1024)).toFixed(2);
   console.log(`\n✓ Đã tạo thành công: ${driverApkDest} (${sizeMb} MB)`);
+  console.log(`✓ Đã sao lưu sang releases: ${path.join(releasesDir, 'CT-Mart-Driver.apk')}`);
 } else {
   console.error(`\n[ERROR] Không tìm thấy file APK tại: ${driverApkSrc}`);
   process.exit(1);

@@ -618,6 +618,14 @@ export function formatStandardShelfLocation(
 
   const loc = rawLoc.trim();
 
+  // Special warehouse locations
+  if (loc.toUpperCase() === 'TRANSFER_DOCK' || loc.toUpperCase().includes('TRANSFER')) {
+    return 'Cửa Dock (Khu Trung Chuyển)';
+  }
+  if (loc.toUpperCase().includes('QUARANTINE') || loc.toUpperCase().includes('SHELF-Q1')) {
+    return 'Kệ Cách Ly Q1';
+  }
+
   // Already formatted
   if (loc.includes('• Tầng') || loc.includes('Tầng')) {
     return loc;
@@ -635,7 +643,7 @@ export function formatStandardShelfLocation(
     return `Kệ C${rackNum} • Tầng ${level} Cột ${col}`;
   }
 
-  // 2. Match COOL shelf (e.g. "cool-shelf-02-slot-3")
+  // 2. Match COOL shelf (e.g. "cool-shelf-02-slot-3", "cold-shelf-2-slot-1")
   const coolMatch = loc.match(/(?:cool|cld|cold|kho\s*mát|lạnh)[-_ ]*shelf[-_ ]*(\d+)(?:[-_ ]*slot[-_ ]*(\d+))?/i);
   if (coolMatch) {
     const rawShelf = parseInt(coolMatch[1], 10);
@@ -659,8 +667,8 @@ export function formatStandardShelfLocation(
     return `Kệ B${rackNum} • Tầng ${level} Cột ${col}`;
   }
 
-  // 4. Match generic letter rack (e.g. "D-15", "C-06", "A-01", "B-03", "C4")
-  const letterMatch = loc.match(/^(?:Kệ\s*)?([A-D])[-_ ]*(\d+)(?:[-_ ]*(?:ô|slot|tầng)[-_ ]*(\d+))?/i);
+  // 4. Match generic letter rack (e.g. "D-15", "C-06", "A-01", "B-03", "C4", "shelf-A1", "Kệ A1", "A1")
+  const letterMatch = loc.match(/^(?:Kệ\s*|shelf[-_ ]*)?([A-D])[-_ ]*(\d+)(?:[-_ ]*(?:ô|slot|tầng)[-_ ]*(\d+))?/i);
   if (letterMatch) {
     let letter = letterMatch[1].toUpperCase();
     const rawShelf = parseInt(letterMatch[2], 10);
@@ -740,7 +748,7 @@ export function resolveStorageZone(input?: {
     };
   }
 
-  // 1. Inspect explicit storageType or zone string
+  const pName = (input.productName || input.sku || input.category || '').toLowerCase();
   const rawZoneStr = (
     input.zone ||
     input.storageType ||
@@ -748,37 +756,7 @@ export function resolveStorageZone(input?: {
     input.temperatureRequired ||
     ''
   ).toUpperCase().trim();
-
-  let resolvedZone: StorageZoneType | null = null;
-
-  if (
-    rawZoneStr.includes('FROZEN') ||
-    rawZoneStr.includes('ĐÔNG') ||
-    rawZoneStr.includes('-18') ||
-    rawZoneStr.includes('HẦM ĐÔNG')
-  ) {
-    resolvedZone = 'FROZEN';
-  } else if (
-    rawZoneStr.includes('COOL') ||
-    rawZoneStr.includes('COLD') ||
-    rawZoneStr.includes('CHILLED') ||
-    rawZoneStr.includes('MÁT') ||
-    rawZoneStr.includes('LẠNH') ||
-    rawZoneStr.includes('0-4') ||
-    rawZoneStr.includes('2-6') ||
-    rawZoneStr.includes('2-8')
-  ) {
-    resolvedZone = 'COOL';
-  } else if (
-    rawZoneStr.includes('DRY') ||
-    rawZoneStr.includes('KHÔ') ||
-    rawZoneStr.includes('+25') ||
-    rawZoneStr.includes('THƯỜNG')
-  ) {
-    resolvedZone = 'DRY';
-  }
-
-  // 2. Inspect shelfLocation / location / slotId (A = COOL, B = FROZEN, C/D = DRY)
+  const categoryStr = (input.category || '').toLowerCase();
   const locStr = (
     input.shelfLocation ||
     input.location ||
@@ -786,148 +764,245 @@ export function resolveStorageZone(input?: {
     ''
   ).toUpperCase().trim();
 
-  if (!resolvedZone && locStr) {
+  let resolvedZone: StorageZoneType | null = null;
+
+  // 1. Check Explicit Signals for FROZEN (-18°C)
+  if (
+    rawZoneStr.includes('FROZEN') ||
+    rawZoneStr.includes('ĐÔNG') ||
+    rawZoneStr.includes('-18') ||
+    rawZoneStr.includes('HẦM ĐÔNG') ||
+    categoryStr.includes('đông') ||
+    categoryStr.includes('frozen')
+  ) {
+    resolvedZone = 'FROZEN';
+  }
+
+  // 2. Check Explicit Signals for COOL / COLD (0-4°C / 2-8°C)
+  if (!resolvedZone) {
     if (
-      locStr.includes('KỆ A') ||
-      locStr.includes('SHELF-A') ||
-      locStr.includes('COOL-SHELF') ||
-      locStr.includes('COLD-SHELF') ||
-      /^A\d/.test(locStr) ||
-      /-A\d/.test(locStr)
+      rawZoneStr.includes('COOL') ||
+      rawZoneStr.includes('COLD') ||
+      rawZoneStr.includes('CHILLED') ||
+      rawZoneStr.includes('MÁT') ||
+      rawZoneStr.includes('LẠNH') ||
+      rawZoneStr.includes('0-4') ||
+      rawZoneStr.includes('2-6') ||
+      rawZoneStr.includes('2-8') ||
+      categoryStr.includes('rau') ||
+      categoryStr.includes('trái cây') ||
+      categoryStr.includes('thịt, trứng') ||
+      categoryStr.includes('thực phẩm tươi')
     ) {
       resolvedZone = 'COOL';
-    } else if (
-      locStr.includes('KỆ B') ||
-      locStr.includes('SHELF-B') ||
-      locStr.includes('FROZEN-SHELF') ||
-      /^B\d/.test(locStr) ||
-      /-B\d/.test(locStr)
-    ) {
-      resolvedZone = 'FROZEN';
-    } else if (
-      locStr.includes('KỆ C') ||
-      locStr.includes('KỆ D') ||
-      locStr.includes('SHELF-C') ||
-      locStr.includes('SHELF-D') ||
-      locStr.includes('DRY-SHELF') ||
-      /^[CD]\d/.test(locStr) ||
-      /-[CD]\d/.test(locStr)
-    ) {
-      resolvedZone = 'DRY';
     }
   }
 
-  // 3. Inspect Product Name / Category / SKU keywords
+  // 3. Product Keywords for FROZEN (Kho Đông -18°C)
   if (!resolvedZone) {
-    const pName = (input.productName || input.sku || input.category || '').toLowerCase();
-
-    // Check Dry goods first if clearly dry
     if (
-      pName.includes('khô') ||
-      pName.includes('phở') ||
-      pName.includes('bún khô') ||
-      pName.includes('hủ tiếu') ||
-      pName.includes('miến') ||
-      pName.includes('mì gói') ||
-      pName.includes('mì tôm') ||
-      pName.includes('vifon') ||
-      pName.includes('hảo hảo') ||
-      pName.includes('omachi') ||
-      pName.includes('bánh') ||
-      pName.includes('kẹo') ||
-      pName.includes('gạo') ||
-      pName.includes('dầu ăn') ||
-      pName.includes('nước tương') ||
-      pName.includes('nước mắm') ||
-      pName.includes('hạt nêm') ||
-      pName.includes('đường') ||
-      pName.includes('muối') ||
-      pName.includes('đồ hộp') ||
-      pName.includes('cà phê') ||
-      pName.includes('trà') ||
-      pName.includes('nước ngọt') ||
-      pName.includes('nước suối') ||
-      pName.includes('gia vị')
-    ) {
-      resolvedZone = 'DRY';
-    }
-    // Check Frozen keywords
-    else if (
-      pName.includes('kem') ||
-      pName.includes('hải sản') ||
-      pName.includes('thủy sản') ||
-      pName.includes('cá hồi') ||
-      pName.includes('tôm sú') ||
-      pName.includes('mực ống') ||
+      pName.includes('kem ') ||
+      pName.includes('kem que') ||
+      pName.includes('kem cây') ||
+      pName.includes('kem ly') ||
+      pName.includes('kem hộp') ||
+      pName.includes('kem ốc quế') ||
+      pName.includes('ice cream') ||
+      pName.includes('đông lạnh') ||
+      pName.includes('hải sản đông') ||
+      pName.includes('thủy sản đông') ||
+      pName.includes('cá hồi đông') ||
+      pName.includes('cá đông') ||
+      pName.includes('tôm đông') ||
+      pName.includes('mực đông') ||
       pName.includes('bạch tuộc') ||
       pName.includes('bò mỹ đông') ||
-      pName.includes('đông lạnh') ||
-      pName.includes('frozen') ||
+      pName.includes('thịt bò đông') ||
+      pName.includes('thịt đông lạnh') ||
+      pName.includes('cá viên') ||
+      pName.includes('bò viên') ||
+      pName.includes('tôm viên') ||
+      pName.includes('chả cá basa') ||
+      pName.includes('viên hải sản') ||
       pName.includes('thả lẩu') ||
-      pName.includes('chả cá basa')
+      pName.includes('thanh cua') ||
+      pName.includes('sủi cảo') ||
+      pName.includes('há cảo') ||
+      pName.includes('chả giò') ||
+      pName.includes('khoai tây đông lạnh') ||
+      pName.includes('khoai tây răng cưa') ||
+      pName.includes('bánh bao đông')
     ) {
       resolvedZone = 'FROZEN';
     }
-    // Check Cool / Chilled keywords (Fresh meats, fresh dairy, fresh greens/fruits)
-    else if (
+  }
+
+  // 4. Product Keywords for COOL (Kho Lạnh / Kho Mát 0-4°C / 2-8°C)
+  if (!resolvedZone) {
+    if (
+      // Fresh meats & poultry
       pName.includes('thịt tươi') ||
       pName.includes('thịt heo') ||
+      pName.includes('thịt lợn') ||
       pName.includes('thịt bò') ||
       pName.includes('thịt gà') ||
       pName.includes('gà ta') ||
+      pName.includes('gà công nghiệp') ||
       pName.includes('ba chỉ') ||
       pName.includes('sườn non') ||
+      pName.includes('sườn heo') ||
       pName.includes('thịt xay') ||
+      pName.includes('xương cổ') ||
+      pName.includes('đùi tỏi') ||
+      pName.includes('đùi gà') ||
+      pName.includes('cánh gà') ||
+      pName.includes('nạc dăm') ||
+      pName.includes('nạc vai') ||
       pName.includes('vissan') ||
+      pName.includes('meat deli') ||
+      pName.includes('c.p') ||
+      pName.includes('heo 2 lát') ||
+      pName.includes('bò kho') ||
+      pName.includes('bò xay') ||
+      // Fresh deli & cold cuts
       pName.includes('chả lụa') ||
       pName.includes('giò thủ') ||
       pName.includes('chả bò') ||
-      pName.includes('xúc xích tươi') ||
+      pName.includes('giò lụa') ||
       pName.includes('nem chua') ||
+      pName.includes('xúc xích tươi') ||
+      pName.includes('pate tươi') ||
+      pName.includes('thịt nguội') ||
+      // Fresh Dairy & yogurt & chilled beverages
       pName.includes('sữa tươi') ||
+      pName.includes('sữa hạt') ||
+      pName.includes('sữa thanh trùng') ||
+      pName.includes('sữa tiệt trùng') ||
+      pName.includes('sữa bột pha sẵn') ||
+      pName.includes('th true milk') ||
+      pName.includes('th true nut') ||
       pName.includes('dalat milk') ||
       pName.includes('vinamilk') ||
-      pName.includes('th true milk') ||
+      pName.includes('milo') ||
+      pName.includes('susu') ||
+      pName.includes('anlene') ||
+      pName.includes('ensure') ||
       pName.includes('sữa chua') ||
+      pName.includes('yogurt') ||
       pName.includes('bơ lạt') ||
+      pName.includes('bơ vỉ') ||
+      pName.includes('anchor') ||
       pName.includes('phô mai') ||
-      pName.includes('kem tươi') ||
-      pName.includes('sữa thanh trùng') ||
-      pName.includes('rau') ||
-      pName.includes('củ') ||
-      pName.includes('quả') ||
-      pName.includes('mướp') ||
-      pName.includes('cà chua') ||
+      pName.includes('cheese') ||
+      pName.includes('váng sữa') ||
+      pName.includes('creamer 9 loại hạt') ||
+      // Fresh greens & vegetables
+      pName.includes('rau ') ||
+      pName.includes('rau củ') ||
+      pName.includes('rau xanh') ||
       pName.includes('xà lách') ||
-      pName.includes('dưa leo') ||
       pName.includes('bắp cải') ||
       pName.includes('cải thìa') ||
       pName.includes('cải ngọt') ||
+      pName.includes('cải xanh') ||
       pName.includes('bông cải') ||
+      pName.includes('súp lơ') ||
+      pName.includes('su hào') ||
+      pName.includes('cà chua') ||
+      pName.includes('dưa leo') ||
+      pName.includes('dưa chuột') ||
+      pName.includes('mướp') ||
+      pName.includes('bầu') ||
+      pName.includes('bí đao') ||
+      pName.includes('bí đỏ') ||
       pName.includes('nấm') ||
+      pName.includes('nấm rơm') ||
+      pName.includes('nấm kim châm') ||
+      pName.includes('hành lá') ||
+      pName.includes('ngò rí') ||
+      pName.includes('cà rốt') ||
       pName.includes('vietgap') ||
-      pName.includes('co.op select') ||
+      pName.includes('co.op select kg') ||
+      pName.includes('nông sản') ||
+      // Fresh fruits
       pName.includes('trái cây') ||
-      pName.includes('táo') ||
-      pName.includes('nho') ||
-      pName.includes('cam') ||
+      pName.includes('hoa quả') ||
+      pName.includes('dưa hấu') ||
+      pName.includes('táo ') ||
+      pName.includes('nho ') ||
+      pName.includes('cam ') ||
+      pName.includes('quýt') ||
+      pName.includes('bưởi') ||
+      pName.includes('chuối') ||
+      pName.includes('xoài') ||
+      pName.includes('thanh long') ||
       pName.includes('dâu tây') ||
-      pName.includes('mát') ||
-      pName.includes('lạnh')
+      pName.includes('lê ') ||
+      pName.includes('ổi ') ||
+      pName.includes('sầu riêng') ||
+      pName.includes('chôm chôm') ||
+      pName.includes('măng cụt') ||
+      // Fresh eggs
+      pName.includes('trứng gà') ||
+      pName.includes('trứng vịt') ||
+      pName.includes('trứng cút') ||
+      pName.includes('ba huân') ||
+      // Fresh seafood
+      pName.includes('cá tươi') ||
+      pName.includes('tôm tươi') ||
+      pName.includes('mực tươi')
     ) {
       resolvedZone = 'COOL';
     }
-    // Strict rack check for fallback: only match rack A1-A8 or B1-B8
-    else if (/(?:^|[\s\-_])A[1-8]/i.test(locStr) || locStr.includes('KỆ A')) {
+  }
+
+  // 5. Check real Shelf Location if still unresolved
+  if (!resolvedZone && locStr) {
+    if (
+      locStr.includes('COOL-SHELF') ||
+      locStr.includes('COLD-SHELF') ||
+      locStr.includes('KỆ A') ||
+      locStr.includes('SHELF-A') ||
+      /^(?:KỆ\s*|SHELF[-_ ]*)?A\d/i.test(locStr)
+    ) {
       resolvedZone = 'COOL';
-    } else if (/(?:^|[\s\-_])B[1-8]/i.test(locStr) || locStr.includes('KỆ B')) {
+    } else if (
+      locStr.includes('FROZEN-SHELF') ||
+      locStr.includes('SHELF-B') ||
+      locStr.includes('KỆ B') ||
+      /^(?:KỆ\s*|SHELF[-_ ]*)?B\d/i.test(locStr)
+    ) {
       resolvedZone = 'FROZEN';
-    } else {
+    } else if (
+      locStr.includes('DRY-SHELF') ||
+      locStr.includes('SHELF-C') ||
+      locStr.includes('SHELF-D') ||
+      locStr.includes('KỆ C') ||
+      locStr.includes('KỆ D') ||
+      /^(?:KỆ\s*|SHELF[-_ ]*)?[CD]\d/i.test(locStr)
+    ) {
       resolvedZone = 'DRY';
     }
   }
 
-  // 4. Return complete metadata with semantic styling
+  // 6. Explicit check for Dry strings if none of above triggered
+  if (!resolvedZone) {
+    if (
+      rawZoneStr.includes('DRY') ||
+      rawZoneStr.includes('KHÔ') ||
+      rawZoneStr.includes('+25') ||
+      rawZoneStr.includes('THƯỜNG')
+    ) {
+      resolvedZone = 'DRY';
+    }
+  }
+
+  // 7. Fallback Default
+  if (!resolvedZone) {
+    resolvedZone = 'DRY';
+  }
+
+  // Return complete metadata with semantic styling (WCAG AA & Enterprise WMS palette)
   if (resolvedZone === 'COOL') {
     return {
       zone: 'COOL',

@@ -52,20 +52,16 @@ npm run backend:all
 ### Cách 3: Chạy độc lập từng Microservice riêng lẻ
 Mở terminal tại thư mục gốc và chạy:
 ```bash
-npm run auth:start          # Auth Service (:3000)
-npm run user:start          # User Service (:3001)
+npm run user:start          # User & Auth RBAC Service (:3001)
 npm run product:start       # Product Service (:3002)
 npm run inventory:start     # Inventory Service (:3003)
 npm run order:start         # Order & Dispatch Service (:3004)
 npm run warehouse:start     # Warehouse Service (:3005)
 npm run inbound:start       # Inbound Receiving Service (:3006)
-npm run outbound:start      # Outbound Service (:3007)
+npm run outbound:start      # Outbound, Picking & Packing Service (:3007)
 npm run report:start        # Report & Analytics Service (:3008)
-npm run transport:start     # Transport & VRP Service (:3009)
-npm run picking:start       # Picking & Pick-to-Light Service (:3010)
-npm run packing:start       # Packing Service (:3011)
-npm run delivery:start      # Delivery & Routing Service (:3012)
-npm run tracking:start      # Tracking Service (:3013)
+npm run transport:start     # Transport, Delivery & VRP Service (:3009)
+npm run iot:start           # IoT & Cold Storage Telemetry Service (:3011)
 npm run notification:start  # Notification Service (:3014)
 ```
 
@@ -133,14 +129,20 @@ npm run customer:start
 ## 4. DỮ LIỆU MẪU & SCRIPTS GIẢ LẬP IOT
 
 ```bash
-# Nạp dữ liệu sản phẩm mẫu (thực phẩm tươi mát) vào CSDL
+# 1. Nạp danh mục hơn 5.000 sản phẩm siêu thị chính hãng
 npm run seed:products
+
+# 2. Nạp dữ liệu tài khoản người dùng chuẩn và phân quyền 6 vai trò
+npm run seed:users
+
+# 3. Nạp kịch bản demo bảo vệ khóa luận (130 sản phẩm tiêu biểu khớp 26 kệ 3D, Lô FEFO, Đơn hàng, Phiếu Nhập/Xuất)
+npm run seed:demo
 
 # Xuất dữ liệu danh mục sản phẩm hiện có
 npm run export:products
 
-# Chạy script giả lập cân điện tử & cảm biến kệ hàng Pick-to-Light
-node scripts/iot-shelf-simulator.js
+# Chạy script giả lập cân điện tử & cảm biến nhiệt độ / Pick-to-Light IoT
+npm run start -w simulators
 
 # Theo dõi luồng gói tin MQTT từ các thiết bị IoT
 node scripts/mqtt_monitor.js
