@@ -411,21 +411,6 @@ export const adjustStockAuditApi = async (lotId: string, qty: number, reason: st
   return { success: true };
 };
 
-export const loginStaffApi = async (email: string, password?: string) => {
-  try {
-    const res = await fetch(`${API_URLS.AUTH}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: password || '123456' }),
-    });
-    if (res.ok) return await res.json();
-  } catch (e) {}
-  return {
-    token: 'mock-staff-jwt-token',
-    user: { id: 'usr-1', name: 'Nhân Viên Kho (Staff)', role: 'WAREHOUSE_STAFF', warehouseCode: 'WH-006', warehouseName: 'Kho Lạnh Emart Sala' },
-  };
-};
-
 export const fetchDailyMetricsApi = async () => {
   return {
     periodName: `Hôm nay (${new Date().toLocaleDateString('vi-VN')})`,

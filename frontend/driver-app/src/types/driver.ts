@@ -49,6 +49,8 @@ export interface DriverProfile {
   id: string;
   name: string;
   phone: string;
+  email?: string;
+  role?: string;
   licensePlate: string;
   vehicleType: string;
   warehouseCode: string;         // 'WH-006'

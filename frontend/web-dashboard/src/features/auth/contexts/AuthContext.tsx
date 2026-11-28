@@ -68,6 +68,7 @@ export const ROLE_COLORS: Record<UserRole, string> = {
 };
 
 const API_BASE = getApiHost(3012);
+const ALLOWED_DASHBOARD_ROLES: UserRole[] = ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES_STAFF'];
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Synchronously initialize auth from localStorage to eliminate 401 race conditions on page load
@@ -76,6 +77,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const savedUser = localStorage.getItem('auth-user');
       if (savedUser) {
         const parsed = JSON.parse(savedUser) as AuthUser;
+        if (!ALLOWED_DASHBOARD_ROLES.includes(parsed.role)) {
+          localStorage.removeItem('auth-user');
+          localStorage.removeItem('auth-token');
+          return null;
+        }
         applyTheme(parsed.role);
         return parsed;
       }
@@ -97,18 +103,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user?.role]);
 
   const login = useCallback(async (email: string, password: string) => {
+    const rawAccount = email.trim();
+    const cleanDigits = rawAccount.replace(/\D/g, '');
+    const isPhoneLike = !rawAccount.includes('@') && cleanDigits.length >= 9 && /^[+\d\s.()-]+$/.test(rawAccount);
+    const identifier = isPhoneLike ? cleanDigits : rawAccount;
+
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({
+        email: identifier,
+        phone: isPhoneLike ? cleanDigits : undefined,
+        account: rawAccount,
+        password,
+        clientApp: 'WEB_DASHBOARD',
+      }),
     });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || 'Đăng nhập thất bại');
+      throw new Error(err.message || 'Tài khoản hoặc mật khẩu không chính xác');
     }
 
     const data = await res.json();
+    const statusUpper = String(data.user?.status || 'ACTIVE').toUpperCase();
+    if (statusUpper === 'INACTIVE' || statusUpper === 'LOCKED' || data.user?.lockedAt) {
+      throw new Error('Tài khoản này đã bị khóa hoặc tạm ngừng hoạt động!');
+    }
+
+    const userRole = data.user?.role as UserRole;
+    if (!ALLOWED_DASHBOARD_ROLES.includes(userRole)) {
+      const roleLabel = ROLE_LABELS[userRole] || userRole || 'Khác';
+      throw new Error(`Tài khoản thuộc vai trò "${roleLabel}" không có quyền truy cập Cổng Quản trị Web. Vui lòng đăng nhập đúng ứng dụng chuyên biệt!`);
+    }
+
     const authUser: AuthUser = {
       id: data.user.id,
       name: data.user.name,

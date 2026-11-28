@@ -169,6 +169,7 @@ function LoginForm() {
         body: JSON.stringify({
           phone: cleanPhone,
           otpCode: otpString,
+          clientApp: 'CUSTOMER_WEB',
         }),
       });
 
@@ -178,6 +179,10 @@ function LoginForm() {
       }
 
       const { access_token, user } = data;
+      const userRole = String(user?.role || 'CUSTOMER').toUpperCase();
+      if (userRole !== 'CUSTOMER') {
+        throw new Error('Số điện thoại này thuộc tài khoản nhân sự nội bộ C.T Mart. Vui lòng sử dụng số điện thoại khách hàng để mua sắm!');
+      }
       setCurrentAccessToken(access_token);
       setCurrentUserData(user);
 

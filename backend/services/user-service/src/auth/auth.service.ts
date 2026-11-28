@@ -18,7 +18,56 @@ export class AuthService {
     private auditLogService?: AuditLogService,
   ) {}
 
-  async validateUser(identifier: string, pass: string): Promise<any> {
+  private static readonly ROLE_LABELS: Record<string, string> = {
+    [UserRole.ADMIN]: 'Quản trị viên',
+    [UserRole.WAREHOUSE_MANAGER]: 'Quản lý kho',
+    [UserRole.WAREHOUSE_STAFF]: 'Nhân viên vận hành kho',
+    [UserRole.SALES_STAFF]: 'Nhân viên kinh doanh',
+    [UserRole.DRIVER]: 'Tài xế giao nhận',
+    [UserRole.CUSTOMER]: 'Khách hàng',
+  };
+
+  private assertAccountActiveAndRoleAllowed(user: any, clientApp?: string) {
+    const statusUpper = String(user.status || 'ACTIVE').toUpperCase();
+    if (statusUpper === 'INACTIVE' || statusUpper === 'LOCKED' || user.lockedAt) {
+      throw new UnauthorizedException('Tài khoản của bạn đã bị khóa hoặc tạm ngừng hoạt động. Vui lòng liên hệ Quản trị viên!');
+    }
+
+    if (!clientApp) return;
+
+    const appUpper = clientApp.toUpperCase();
+    const userRole = String(user.role || '').toUpperCase();
+    const roleLabel = AuthService.ROLE_LABELS[userRole] || userRole || 'Khác';
+
+    if (appUpper === 'DRIVER_APP' && userRole !== UserRole.DRIVER) {
+      throw new UnauthorizedException(
+        `Tài khoản thuộc vai trò "${roleLabel}" không được phép đăng nhập vào Ứng dụng Tài xế. Vui lòng sử dụng tài khoản Tài xế giao nhận!`,
+      );
+    }
+
+    if (appUpper === 'STAFF_APP' && userRole !== UserRole.WAREHOUSE_STAFF) {
+      throw new UnauthorizedException(
+        `Tài khoản thuộc vai trò "${roleLabel}" không được phép đăng nhập vào Ứng dụng Nhân viên kho. Vui lòng sử dụng tài khoản Nhân viên vận hành kho!`,
+      );
+    }
+
+    if (
+      appUpper === 'WEB_DASHBOARD' &&
+      ![UserRole.ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.WAREHOUSE_STAFF, UserRole.SALES_STAFF].includes(userRole as UserRole)
+    ) {
+      throw new UnauthorizedException(
+        `Tài khoản thuộc vai trò "${roleLabel}" không có quyền truy cập Cổng Quản trị Web. Vui lòng đăng nhập trên ứng dụng chuyên biệt!`,
+      );
+    }
+
+    if (appUpper === 'CUSTOMER_WEB' && userRole !== UserRole.CUSTOMER) {
+      throw new UnauthorizedException(
+        `Số điện thoại này thuộc tài khoản nội bộ (${roleLabel}), không thể đăng nhập Cổng Mua sắm Khách hàng!`,
+      );
+    }
+  }
+
+  async validateUser(identifier: string, pass: string, clientApp?: string): Promise<any> {
     const cleanIdentifier = identifier ? identifier.trim() : '';
     const user = await this.userService.findOneByIdentifier(cleanIdentifier);
     if (user) {
@@ -30,6 +79,7 @@ export class AuthService {
         isMatch = (pass === 'password123');
       }
       if (isMatch) {
+        this.assertAccountActiveAndRoleAllowed(user, clientApp);
         const { passwordHash, ...result } = user;
         return result;
       }
@@ -37,7 +87,7 @@ export class AuthService {
     return null;
   }
 
-  async login(user: any) {
+  async login(user: any, clientApp: string = 'WEB_DASHBOARD') {
     const payload = {
       email: user.email,
       sub: user.id,
@@ -64,10 +114,10 @@ export class AuthService {
       target: 'users',
       targetId: user.email || user.phone || user.id,
       serviceName: 'user-service',
-      clientApp: 'WEB_DASHBOARD',
+      clientApp: clientApp || 'WEB_DASHBOARD',
       severity: AuditSeverity.INFO,
-      details: `Đăng nhập tài khoản ${user.name} (${user.role}) thành công.`,
-      payloadAfter: { role: user.role, warehouseCode: user.warehouseCode },
+      details: `Đăng nhập tài khoản ${user.name} (${user.role}) trên ${clientApp || 'WEB_DASHBOARD'} thành công.`,
+      payloadAfter: { role: user.role, warehouseCode: user.warehouseCode, clientApp: clientApp || 'WEB_DASHBOARD' },
     }).catch(() => {});
 
     return {
@@ -183,7 +233,7 @@ export class AuthService {
 
     // In nổi bật ra Terminal máy chủ để lập trình viên / kiểm thử viên lấy mã
     console.log(`\n\x1b[36m============================================================\x1b[0m`);
-    console.log(`\x1b[36m🔐 [OTP SERVICE] YÊU CẦU ĐỔI MẬT KHẨU TÀI KHOẢN\x1b[0m`);
+    console.log(`\x1b[36m[OTP SERVICE] YÊU CẦU ĐỔI MẬT KHẨU TÀI KHOẢN\x1b[0m`);
     console.log(`Tài khoản  : ${user.name} (${user.email || user.phone} - Role: ${user.role})`);
     console.log(`SĐT nhận   : ${phone}`);
     console.log(`\x1b[32m\x1b[1mMÃ OTP XÁC THỰC: [ ${res.otpCode} ] (Hiệu lực: 5 phút)\x1b[0m`);
@@ -300,7 +350,7 @@ export class AuthService {
 
     // In nổi bật ra Terminal máy chủ để lập trình viên / kiểm thử viên lấy mã
     console.log(`\n\x1b[36m============================================================\x1b[0m`);
-    console.log(`\x1b[36m📱 [OTP SERVICE] YÊU CẦU CẬP NHẬT SỐ ĐIỆN THOẠI MỚI\x1b[0m`);
+    console.log(`\x1b[36m[OTP SERVICE] YÊU CẦU CẬP NHẬT SỐ ĐIỆN THOẠI MỚI\x1b[0m`);
     console.log(`Tài khoản  : ${user.name} (${user.email || user.phone} - Role: ${user.role})`);
     console.log(`SĐT mới    : ${phone}`);
     console.log(`\x1b[32m\x1b[1mMÃ OTP XÁC THỰC: [ ${res.otpCode} ] (Hiệu lực: 5 phút)\x1b[0m`);
@@ -416,8 +466,10 @@ export class AuthService {
         role: UserRole.CUSTOMER,
         status: 'ACTIVE',
       });
+    } else {
+      this.assertAccountActiveAndRoleAllowed(user, 'CUSTOMER_WEB');
     }
 
-    return this.login(user);
+    return this.login(user, 'CUSTOMER_WEB');
   }
 }

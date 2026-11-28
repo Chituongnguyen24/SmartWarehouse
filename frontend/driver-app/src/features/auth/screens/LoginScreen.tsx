@@ -188,9 +188,12 @@ export const LoginScreen: React.FC = () => {
     setErrorMessage(null);
 
     try {
-      const success = await login(trimmedAccount, trimmedPassword);
-      if (!success) {
-        setErrorMessage('Số điện thoại hoặc tài khoản tài xế không tồn tại trên hệ thống, hoặc mật khẩu không chính xác.');
+      const result = await login(trimmedAccount, trimmedPassword);
+      if (!result || !result.success) {
+        setErrorMessage(
+          result?.message ||
+            'Số điện thoại/Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại!'
+        );
       } else {
         // Save or remove remembered credentials (both account and password)
         if (rememberMe) {
@@ -253,7 +256,7 @@ export const LoginScreen: React.FC = () => {
               )}
               <TextInput
                 style={styles.input}
-                placeholder="0377 019 958, 0977 112 233 hoặc email..."
+                placeholder="0977 112 233, NV-GV05 hoặc email tài xế..."
                 placeholderTextColor="#94a3b8"
                 value={account}
                 onChangeText={(text) => {

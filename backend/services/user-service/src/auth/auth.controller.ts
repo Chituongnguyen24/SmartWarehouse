@@ -28,11 +28,12 @@ export class AuthController {
   async login(@Body() body: any) {
     const identifier = (body.email || body.phone || body.account || body.code || body.username || body.identifier || '').toString().trim();
     const password = (body.password || body.pass || '').toString();
-    const user = await this.authService.validateUser(identifier, password);
+    const clientApp = body.clientApp ? String(body.clientApp).trim().toUpperCase() : undefined;
+    const user = await this.authService.validateUser(identifier, password, clientApp);
     if (!user) {
       throw new UnauthorizedException('Tài khoản hoặc mật khẩu không chính xác');
     }
-    return this.authService.login(user);
+    return this.authService.login(user, clientApp);
   }
 
   @Post('otp/send')

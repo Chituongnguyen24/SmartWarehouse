@@ -232,16 +232,16 @@ const LoginPage: React.FC = () => {
           </p>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            {/* Email */}
+            {/* Email / Phone / Staff Code */}
             <div>
               <label style={{ color: '#cbd5e1', fontSize: '0.825rem', fontWeight: 500, display: 'block', marginBottom: '0.5rem' }}>
-                Email đăng nhập
+                Email, Số điện thoại hoặc Mã nhân viên
               </label>
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@sfwms.vn"
+                placeholder="admin@sfwms.vn, 0908123456 hoặc NV-GV01"
                 required
                 style={{
                   width: '100%', padding: '0.75rem 1rem', borderRadius: 8,

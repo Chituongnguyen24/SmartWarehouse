@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import * as Location from 'expo-location';
 import { DeliveryTask, DriverProfile, TaskStatus } from '@/types/driver';
-import { driverApi, TelemetryPayload, DRIVER_SESSION_KEY, setAuthToken, BACKEND_HOST } from '@/shared';
+import { driverApi, API_CONFIG, TelemetryPayload, DRIVER_SESSION_KEY, setAuthToken } from '@/shared';
 import { storageHelper } from '@/shared';
 import { io } from 'socket.io-client';
 import { resolveProductUnit, calculatePackingBoxes } from '@/shared';
@@ -17,11 +17,9 @@ export interface DriverLiveLocation {
 
 interface DriverTaskContextType {
   driverProfile: DriverProfile;
-  availableDrivers: DriverProfile[];
-  switchDriverProfile: (driverIdOrPhone: string) => Promise<boolean>;
   isAuthenticated: boolean;
   isSessionChecking: boolean;
-  login: (phoneOrCode: string, password?: string) => Promise<boolean>;
+  login: (phoneOrCode: string, password?: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   toggleOnline: () => void;
   updateContainerTemp: (temp: number) => void;
@@ -56,26 +54,21 @@ interface DriverTaskContextType {
 }
 
 export const DEFAULT_PROFILE: DriverProfile = {
-  id: 'NV-GV05',
-  name: 'Võ Minh Trí',
-  phone: '0977 112 233',
-  licensePlate: '59-V1 888.99',
-  vehicleType: 'Xe Máy Thùng Lạnh Tiêu Chuẩn',
+  id: '',
+  name: 'Tài xế giao nhận',
+  phone: '',
+  licensePlate: '',
+  vehicleType: 'Xe Giao Hàng',
   warehouseCode: 'WH-006',
   warehouseName: 'Tổng Kho Gò Vấp (350 Quang Trung)',
-  isOnline: true,
-  currentTemp: 3.5,
+  isOnline: false,
+  currentTemp: 3.2,
   targetTempMin: 0.0,
   targetTempMax: 4.0,
-  rating: 4.95,
+  rating: 5.0,
   completedTasksToday: 0,
   totalEarningsToday: 0,
 };
-
-// Dynamic registries (backed by user-service database)
-export const DRIVER_DB: Record<string, DriverProfile> = {};
-export const SELECTABLE_DRIVERS: DriverProfile[] = [];
-
 
 const DriverTaskContext = createContext<DriverTaskContextType | undefined>(undefined);
 
@@ -117,39 +110,6 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [isSessionChecking, setIsSessionChecking] = useState<boolean>(true);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [driverProfile, setDriverProfile] = useState<DriverProfile>(DEFAULT_PROFILE);
-  const [availableDrivers, setAvailableDrivers] = useState<DriverProfile[]>([]);
-
-  useEffect(() => {
-    driverApi.getAllDrivers().then(list => {
-      if (Array.isArray(list) && list.length > 0) {
-        const mapped: DriverProfile[] = list.map((d: any) => {
-          const wCode = d.warehouseCode || 'WH-006';
-          const wName = wCode === 'WH-001'
-            ? 'Kho Bình Thạnh (123 Lê Quang Định)'
-            : wCode === 'WH-002'
-            ? 'Kho Tân Bình (45 Cộng Hòa)'
-            : 'Tổng Kho Gò Vấp (350 Quang Trung)';
-          return {
-            id: d.code || String(d.id),
-            name: d.fullName || d.name,
-            phone: d.phone || '',
-            licensePlate: d.licensePlate || '59-X1 999.99',
-            vehicleType: d.vehicleType || 'Xe Giao Hàng',
-            warehouseCode: wCode,
-            warehouseName: wName,
-            isOnline: true,
-            currentTemp: d.currentTemp !== undefined ? Number(d.currentTemp) : 3.2,
-            targetTempMin: d.targetTempMin !== undefined ? Number(d.targetTempMin) : 0.0,
-            targetTempMax: d.targetTempMax !== undefined ? Number(d.targetTempMax) : 4.0,
-            rating: 5.0,
-            completedTasksToday: 0,
-            totalEarningsToday: d.totalEarningsToday ? Number(d.totalEarningsToday) : 0,
-          };
-        });
-        setAvailableDrivers(mapped);
-      }
-    }).catch(() => {});
-  }, []);
   const [tasks, setTasks] = useState<DeliveryTask[]>([]);
   const [nextWaveTasks, setNextWaveTasks] = useState<DeliveryTask[]>([]);
   const [activeTask, setActiveTask] = useState<DeliveryTask | null>(null);
@@ -212,6 +172,13 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             await storageHelper.saveItem('sfwms_driver_session_expired_toast', 'Phiên làm việc đã hết hạn sau 7 ngày. Vui lòng đăng nhập lại.');
             setIsAuthenticated(false);
           } else if (parsed && parsed.profile) {
+            // Enforce strict DRIVER role even on saved sessions
+            if (parsed.profile.role && String(parsed.profile.role).toUpperCase() !== 'DRIVER') {
+              await storageHelper.removeItem(DRIVER_SESSION_KEY);
+              setAuthToken(null);
+              setIsAuthenticated(false);
+              return;
+            }
             setDriverProfile(parsed.profile);
             if (parsed.token) setAuthToken(parsed.token);
             setIsAuthenticated(true);
@@ -755,10 +722,10 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     // 1. Initial fetch immediately
     fetchLiveAssignedOrders();
 
-    // 2. Real-time WebSocket connection to Order Gateway (:3004)
+    // 2. Real-time WebSocket connection to Order Gateway (:3004 or Nginx HTTPS proxy)
     let socket: any = null;
     try {
-      socket = io(`http://${BACKEND_HOST}:3004`, {
+      socket = io(API_CONFIG.ORDER_SERVICE, {
         transports: ['websocket', 'polling'],
         reconnectionAttempts: 15,
         reconnectionDelay: 1000,
@@ -901,39 +868,62 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
   }, [isAuthenticated, driverProfile.isOnline, activeTask, tripStatus, driverProfile.currentTemp, driverProfile.warehouseCode]);
 
-  const login = async (emailOrPhone: string, pass: string = 'password123'): Promise<boolean> => {
-    const cleanInput = emailOrPhone.trim().toLowerCase();
+  const login = async (emailOrPhone: string, pass: string = ''): Promise<{ success: boolean; message?: string }> => {
+    const cleanInput = emailOrPhone.trim();
 
-    // 1. Authenticate with User Service to obtain JWT
+    // 1. Authenticate with User Service to obtain JWT and verify DRIVER role
     const authResult = await driverApi.login(cleanInput, pass);
-    if (!authResult || !authResult.token) {
-      console.warn(`[DriverAuth] Đăng nhập thất bại: thông tin xác thực chưa hợp lệ cho "${emailOrPhone}"`);
-      return false;
+    if (!authResult || !authResult.success || !authResult.token) {
+      console.warn(`[DriverAuth] Đăng nhập thất bại cho "${emailOrPhone}": ${authResult?.error || 'Unauthorized'}`);
+      return {
+        success: false,
+        message: authResult?.error || 'Số điện thoại/Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại!',
+      };
     }
     const token = authResult.token;
     const remoteUser = authResult.user;
 
+    if (String(remoteUser?.role || '').toUpperCase() !== 'DRIVER') {
+      setAuthToken(null);
+      return {
+        success: false,
+        message: 'Tài khoản này không thuộc vai trò Tài xế giao nhận. Vui lòng đăng nhập bằng tài khoản Tài xế!',
+      };
+    }
+
     const warehouseCode = remoteUser?.warehouseCode || 'WH-006';
     const warehouseName = warehouseCode === 'WH-001'
-      ? 'Kho Bình Thạnh (123 Lê Quang Định)'
+      ? 'Kho Quận 12 (WH-001)'
       : warehouseCode === 'WH-002'
-      ? 'Kho Tân Bình (45 Cộng Hòa)'
+      ? 'Kho Thủ Đức (WH-002)'
+      : warehouseCode === 'WH-005'
+      ? 'Kho Bình Thạnh (WH-005)'
       : 'Tổng Kho Gò Vấp (350 Quang Trung)';
+
+    // Parse vehicle info from assignedZone if licensePlate / vehicleType are null in DB, stripping emojis
+    const cleanZone = String(remoteUser?.assignedZone || '')
+      .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
+      .trim();
+    const plateMatch = cleanZone.match(/\(([^)]+)\)/);
+    const parsedPlate = plateMatch ? plateMatch[1].trim() : '';
+    const parsedVehicle = cleanZone.replace(/\([^)]*\)/g, '').trim();
 
     const finalProfile: DriverProfile = {
       id: remoteUser?.code || String(remoteUser?.id || 'DRV-001'),
-      name: remoteUser?.fullName || remoteUser?.name || 'Tài xế SmartWarehouse',
+      name: (remoteUser?.fullName || remoteUser?.name || 'Tài xế C.T Mart').replace(/\s*\(Tài xế[^)]*\)/i, '').trim(),
       phone: remoteUser?.phone || emailOrPhone,
-      licensePlate: remoteUser?.licensePlate || '59-X1 999.99',
-      vehicleType: remoteUser?.vehicleType || 'Xe Giao Hàng Tiêu Chuẩn',
+      email: remoteUser?.email,
+      role: 'DRIVER',
+      licensePlate: remoteUser?.licensePlate || parsedPlate || '59-V1 888.99',
+      vehicleType: remoteUser?.vehicleType || parsedVehicle || 'Xe Máy Thùng Lạnh',
       warehouseCode,
       warehouseName,
       isOnline: true,
-      currentTemp: remoteUser?.currentTemp !== undefined ? Number(remoteUser.currentTemp) : 3.2,
-      targetTempMin: remoteUser?.targetTempMin !== undefined ? Number(remoteUser.targetTempMin) : 0.0,
-      targetTempMax: remoteUser?.targetTempMax !== undefined ? Number(remoteUser.targetTempMax) : 4.0,
-      rating: 5.0,
-      completedTasksToday: 0,
+      currentTemp: remoteUser?.currentTemp !== undefined && remoteUser?.currentTemp !== null ? Number(remoteUser.currentTemp) : 3.2,
+      targetTempMin: remoteUser?.targetTempMin !== undefined && remoteUser?.targetTempMin !== null ? Number(remoteUser.targetTempMin) : 0.0,
+      targetTempMax: remoteUser?.targetTempMax !== undefined && remoteUser?.targetTempMax !== null ? Number(remoteUser.targetTempMax) : 4.0,
+      rating: remoteUser?.rating ? Number(remoteUser.rating) : 4.95,
+      completedTasksToday: remoteUser?.tasksCompleted ? Number(remoteUser.tasksCompleted) : 0,
       totalEarningsToday: remoteUser?.totalEarningsToday ? Number(remoteUser.totalEarningsToday) : 0,
       token,
     };
@@ -970,7 +960,7 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     setTimeout(fetchLiveAssignedOrders, 100);
-    return true;
+    return { success: true };
   };
 
   const logout = () => {
@@ -992,41 +982,6 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       storageHelper.removeItem(`sfwms_driver_trip_number_${dId}`);
       storageHelper.removeItem(`sfwms_driver_intransit_ids_${dId}`);
     } catch (e) {}
-  };
-
-  const switchDriverProfile = async (driverIdOrPhone: string): Promise<boolean> => {
-    const clean = driverIdOrPhone.trim().toLowerCase();
-    const cleanDigits = driverIdOrPhone.replace(/\D/g, '');
-    const target = availableDrivers.find(d => {
-      const pPhone = d.phone.replace(/\D/g, '');
-      const pId = d.id.toLowerCase();
-      return pId === clean || (cleanDigits.length >= 8 && pPhone.includes(cleanDigits));
-    });
-
-    if (target) {
-      setDriverProfile(target);
-      setIsBatchDeparted(false);
-      setCurrentTripLockedIds(new Set());
-      setTasks([]);
-      setNextWaveTasks([]);
-      setActiveTask(null);
-      setCompletedTaskIds(new Set());
-      setInTransitTaskIds(new Set());
-      try {
-        const now = Date.now();
-        await storageHelper.saveItem(DRIVER_SESSION_KEY, JSON.stringify({
-          token: `JWT_DRIVER_${target.id}`,
-          profile: target,
-          loginAt: now,
-          expiresAt: now + SESSION_TTL_MS,
-        }));
-        await storageHelper.removeItem('sfwms_driver_batch_departed');
-        await storageHelper.removeItem('sfwms_driver_locked_trip_ids');
-      } catch (e) {}
-      setTimeout(fetchLiveAssignedOrders, 50);
-      return true;
-    }
-    return false;
   };
 
   const toggleOnline = () => {
@@ -1558,8 +1513,6 @@ export const DriverTaskProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     <DriverTaskContext.Provider
       value={{
         driverProfile,
-        availableDrivers,
-        switchDriverProfile,
         isAuthenticated,
         isSessionChecking,
         login,
