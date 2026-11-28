@@ -23,6 +23,7 @@ rm -rf frontend/staff-app/dist
 cd frontend/staff-app && npx vite build && cd ../..
 
 echo ">> Rebuild updated backend services..."
+cd backend/services/user-service && npm run build && cd ../../..
 cd backend/services/inventory-service && npm run build && cd ../../..
 cd backend/services/product-service && npm run build && cd ../../..
 cd backend/services/order-service && npm run build && cd ../../..

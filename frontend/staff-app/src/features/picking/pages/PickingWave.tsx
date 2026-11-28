@@ -294,24 +294,55 @@ export const PickingWave: React.FC = () => {
 
   // Helper to map an order's items
   const mapOrderItems = useCallback(
-    (ord: ApiOutboundOrder, lotMap: Map<string, any>, prodMap: Map<string, any>, skuLotsMap: Map<string, any[]>): PickingItem[] => {
+    (ord: ApiOutboundOrder, lotMap: Map<string, any>, prodMap: Map<string, any>, skuLotsMap: Map<string, any[]>, allProducts: any[] = [], allLots: any[] = []): PickingItem[] => {
       if (!ord.items || ord.items.length === 0) return [];
       return ord.items.map((it, idx) => {
-        const matchingLots = it.sku ? (skuLotsMap.get(it.sku) || []) : [];
-        const dbLot = (it.lotCode ? lotMap.get(it.lotCode) : null) || matchingLots[0] || ((it as any).productId ? lotMap.get((it as any).productId) : null);
-        const dbProd = (it.sku ? prodMap.get(it.sku) : null) || (dbLot?.productId ? prodMap.get(dbLot.productId) : null);
+        const cleanSku = (it.sku || '').trim().toLowerCase();
+        const cleanName = (it.productName || '').trim().toLowerCase();
+
+        // 1. Resolve Product Master Data
+        let dbProd = (it.sku ? (prodMap.get(it.sku) || prodMap.get(cleanSku)) : null)
+          || (cleanName ? prodMap.get(cleanName) : null);
+
+        if (!dbProd && cleanName && allProducts.length > 0) {
+          dbProd = allProducts.find((p: any) => {
+            const pn = (p.name || '').toLowerCase();
+            return pn && (pn.includes(cleanName) || cleanName.includes(pn));
+          });
+        }
+
+        // 2. Resolve Inventory Lot
+        const matchingLots = it.sku ? (skuLotsMap.get(it.sku) || skuLotsMap.get(cleanSku) || []) : [];
+        let dbLot = (it.lotCode ? lotMap.get(it.lotCode) : null)
+          || matchingLots[0]
+          || ((it as any).productId ? (lotMap.get((it as any).productId) || (skuLotsMap.get((it as any).productId) || [])[0]) : null);
+
+        if (!dbLot && dbProd?.id) {
+          dbLot = lotMap.get(dbProd.id) || (skuLotsMap.get(dbProd.id) || [])[0];
+        }
+
+        if (!dbLot && allLots.length > 0) {
+          dbLot = allLots.find((l: any) => {
+            if (it.lotCode && l.lotCode === it.lotCode) return true;
+            if (it.sku && l.sku && l.sku.toLowerCase() === cleanSku) return true;
+            if (dbProd?.id && l.productId === dbProd.id) return true;
+            if (cleanName && l.productName && l.productName.toLowerCase().includes(cleanName)) return true;
+            return false;
+          });
+        }
 
         const rawLoc = dbLot?.location || it.slotId || it.location || (it as any).shelfLocation;
 
+        // 3. Resolve Zone using intelligent metadata matching
         const zoneMeta = resolveStorageZone({
           zone: dbLot?.zone || it.zone,
           storageType: dbProd?.storageType || (dbProd as any)?.storage_type,
           storageCondition: (dbProd as any)?.storageCondition || (it as any)?.storageCondition,
           temperatureRequired: (it as any)?.temperatureRequired,
           shelfLocation: rawLoc,
-          sku: it.sku || dbLot?.sku,
+          sku: it.sku || dbLot?.sku || dbProd?.sku,
           productName: it.productName || dbProd?.name,
-          category: dbProd?.category,
+          category: dbProd?.category || (it as any)?.category,
         });
 
         const z = zoneMeta.zone;
@@ -336,7 +367,7 @@ export const PickingWave: React.FC = () => {
           id: it.id || `pk-${ord.id || ord.orderCode}-${idx + 1}`,
           orderId: ord.id,
           orderCode: ord.orderCode,
-          sku: it.sku || dbLot?.sku || `EM-${idx + 100}`,
+          sku: it.sku || dbLot?.sku || dbProd?.sku || `EM-${idx + 100}`,
           productName: it.productName || dbProd?.name || 'Sản phẩm xuất kho',
           quantity: exactQty,
           pickedQuantity: currentPicked,
@@ -387,24 +418,54 @@ export const PickingWave: React.FC = () => {
 
       const prodMap = new Map<string, any>();
       activeProducts.forEach((p: any) => {
-        prodMap.set(p.sku, p);
-        prodMap.set(p.id, p);
+        if (p.sku) {
+          prodMap.set(p.sku, p);
+          prodMap.set(p.sku.toLowerCase().trim(), p);
+        }
+        if (p.id) {
+          prodMap.set(p.id, p);
+          prodMap.set(p.id.toLowerCase().trim(), p);
+        }
+        if (p.name) {
+          prodMap.set(p.name.toLowerCase().trim(), p);
+        }
+        if (p.barcode) {
+          prodMap.set(p.barcode, p);
+        }
       });
 
       const lotMap = new Map<string, any>();
       const skuLotsMap = new Map<string, any[]>();
       activeLots.forEach((l: any) => {
-        lotMap.set(l.lotCode, l);
-        lotMap.set(l.id, l);
+        if (l.lotCode) {
+          lotMap.set(l.lotCode, l);
+          lotMap.set(l.lotCode.toLowerCase().trim(), l);
+        }
+        if (l.id) {
+          lotMap.set(l.id, l);
+          lotMap.set(l.id.toLowerCase().trim(), l);
+        }
         if (l.sku) {
+          const sKey = l.sku.toLowerCase().trim();
           if (!skuLotsMap.has(l.sku)) skuLotsMap.set(l.sku, []);
+          if (!skuLotsMap.has(sKey)) skuLotsMap.set(sKey, []);
           skuLotsMap.get(l.sku)!.push(l);
+          skuLotsMap.get(sKey)!.push(l);
         }
         if (l.productId) {
+          const pKey = l.productId.toLowerCase().trim();
+          if (!skuLotsMap.has(l.productId)) skuLotsMap.set(l.productId, []);
+          if (!skuLotsMap.has(pKey)) skuLotsMap.set(pKey, []);
+          skuLotsMap.get(l.productId)!.push(l);
+          skuLotsMap.get(pKey)!.push(l);
+
           const prod = prodMap.get(l.productId);
           if (prod?.sku) {
+            const psKey = prod.sku.toLowerCase().trim();
             if (!skuLotsMap.has(prod.sku)) skuLotsMap.set(prod.sku, []);
+            if (!skuLotsMap.has(psKey)) skuLotsMap.set(psKey, []);
             skuLotsMap.get(prod.sku)!.push(l);
+            skuLotsMap.get(psKey)!.push(l);
           }
         }
       });
@@ -419,7 +480,7 @@ export const PickingWave: React.FC = () => {
       // Aggregate ALL items across all pending orders
       const aggregatedItems: PickingItem[] = [];
       pendingOrders.forEach(ord => {
-        const mapped = mapOrderItems(ord, lotMap, prodMap, skuLotsMap);
+        const mapped = mapOrderItems(ord, lotMap, prodMap, skuLotsMap, activeProducts, activeLots);
         aggregatedItems.push(...mapped);
       });
 
