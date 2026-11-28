@@ -359,7 +359,7 @@ export class UserService implements OnModuleInit {
         name: 'Bùi Hoàng Long',
         role: UserRole.DRIVER,
         warehouseCode: 'WH-002',
-        code: 'NV-BT01',
+        code: 'TX-BT01',
         phone: '0988112244',
         department: 'Vận chuyển Hub Bình Thạnh',
         assignedZone: 'Xe Máy Thùng Lạnh',
@@ -379,7 +379,7 @@ export class UserService implements OnModuleInit {
         name: 'Trương Gia Huy',
         role: UserRole.DRIVER,
         warehouseCode: 'WH-003',
-        code: 'NV-TB01',
+        code: 'TX-TB01',
         phone: '0977223344',
         department: 'Vận chuyển Hub Tân Bình',
         assignedZone: 'Xe Máy Thùng Lạnh',
@@ -403,18 +403,6 @@ export class UserService implements OnModuleInit {
         phone: '0908901234',
         department: 'Kinh doanh',
         assignedZone: 'Văn phòng',
-        shift: 'HANH_CHINH',
-        status: 'ACTIVE',
-      },
-      {
-        email: 'customer@sfwms.vn',
-        name: 'Khách hàng Test',
-        role: UserRole.CUSTOMER,
-        warehouseCode: undefined,
-        code: 'KH-01',
-        phone: '0909999999',
-        department: 'Khách hàng',
-        assignedZone: '',
         shift: 'HANH_CHINH',
         status: 'ACTIVE',
       },
@@ -614,52 +602,34 @@ export class UserService implements OnModuleInit {
     if (!identifier) return null;
     const clean = identifier.trim().toLowerCase();
     const digits = clean.replace(/\D/g, '');
-
-    // Common phone & employee code alias mapping to guaranteed seed accounts
-    const emailAliases: Record<string, string> = {
-      '0377019958': 'lecongchung@sfwms.vn',
-      'admin-chung': 'lecongchung@sfwms.vn',
-      'driver@sfwms.vn': 'driver.tri@sfwms.vn',
-      '0977112233': 'driver.tri@sfwms.vn',
-      '0944778899': 'truck@sfwms.vn',
-      '0918776655': 'van@sfwms.vn',
-      '0909888111': 'hung.nguyen@sfwms.vn',
-      '0933445566': 'bao.tran@sfwms.vn',
-      '0966332211': 'tung.le@sfwms.vn',
-      '0988112244': 'long.bui@sfwms.vn',
-      '0977223344': 'huy.truong@sfwms.vn',
-      'nv-tk01': 'truck@sfwms.vn',
-      'nv-van01': 'van@sfwms.vn',
-      'nv-gv05': 'driver.tri@sfwms.vn',
-      'tx-gv05': 'driver.tri@sfwms.vn',
-      'nv-gv06': 'hung.nguyen@sfwms.vn',
-      'nv-gv07': 'bao.tran@sfwms.vn',
-      'nv-gv09': 'tung.le@sfwms.vn',
-      'nv-bt01': 'long.bui@sfwms.vn',
-      'nv-tb01': 'huy.truong@sfwms.vn',
-    };
-
-    const targetEmail = emailAliases[clean] || (digits.length >= 8 ? emailAliases[digits] : null);
-    if (targetEmail) {
-      const userByAlias = await this.userRepository.findOne({
-        where: { email: ILike(targetEmail) },
-        relations: ['addresses'],
-      });
-      if (userByAlias) return userByAlias;
-    }
+    const isPhoneQuery = !clean.includes('@') && digits.length >= 9 && /^[+\d\s.()-]+$/.test(clean);
 
     const whereConditions: any[] = [
       { email: ILike(clean) },
       { code: ILike(clean) },
     ];
-    if (digits.length >= 8) {
-      whereConditions.push({ phone: ILike(`%${digits}%`) });
+    if (isPhoneQuery) {
+      whereConditions.push({ phone: digits });
+      if (digits.startsWith('84') && digits.length === 11) {
+        whereConditions.push({ phone: `0${digits.slice(2)}` });
+      }
     }
 
-    return this.userRepository.findOne({
+    const directMatch = await this.userRepository.findOne({
       where: whereConditions,
       relations: ['addresses'],
     });
+    if (directMatch) return directMatch;
+
+    // Legacy generic alias support when driver@sfwms.vn is used
+    if (clean === 'driver@sfwms.vn') {
+      return this.userRepository.findOne({
+        where: { email: ILike('driver.tri@sfwms.vn') },
+        relations: ['addresses'],
+      });
+    }
+
+    return null;
   }
 
   async findOneById(id: string): Promise<User | null> {

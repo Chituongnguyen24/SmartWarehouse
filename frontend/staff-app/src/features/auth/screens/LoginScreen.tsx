@@ -12,20 +12,20 @@ import {
   Image,
 } from 'react-native';
 import { useAuth } from '@/features/auth';
-import { loginStaffApi } from '@/shared';
-import { COLORS } from '@/shared';
-import { Lock, Mail, LogIn, AlertCircle, CheckCircle2 } from 'lucide-react-native';
+import { Lock, Mail, LogIn, AlertCircle } from 'lucide-react-native';
 
 export const LoginScreen: React.FC = () => {
   const { login } = useAuth();
-  const [email, setEmail] = useState('staff@sfwms.vn');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      setErrorMessage('Vui lòng nhập đầy đủ Email và Mật khẩu');
+    const cleanEmail = email.trim();
+    const cleanPass = password.trim();
+    if (!cleanEmail || !cleanPass) {
+      setErrorMessage('Vui lòng nhập đầy đủ tài khoản nhân viên kho và mật khẩu');
       return;
     }
 
@@ -33,7 +33,7 @@ export const LoginScreen: React.FC = () => {
     setErrorMessage(null);
 
     try {
-      const result = await login(email, password);
+      const result = await login(cleanEmail, cleanPass);
       if (result && !result.success) {
         setErrorMessage(result.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
       }
@@ -44,19 +44,12 @@ export const LoginScreen: React.FC = () => {
     }
   };
 
-  const handleQuickSelect = (accEmail: string) => {
-    setEmail(accEmail);
-    setPassword('password123');
-    setErrorMessage(null);
-  };
-
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Brand Header with Real City Mart Logo */}
         <View style={styles.header}>
           <Image
             source={require('../../../../assets/logos/logo_full.png')}
@@ -72,49 +65,51 @@ export const LoginScreen: React.FC = () => {
           </Text>
         </View>
 
-        {/* Form Card */}
         <View style={styles.card}>
           {errorMessage && (
             <View style={styles.errorBox}>
-              <AlertCircle size={16} color="#dc2626" />
+              <AlertCircle size={16} color="#991b1b" />
               <Text style={styles.errorText}>{errorMessage}</Text>
             </View>
           )}
 
-          {/* Email Field */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>TÀI KHOẢN EMAIL</Text>
+            <Text style={styles.label}>Tài khoản nhân viên kho</Text>
             <View style={styles.inputWrap}>
               <Mail size={18} color="#64748b" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Nhập email nhân viên..."
+                placeholder="Số điện thoại, Email hoặc Mã nhân viên..."
                 placeholderTextColor="#94a3b8"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (errorMessage) setErrorMessage(null);
+                }}
                 autoCapitalize="none"
                 keyboardType="email-address"
               />
             </View>
           </View>
 
-          {/* Password Field */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>MẬT KHẨU</Text>
+            <Text style={styles.label}>Mật khẩu</Text>
             <View style={styles.inputWrap}>
               <Lock size={18} color="#64748b" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Nhập mật khẩu..."
+                placeholder="Nhập mật khẩu đăng nhập..."
                 placeholderTextColor="#94a3b8"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (errorMessage) setErrorMessage(null);
+                }}
                 secureTextEntry
               />
             </View>
           </View>
 
-          {/* Login Button */}
           <TouchableOpacity
             style={[styles.loginBtn, loading && { opacity: 0.7 }]}
             onPress={handleLogin}
@@ -126,52 +121,9 @@ export const LoginScreen: React.FC = () => {
             ) : (
               <View style={styles.btnContent}>
                 <LogIn size={18} color="#ffffff" style={{ marginRight: 8 }} />
-                <Text style={styles.loginBtnText}>BẮT ĐẦU VÀO CA TRỰC</Text>
+                <Text style={styles.loginBtnText}>Bắt đầu vào ca trực</Text>
               </View>
             )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Quick Demo Role Selector */}
-        <View style={styles.quickSection}>
-          <Text style={styles.quickTitle}>CHỌN NHANH TÀI KHOẢN:</Text>
-          
-          <TouchableOpacity
-            style={[styles.quickCard, email === 'staff@sfwms.vn' && styles.quickCardActive]}
-            onPress={() => handleQuickSelect('staff@sfwms.vn')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.avatarPill}>
-              <Text style={styles.avatarText}>LH</Text>
-            </View>
-            <View style={{ flex: 1, marginLeft: 10 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={styles.quickName}>Lê Thị Hoa</Text>
-                <View style={styles.roleTag}>
-                  <Text style={styles.roleTagText}>Kho Gò Vấp</Text>
-                </View>
-              </View>
-              <Text style={styles.quickRole}>Nhân viên soạn hàng & đóng gói</Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.quickCard, email === 'manager@sfwms.vn' && styles.quickCardActive]}
-            onPress={() => handleQuickSelect('manager@sfwms.vn')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.avatarPill, { backgroundColor: '#0284c7' }]}>
-              <Text style={styles.avatarText}>TB</Text>
-            </View>
-            <View style={{ flex: 1, marginLeft: 10 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={styles.quickName}>Trần Văn Bình</Text>
-                <View style={[styles.roleTag, { backgroundColor: '#e0f2fe', borderColor: '#bae6fd' }]}>
-                  <Text style={[styles.roleTagText, { color: '#0284c7' }]}>Quản lý Kho</Text>
-                </View>
-              </View>
-              <Text style={styles.quickRole}>Duyệt đơn xuất nhập & điều phối ca</Text>
-            </View>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -187,55 +139,56 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
     paddingBottom: 40,
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   header: {
     alignItems: 'center',
-    marginTop: 14,
     marginBottom: 20,
   },
   logoImage: {
     width: 200,
-    height: 60,
+    height: 56,
     marginBottom: 10,
   },
   subBadge: {
-    backgroundColor: '#ecfdf5',
+    backgroundColor: '#f0fdf4',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#a7f3d0',
+    borderColor: '#bbf7d0',
   },
   subBadgeText: {
-    color: '#059669',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    color: '#166534',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.4,
   },
   welcomeText: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 20,
+    fontWeight: '700',
     color: '#0f172a',
-    marginTop: 12,
+    marginTop: 10,
   },
   headerDesc: {
-    fontSize: 12,
-    color: '#64748b',
+    fontSize: 12.5,
+    color: '#475569',
     textAlign: 'center',
     marginTop: 4,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     lineHeight: 18,
   },
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: 20,
+    borderRadius: 10,
     padding: 20,
     borderWidth: 1,
     borderColor: '#e2e8f0',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
     elevation: 2,
   },
   errorBox: {
@@ -243,37 +196,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: '#fef2f2',
-    padding: 12,
-    borderRadius: 10,
+    padding: 10,
+    borderRadius: 6,
     marginBottom: 14,
     borderWidth: 1,
     borderColor: '#fecaca',
   },
   errorText: {
-    color: '#dc2626',
-    fontSize: 12,
+    color: '#991b1b',
+    fontSize: 12.5,
     flex: 1,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   fieldGroup: {
     marginBottom: 16,
   },
   label: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#475569',
+    fontSize: 12.5,
+    fontWeight: '500',
+    color: '#334155',
     marginBottom: 6,
-    letterSpacing: 0.5,
   },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f8fafc',
-    borderRadius: 12,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#cbd5e1',
-    paddingHorizontal: 14,
-    height: 48,
+    paddingHorizontal: 12,
+    height: 46,
   },
   inputIcon: {
     marginRight: 10,
@@ -282,20 +234,15 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#0f172a',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '400',
   },
   loginBtn: {
-    backgroundColor: '#059669',
-    borderRadius: 12,
-    height: 50,
+    backgroundColor: '#0f766e',
+    borderRadius: 8,
+    height: 46,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 6,
-    shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
+    marginTop: 4,
   },
   btnContent: {
     flexDirection: 'row',
@@ -305,72 +252,6 @@ const styles = StyleSheet.create({
   loginBtnText: {
     color: '#ffffff',
     fontSize: 14,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  quickSection: {
-    marginTop: 22,
-  },
-  quickTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#64748b',
-    marginBottom: 10,
-    letterSpacing: 0.5,
-  },
-  quickCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  quickCardActive: {
-    borderColor: '#059669',
-    backgroundColor: '#ecfdf5',
-  },
-  avatarPill: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: '#059669',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    color: '#ffffff',
-    fontWeight: '900',
-    fontSize: 13,
-  },
-  quickName: {
-    color: '#0f172a',
-    fontSize: 13.5,
-    fontWeight: '800',
-  },
-  quickRole: {
-    color: '#64748b',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  roleTag: {
-    backgroundColor: '#ecfdf5',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#a7f3d0',
-  },
-  roleTagText: {
-    color: '#059669',
-    fontSize: 10.5,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });

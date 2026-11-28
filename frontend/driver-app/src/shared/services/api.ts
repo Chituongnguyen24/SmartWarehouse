@@ -24,7 +24,7 @@ export const getDriverServiceUrl = (port: number): string => {
   const host = getResolvedHost();
   if (host.includes('duckdns.org') || host.includes('amazonaws.com') || host.includes('.com') || host.includes('.vn')) {
     const clean = host.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    return `http://${clean}`;
+    return `https://${clean}`;
   }
   const cleanHost = host.replace(/^https?:\/\//, '').replace(/\/$/, '');
   return `http://${cleanHost}:${port}`;
@@ -89,7 +89,7 @@ export const driverApi = {
   async getOrders(warehouseCode: string = 'WH-006'): Promise<any[]> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       const url = warehouseCode && warehouseCode !== 'ALL'
         ? `${API_CONFIG.ORDER_SERVICE}/orders?warehouseCode=${encodeURIComponent(warehouseCode)}`
@@ -117,7 +117,7 @@ export const driverApi = {
   async getOutboundOrders(warehouseCode?: string): Promise<any[]> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       const url = warehouseCode && warehouseCode !== 'ALL'
         ? `${API_CONFIG.OUTBOUND_SERVICE}/outbound-orders?warehouseCode=${encodeURIComponent(warehouseCode)}`
@@ -358,8 +358,7 @@ export const driverApi = {
     }
 
     return {
-      success: true,
-      url: `https://s3-smartwarehouse-kltn.s3.ap-southeast-1.amazonaws.com/pod-proofs/${orderId}_${Date.now()}.jpg`,
+      success: false,
     };
   },
 
@@ -448,7 +447,7 @@ export const driverApi = {
   async getAllDrivers(): Promise<any[]> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
       const response = await fetch(`${API_CONFIG.AUTH_SERVICE}/users/drivers`, {
         method: 'GET',
         headers: getAuthHeaders(),
@@ -465,63 +464,106 @@ export const driverApi = {
   },
 
   /**
-   * Đăng nhập tài xế chuẩn JWT qua Auth Service (:3012)
+   * Đăng nhập tài xế chuẩn JWT qua Auth Service (:3012) - Chỉ cho phép vai trò DRIVER
    */
-  async login(emailOrPhone: string, password: string = 'password123'): Promise<{ token?: string; user?: any } | null> {
+  async login(
+    emailOrPhone: string,
+    password: string = ''
+  ): Promise<{ success: boolean; token?: string; user?: any; error?: string }> {
+    const roleLabels: Record<string, string> = {
+      ADMIN: 'Quản trị viên',
+      WAREHOUSE_MANAGER: 'Quản lý kho',
+      WAREHOUSE_STAFF: 'Nhân viên kho',
+      SALES_STAFF: 'Nhân viên kinh doanh',
+      CUSTOMER: 'Khách hàng',
+      DRIVER: 'Tài xế giao nhận',
+    };
+
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       const rawInput = emailOrPhone.trim();
       const cleanDigits = rawInput.replace(/\D/g, '');
-      let email = rawInput;
-
-      if (!rawInput.includes('@')) {
-        // Map phone number or staff code to corresponding backend driver email
-        const phoneToEmail: Record<string, string> = {
-          '0377019958': 'lecongchung@sfwms.vn',
-          'ADMIN-CHUNG': 'lecongchung@sfwms.vn',
-          '0977112233': 'driver.tri@sfwms.vn',
-          '0944778899': 'truck@sfwms.vn',
-          '0918776655': 'van@sfwms.vn',
-          '0909888111': 'hung.nguyen@sfwms.vn',
-          '0933445566': 'bao.tran@sfwms.vn',
-          '0966332211': 'tung.le@sfwms.vn',
-          '0988112244': 'long.bui@sfwms.vn',
-          '0977223344': 'huy.truong@sfwms.vn',
-          'NV-TK01': 'truck@sfwms.vn',
-          'NV-VAN01': 'van@sfwms.vn',
-          'NV-GV05': 'driver.tri@sfwms.vn',
-          'TX-GV05': 'driver.tri@sfwms.vn',
-          'NV-GV06': 'hung.nguyen@sfwms.vn',
-          'NV-GV07': 'bao.tran@sfwms.vn',
-          'NV-GV09': 'tung.le@sfwms.vn',
-          'NV-BT01': 'long.bui@sfwms.vn',
-          'NV-TB01': 'huy.truong@sfwms.vn',
-        };
-        email = phoneToEmail[cleanDigits] || phoneToEmail[rawInput.toUpperCase()] || rawInput;
-      }
+      const isPhoneLike = !rawInput.includes('@') && cleanDigits.length >= 9 && /^[+\d\s.()-]+$/.test(rawInput);
+      const identifier = isPhoneLike ? cleanDigits : rawInput;
 
       const response = await fetch(`${API_CONFIG.AUTH_SERVICE}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email: identifier,
+          phone: isPhoneLike ? cleanDigits : undefined,
+          account: rawInput,
+          password,
+          clientApp: 'DRIVER_APP',
+        }),
         signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
-      if (response.ok) {
-        const data = await response.json();
-        const token = data.access_token || data.token;
-        if (token) {
-          setAuthToken(token);
+
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        if (response.status === 401) {
+          return {
+            success: false,
+            error: errBody.message || 'Số điện thoại/Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại!',
+          };
         }
-        return { token, user: data.user || data };
+        if (response.status === 403) {
+          return {
+            success: false,
+            error: errBody.message || 'Tài khoản không có quyền truy cập Ứng dụng Tài xế!',
+          };
+        }
+        return {
+          success: false,
+          error: errBody.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin tài khoản!',
+        };
       }
-    } catch (error) {
-      // Fallback
+
+      const data = await response.json();
+      const token = data.access_token || data.token;
+      const user = data.user || data;
+
+      if (!token || !user) {
+        return {
+          success: false,
+          error: 'Máy chủ xác thực không trả về phiên làm việc hợp lệ.',
+        };
+      }
+
+      const statusUpper = String(user.status || 'ACTIVE').toUpperCase();
+      if (statusUpper === 'INACTIVE' || statusUpper === 'LOCKED' || user.lockedAt) {
+        setAuthToken(null);
+        return {
+          success: false,
+          error: 'Tài khoản tài xế này đã bị khóa hoặc tạm ngừng hoạt động. Vui lòng liên hệ Quản lý kho!',
+        };
+      }
+
+      const userRole = String(user.role || '').toUpperCase();
+      if (userRole !== 'DRIVER') {
+        setAuthToken(null);
+        const roleName = roleLabels[userRole] || userRole || 'Khác';
+        return {
+          success: false,
+          error: `Tài khoản thuộc vai trò "${roleName}" không được phép đăng nhập vào Ứng dụng Tài xế. Vui lòng sử dụng tài khoản Tài xế giao nhận!`,
+        };
+      }
+
+      setAuthToken(token);
+      return { success: true, token, user };
+    } catch (error: any) {
+      const isTimeout = error?.name === 'AbortError';
+      return {
+        success: false,
+        error: isTimeout
+          ? 'Quá thời gian kết nối máy chủ xác thực. Vui lòng kiểm tra mạng Wi-Fi/4G và thử lại.'
+          : 'Không thể kết nối đến máy chủ xác thực. Vui lòng kiểm tra kết nối mạng.',
+      };
     }
-    return null;
   },
 
   /**

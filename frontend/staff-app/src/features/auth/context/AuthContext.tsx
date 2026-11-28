@@ -7,6 +7,15 @@ import { getBackendHost, setBackendHost, DEFAULT_LAN_IP, getServiceBaseUrl } fro
 const getUserApi = () => getServiceBaseUrl(3012);
 
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000; // Exactly 24 hours
+const ALLOWED_STAFF_APP_ROLES = ['WAREHOUSE_STAFF'];
+const STAFF_ROLE_LABELS: Record<string, string> = {
+  ADMIN: 'Quản trị viên',
+  WAREHOUSE_MANAGER: 'Quản lý kho',
+  WAREHOUSE_STAFF: 'Nhân viên vận hành kho',
+  SALES_STAFF: 'Nhân viên kinh doanh',
+  DRIVER: 'Tài xế giao nhận',
+  CUSTOMER: 'Khách hàng',
+};
 
 interface AuthContextType {
   user: StaffUser | null;
@@ -70,10 +79,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           logout();
         } else {
           const parsedUser: StaffUser = JSON.parse(savedUserStr);
-          setUser(parsedUser);
-          setToken(savedToken);
-          setActiveWarehouse(parsedUser.warehouseCode || 'WH-006');
-          setAuthToken(savedToken);
+          const savedRole = String(parsedUser?.role || '').toUpperCase();
+          if (!ALLOWED_STAFF_APP_ROLES.includes(savedRole)) {
+            console.warn(`Invalid role "${savedRole}" in Staff App session. Logging out.`);
+            logout();
+          } else {
+            setUser(parsedUser);
+            setToken(savedToken);
+            setActiveWarehouse(parsedUser.warehouseCode || 'WH-006');
+            setAuthToken(savedToken);
+          }
         }
       } else {
         setUser(null);
@@ -110,13 +125,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Case A: Direct user object passed (e.g. login(user, token))
       if (typeof emailOrUser === 'object' && emailOrUser !== null) {
         const apiUser = emailOrUser;
-        const authToken = passwordOrToken || apiUser.token || apiUser.access_token || 'mock-staff-jwt-token';
+        const directRole = String(apiUser.role || '').toUpperCase();
+        if (!ALLOWED_STAFF_APP_ROLES.includes(directRole)) {
+          const roleLabel = STAFF_ROLE_LABELS[directRole] || directRole || 'Khác';
+          return {
+            success: false,
+            message: `Tài khoản thuộc vai trò "${roleLabel}" không được phép đăng nhập vào Ứng dụng Nhân viên kho. Vui lòng sử dụng tài khoản Nhân viên vận hành kho!`,
+          };
+        }
+        const authToken = passwordOrToken || apiUser.token || apiUser.access_token;
+        if (!authToken) {
+          return { success: false, message: 'Không tìm thấy phiên xác thực hợp lệ!' };
+        }
         const staffUser: StaffUser = {
           id: apiUser.id || 'usr-staff',
           code: apiUser.code || (apiUser.warehouseCode ? `NV-${apiUser.warehouseCode.replace('WH-', '')}01` : 'NV-01'),
           name: apiUser.name || 'Nhân viên trực kho',
           email: apiUser.email || 'staff@sfwms.vn',
-          role: apiUser.role || 'WAREHOUSE_STAFF',
+          role: 'WAREHOUSE_STAFF',
           warehouseCode: apiUser.warehouseCode || 'WH-006',
           warehouseName: warehouseNames[apiUser.warehouseCode || 'WH-006'] || `Kho ${apiUser.warehouseCode || 'WH-006'}`,
           shift: apiUser.shift || 'CA_SANG',
@@ -140,18 +166,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Case B: Account/Email and password strings
       const accountInput = String(emailOrUser || '').trim();
+      const cleanDigits = accountInput.replace(/\D/g, '');
+      const isPhoneLike = !accountInput.includes('@') && cleanDigits.length >= 9 && /^[+\d\s.()-]+$/.test(accountInput);
+      const normalizedAccount = isPhoneLike ? cleanDigits : accountInput;
       const password = String(passwordOrToken || '').trim();
-
-      // Remember or forget account based on rememberMe option
-      if (typeof window !== 'undefined' && window.localStorage) {
-        if (rememberMe) {
-          localStorage.setItem('sfwms_staff_remembered_account', accountInput);
-          setRememberedAccount(accountInput);
-        } else {
-          localStorage.removeItem('sfwms_staff_remembered_account');
-          setRememberedAccount('');
-        }
-      }
 
       let res: Response;
       const primaryUrl = `${getServiceBaseUrl(3012)}/auth/login`;
@@ -160,21 +178,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         res = await fetch(primaryUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: accountInput, password }),
+          body: JSON.stringify({
+            email: normalizedAccount,
+            phone: isPhoneLike ? cleanDigits : undefined,
+            account: accountInput,
+            password,
+            clientApp: 'STAFF_APP',
+          }),
         });
       } catch (primaryErr: any) {
         console.error('Login network error:', primaryUrl, primaryErr);
         return {
           success: false,
-          message: `Không thể kết nối đến máy chủ xác thực (${primaryUrl}). Vui lòng kiểm tra xem backend đã khởi động chưa và thử lại!`,
+          message: `Không thể kết nối đến máy chủ xác thực (${primaryUrl}). Vui lòng kiểm tra kết nối mạng và thử lại!`,
         };
       }
 
       if (!res.ok) {
-        if (res.status === 401) {
-          return { success: false, message: 'Tài khoản hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại!' };
-        }
         const err = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+          return {
+            success: false,
+            message: err.message || 'Tài khoản hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại!',
+          };
+        }
+        if (res.status === 403) {
+          return {
+            success: false,
+            message: err.message || 'Tài khoản không có quyền truy cập Ứng dụng Nhân viên kho!',
+          };
+        }
         return {
           success: false,
           message: err.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin!',
@@ -187,6 +220,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (!authToken) {
         return { success: false, message: 'Máy chủ không trả về JWT Token hợp lệ!' };
+      }
+
+      const statusUpper = String(apiUser.status || 'ACTIVE').toUpperCase();
+      if (statusUpper === 'INACTIVE' || statusUpper === 'LOCKED' || apiUser.lockedAt) {
+        return {
+          success: false,
+          message: 'Tài khoản nhân viên này đã bị khóa hoặc tạm ngừng hoạt động. Vui lòng liên hệ Quản lý kho!',
+        };
+      }
+
+      const apiRole = String(apiUser.role || '').toUpperCase();
+      if (!ALLOWED_STAFF_APP_ROLES.includes(apiRole)) {
+        const roleLabel = STAFF_ROLE_LABELS[apiRole] || apiRole || 'Khác';
+        return {
+          success: false,
+          message: `Tài khoản thuộc vai trò "${roleLabel}" không được phép đăng nhập vào Ứng dụng Nhân viên kho (C.T Mart Staff). Vui lòng sử dụng tài khoản Nhân viên vận hành kho!`,
+        };
+      }
+
+      // Only remember valid staff accounts after role verification succeeds
+      if (typeof window !== 'undefined' && window.localStorage) {
+        if (rememberMe) {
+          localStorage.setItem('sfwms_staff_remembered_account', accountInput);
+          setRememberedAccount(accountInput);
+        } else {
+          localStorage.removeItem('sfwms_staff_remembered_account');
+          setRememberedAccount('');
+        }
       }
 
       const staffUser: StaffUser = {
