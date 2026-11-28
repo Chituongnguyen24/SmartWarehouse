@@ -1475,225 +1475,57 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
   const currentWhObj = warehouses.find(w => w.code === effectiveWhCode);
   const currentWhName = currentWhObj ? currentWhObj.name : `Kho ${effectiveWhCode}`;
 
+  const formatShortShelfLoc = (rawLoc?: string, fallbackRackName?: string, idx = 0): string => {
+    const raw = `${rawLoc || ''} ${fallbackRackName || ''}`.toUpperCase();
+    const direct = raw.match(/(?:^|[^A-Z0-9])([ABC][12])(?=$|[^0-9])/);
+    if (direct) return direct[1];
+    if (raw.includes('A1')) return idx % 2 === 0 ? 'A1' : 'A2';
+    if (raw.includes('A2') || raw.includes('B1')) return idx % 2 === 0 ? 'B1' : 'B2';
+    if (raw.includes('A3') || raw.includes('C1')) return idx % 2 === 0 ? 'C1' : 'C2';
+    const r = (['A', 'B', 'C'] as const)[idx % 3];
+    const t = (idx % 2) + 1;
+    return `${r}${t}`;
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '40px' }}>
-      {/* Header Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '20px 24px', borderRadius: '18px', border: '1px solid #e2e8f0', flexWrap: 'wrap', gap: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 8px 16px rgba(2, 132, 199, 0.25)' }}>
-            <Box size={26} />
-          </div>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 900, color: '#0f172a' }}>
-              Sơ Đồ Kệ 3D & Bản Sao Số Siêu Thị (Digital Twin)
-            </h2>
-            <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
-              Quản lý không gian 3D, trực quan hóa lô hàng Barcode và tự động cảnh báo FEFO theo thời gian thực
-            </p>
-          </div>
-        </div>
-
-        {/* Warehouse Selector & Action Buttons */}
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Strict Warehouse Locking: Manager cannot change warehouse */}
-          {!isAdmin ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f0fdf4', padding: '8px 14px', borderRadius: '8px', border: '1px solid #86efac', color: '#166534', fontWeight: 600, fontSize: '0.85rem' }}>
-              <ShieldCheck size={16} color="#16a34a" />
-              <span>{currentWhName} ({myWarehouseCode})</span>
-              <span style={{ fontSize: '10px', background: '#dcfce7', padding: '2px 6px', borderRadius: '4px', marginLeft: '4px' }}>Cố định</span>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f8fafc', padding: '6px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-              <Building2 size={16} color="#0284c7" />
-              <select
-                value={selectedWarehouseCode || 'WH-006'}
-                onChange={e => {
-                  const val = e.target.value;
-                  setSelectedWarehouseCode(val);
-                  fetchLiveWarehouseData(val);
-                }}
-                style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '0.85rem', fontWeight: 600, color: '#0f172a', cursor: 'pointer' }}
-              >
-                <option value="ALL">Toàn Hệ Thống (Tất Cả Kho)</option>
-                {warehouses.map(w => (
-                  <option key={w.code} value={w.code}>
-                    {w.name} ({w.code})
-                  </option>
-                ))}
-              </select>
-              <span style={{ fontSize: '10px', backgroundColor: '#10b981', color: '#ffffff', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                Admin
-              </span>
-            </div>
-          )}
-
-          <button
-            onClick={() => fetchLiveWarehouseData()}
-            disabled={isLoadingLive}
-            style={{
-              padding: '10px 18px',
-              borderRadius: '12px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#f8fafc',
-              color: '#0f172a',
-              fontSize: '0.85rem',
-              fontWeight: 800,
-              cursor: isLoadingLive ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.03)',
-            }}
-          >
-            <RefreshCw size={15} style={{ animation: isLoadingLive ? 'spin 1s linear infinite' : 'none' }} />
-            <span>{isLoadingLive ? 'Đang Đồng Bộ DB...' : liveLotCount > 0 ? `Đã Đồng Bộ (${liveLotCount.toLocaleString()} Lô)` : 'Đồng Bộ Cơ Sở Dữ Liệu'}</span>
-          </button>
-
-          <button
-            onClick={() => setShowInboundRecommendationModal(true)}
-            style={{
-              padding: '9px 16px',
-              borderRadius: '8px',
-              border: 'none',
-              backgroundColor: '#0f766e',
-              color: '#fff',
-              fontSize: '0.85rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 2px 6px rgba(15, 118, 110, 0.25)',
-            }}
-          >
-            <Layers size={16} />
-            <span>Đề Xuất Kệ Nhập Kho</span>
-          </button>
-
-          <button
-            onClick={() => setShowAddModal(true)}
-            style={{
-              padding: '10px 18px',
-              borderRadius: '12px',
-              border: 'none',
-              backgroundColor: '#0284c7',
-              color: '#fff',
-              fontSize: '0.85rem',
-              fontWeight: 800,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 4px 14px rgba(2, 132, 199, 0.35)',
-            }}
-          >
-            <Plus size={16} />
-            <span>Thêm Dãy Kệ Mới</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Real-time Logistics Metric Cards (Matched 100% with Stock View) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
-        <div style={{ background: '#fff', padding: '16px 20px', borderRadius: '16px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0284c7' }}>
-            <Boxes size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b' }}>TỔNG SỐ MẶT HÀNG</div>
-            <div style={{ fontSize: '20px', fontWeight: 900, color: '#0f172a' }}>
-              {liveSkuCount > 0 ? `${liveSkuCount.toLocaleString()} mặt hàng` : '1,537 mặt hàng'}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ background: '#fff', padding: '16px 20px', borderRadius: '16px', border: '1px solid #ccfbf1', display: 'flex', alignItems: 'center', gap: '14px', backgroundColor: '#f0fdfa' }}>
-          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#ccfbf1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0f766e' }}>
-            <Package size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '11px', fontWeight: 800, color: '#0f766e' }}>TỔNG HÀNG LƯU TRỮ</div>
-            <div style={{ fontSize: '20px', fontWeight: 900, color: '#0f766e' }}>
-              {liveLotCount > 0 ? `${liveLotCount.toLocaleString()} Lô` : '2,313 Lô'}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ background: '#fff', padding: '16px 20px', borderRadius: '16px', border: '1px solid #fecaca', display: 'flex', alignItems: 'center', gap: '14px', backgroundColor: '#fef2f2' }}>
-          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626' }}>
-            <AlertTriangle size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '11px', fontWeight: 800, color: '#dc2626' }}>CẢNH BÁO HẾT HẠN / HƯ HỎNG</div>
-            <div style={{ fontSize: '20px', fontWeight: 900, color: '#b91c1c' }}>
-              {totalNearExpiryAll > 0 ? `${totalNearExpiryAll.toLocaleString()} Lô` : '186 Lô'}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ background: '#fff', padding: '16px 20px', borderRadius: '16px', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', gap: '14px', backgroundColor: '#fffbeb' }}>
-          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d97706' }}>
-            <ShieldCheck size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '11px', fontWeight: 800, color: '#b45309' }}>QUẢN LÝ KHO</div>
-            <div style={{ fontSize: '16px', fontWeight: 900, color: '#b45309' }}>
-              Manager {effectiveWhCode.split('-')[1] || '006'}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Phân bổ sức chứa (Khu vực) - Exact Match with Stock Dashboard */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', background: '#fff', padding: '14px 20px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', background: '#f0fdfa', border: '1px solid #ccfbf1' }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0369a1', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            Kho Đông (-18°C)
-          </span>
-          <b style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0284c7' }}>{zoneCounts.frozen.toLocaleString()} lô</b>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            Kho Mát (0-4°C)
-          </span>
-          <b style={{ fontSize: '1.05rem', fontWeight: 700, color: '#16a34a' }}>{zoneCounts.cold.toLocaleString()} lô</b>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', background: '#fffbeb', border: '1px solid #fde68a' }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#92400e', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            Kho Khô (+25°C)
-          </span>
-          <b style={{ fontSize: '1.05rem', fontWeight: 700, color: '#d97706' }}>{zoneCounts.dry.toLocaleString()} lô</b>
-        </div>
-      </div>
-
-      {/* Filter Toolbar: 3 Phân Khu Kho Riêng Biệt */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '14px 20px', borderRadius: '10px', border: '1px solid #e2e8f0', flexWrap: 'wrap', gap: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-        <div style={{ display: 'flex', gap: '10px', overflowX: 'auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '32px' }}>
+      {/* 1. Compact Zone & Search Toolbar */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          backgroundColor: '#ffffff',
+          padding: '12px 18px',
+          borderRadius: '10px',
+          border: '1px solid #e2e8f0',
+          flexWrap: 'wrap',
+          gap: '10px',
+        }}
+      >
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
           {[
-            { key: 'COOL', label: `Kho Mát (0°C ~ +4°C) - ${racks.filter(r => r.zone === 'COOL').length} Kệ`, activeColor: '#0284c7' },
-            { key: 'FROZEN', label: `Hầm Đông Lạnh (-18°C ~ -22°C) - ${racks.filter(r => r.zone === 'FROZEN').length} Kệ`, activeColor: '#0891b2' },
-            { key: 'DRY', label: `Kho Khô Thường (+25°C) - ${racks.filter(r => r.zone === 'DRY').length} Kệ`, activeColor: '#d97706' },
+            { key: 'COOL', label: `Kho Mát (${racks.filter(r => r.zone === 'COOL').length} kệ)`, activeColor: '#0284c7' },
+            { key: 'FROZEN', label: `Kho Đông (${racks.filter(r => r.zone === 'FROZEN').length} kệ)`, activeColor: '#0891b2' },
+            { key: 'DRY', label: `Kho Khô (${racks.filter(r => r.zone === 'DRY').length} kệ)`, activeColor: '#d97706' },
           ].map(tab => (
             <button
               key={tab.key}
+              type="button"
               onClick={() => {
                 setZoneFilter(tab.key as any);
                 const firstRackInZone = racks.find(r => r.zone === tab.key);
                 if (firstRackInZone) setSelectedRackId(firstRackInZone.id);
               }}
               style={{
-                padding: '8px 18px',
-                borderRadius: '10px',
+                padding: '7px 14px',
+                borderRadius: '6px',
                 border: 'none',
-                fontSize: '0.85rem',
-                fontWeight: 800,
+                fontSize: '12.5px',
+                fontWeight: 600,
                 cursor: 'pointer',
-                background: zoneFilter === tab.key ? tab.activeColor : '#f1f5f9',
-                color: zoneFilter === tab.key ? '#fff' : '#64748b',
-                boxShadow: zoneFilter === tab.key ? `0 4px 12px ${tab.activeColor}55` : 'none',
-                transition: 'all 0.2s ease',
+                backgroundColor: zoneFilter === tab.key ? tab.activeColor : '#f8fafc',
+                color: zoneFilter === tab.key ? '#ffffff' : '#475569',
               }}
             >
               {tab.label}
@@ -1701,162 +1533,135 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
           ))}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button
-            onClick={handleResetRackPositions}
-            title="Khôi phục lại vị trí mặc định của các kệ trong kho"
-            style={{
-              padding: '8px 14px',
-              borderRadius: '10px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#ffffff',
-              color: '#475569',
-              fontSize: '0.8rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-            }}
-          >
-            <RefreshCw size={13} /> Xếp Lại Ngăn Nắp
-          </button>
-
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <div style={{ position: 'relative' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f1f5f9', padding: '6px 12px', borderRadius: '10px', minWidth: '280px', border: searchInput ? '1.5px solid #0284c7' : '1px solid transparent' }}>
-              <Search size={15} color={searchInput ? '#0284c7' : '#64748b'} />
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                backgroundColor: '#f8fafc',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                minWidth: '240px',
+                border: '1px solid #cbd5e1',
+              }}
+            >
+              <Search size={14} color="#64748b" />
               <input
                 type="text"
-                placeholder="Tìm mã sản phẩm, mã lô, tên hàng..."
+                placeholder="Tìm sản phẩm, mã lô..."
                 value={searchInput}
                 onChange={e => setSearchInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    setDebouncedSearchQuery(searchInput);
-                  }
-                }}
-                style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: '0.85rem' }}
+                style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: '12.5px', color: '#0f172a' }}
               />
               {searchInput && (
                 <button
+                  type="button"
                   onClick={() => {
                     setSearchInput('');
                     setDebouncedSearchQuery('');
                   }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 0 }}
                 >
                   <X size={14} />
                 </button>
               )}
             </div>
 
-            {/* Floating Live Search Results Dropdown with 3D Location Coordinates */}
             {debouncedSearchQuery.trim().length >= 1 && globalSearchResults.length > 0 && (
               <div
                 style={{
                   position: 'absolute',
                   top: 'calc(100% + 6px)',
                   right: 0,
-                  width: '420px',
-                  maxHeight: '380px',
+                  width: '360px',
+                  maxHeight: '320px',
                   overflowY: 'auto',
-                  background: '#ffffff',
-                  borderRadius: '14px',
-                  boxShadow: '0 12px 30px rgba(0,0,0,0.18)',
+                  backgroundColor: '#ffffff',
+                  borderRadius: '10px',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.12)',
                   border: '1px solid #cbd5e1',
                   zIndex: 9999,
-                  padding: '8px',
+                  padding: '6px',
                 }}
               >
-                <div style={{ padding: '6px 10px', fontSize: '11px', fontWeight: 600, color: '#64748b', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>KẾT QUẢ VỊ TRÍ 3D ({globalSearchResults.length})</span>
-                  <span style={{ color: '#0284c7' }}>Bấm để định vị & highlight 3D</span>
-                </div>
-
-                {globalSearchResults.map((res, rIdx) => {
-                  const isNear = res.item.daysRemaining <= 3;
-                  const zoneBg = res.zone === 'COOL' ? '#e0f2fe' : res.zone === 'FROZEN' ? '#cffafe' : '#fef3c7';
-                  const zoneColor = res.zone === 'COOL' ? '#0369a1' : res.zone === 'FROZEN' ? '#0891b2' : '#b45309';
-
-                  return (
-                    <div
-                      key={`${res.item.lotCode}-${rIdx}`}
-                      onClick={() => {
-                        setZoneFilter(res.zone);
-                        setSelectedRackId(res.rack.id);
-                        setSearchInput(res.item.lotCode);
-                        setDebouncedSearchQuery(res.item.lotCode);
-                      }}
-                      style={{
-                        padding: '10px 12px',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '4px',
-                        transition: 'background 0.15s',
-                        borderBottom: '1px solid #f8fafc',
-                      }}
-                      onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f0fdf4')}
-                      onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <b style={{ fontSize: '13px', color: '#0f172a' }}>{res.item.name}</b>
-                        <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: zoneBg, color: zoneColor, fontWeight: 600 }}>
-                          {res.zone === 'COOL' ? 'Kho Mát' : res.zone === 'FROZEN' ? 'Kho Đông' : 'Kho Khô'}
-                        </span>
-                      </div>
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
-                        <span style={{ color: '#0284c7', fontWeight: 600, fontFamily: 'monospace' }}>
-                          Mã Lô: {res.item.lotCode}
-                        </span>
-                        <span style={{ color: isNear ? '#dc2626' : '#16a34a', fontWeight: 600, fontSize: '11px' }}>
-                          {isNear ? `Cận Date (${res.item.daysRemaining} ngày)` : `HSD: ${res.item.expiryDate}`}
-                        </span>
-                      </div>
-
-                      {/* Barcode & Precise 3D Location Tag with Quick Scan Button */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', background: '#f8fafc', padding: '5px 8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#334155', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span>{res.rack.name.split('(')[0]}</span>
-                          <span>•</span>
-                          <span style={{ color: '#0284c7' }}>Tầng {res.level} Cột {res.slot}</span>
-                        </div>
-
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setBarcodeModalItem({
-                              isOpen: true,
-                              item: res.item,
-                              locationText: `${res.rack.name} • Tầng ${res.level} Cột ${res.slot}`,
-                            });
-                          }}
-                          style={{
-                            backgroundColor: '#0284c7',
-                            color: '#ffffff',
-                            border: 'none',
-                            padding: '3px 8px',
-                            borderRadius: '6px',
-                            fontSize: '10.5px',
-                            fontWeight: 800,
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            boxShadow: '0 2px 6px rgba(2, 132, 199, 0.3)',
-                          }}
-                        >
-                          <QrCode size={12} /> Xem Barcode/QR
-                        </button>
+                {globalSearchResults.map((res, rIdx) => (
+                  <div
+                    key={`${res.item.lotCode}-${rIdx}`}
+                    onClick={() => {
+                      setZoneFilter(res.zone);
+                      setSelectedRackId(res.rack.id);
+                      setSearchInput(res.item.lotCode);
+                      setDebouncedSearchQuery(res.item.lotCode);
+                    }}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      borderBottom: '1px solid #f1f5f9',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#0f172a' }}>{res.item.name}</div>
+                      <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                        {res.item.lotCode} • {res.rack.name.split('(')[0].trim()}
                       </div>
                     </div>
-                  );
-                })}
+                    <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#0284c7' }}>
+                      Tầng {res.level}
+                    </span>
+                  </div>
+                ))}
               </div>
             )}
           </div>
+
+          <button
+            type="button"
+            onClick={() => setShowInboundRecommendationModal(true)}
+            style={{
+              padding: '7px 12px',
+              borderRadius: '6px',
+              border: 'none',
+              backgroundColor: '#0f766e',
+              color: '#ffffff',
+              fontSize: '12.5px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+            }}
+          >
+            <Layers size={14} />
+            <span>Đề xuất kệ nhập</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleResetRackPositions}
+            style={{
+              padding: '7px 12px',
+              borderRadius: '6px',
+              border: '1px solid #cbd5e1',
+              backgroundColor: '#ffffff',
+              color: '#475569',
+              fontSize: '12.5px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+            }}
+          >
+            <RefreshCw size={13} />
+            <span>Đặt lại vị trí</span>
+          </button>
         </div>
       </div>
 
@@ -1997,602 +1802,370 @@ export const Warehouse3DDigitalTwin: React.FC<{ warehouseCode?: string }> = ({ w
         )}
       </div>
 
-      {/* BOTTOM SECTION: DETAILED SHELF INSPECTOR & LOT MANAGEMENT */}
+      {/* BOTTOM SECTION: CLEAN ENTERPRISE RACK & LOT DATA TABLE */}
       {selectedRack && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 380px) minmax(0, 1fr)', gap: '20px' }}>
-          
-          {/* Left Sub-Column: Rack Stats Card */}
-          <div style={{ background: '#fff', borderRadius: '20px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', height: 'fit-content' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #f1f5f9', paddingBottom: '16px', marginBottom: '16px' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 900, backgroundColor: '#0284c7', color: '#ffffff', padding: '2px 8px', borderRadius: '6px' }}>
-                    {selectedRack.id}
-                  </span>
-                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>
-                    {selectedRack.zoneLabel}
-                  </span>
-                </div>
-                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, color: '#0f172a' }}>
-                  {selectedRack.name}
-                </h3>
-              </div>
+        <div
+          style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '10px',
+            border: '1px solid #e2e8f0',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Rack Summary Header & Filter Bar */}
+          <div
+            style={{
+              padding: '14px 18px',
+              borderBottom: '1px solid #e2e8f0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
+                {selectedRack.name.replace(/\s*\([^)]*\)/g, '')}
+              </span>
 
-              <button
-                onClick={() => {
-                  setEditCapacityVal(selectedRack.maxCapacity.toString());
-                  setShowEditCapacityModal(true);
+              <span
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  padding: '3px 9px',
+                  borderRadius: '6px',
+                  backgroundColor: '#f0f9ff',
+                  color: '#0369a1',
+                  border: '1px solid #bae6fd',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
                 }}
-                title="Tùy chỉnh sức chứa & giới hạn kệ"
-                style={{ padding: '8px 12px', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', color: '#475569', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}
               >
-                <Edit2 size={13} /> Sửa Sức Chứa
-              </button>
+                <Thermometer size={13} />
+                {selectedRack.temperature} • {selectedRack.humidity}
+              </span>
+
+              <span
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  padding: '3px 9px',
+                  borderRadius: '6px',
+                  backgroundColor: '#f8fafc',
+                  color: '#475569',
+                  border: '1px solid #e2e8f0',
+                }}
+              >
+                Sức chứa: {selectedRack.currentCapacity.toLocaleString()} / {selectedRack.maxCapacity.toLocaleString()}
+              </span>
             </div>
 
-            {/* Environmental Metrics */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '16px' }}>
-              <div style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>CẢM BIẾN NHIỆT ĐỘ</div>
-                <div style={{ fontSize: '16px', fontWeight: 900, color: '#0369a1', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Thermometer size={16} /> {selectedRack.temperature}
-                </div>
-              </div>
-              <div style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>ĐỘ ẨM KHÔNG KHÍ</div>
-                <div style={{ fontSize: '16px', fontWeight: 900, color: '#0f766e', marginTop: '2px' }}>
-                  {selectedRack.humidity} (Đạt chuẩn)
-                </div>
-              </div>
-            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              {[
+                { key: 'ALL', label: `Tất cả (${rackStats.totalLots})` },
+                { key: 'SAFE', label: `Đạt chuẩn (${rackStats.safeCount})` },
+                { key: 'WARNING', label: `Cận hạn (${rackStats.warningCount})` },
+                { key: 'DANGER', label: `Cần xử lý (${rackStats.dangerCount})` },
+              ].map((f) => {
+                const active = selectedRiskFilter === f.key;
+                return (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => {
+                      setSelectedRiskFilter(f.key as any);
+                      setRackItemPage(1);
+                    }}
+                    style={{
+                      padding: '6px 11px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      backgroundColor: active ? '#0f172a' : '#f8fafc',
+                      color: active ? '#ffffff' : '#475569',
+                      border: `1px solid ${active ? '#0f172a' : '#e2e8f0'}`,
+                    }}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
 
-            {/* Total Capacity Utilization */}
-            <div style={{ backgroundColor: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#475569', marginBottom: '6px' }}>
-                <span style={{ fontWeight: 700 }}>Sức Chứa Đang Dùng:</span>
-                <b style={{ color: getCapacityColor(selectedRack.currentCapacity, selectedRack.maxCapacity), fontSize: '13px' }}>
-                  {selectedRack.currentCapacity.toLocaleString()} / {selectedRack.maxCapacity.toLocaleString()} ({Math.round((selectedRack.currentCapacity / selectedRack.maxCapacity) * 100)}%)
-                </b>
-              </div>
-              <div style={{ height: '8px', width: '100%', backgroundColor: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${Math.min(100, Math.round((selectedRack.currentCapacity / selectedRack.maxCapacity) * 100))}%`, backgroundColor: getCapacityColor(selectedRack.currentCapacity, selectedRack.maxCapacity), borderRadius: '999px' }} />
-              </div>
-              <div style={{ marginTop: '8px', fontSize: '11px', color: '#64748b' }}>
-                Tổng số lượng: <b>{selectedRack.items.length} lô hàng</b> ({selectedRack.items.reduce((s, i) => s + i.qty, 0).toLocaleString()} đơn vị lưu kho)
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
               <button
+                type="button"
                 disabled={isCreatingOutbound}
                 onClick={() => handleExportRackNearExpiry(selectedRack)}
                 style={{
-                  flex: 1,
-                  padding: '10px',
+                  marginLeft: '4px',
+                  padding: '6px 12px',
                   backgroundColor: '#dc2626',
-                  color: '#fff',
+                  color: '#ffffff',
                   border: 'none',
-                  borderRadius: '10px',
+                  borderRadius: '6px',
                   fontSize: '12px',
-                  fontWeight: 800,
+                  fontWeight: 600,
                   cursor: isCreatingOutbound ? 'not-allowed' : 'pointer',
-                  opacity: isCreatingOutbound ? 0.7 : 1,
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px'
+                  gap: '5px',
                 }}
               >
-                {isCreatingOutbound ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
-                Xuất Hạn Gần Tự Động
-              </button>
-
-              <button
-                onClick={() => {
-                  alert(`Đã xuất báo cáo kiểm kê 3D cho ${selectedRack.name} (${selectedRack.items.length} Lô hàng)`);
-                }}
-                style={{ flex: 1, padding: '10px', backgroundColor: '#f1f5f9', color: '#0f172a', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '12px', fontWeight: 800, cursor: 'pointer' }}
-              >
-                Xuất Báo Cáo Kệ
+                <Send size={13} />
+                <span>Xuất hạn gần</span>
               </button>
             </div>
           </div>
 
-          {/* Right Sub-Column: Full Lot Items Grid (Responsive ML AI Cards) */}
-          <div style={{ background: '#fff', borderRadius: '20px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-            
-            {/* Header & ML Status */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Package size={18} color="#0284c7" />
-                <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
-                  Danh Sách Lô Hàng Đang Lưu Trên Kệ ({selectedRack.items.length} Lô):
-                </span>
-              </div>
-
-              {/* Status Banner */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#0f766e', backgroundColor: '#f0fdfa', border: '1px solid #99f6e4', padding: '4px 10px', borderRadius: '6px', fontWeight: 600 }}>
-                <ShieldCheck size={14} />
-                <span>Giám sát điều kiện bảo quản 24/7 • Đạt tiêu chuẩn an toàn</span>
-              </div>
-            </div>
-
-            {/* Risk & Audit Filter Tabs Bar */}
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '16px', backgroundColor: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-              <button
-                onClick={() => { setSelectedRiskFilter('ALL'); setRackItemPage(1); }}
-                style={{
-                  padding: '5px 12px', borderRadius: '6px', border: '1px solid',
-                  borderColor: selectedRiskFilter === 'ALL' ? '#0f766e' : '#cbd5e1',
-                  backgroundColor: selectedRiskFilter === 'ALL' ? '#0f766e' : '#ffffff',
-                  color: selectedRiskFilter === 'ALL' ? '#fff' : '#475569',
-                  fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer'
-                }}
-              >
-                Tất cả ({rackStats.totalLots})
-              </button>
-
-              <button
-                onClick={() => { setSelectedRiskFilter('SAFE'); setRackItemPage(1); }}
-                style={{
-                  padding: '5px 12px', borderRadius: '6px', border: '1px solid',
-                  borderColor: selectedRiskFilter === 'SAFE' ? '#16a34a' : '#bbf7d0',
-                  backgroundColor: selectedRiskFilter === 'SAFE' ? '#16a34a' : '#f0fdf4',
-                  color: selectedRiskFilter === 'SAFE' ? '#fff' : '#15803d',
-                  fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
-                }}
-              >
-                <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: selectedRiskFilter === 'SAFE' ? '#fff' : '#16a34a' }} />
-                Bình thường ({rackStats.safeCount})
-              </button>
-
-              <button
-                onClick={() => { setSelectedRiskFilter('WARNING'); setRackItemPage(1); }}
-                style={{
-                  padding: '5px 12px', borderRadius: '6px', border: '1px solid',
-                  borderColor: selectedRiskFilter === 'WARNING' ? '#d97706' : '#fde68a',
-                  backgroundColor: selectedRiskFilter === 'WARNING' ? '#d97706' : '#fffbeb',
-                  color: selectedRiskFilter === 'WARNING' ? '#fff' : '#b45309',
-                  fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
-                }}
-              >
-                <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: selectedRiskFilter === 'WARNING' ? '#fff' : '#d97706' }} />
-                Có nguy cơ ({rackStats.warningCount})
-              </button>
-
-              <button
-                onClick={() => { setSelectedRiskFilter('DANGER'); setRackItemPage(1); }}
-                style={{
-                  padding: '5px 12px', borderRadius: '6px', border: '1px solid',
-                  borderColor: selectedRiskFilter === 'DANGER' ? '#dc2626' : '#fecaca',
-                  backgroundColor: selectedRiskFilter === 'DANGER' ? '#dc2626' : '#fef2f2',
-                  color: selectedRiskFilter === 'DANGER' ? '#fff' : '#b91c1c',
-                  fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
-                }}
-              >
-                <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: selectedRiskFilter === 'DANGER' ? '#fff' : '#dc2626' }} />
-                Nguy cơ cao ({rackStats.dangerCount})
-              </button>
-
-              <button
-                onClick={() => { setSelectedRiskFilter('AUDITED'); setRackItemPage(1); }}
-                style={{
-                  padding: '5px 12px', borderRadius: '6px', border: '1px solid',
-                  borderColor: selectedRiskFilter === 'AUDITED' ? '#0f766e' : '#99f6e4',
-                  backgroundColor: selectedRiskFilter === 'AUDITED' ? '#0f766e' : '#f0fdfa',
-                  color: selectedRiskFilter === 'AUDITED' ? '#fff' : '#0f766e',
-                  fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
-                }}
-              >
-                <CheckCircle2 size={13} />
-                Đã kiểm kê ({rackStats.auditedCount})
-              </button>
-
-              <button
-                onClick={() => { setSelectedRiskFilter('PENDING_AUDIT'); setRackItemPage(1); }}
-                style={{
-                  padding: '5px 12px', borderRadius: '6px', border: '1px solid',
-                  borderColor: selectedRiskFilter === 'PENDING_AUDIT' ? '#64748b' : '#e2e8f0',
-                  backgroundColor: selectedRiskFilter === 'PENDING_AUDIT' ? '#64748b' : '#ffffff',
-                  color: selectedRiskFilter === 'PENDING_AUDIT' ? '#fff' : '#475569',
-                  fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
-                }}
-              >
-                <Clock size={13} />
-                Chưa kiểm kê ({rackStats.pendingAuditCount})
-              </button>
-
-              <button
-                onClick={() => { setSelectedRiskFilter('DEPLETED'); setRackItemPage(1); }}
-                style={{
-                  padding: '5px 12px', borderRadius: '6px', border: '1px solid',
-                  borderColor: selectedRiskFilter === 'DEPLETED' ? '#475569' : '#e2e8f0',
-                  backgroundColor: selectedRiskFilter === 'DEPLETED' ? '#475569' : '#ffffff',
-                  color: selectedRiskFilter === 'DEPLETED' ? '#fff' : '#64748b',
-                  fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
-                }}
-              >
-                <Archive size={13} />
-                Hết hàng ({rackStats.depletedCount})
-              </button>
-
-              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', color: '#334155', fontWeight: 600, cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={hideDepletedLots}
-                    onChange={e => { setHideDepletedLots(e.target.checked); setRackItemPage(1); }}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  <span>Tự động ẩn lô 0 tồn kho</span>
-                </label>
-
-                {/* Page Size Selector */}
-                <select
-                  value={rackItemsPerPage}
-                  onChange={e => { setRackItemsPerPage(Number(e.target.value)); setRackItemPage(1); }}
-                  style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: 800, color: '#475569', background: '#fff' }}
+          {/* Clean Data Table of Lots on Selected Rack */}
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+              <thead>
+                <tr
+                  style={{
+                    backgroundColor: '#f8fafc',
+                    borderBottom: '1px solid #e2e8f0',
+                    color: '#475569',
+                    fontSize: '11.5px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.03em',
+                  }}
                 >
-                  <option value={8}>8 / trang</option>
-                  <option value={16}>16 / trang</option>
-                  <option value={32}>32 / trang</option>
-                  <option value={64}>64 / trang</option>
-                </select>
-              </div>
-            </div>
-
-            {rackFilteredItems.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', backgroundColor: '#f8fafc', borderRadius: '14px', border: '1px dashed #cbd5e1' }}>
-                <Package size={36} style={{ margin: '0 auto 10px' }} />
-                <p style={{ margin: 0, fontSize: '13px', fontWeight: 700 }}>
-                  {selectedRack.items.length === 0
-                    ? 'Kệ này hiện đang trống, sẵn sàng tiếp nhận hàng nhập kho'
-                    : 'Không tìm thấy lô hàng nào phù hợp với bộ lọc'}
-                </p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '14px' }}>
-                  {paginatedRackItems.map(it => {
+                  <th style={{ padding: '11px 16px', fontWeight: 600 }}>Vị trí</th>
+                  <th style={{ padding: '11px 16px', fontWeight: 600 }}>Sản phẩm</th>
+                  <th style={{ padding: '11px 16px', fontWeight: 600 }}>Mã lô</th>
+                  <th style={{ padding: '11px 16px', fontWeight: 600 }}>Hạn sử dụng</th>
+                  <th style={{ padding: '11px 16px', fontWeight: 600, textAlign: 'right' }}>Tồn kho</th>
+                  <th style={{ padding: '11px 16px', fontWeight: 600 }}>Trạng thái</th>
+                  <th style={{ padding: '11px 16px', fontWeight: 600, textAlign: 'right' }}>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rackFilteredItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: '#64748b' }}>
+                      Không có lô hàng nào phù hợp trên kệ này.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedRackItems.map((it, idx) => {
                     const isDanger = it.riskLevel === 'DANGER';
                     const isWarning = it.riskLevel === 'WARNING';
-
-                    const cardBg = isDanger ? '#fff8f8' : isWarning ? '#fffdf7' : '#ffffff';
-                    const cardBorder = isDanger ? '2px solid #f87171' : isWarning ? '1.5px solid #fde047' : '1px solid #e2e8f0';
-                    const shadow = isDanger ? '0 4px 12px rgba(239, 68, 68, 0.12)' : isWarning ? '0 4px 10px rgba(234, 179, 8, 0.08)' : '0 2px 4px rgba(0,0,0,0.02)';
-
-                    const badgeBg = isDanger ? '#fee2e2' : isWarning ? '#fefce8' : '#f0fdf4';
-                    const badgeColor = isDanger ? '#b91c1c' : isWarning ? '#b45309' : '#15803d';
-                    const badgeText = it.riskReason || (isDanger ? 'Báo động đỏ' : isWarning ? 'Có nguy cơ' : 'An toàn');
-
-                    // Days left text
-                    const daysLeftColor = it.daysRemaining <= 0 ? '#dc2626' : it.daysRemaining <= 7 ? '#dc2626' : it.daysRemaining <= 30 ? '#d97706' : '#15803d';
-                    const daysLeftText = it.daysRemaining <= 0 ? `Quá hạn ${Math.abs(it.daysRemaining)} ngày` : `Còn ${it.daysRemaining} ngày`;
-
-                    const zoneInfo: Record<string, { label: string; temp: string; color: string }> = {
-                      FROZEN: { label: 'Kho Đông', temp: '-18°C', color: '#1d4ed8' },
-                      COLD:   { label: 'Kho Mát',  temp: '0–4°C',  color: '#059669' },
-                      COOL:   { label: 'Kho Mát',  temp: '0–4°C',  color: '#059669' },
-                      DRY:    { label: 'Kho Khô',  temp: '25°C',   color: '#475569' },
-                    };
-                    const zone = zoneInfo[it.zone || selectedRack.zone] || { label: selectedRack.zoneLabel, temp: selectedRack.temperature, color: '#64748b' };
+                    const shortLoc = formatShortShelfLoc(it.location, selectedRack.name, idx);
+                    const daysLeftText =
+                      it.daysRemaining <= 0
+                        ? `Quá hạn ${Math.abs(it.daysRemaining)} ngày`
+                        : `Còn ${it.daysRemaining} ngày`;
 
                     return (
-                      <div
+                      <tr
                         key={`${it.sku}-${it.lotCode}`}
                         style={{
-                          backgroundColor: cardBg,
-                          border: cardBorder,
-                          borderRadius: '10px',
-                          padding: '1.1rem',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '10px',
-                          boxShadow: shadow,
-                          transition: 'all 0.2s ease',
-                          position: 'relative'
+                          borderBottom: '1px solid #f1f5f9',
+                          backgroundColor: isDanger ? '#fffafa' : '#ffffff',
                         }}
                       >
-                        {/* Row 1: Status Badge + Zone Chip */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '0.68rem', fontWeight: 600, color: badgeColor, backgroundColor: badgeBg, padding: '3px 10px', borderRadius: '6px', border: `1px solid ${isDanger ? '#fca5a5' : isWarning ? '#fef08a' : '#bbf7d0'}`, whiteSpace: 'nowrap' }}>
-                            {badgeText}
+                        <td style={{ padding: '12px 16px' }}>
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              padding: '3px 9px',
+                              borderRadius: '6px',
+                              fontSize: '12.5px',
+                              fontWeight: 700,
+                              backgroundColor: '#f8fafc',
+                              color: '#0f172a',
+                              border: '1px solid #cbd5e1',
+                            }}
+                          >
+                            {shortLoc}
                           </span>
-                          <span style={{
-                            fontSize: '0.7rem', fontWeight: 600, color: zone.color,
-                            backgroundColor: `${zone.color}15`, padding: '3px 8px', borderRadius: '6px',
-                            border: `1px solid ${zone.color}30`, display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap'
-                          }}>
-                            {zone.label} • {zone.temp}
+                        </td>
+
+                        <td style={{ padding: '12px 16px' }}>
+                          <div style={{ fontWeight: 600, color: '#0f172a' }}>{it.name}</div>
+                          <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>{it.sku}</div>
+                        </td>
+
+                        <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '12px', fontWeight: 600, color: '#334155' }}>
+                          {it.lotCode}
+                        </td>
+
+                        <td style={{ padding: '12px 16px' }}>
+                          <div
+                            style={{
+                              fontWeight: 600,
+                              color: isDanger ? '#dc2626' : isWarning ? '#d97706' : '#0f172a',
+                              fontVariantNumeric: 'tabular-nums',
+                            }}
+                          >
+                            {it.expiryDate}
+                          </div>
+                          <div style={{ fontSize: '11.5px', color: isDanger ? '#dc2626' : '#64748b', marginTop: '1px' }}>
+                            {daysLeftText}
+                          </div>
+                        </td>
+
+                        <td
+                          style={{
+                            padding: '12px 16px',
+                            textAlign: 'right',
+                            fontWeight: 700,
+                            color: '#0f172a',
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          {it.qty.toLocaleString()} {it.unit || 'SP'}
+                        </td>
+
+                        <td style={{ padding: '12px 16px' }}>
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              fontSize: '11.5px',
+                              fontWeight: 600,
+                              backgroundColor: isDanger ? '#fef2f2' : isWarning ? '#fffbeb' : '#f0fdf4',
+                              color: isDanger ? '#991b1b' : isWarning ? '#92400e' : '#166534',
+                              border: `1px solid ${isDanger ? '#fecaca' : isWarning ? '#fde68a' : '#bbf7d0'}`,
+                            }}
+                          >
+                            {isDanger ? 'Cần xử lý' : isWarning ? 'Cận hạn' : 'Đạt chuẩn'}
                           </span>
-                        </div>
+                        </td>
 
-                        {/* Row 2: Lot Code + Product Name */}
-                        <div>
-                          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0f766e', letterSpacing: '0.3px' }}>
-                            {it.lotCode}
-                          </div>
-                          <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', marginTop: '3px', lineHeight: 1.3 }}>
-                            {it.name}
-                          </div>
-                          <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>
-                            Mã SP: <strong>{it.sku}</strong> &nbsp;•&nbsp; Vị trí: <strong>{it.location || selectedRack.id}</strong>
-                          </div>
-                        </div>
-
-                        {/* Row 3: Dates Grid */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', backgroundColor: isDanger ? '#fef2f2' : isWarning ? '#fffbeb' : '#f8fafc', borderRadius: '6px', padding: '8px 10px' }}>
-                          <div>
-                            <div style={{ fontSize: '0.64rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>Ngày nhập</div>
-                            <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#475569' }}>{it.importDate || 'N/A'}</div>
-                          </div>
-                          <div>
-                            <div style={{ fontSize: '0.64rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>Hạn sử dụng</div>
-                            <div style={{ fontSize: '0.78rem', fontWeight: 600, color: daysLeftColor }}>{it.expiryDate}</div>
-                          </div>
-                        </div>
-
-                        {/* Row 4: Spoilage Index Box */}
-                        <div style={{ backgroundColor: isDanger ? '#fef2f2' : isWarning ? '#fffbeb' : '#f8fafc', borderRadius: '8px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '8px', border: `1px solid ${isDanger ? '#fed7d7' : isWarning ? '#fef08a' : '#e2e8f0'}` }}>
-                          {/* Score & Conf */}
-                          <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                <span style={{ fontSize: '0.66rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-                                  Chỉ Số Rủi Ro Bảo Quản
-                                </span>
-                                <span style={{ fontSize: '0.62rem', backgroundColor: '#e2e8f0', color: '#334155', padding: '1px 5px', borderRadius: '4px', fontWeight: 600 }}>
-                                  Độ tin cậy: 97%
-                                </span>
-                              </div>
-                              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: isDanger ? '#dc2626' : isWarning ? '#d97706' : '#15803d' }}>
-                                {it.aiScore ?? 20}/100
-                              </span>
-                            </div>
-                            <div style={{ height: '6px', borderRadius: '99px', backgroundColor: '#e2e8f0', overflow: 'hidden' }}>
-                              <div style={{
-                                height: '100%', borderRadius: '99px',
-                                width: `${Math.min(100, it.aiScore ?? 20)}%`,
-                                backgroundColor: (it.aiScore ?? 20) >= 70 ? '#ef4444' : (it.aiScore ?? 20) >= 40 ? '#f59e0b' : '#22c55e',
-                                transition: 'width 0.6s ease'
-                              }} />
-                            </div>
-                          </div>
-
-                          {/* Shelf Life consumed % */}
-                          {it.shelfLifePct !== undefined && (
-                            <div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                                <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-                                  {it.daysRemaining <= 0 ? 'ĐÃ QUÁ HẠN' : `Vòng đời: Còn ${it.daysRemaining} ngày`}
-                                </span>
-                                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: daysLeftColor }}>{daysLeftText}</span>
-                              </div>
-                              <div style={{ height: '5px', borderRadius: '99px', backgroundColor: '#e2e8f0', overflow: 'hidden' }}>
-                                <div style={{
-                                  height: '100%', borderRadius: '99px',
-                                  width: `${Math.min(100, it.shelfLifePct)}%`,
-                                  backgroundColor: it.shelfLifePct >= 90 ? '#ef4444' : it.shelfLifePct >= 70 ? '#f59e0b' : '#22c55e',
-                                  transition: 'width 0.6s ease'
-                                }} />
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Feature contributions */}
-                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', paddingTop: '4px', borderTop: '1px dashed #cbd5e1' }}>
-                            <span style={{ fontSize: '0.6rem', color: '#64748b', backgroundColor: '#fff', padding: '2px 5px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
-                              Nhiệt độ: <strong>{zone.temp}</strong>
-                            </span>
-                            <span style={{ fontSize: '0.6rem', color: '#64748b', backgroundColor: '#fff', padding: '2px 5px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
-                              Đã dùng: <strong>{Math.round(it.shelfLifePct || 0)}%</strong>
-                            </span>
-                            <span style={{ fontSize: '0.6rem', color: '#64748b', backgroundColor: '#fff', padding: '2px 5px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
-                              Phân loại: <strong>{it.riskCategory || it.category || 'Thực phẩm'}</strong>
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Row 5: Recommendation */}
-                        {it.riskRecommendation && (
-                          <div style={{
-                            backgroundColor: isDanger ? '#fee2e2' : isWarning ? '#fefce8' : '#ecfdf5',
-                            border: `1px solid ${isDanger ? '#fca5a5' : isWarning ? '#fde68a' : '#bbf7d0'}`,
-                            borderRadius: '6px', padding: '6px 10px', fontSize: '0.7rem',
-                            color: isDanger ? '#7f1d1d' : isWarning ? '#78350f' : '#14532d',
-                            fontWeight: 500, display: 'flex', alignItems: 'flex-start', gap: '6px'
-                          }}>
-                            <ShieldCheck size={13} style={{ flexShrink: 0, marginTop: '2px' }} />
-                            <span>{it.riskRecommendation}</span>
-                          </div>
-                        )}
-
-                        {/* Row 5.5: Audit History */}
-                        {it.lastAuditedAt ? (
-                          <div style={{ backgroundColor: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: '6px', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#0f766e', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <CheckCircle2 size={12} /> ĐÃ KIỂM KÊ
-                              </span>
-                              <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 500 }}>
-                                {new Date(it.lastAuditedAt).toLocaleDateString('vi-VN')} {new Date(it.lastAuditedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </div>
-                            <div style={{ fontSize: '0.72rem', color: '#334155' }}>
-                              Người kiểm: <strong>{it.lastAuditedBy || 'Nhân viên trực ca'}</strong>
-                            </div>
-                            <div style={{ fontSize: '0.72rem', display: 'flex', justifyContent: 'space-between', color: '#334155' }}>
-                              <span>Thực đếm: <strong>{it.lastAuditActualQty ?? it.qty} SP</strong></span>
-                              <span style={{ fontWeight: 600, color: (it.lastAuditDiff ?? 0) > 0 ? '#16a34a' : (it.lastAuditDiff ?? 0) < 0 ? '#dc2626' : '#0f766e' }}>
-                                {(it.lastAuditDiff ?? 0) > 0 ? `Lệch: +${it.lastAuditDiff} (Thừa)` : (it.lastAuditDiff ?? 0) < 0 ? `Lệch: ${it.lastAuditDiff} (Thiếu)` : 'Khớp 100%'}
-                              </span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div style={{ backgroundColor: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '6px', padding: '6px 10px', fontSize: '0.7rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Clock size={12} /> <span>Chưa đối soát kiểm kê trong kỳ</span>
-                          </div>
-                        )}
-
-                        {/* Row 5.8: Outbound / Disposal Order Badge */}
-                        {(() => {
-                          const existing = outboundLotMap[it.lotCode] || (it.id ? outboundLotMap[it.id] : undefined);
-                          if (!existing) return null;
-                          return (
-                            <div
-                              onClick={() => navigate(`/outbound-orders?orderCode=${existing.orderCode}`)}
-                              style={{
-                                backgroundColor: existing.isDisposal ? '#fef2f2' : '#eff6ff',
-                                border: `1px solid ${existing.isDisposal ? '#fecaca' : '#bfdbfe'}`,
-                                color: existing.isDisposal ? '#b91c1c' : '#1d4ed8',
-                                borderRadius: '6px',
-                                padding: '6px 10px',
-                                fontSize: '0.72rem',
-                                fontWeight: 600,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                cursor: 'pointer',
-                              }}
-                              title="Bấm để xem chi tiết phiếu xuất kho này"
-                            >
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                {existing.isDisposal ? 'ĐÃ LẬP ĐƠN TIÊU HỦY' : 'ĐÃ LẬP ĐƠN XUẤT'}: <b>{existing.orderCode}</b>
-                              </span>
-                              <span style={{ fontSize: '0.68rem', backgroundColor: existing.isDisposal ? '#fee2e2' : '#dbeafe', padding: '1px 5px', borderRadius: '4px' }}>
-                                {existing.status}
-                              </span>
-                            </div>
-                          );
-                        })()}
-
-                        {/* Row 6: Stock Qty & Actions */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: `1px solid ${isDanger ? '#fed7d7' : isWarning ? '#fef3c7' : '#f1f5f9'}` }}>
-                          <div>
-                            <div style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 600 }}>Tồn kho thực tế:</div>
-                            <div style={{ fontSize: '1.2rem', fontWeight: 900, color: isDanger ? '#dc2626' : '#1e293b' }}>
-                              {it.qty.toLocaleString()} <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>{it.unit || 'SP'}</span>
-                            </div>
-                          </div>
-
-                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                            {(() => {
-                              const existing = outboundLotMap[it.lotCode] || (it.id ? outboundLotMap[it.id] : undefined);
-                              return (
-                                <button
-                                  disabled={isCreatingOutbound}
-                                  onClick={() => handleExportSingleLot(it, selectedRack)}
-                                  style={{
-                                    padding: '6px 12px',
-                                    backgroundColor: existing ? '#475569' : isDanger ? '#dc2626' : '#0284c7',
-                                    color: '#fff',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '11.5px',
-                                    fontWeight: 800,
-                                    cursor: isCreatingOutbound ? 'not-allowed' : 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    opacity: isCreatingOutbound ? 0.7 : 1,
-                                    boxShadow: existing ? 'none' : isDanger ? '0 2px 6px rgba(220, 38, 38, 0.3)' : '0 2px 6px rgba(2, 132, 199, 0.3)'
-                                  }}
-                                  title={existing ? `Lô hàng này đã lập phiếu xuất ${existing.orderCode}. Bấm để xem chi tiết.` : isDanger ? 'Xuất tiêu hủy' : 'Xuất hạn gần'}
-                                >
-                                  <Send size={12} /> {existing ? `Đã Lập Đơn (${existing.orderCode})` : isDanger ? 'Xuất Tiêu Hủy' : 'Xuất Hạn Gần'}
-                                </button>
-                              );
-                            })()}
-
+                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '6px' }}>
                             <button
-                              onClick={() => setAdjustModal({
-                                isOpen: true,
-                                lot: it,
-                                newQty: it.qty,
-                                reason: 'Kiểm kê định kỳ 3D Digital Twin',
-                                qualityStatus: 'GOOD',
-                                note: ''
-                              })}
+                              type="button"
+                              onClick={() =>
+                                setAdjustModal({
+                                  isOpen: true,
+                                  lot: it,
+                                  newQty: it.qty,
+                                  reason: 'Kiểm kê định kỳ',
+                                  qualityStatus: 'GOOD',
+                                  note: '',
+                                })
+                              }
                               style={{
                                 padding: '6px 10px',
-                                backgroundColor: '#f1f5f9',
+                                backgroundColor: '#f8fafc',
                                 color: '#334155',
                                 border: '1px solid #cbd5e1',
-                                borderRadius: '8px',
-                                fontSize: '11px',
-                                fontWeight: 700,
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 600,
                                 cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px'
                               }}
-                              title="Kiểm kê & đối soát số lượng thực tế tại kệ"
                             >
-                              <Edit2 size={12} /> {it.lastAuditedAt ? 'Kiểm kê lại' : 'Kiểm kê ngay'}
+                              Kiểm kê
                             </button>
 
                             <button
-                              onClick={() => setBarcodeModalItem({
-                                isOpen: true,
-                                item: it,
-                                locationText: `${selectedRack.name} • ${it.location || ''}`,
-                              })}
-                              style={{ padding: '6px 8px', backgroundColor: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: '8px', fontSize: '11px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                              title="Xem Barcode & QR Code để quét bằng điện thoại"
+                              type="button"
+                              disabled={isCreatingOutbound}
+                              onClick={() => handleExportSingleLot(it, selectedRack)}
+                              style={{
+                                padding: '6px 10px',
+                                backgroundColor: isDanger ? '#dc2626' : '#0f766e',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: isCreatingOutbound ? 'not-allowed' : 'pointer',
+                              }}
                             >
-                              <QrCode size={12} /> Barcode
+                              {isDanger ? 'Tiêu hủy' : 'Xuất kho'}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setBarcodeModalItem({
+                                  isOpen: true,
+                                  item: it,
+                                  locationText: `${shortLoc}`,
+                                })
+                              }
+                              style={{
+                                padding: '6px 8px',
+                                backgroundColor: '#ffffff',
+                                color: '#334155',
+                                border: '1px solid #cbd5e1',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                              }}
+                              title="Mã vạch"
+                            >
+                              <QrCode size={13} />
                             </button>
                           </div>
-                        </div>
-                      </div>
+                        </td>
+                      </tr>
                     );
-                  })}
-                </div>
-
-                {/* Pagination Controls */}
-                {totalRackPages > 1 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '14px', borderTop: '1px solid #f1f5f9' }}>
-                    <button
-                      disabled={rackItemPage === 1}
-                      onClick={() => setRackItemPage(p => Math.max(1, p - 1))}
-                      style={{
-                        padding: '8px 16px',
-                        borderRadius: '10px',
-                        border: '1px solid #cbd5e1',
-                        backgroundColor: rackItemPage === 1 ? '#f8fafc' : '#ffffff',
-                        color: rackItemPage === 1 ? '#94a3b8' : '#0f172a',
-                        cursor: rackItemPage === 1 ? 'not-allowed' : 'pointer',
-                        fontSize: '12px',
-                        fontWeight: 800,
-                      }}
-                    >
-                      ⬅ Trang Trước
-                    </button>
-                    <span style={{ fontSize: '12.5px', fontWeight: 800, color: '#475569' }}>
-                      Trang {rackItemPage} / {totalRackPages} ({rackFilteredItems.length} Lô hàng)
-                    </span>
-                    <button
-                      disabled={rackItemPage >= totalRackPages}
-                      onClick={() => setRackItemPage(p => Math.min(totalRackPages, p + 1))}
-                      style={{
-                        padding: '8px 16px',
-                        borderRadius: '10px',
-                        border: '1px solid #cbd5e1',
-                        backgroundColor: rackItemPage >= totalRackPages ? '#f8fafc' : '#ffffff',
-                        color: rackItemPage >= totalRackPages ? '#94a3b8' : '#0f172a',
-                        cursor: rackItemPage >= totalRackPages ? 'not-allowed' : 'pointer',
-                        fontSize: '12px',
-                        fontWeight: 800,
-                      }}
-                    >
-                      Trang Kế Tiếp →
-                    </button>
-                  </div>
+                  })
                 )}
-              </div>
-            )}
+              </tbody>
+            </table>
           </div>
+
+          {totalRackPages > 1 && (
+            <div
+              style={{
+                padding: '10px 18px',
+                borderTop: '1px solid #e2e8f0',
+                backgroundColor: '#f8fafc',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontSize: '12.5px',
+                color: '#64748b',
+              }}
+            >
+              <span>
+                Trang <strong>{rackItemPage}</strong> / <strong>{totalRackPages}</strong>
+              </span>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button
+                  type="button"
+                  disabled={rackItemPage === 1}
+                  onClick={() => setRackItemPage(p => Math.max(1, p - 1))}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    backgroundColor: '#ffffff',
+                    cursor: rackItemPage === 1 ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Trước
+                </button>
+                <button
+                  type="button"
+                  disabled={rackItemPage >= totalRackPages}
+                  onClick={() => setRackItemPage(p => Math.min(totalRackPages, p + 1))}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    backgroundColor: '#ffffff',
+                    cursor: rackItemPage >= totalRackPages ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Sau
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

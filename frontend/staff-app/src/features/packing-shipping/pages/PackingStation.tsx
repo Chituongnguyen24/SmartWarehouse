@@ -596,13 +596,10 @@ export const PackingStation: React.FC = () => {
       {/* Top Action Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <h2 style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Box size={22} color="#9333ea" />
+          <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Box size={20} color="#0f766e" />
             <span>Bàn Đóng Gói & Niêm Phong</span>
           </h2>
-          <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0', fontWeight: 600 }}>
-            Kiểm tra quy cách thùng, túi giữ nhiệt và in mã vận đơn CityMart
-          </p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

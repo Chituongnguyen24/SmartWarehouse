@@ -29,7 +29,8 @@ import {
   Zap,
   Tag,
   FolderTree,
-  MessageSquare
+  MessageSquare,
+  X
 } from 'lucide-react';
 import { useAuth, ROLE_LABELS, type UserRole } from '@/features/auth';
 
@@ -71,17 +72,21 @@ const menuItems: MenuItem[] = [
   { path: '/audit-log', label: 'Nhật ký Hệ thống', icon: <Activity size={18} />, section: 'QUẢN TRỊ HỆ THỐNG', allowedRoles: ['ADMIN'] },
   { path: '/settings', label: 'Cài đặt Hệ thống', icon: <Settings size={18} />, section: 'QUẢN TRỊ HỆ THỐNG', allowedRoles: ['ADMIN'] },
 
-  // NHÂN VIÊN KHO - các tab chức năng chi tiết
-  { path: '/orders?tab=packing', label: 'Đơn hàng chờ đóng gói', icon: <Boxes size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
-  { path: '/orders?tab=map', label: 'Vị trí sản phẩm (Sơ đồ)', icon: <Grid3X3 size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
-  { path: '/orders?tab=delivery', label: 'Bàn giao cho tài xế', icon: <Truck size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
-  { path: '/cod-reconciliation', label: 'Đối soát Quỹ COD', icon: <Receipt size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
+  // NHÂN VIÊN KHO - Tinh gọn đúng 3 chức năng cốt lõi, loại bỏ các mục trùng lặp
+  { path: '/orders', label: 'Soạn hàng & Bàn giao', icon: <Boxes size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
+  { path: '/iot-controller', label: 'Điều khiển Kệ IoT', icon: <Wifi size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
+  { path: '/inventory', label: 'Tồn kho & Vị trí kệ', icon: <Layers size={18} />, section: 'NHÂN VIÊN KHO', allowedRoles: ['WAREHOUSE_STAFF'] },
 
   // TÀI XẾ
   { path: '/transport', label: 'Tối ưu vận chuyển', icon: <Truck size={18} />, section: 'VẬN HÀNH KHO', allowedRoles: ['DRIVER'] },
 ];
 
-const Sidebar = () => {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -114,15 +119,23 @@ const Sidebar = () => {
   };
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-header" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
         <div style={{ background: '#fff', borderRadius: '10px', padding: '4px 6px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }}>
           <img src="/logos/logo_icon.png" alt="C.T Mart Logo" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
         </div>
         <div className="brand-info">
-          <h1 style={{ fontSize: '1.15rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.02em', margin: 0, lineHeight: 1.2 }}>C.T Mart</h1>
+          <h1 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#fff', letterSpacing: '-0.02em', margin: 0, lineHeight: 1.2 }}>C.T Mart</h1>
           <p style={{ fontSize: '0.72rem', color: '#99f6e4', margin: '2px 0 0 0', fontWeight: 600 }}>Kho Thực Phẩm Thông Minh</p>
         </div>
+        <button
+          type="button"
+          className="sidebar-close-btn"
+          onClick={onClose}
+          title="Đóng menu"
+        >
+          <X size={18} />
+        </button>
       </div>
 
       {Object.entries(sections).map(([section, items]) => (
@@ -132,6 +145,7 @@ const Sidebar = () => {
             <NavLink
               key={item.path}
               to={item.path}
+              onClick={() => onClose?.()}
               className={() => `nav-item ${isItemActive(item.path) ? 'active' : ''}`}
             >
               {item.icon}

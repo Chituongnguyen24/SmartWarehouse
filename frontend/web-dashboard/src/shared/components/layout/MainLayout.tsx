@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
@@ -115,7 +116,8 @@ const getPageTitle = (pathname: string) => {
     case '/orders': return 'Điều phối Đơn hàng theo Kho';
     case '/ai-alerts': return 'Cảnh báo Giám sát';
     case '/inbound': return 'Quản lý Nhập kho';
-    case '/outbound': return 'Quản lý Xuất kho';
+    case '/outbound': return 'Quản lý Xuất kho & Pick-to-Light';
+    case '/iot-controller': return 'Điều khiển Kệ IoT & Nhiệt ẩm';
     case '/demand-forecast': return 'Dự báo nhu cầu';
     case '/transport': return 'Tối ưu vận chuyển';
     case '/reports': return 'Báo cáo & Phân tích';
@@ -129,7 +131,12 @@ const getPageTitle = (pathname: string) => {
 const MainLayout = () => {
   const location = useLocation();
   const { user } = useAuth();
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   let title = getPageTitle(location.pathname);
+
+  useEffect(() => {
+    setIsMobileSidebarOpen(false);
+  }, [location.pathname, location.search]);
 
   if (user?.role === 'DRIVER' && location.pathname === '/transport') {
     title = 'Đơn hàng của tôi';
@@ -137,9 +144,19 @@ const MainLayout = () => {
 
   return (
     <div className="app-container">
-      <Sidebar />
+      <div
+        className={`sidebar-backdrop ${isMobileSidebarOpen ? 'open' : ''}`}
+        onClick={() => setIsMobileSidebarOpen(false)}
+      />
+      <Sidebar
+        isOpen={isMobileSidebarOpen}
+        onClose={() => setIsMobileSidebarOpen(false)}
+      />
       <main className="main-wrapper">
-        <Header title={title} />
+        <Header
+          title={title}
+          onToggleMobileMenu={() => setIsMobileSidebarOpen(prev => !prev)}
+        />
         <div className="page-content animate-fade-in">
           <Outlet />
         </div>

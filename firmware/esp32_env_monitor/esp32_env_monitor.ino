@@ -127,6 +127,7 @@ float currentTemp = 0.0;
 float currentHum  = 0.0;
 bool  isSensorOK  = false;
 bool  isAlarm     = false;
+bool  buzzerMuted = false;
 
 // Timers
 unsigned long lastReadTime = 0;
@@ -203,21 +204,36 @@ void publishShelfEvent(const char* eventName, int idx, const char* note) {
   client.publish(TOPIC_EVT_GV, buf);
 }
 
-// ================= KÍCH HOẠT KỆ (BẬT ĐÈN HIGH + CÒI LOW) =================
-void activateShelf(int idx, const char* orderId, int qty) {
+// ================= BẬT / TẮT CHẾ ĐỘ CÒI (CHỈ SÁNG ĐÈN KHI LẤY HÀNG) =================
+void setBuzzerMuted(bool muted) {
+  buzzerMuted = muted;
+  for (int i = 0; i < 3; i++) {
+    if (buzzerMuted) {
+      shelves[i].buzzerOn = false;
+      digitalWrite(BUZ_PINS[i], BUZZER_OFF);
+    } else if (shelves[i].ledOn && shelves[i].waitingCheckin) {
+      shelves[i].buzzerOn = true;
+      digitalWrite(BUZ_PINS[i], BUZZER_ON);
+    }
+  }
+}
+
+// ================= KÍCH HOẠT KỆ (BẬT ĐÈN HIGH + CÒI THEO CHẾ ĐỘ) =================
+void activateShelf(int idx, const char* orderId, int qty, bool allowBuzzer = true) {
   if (idx < 0 || idx >= 3) return;
+  bool enableBuz = allowBuzzer && !buzzerMuted;
   strncpy(shelves[idx].orderId, orderId, sizeof(shelves[idx].orderId) - 1);
   shelves[idx].qty            = qty;
   shelves[idx].ledOn          = true;
-  shelves[idx].buzzerOn       = true;
+  shelves[idx].buzzerOn       = enableBuz;
   shelves[idx].waitingCheckin = true;
   shelves[idx].activatedAt    = millis();
 
   digitalWrite(LED_PINS[idx], LED_ON);
-  digitalWrite(BUZ_PINS[idx], BUZZER_ON);
+  digitalWrite(BUZ_PINS[idx], enableBuz ? BUZZER_ON : BUZZER_OFF);
 
-  Serial.printf("💡 [ACTIVATE] Giàn %d (Kệ %s) -> LED(GPIO%d)=HIGH, BUZ(GPIO%d)=LOW\n",
-                idx + 1, SHELF_CODES[idx], LED_PINS[idx], BUZ_PINS[idx]);
+  Serial.printf("[ACTIVATE] Gian %d (Ke %s) -> LED(GPIO%d)=HIGH, BUZ(GPIO%d)=%s\n",
+                idx + 1, SHELF_CODES[idx], LED_PINS[idx], BUZ_PINS[idx], enableBuz ? "LOW" : "HIGH(MUTED)");
 }
 
 // ================= KÍCH HOẠT CẢ 3 GIÀN KỆ CHO LƯỢT LẤY HÀNG MỚI =================
@@ -246,81 +262,42 @@ void confirmCheckin(int idx) {
                 idx + 1, SHELF_CODES[idx]);
 }
 
-// ================= CẬP NHẬT MÀN HÌNH OLED =================
+// ================= CẬP NHẬT MÀN HÌNH OLED (CHỈ HIỂN THỊ NHIỆT ĐỘ & ĐỘ ẨM CHỮ LỚN) =================
 void updateOLED() {
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
 
-  // Header
+  // Dòng 1: Nhiệt độ (Chữ lớn dễ đọc)
   display.setTextSize(1);
-  display.setCursor(0, 0);
-  display.print("CITYMART WH-006");
+  display.setCursor(0, 11);
+  display.print("NHIET:");
 
-  display.setCursor(82, 0);
+  display.setTextSize(2);
+  display.setCursor(42, 6);
   if (isSensorOK) {
-    display.printf("%.1fC", currentTemp);
+    display.printf("%.1f", currentTemp);
   } else {
-    display.print("--.-C");
+    display.print("--.-");
   }
-  display.drawLine(0, 9, 127, 9, SSD1306_WHITE);
+  int16_t degX = 42 + 4 * 12 + 4;
+  display.drawCircle(degX, 9, 2, SSD1306_WHITE);
+  display.setCursor(degX + 5, 6);
+  display.print("C");
 
-  // 1. Khi vừa bấm nút STOP xác nhận kệ (hiện thông báo lớn 1.5s)
-  if (millis() < confirmBannerUntil && strlen(lastConfirmedShelf) > 0) {
-    display.setTextSize(1);
-    display.setCursor(10, 14);
-    display.print("DA XAC NHAN LAY HANG");
-    display.setTextSize(2);
-    display.setCursor(22, 28);
-    display.printf("KE %s OK", lastConfirmedShelf);
-    display.setTextSize(1);
-    display.setCursor(12, 52);
-    display.print("Da tat den & coi!");
-    display.display();
-    return;
-  }
+  // Đường kẻ ngang phân tách
+  display.drawLine(0, 31, 127, 31, SSD1306_WHITE);
 
-  // 2. Đếm số giàn đang sáng đèn chờ lấy hàng
-  int activeCount = 0;
-  for (int i = 0; i < 3; i++) {
-    if (shelves[i].waitingCheckin) activeCount++;
-  }
+  // Dòng 2: Độ ẩm (Chữ lớn dễ đọc)
+  display.setTextSize(1);
+  display.setCursor(0, 44);
+  display.print("DO AM:");
 
-  if (activeCount > 0) {
-    // Đang có kệ chờ nhân viên bấm STOP
-    display.setCursor(0, 12);
-    display.printf("CAN LAY HANG (%d ke):", activeCount);
-
-    int y = 23;
-    for (int i = 0; i < 3; i++) {
-      if (shelves[i].waitingCheckin) {
-        display.setCursor(0, y);
-        display.printf(">> Ke %s: %s", SHELF_CODES[i], SHELF_LABELS[i]);
-        y += 10;
-      }
-    }
-
-    display.setCursor(0, 56);
-    display.print("Bam STOP tai ke de tat");
+  display.setTextSize(2);
+  display.setCursor(42, 39);
+  if (isSensorOK) {
+    display.printf("%.1f %%", currentHum);
   } else {
-    // Đã bấm STOP tắt hết cả 3 kệ -> Hoàn tất đơn hàng & hiện Nhiệt độ / Độ ẩm
-    display.setCursor(0, 13);
-    display.print(">> DA LAY XONG 3 KE! <<");
-    display.setCursor(0, 25);
-    if (isSensorOK) {
-      display.printf("Nhiet do: %.1f C", currentTemp);
-      display.setCursor(0, 35);
-      display.printf("Do am   : %.1f %%", currentHum);
-      display.setCursor(0, 45);
-      display.print(isAlarm ? "! CANH BAO NHIET DO !" : "Kho mat : AN TOAN");
-    } else {
-      display.print("SHT30   : Dang doc...");
-      display.setCursor(0, 35);
-      display.print("Hoan tat lay hang!");
-    }
-
-    display.setCursor(0, 56);
-    display.print(client.connected() ? "MQTT:OK " : "MQTT:-- ");
-    display.print("| BOOT:Chay lai");
+    display.print("--.- %");
   }
 
   display.display();
@@ -336,11 +313,27 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   const char* orderId   = doc["orderId"]   | "ORD-WEB";
   int         qty       = doc["qty"]       | doc["quantity"] | 1;
 
-  if (action == "LOCATE" || action == "PICK" || (strlen(shelfCode) > 0 && action == "")) {
+  if (action == "SET_BUZZER" || action == "MUTE_BUZZER" || action == "UNMUTE_BUZZER") {
+    bool muted = buzzerMuted;
+    if (action == "MUTE_BUZZER") muted = true;
+    else if (action == "UNMUTE_BUZZER") muted = false;
+    else if (doc.containsKey("muted")) muted = doc["muted"].as<bool>();
+    else if (doc.containsKey("enabled")) muted = !doc["enabled"].as<bool>();
+    else if (doc.containsKey("buzzerEnabled")) muted = !doc["buzzerEnabled"].as<bool>();
+    setBuzzerMuted(muted);
+  } else if (action == "LOCATE" || action == "PICK" || (strlen(shelfCode) > 0 && action == "")) {
     int idx = findShelfIndex(shelfCode);
     if (idx >= 0) {
-      activateShelf(idx, orderId, qty);
-      publishShelfEvent("LOCATING", idx, "Den va coi da bat, cho nhan vien bam STOP");
+      bool allowBuz = !buzzerMuted;
+      if (doc.containsKey("buzzerEnabled")) {
+        allowBuz = doc["buzzerEnabled"].as<bool>();
+        buzzerMuted = !allowBuz;
+      } else if (doc.containsKey("muteBuzzer")) {
+        allowBuz = !doc["muteBuzzer"].as<bool>();
+        buzzerMuted = !allowBuz;
+      }
+      activateShelf(idx, orderId, qty, allowBuz);
+      publishShelfEvent("LOCATING", idx, allowBuz ? "Den va coi da bat, cho nhan vien bam STOP" : "Chi sang den, cho nhan vien bam STOP");
     }
   } else if (action == "LOCATE_MULTI" || action == "START") {
     if (doc.containsKey("shelves")) {
@@ -397,6 +390,7 @@ void connectMQTT() {
 // ================= SETUP =================
 void setup() {
   Serial.begin(115200);
+  Serial.setTimeout(25);
   delay(300);
 
   // 1. Cấu hình 3 Nút STOP (HIGH khi nhấn)
@@ -416,14 +410,13 @@ void setup() {
 
   // 3. I2C Bus & OLED
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
-  if (display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(SSD1306_WHITE);
-    display.setCursor(10, 14); display.println("CITYMART WH-006");
-    display.setCursor(10, 28); display.println("Kich Ban 4: STOP Ke");
-    display.setCursor(10, 42); display.println("Dang khoi dong...");
-    display.display();
+  display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR);
+
+  float t = 0, h = 0;
+  if (readSHT30(t, h)) {
+    currentTemp = t;
+    currentHum = h;
+    isSensorOK = true;
   }
 
   connectWiFi();
@@ -431,8 +424,7 @@ void setup() {
   client.setCallback(mqttCallback);
   connectMQTT();
 
-  // Kích hoạt sẵn đơn hàng trên cả 3 Giàn Kệ (A1, A2, A3) để sẵn sàng bấm STOP tắt từng kệ!
-  startAll3ShelvesOrder("ORD-WH006");
+  allOff();
   updateOLED();
 }
 
@@ -480,11 +472,10 @@ void loop() {
     for (int i = 0; i < 3; i++) {
       if (shelves[i].buzzerOn) {
         digitalWrite(BUZ_PINS[i], buzzPhase ? BUZZER_ON : BUZZER_OFF);
-        digitalWrite(LED_PINS[i], LED_ON);
       } else {
         digitalWrite(BUZ_PINS[i], BUZZER_OFF);
-        digitalWrite(LED_PINS[i], LED_OFF);
       }
+      digitalWrite(LED_PINS[i], shelves[i].ledOn ? LED_ON : LED_OFF);
     }
   }
 

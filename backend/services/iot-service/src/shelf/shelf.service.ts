@@ -23,6 +23,10 @@ export interface ShelfState {
   orderId: string | null;
   productName: string | null;
   qty: number;
+  step: number | null;
+  totalSteps: number | null;
+  stopSeq: number;
+  lastStopEventId: string | null;
   activatedAt: string | null;
   arrivedAt: string | null;
   completedAt: string | null;
@@ -55,8 +59,8 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
   private shelves: Record<ShelfCode, ShelfState> = {
     A1: {
       code: 'A1',
-      label: 'Thịt tươi CP',
-      zone: 'KHO GÒ VẤP (Tiêu chuẩn ≤ 35°C, ≤ 80%)',
+      label: 'Kệ A (Tầng 1 & Tầng 2)',
+      zone: 'KHO GÒ VẤP (Kệ A - Thực phẩm tươi)',
       pinInfo: { ledPin: 25, buzzerPin: 18, buttonPin: 27 },
       status: 'IDLE',
       ledOn: false,
@@ -65,6 +69,10 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
       orderId: null,
       productName: null,
       qty: 0,
+      step: null,
+      totalSteps: null,
+      stopSeq: 0,
+      lastStopEventId: null,
       activatedAt: null,
       arrivedAt: null,
       completedAt: null,
@@ -72,8 +80,8 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
     },
     A2: {
       code: 'A2',
-      label: 'Sữa tươi Đà Lạt',
-      zone: 'KHO GÒ VẤP (Tiêu chuẩn ≤ 35°C, ≤ 80%)',
+      label: 'Kệ B (Tầng 1 & Tầng 2)',
+      zone: 'KHO GÒ VẤP (Kệ B - Sữa & Chế phẩm)',
       pinInfo: { ledPin: 26, buzzerPin: 19, buttonPin: 14 },
       status: 'IDLE',
       ledOn: false,
@@ -82,6 +90,10 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
       orderId: null,
       productName: null,
       qty: 0,
+      step: null,
+      totalSteps: null,
+      stopSeq: 0,
+      lastStopEventId: null,
       activatedAt: null,
       arrivedAt: null,
       completedAt: null,
@@ -89,8 +101,8 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
     },
     A3: {
       code: 'A3',
-      label: 'Rau củ VietGAP',
-      zone: 'KHO GÒ VẤP (Tiêu chuẩn ≤ 35°C, ≤ 80%)',
+      label: 'Kệ C (Tầng 1 & Tầng 2)',
+      zone: 'KHO GÒ VẤP (Kệ C - Rau củ & Trái cây)',
       pinInfo: { ledPin: 32, buzzerPin: 23, buttonPin: 33 },
       status: 'IDLE',
       ledOn: false,
@@ -99,6 +111,10 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
       orderId: null,
       productName: null,
       qty: 0,
+      step: null,
+      totalSteps: null,
+      stopSeq: 0,
+      lastStopEventId: null,
       activatedAt: null,
       arrivedAt: null,
       completedAt: null,
@@ -110,6 +126,7 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
   private readonly MAX_LOGS = 60;
   private pendingCommands = new Map<string, PendingCommand>();
   private lastSeenEventKeys = new Set<string>();
+  private buzzerEnabled = true;
 
   constructor(
     private readonly mqttGateway: MqttGatewayService,
@@ -139,6 +156,18 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
     this.mqttGateway.on('shelf_event', (event: any) => {
       this.handleIncomingShelfEvent(event);
     });
+
+    // Re-sync current buzzer mode whenever ESP32 connects or boots
+    this.mqttGateway.on('esp32_ready', () => {
+      this.mqttGateway
+        .publishSystemCommand({
+          action: 'SET_BUZZER',
+          enabled: this.buzzerEnabled,
+          muted: !this.buzzerEnabled,
+          timestamp: Date.now(),
+        })
+        .catch(() => {});
+    });
   }
 
   onModuleDestroy() {
@@ -153,8 +182,24 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
         const cached = await this.redisClient.get('iot:shelves:wh006');
         if (cached) {
           const parsed = JSON.parse(cached);
-          this.shelves = { ...this.shelves, ...parsed };
+          for (const code of ['A1', 'A2', 'A3'] as ShelfCode[]) {
+            if (parsed?.[code]) {
+              this.shelves[code] = {
+                ...this.shelves[code],
+                ...parsed[code],
+                stopSeq: typeof parsed[code].stopSeq === 'number' ? parsed[code].stopSeq : 0,
+                lastStopEventId: parsed[code].lastStopEventId ?? null,
+                step: parsed[code].step ?? null,
+                totalSteps: parsed[code].totalSteps ?? null,
+              };
+            }
+          }
           this.logger.log('Restored shelf state from Redis cache (iot:shelves:wh006).');
+        }
+        const cachedBuzzer = await this.redisClient.get('iot:shelves:wh006:buzzer_enabled');
+        if (cachedBuzzer !== null) {
+          this.buzzerEnabled = cachedBuzzer !== 'false';
+          this.logger.log(`Restored buzzerEnabled=${this.buzzerEnabled} from Redis.`);
         }
       }
     } catch (err: any) {
@@ -191,16 +236,23 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  // Normalize shelf code strictly for A1, A2, A3 (Pick-to-Light IoT hardware)
+  // Normalize shelf code strictly for 3 IoT Shelves: Kệ A (-> A1), Kệ B (-> A2), Kệ C (-> A3)
   normalizeShelfCode(input: string): ShelfCode | null {
     if (!input) return null;
     const clean = input.toUpperCase().trim();
-    if (clean.includes('A1') || clean === '1') return 'A1';
-    if (clean.includes('A2') || clean === '2') return 'A2';
-    if (clean.includes('A3') || clean === '3') return 'A3';
+    if (clean === 'A1' || clean === '1' || clean === 'A' || clean === 'A-T1' || clean === 'A-T2') return 'A1';
+    if (clean === 'A2' || clean === '2' || clean === 'B' || clean === 'B1' || clean === 'B2' || clean === 'B-T1' || clean === 'B-T2') return 'A2';
+    if (clean === 'A3' || clean === '3' || clean === 'C' || clean === 'C1' || clean === 'C2' || clean === 'C-T1' || clean === 'C-T2') return 'A3';
 
-    // Match COLD-SHELF, COOL, KỆ A, KE A followed by 1, 2, 3
-    const match = clean.match(/(?:COLD[-_ ]*SHELF|COOL|(?:KỆ|KE)[-_ ]*A)[-_ ]*0?([123])/);
+    if (/(?:^|[^A-Z0-9])B[-_ ]*T?[12](?:$|[^0-9])/.test(clean) || /(?:KỆ|KE)[-_ ]*B/.test(clean)) return 'A2';
+    if (/(?:^|[^A-Z0-9])C[-_ ]*T?[12](?:$|[^0-9])/.test(clean) || /(?:KỆ|KE)[-_ ]*C/.test(clean)) return 'A3';
+    if (/(?:^|[^A-Z0-9])A[-_ ]*T[12](?:$|[^0-9])/.test(clean)) return 'A1';
+
+    const directA = clean.match(/(?:^|[^A-Z0-9])A([123])(?:$|[^0-9])/);
+    if (directA) return `A${directA[1]}` as ShelfCode;
+
+    // Match RACK-COOL, COLD-SHELF, COOL, KỆ A, KE A followed strictly by 1, 2, 3
+    const match = clean.match(/(?:RACK[-_ ]*COOL|COLD[-_ ]*SHELF|COOL|(?:KỆ|KE)[-_ ]*A)[-_ ]*0?([123])(?:$|[^0-9])/);
     if (match) {
       const num = match[1];
       if (num === '1') return 'A1';
@@ -276,7 +328,9 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
       eventName === 'ARRIVED'
     ) {
       // Physical STOP button was pressed at shelf!
-      // Transitions to ARRIVED (NOT COMPLETED - barcode scan / staff app completes it)
+      // Increment monotonic stopSeq so sequential guided picking detects every press reliably
+      shelf.stopSeq = (shelf.stopSeq || 0) + 1;
+      shelf.lastStopEventId = `stop-${code}-${shelf.stopSeq}-${Date.now()}`;
       shelf.status = 'ARRIVED';
       shelf.ledOn = false;
       shelf.buzzerOn = false;
@@ -286,10 +340,10 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
       this.addLog(
         code,
         'STOP_PRESSED',
-        `Nhân viên đã đến kệ ${code} và bấm nút STOP vật lý. Đèn và còi đã tắt.`,
-        event,
+        `Nhân viên đã đến kệ ${code} và bấm nút STOP vật lý (#${shelf.stopSeq}). Đèn và còi đã tắt.`,
+        { ...event, stopSeq: shelf.stopSeq, lastStopEventId: shelf.lastStopEventId },
       );
-      this.syncStateAndPublish('arrived', code, event);
+      this.syncStateAndPublish('arrived', code, { ...event, stopSeq: shelf.stopSeq, lastStopEventId: shelf.lastStopEventId });
     } else if (eventName === 'LOCATING') {
       // If shelf was already stopped, arrived or completed, ignore lagging LOCATING ack
       if (shelf.status === 'ARRIVED' || shelf.status === 'COMPLETED' || shelf.status === 'IDLE') {
@@ -299,14 +353,16 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
 
       shelf.status = 'LOCATING';
       shelf.ledOn = true;
-      shelf.buzzerOn = true;
+      shelf.buzzerOn = this.buzzerEnabled;
       shelf.waitingCheckin = true;
       if (!shelf.activatedAt) shelf.activatedAt = nowIso;
 
       this.addLog(
         code,
         'COMMAND_DISPATCHED',
-        `ESP32 đã nhận lệnh định vị kệ ${code}. Đèn và còi đang nhấp nháy.`,
+        this.buzzerEnabled
+          ? `ESP32 đã nhận lệnh định vị kệ ${code}. Đèn và còi đang hoạt động.`
+          : `ESP32 đã nhận lệnh định vị kệ ${code}. Đang bật chỉ sáng đèn.`,
         event,
       );
       this.syncStateAndPublish('locating', code, event);
@@ -314,24 +370,45 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Dispatch LOCATE command to shelf
+   * Dispatch LOCATE command to shelf (exclusively 1 active shelf at a time among A1, A2, A3)
    */
   async locateShelf(dto: LocateShelfDto) {
     const code = this.normalizeShelfCode(dto.shelfCode);
     if (!code) {
-      return { success: false, message: `Mã kệ không hợp lệ (${dto.shelfCode}). Chỉ hỗ trợ kệ A1, A2, A3.` };
+      return { success: false, message: `Mã kệ không hợp lệ (${dto.shelfCode}). Chỉ hỗ trợ 3 kệ demo IoT: A1, A2, A3.` };
+    }
+
+    // Clear pending retry timers & turn off locating state on the other 2 shelves to match ESP32 single-shelf mode
+    for (const otherCode of ['A1', 'A2', 'A3'] as ShelfCode[]) {
+      if (otherCode !== code) {
+        const otherKey = `${otherCode}:LOCATE`;
+        const otherPending = this.pendingCommands.get(otherKey);
+        if (otherPending?.timer) clearTimeout(otherPending.timer);
+        this.pendingCommands.delete(otherKey);
+
+        if (this.shelves[otherCode].status === 'LOCATING' || this.shelves[otherCode].ledOn || this.shelves[otherCode].buzzerOn) {
+          this.shelves[otherCode].status = 'IDLE';
+          this.shelves[otherCode].ledOn = false;
+          this.shelves[otherCode].buzzerOn = false;
+          this.shelves[otherCode].waitingCheckin = false;
+        }
+      }
     }
 
     const shelf = this.shelves[code];
     const nowIso = new Date().toISOString();
+    const effectiveBuzzer =
+      typeof dto.buzzerEnabled === 'boolean' ? dto.buzzerEnabled : this.buzzerEnabled;
 
     shelf.status = 'LOCATING';
     shelf.ledOn = true;
-    shelf.buzzerOn = true;
+    shelf.buzzerOn = effectiveBuzzer;
     shelf.waitingCheckin = true;
     shelf.orderId = dto.orderId || shelf.orderId || 'ORD-STAFF';
     shelf.productName = dto.productName || shelf.productName || shelf.label;
     shelf.qty = dto.qty || shelf.qty || 1;
+    shelf.step = dto.step ?? null;
+    shelf.totalSteps = dto.totalSteps ?? null;
     shelf.activatedAt = nowIso;
     shelf.arrivedAt = null;
 
@@ -341,29 +418,39 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
       orderId: shelf.orderId,
       productName: shelf.productName,
       qty: shelf.qty,
+      step: shelf.step || 1,
+      totalSteps: shelf.totalSteps || 1,
       slotCode: dto.slotCode || `${code}-01`,
       warehouseCode: dto.warehouseCode || 'WH-006',
+      buzzerEnabled: effectiveBuzzer,
+      muteBuzzer: !effectiveBuzzer,
       timestamp: Date.now(),
     };
+
+    // Clear any existing retry timer for this shelf before dispatching
+    const existingPending = this.pendingCommands.get(`${code}:LOCATE`);
+    if (existingPending?.timer) clearTimeout(existingPending.timer);
+    this.pendingCommands.delete(`${code}:LOCATE`);
 
     const published = await this.mqttGateway.publishShelfCommand(payload);
 
     this.addLog(
       code,
       'COMMAND_DISPATCHED',
-      `Phát lệnh định vị kệ ${code} (${shelf.label}). Bật đèn và còi.`,
+      `Phát lệnh định vị kệ ${code} (${shelf.productName || shelf.label})${shelf.step && shelf.totalSteps ? ` — Bước ${shelf.step}/${shelf.totalSteps}` : ''}. ${effectiveBuzzer ? 'Bật đèn và còi.' : 'Chỉ sáng đèn.'}`,
       payload,
     );
     this.syncStateAndPublish('located', code, payload);
-
-    // Setup retry mechanism (5s timeout, max 2 retries)
-    this.setupCommandRetry(code, 'LOCATE', payload);
 
     return {
       success: published,
       shelfCode: code,
       status: shelf.status,
-      message: `Đã phát lệnh định vị kệ ${code}. Đèn và còi trên kệ đang hoạt động.`,
+      buzzerEnabled: effectiveBuzzer,
+      stopSeq: shelf.stopSeq || 0,
+      message: effectiveBuzzer
+        ? `Đã phát lệnh định vị kệ ${code}. Đèn và còi trên kệ đang hoạt động.`
+        : `Đã phát lệnh định vị kệ ${code}. Chỉ bật đèn dẫn hướng trên kệ.`,
       shelf,
     };
   }
@@ -416,6 +503,8 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
       action: 'SMARTKEY_CHIRP',
       shelfCode: code,
       warehouseCode: dto.warehouseCode || 'WH-006',
+      buzzerEnabled: this.buzzerEnabled,
+      muteBuzzer: !this.buzzerEnabled,
       timestamp: Date.now(),
     };
 
@@ -424,7 +513,9 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
     this.addLog(
       code,
       'SMARTKEY_CHIRP',
-      `Bóp còi Smartkey định vị kệ ${code}.`,
+      this.buzzerEnabled
+        ? `Phát tín hiệu đèn và còi định vị kệ ${code}.`
+        : `Nháy đèn định vị kệ ${code} (đang tắt còi).`,
       payload,
     );
     this.syncStateAndPublish('chirped', code, payload);
@@ -432,7 +523,10 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
     return {
       success: published,
       shelfCode: code,
-      message: `Đã phát tín hiệu còi Smartkey tìm kệ ${code}.`,
+      buzzerEnabled: this.buzzerEnabled,
+      message: this.buzzerEnabled
+        ? `Đã phát tín hiệu đèn và còi tìm kệ ${code}.`
+        : `Đã nháy đèn tìm kệ ${code} (chế độ chỉ sáng đèn).`,
     };
   }
 
@@ -614,6 +708,7 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
     const payload = {
       action: 'TEST',
       reason,
+      forceBuzzer: true,
       timestamp: Date.now(),
     };
 
@@ -634,6 +729,57 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Toggle buzzer mode during picking (true = LED + Buzzer, false = LED only)
+   */
+  async setBuzzerMode(enabled: boolean) {
+    this.buzzerEnabled = !!enabled;
+
+    for (const code of ['A1', 'A2', 'A3'] as ShelfCode[]) {
+      if (this.shelves[code].ledOn || this.shelves[code].status === 'LOCATING') {
+        this.shelves[code].buzzerOn = this.buzzerEnabled;
+      } else {
+        this.shelves[code].buzzerOn = false;
+      }
+    }
+
+    try {
+      if (this.redisClient?.status === 'ready') {
+        await this.redisClient.set('iot:shelves:wh006:buzzer_enabled', String(this.buzzerEnabled));
+      }
+    } catch (err: any) {
+      this.logger.warn(`Failed to persist buzzerEnabled to Redis: ${err.message}`);
+    }
+
+    const payload = {
+      action: 'SET_BUZZER',
+      enabled: this.buzzerEnabled,
+      muted: !this.buzzerEnabled,
+      timestamp: Date.now(),
+    };
+
+    const published = await this.mqttGateway.publishSystemCommand(payload);
+
+    this.addLog(
+      'ALL',
+      'COMMAND_DISPATCHED',
+      this.buzzerEnabled
+        ? 'Đã bật còi báo khi định vị lấy hàng.'
+        : 'Đã tắt còi báo — Chế độ chỉ sáng đèn khi lấy hàng.',
+      payload,
+    );
+    this.syncStateAndPublish('buzzer_mode', 'ALL', { buzzerEnabled: this.buzzerEnabled }).catch(() => {});
+
+    return {
+      success: published,
+      buzzerEnabled: this.buzzerEnabled,
+      message: this.buzzerEnabled
+        ? 'Đã bật chế độ Đèn và Còi khi lấy hàng.'
+        : 'Đã bật chế độ Chỉ sáng đèn khi lấy hàng.',
+      shelves: this.shelves,
+    };
+  }
+
+  /**
    * Silence all buzzers while keeping LEDs active
    */
   async silenceAllBuzzers() {
@@ -641,11 +787,17 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
       this.shelves[code].buzzerOn = false;
     }
 
-    // ESP32 turns off buzzers when action is OFF or silence command
+    await this.mqttGateway.publishSystemCommand({
+      action: 'SET_BUZZER',
+      enabled: false,
+      muted: true,
+      timestamp: Date.now(),
+    });
+
     this.addLog(
       'ALL',
       'RESET',
-      'Tạm tắt còi báo động trong 60 giây. Đèn cảnh báo vẫn duy trì.',
+      'Tạm tắt còi báo động. Đèn cảnh báo vẫn duy trì.',
     );
 
     return { success: true, message: 'Đã tạm tắt còi báo động.' };
@@ -658,6 +810,7 @@ export class ShelfService implements OnModuleInit, OnModuleDestroy {
     const conn = this.mqttGateway.getConnectionStatus();
     return {
       shelves: this.shelves,
+      buzzerEnabled: this.buzzerEnabled,
       mqtt: conn,
       timestamp: new Date().toISOString(),
     };

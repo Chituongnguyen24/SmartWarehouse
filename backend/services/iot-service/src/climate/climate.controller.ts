@@ -18,7 +18,7 @@ export class ClimateController {
 
   @Post('simulate')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.WAREHOUSE_MANAGER)
+  @Roles(UserRole.ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.WAREHOUSE_STAFF)
   @ApiOperation({ summary: 'Giả lập thông số nhiệt độ / độ ẩm để kiểm thử các kịch bản bất thường' })
   simulate(@Body() dto: SimulateClimateDto) {
     return this.climateService.setSimulation(dto);
@@ -42,7 +42,7 @@ export class ClimateController {
 
   @Post('alarm/clear')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.WAREHOUSE_MANAGER)
+  @Roles(UserRole.ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.WAREHOUSE_STAFF)
   @ApiOperation({ summary: 'Khôi phục an toàn (Chỉ được phép khi cả Nhiệt độ và Độ ẩm đạt chuẩn)' })
   clearAlarm() {
     return this.climateService.clearAlarm();

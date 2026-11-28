@@ -31,11 +31,16 @@ export const getBackendHost = (): string => {
     return envHost.trim();
   }
 
-  // On web browser, use current host if not empty
+  // On web browser, use current host if not empty (including localhost for local dev/testing)
   if (typeof window !== 'undefined' && window.location && window.location.hostname) {
     const host = window.location.hostname;
-    if (host !== 'localhost' && host !== '127.0.0.1' && host !== '') {
-      return host;
+    if (host !== '') {
+      if ((host === 'localhost' || host === '127.0.0.1') && !isCapacitorNative()) {
+        return 'localhost';
+      }
+      if (host !== 'localhost' && host !== '127.0.0.1') {
+        return host;
+      }
     }
   }
 

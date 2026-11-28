@@ -431,7 +431,26 @@ const getIotHeaders = () => {
   };
 };
 
-// IoT Pick-to-Light: Phát lệnh tìm vị trí kệ hàng (Mặc định nháy đèn)
+// Chuẩn hóa và lọc nghiêm ngặt chỉ 3 kệ Demo IoT (A1, A2, A3)
+export type DemoIotShelfCode = 'A1' | 'A2' | 'A3';
+
+export const extractDemoIotShelf = (shelfLocation?: string | null): DemoIotShelfCode | null => {
+  if (!shelfLocation) return null;
+  const clean = shelfLocation.toUpperCase().trim();
+  if (clean === 'A1' || clean === '1') return 'A1';
+  if (clean === 'A2' || clean === '2') return 'A2';
+  if (clean === 'A3' || clean === '3') return 'A3';
+
+  const directA = clean.match(/(?:^|[^A-Z0-9])A([123])(?:$|[^0-9])/);
+  if (directA) return `A${directA[1]}` as DemoIotShelfCode;
+
+  const rackMatch = clean.match(/(?:RACK[-_ ]*COOL|COLD[-_ ]*SHELF|COOL|(?:KỆ|KE)[-_ ]*A)[-_ ]*0?([123])(?:$|[^0-9])/);
+  if (rackMatch) return `A${rackMatch[1]}` as DemoIotShelfCode;
+
+  return null;
+};
+
+// IoT Pick-to-Light: Phát lệnh tìm vị trí kệ hàng (Bật đèn LED & còi báo)
 export const locateShelfIotApi = async (data: {
   warehouseCode?: string;
   shelfCode: string;
@@ -439,6 +458,7 @@ export const locateShelfIotApi = async (data: {
   productName?: string;
   qty?: number;
   step?: number;
+  totalSteps?: number;
   orderId?: string;
 }) => {
   try {

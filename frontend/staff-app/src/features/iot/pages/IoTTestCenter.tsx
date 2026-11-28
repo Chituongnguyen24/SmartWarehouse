@@ -35,6 +35,11 @@ import {
   silenceIotAlarmApi,
   clearIotAlarmApi,
   getIotLogsApi,
+  fetchOutboundOrders,
+  updatePickedItemsApi,
+  extractDemoIotShelf,
+  DemoIotShelfCode,
+  ApiOutboundOrder,
 } from '@/shared';
 
 export const IoTTestCenter: React.FC = () => {
@@ -52,6 +57,28 @@ export const IoTTestCenter: React.FC = () => {
   const [simTemp, setSimTemp] = useState<number>(2.8);
   const [simHum, setSimHum] = useState<number>(65.0);
 
+  // Outbound Orders & Products Sequential Pick-to-Light on IoT Test Center
+  const [iotOrders, setIotOrders] = useState<ApiOutboundOrder[]>([]);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [guidedStep, setGuidedStep] = useState<{
+    orderId: string;
+    orderCode: string;
+    itemId: string;
+    shelfCode: DemoIotShelfCode;
+    slotId: string;
+    productName: string;
+    qty: number;
+    step: number;
+    totalSteps: number;
+    baselineStopSeq: number;
+    startedAt: number;
+  } | null>(null);
+  const guidedStepRef = React.useRef<typeof guidedStep>(null);
+  guidedStepRef.current = guidedStep;
+  const iotOrdersRef = React.useRef<ApiOutboundOrder[]>([]);
+  iotOrdersRef.current = iotOrders;
+  const isAdvancingRef = React.useRef<boolean>(false);
+
   // Status message / toast
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
 
@@ -63,13 +90,15 @@ export const IoTTestCenter: React.FC = () => {
   // Fetch all IoT telemetry and shelf state
   const refreshAll = useCallback(async () => {
     try {
-      const [shelvesRes, climateRes, logsRes] = await Promise.all([
+      const [shelvesRes, climateRes, logsRes, ordersRes] = await Promise.all([
         getIotShelvesStatusApi(),
         getIotClimateStatusApi(),
         getIotLogsApi(30),
+        fetchOutboundOrders('WH-006'),
       ]);
 
       if (shelvesRes) setShelvesData(shelvesRes);
+      if (Array.isArray(ordersRes)) setIotOrders(ordersRes);
       if (climateRes) {
         setClimateData(climateRes);
         setSimEnabled(climateRes.isSimulated || false);
@@ -93,6 +122,143 @@ export const IoTTestCenter: React.FC = () => {
   }, [refreshAll]);
 
   // Shelf actions
+  const triggerProductShelfIot = useCallback(
+    async (order: ApiOutboundOrder, item: any, step: number, totalSteps: number) => {
+      const shelfCode = extractDemoIotShelf(item.slotId || item.location);
+      if (!shelfCode) {
+        showFeedback('info', `Sản phẩm "${item.productName}" nằm ở ${item.slotId || 'kệ thường'} (ngoài 3 kệ demo IoT A1, A2, A3).`);
+        return;
+      }
+      isAdvancingRef.current = true;
+      try {
+        const res = await locateShelfIotApi({
+          warehouseCode: order.warehouseCode || 'WH-006',
+          shelfCode,
+          slotCode: item.slotId || `${shelfCode}-01`,
+          productName: item.productName,
+          qty: (item as any).requestedQuantity || item.quantity || 1,
+          step,
+          totalSteps,
+          orderId: order.orderCode || order.id,
+        });
+        let baselineStopSeq = 0;
+        if (typeof res?.stopSeq === 'number') baselineStopSeq = res.stopSeq;
+        else if (typeof res?.shelf?.stopSeq === 'number') baselineStopSeq = res.shelf.stopSeq;
+        else if (typeof shelvesData?.shelves?.[shelfCode]?.stopSeq === 'number') {
+          baselineStopSeq = shelvesData.shelves[shelfCode].stopSeq;
+        }
+        const nextSession = {
+          orderId: order.id,
+          orderCode: order.orderCode,
+          itemId: item.id || `${order.id}-${step}`,
+          shelfCode,
+          slotId: item.slotId || shelfCode,
+          productName: item.productName || 'Sản phẩm xuất kho',
+          qty: (item as any).requestedQuantity || item.quantity || 1,
+          step,
+          totalSteps,
+          baselineStopSeq,
+          startedAt: Date.now(),
+        };
+        guidedStepRef.current = nextSession;
+        setGuidedStep(nextSession);
+        showFeedback('success', `Bước ${step}/${totalSteps}: Đã bật LED & Còi tại Kệ ${shelfCode} cho "${nextSession.productName}". Bấm STOP tại kệ để qua món tiếp theo.`);
+        await refreshAll();
+      } finally {
+        isAdvancingRef.current = false;
+      }
+    },
+    [shelvesData, refreshAll]
+  );
+
+  const handleClickOrderIot = async (order: ApiOutboundOrder) => {
+    setSelectedOrderId(order.id);
+    const iotItems = (order.items || []).filter(it => extractDemoIotShelf(it.slotId || it.location) !== null);
+    const pendingIot = iotItems.filter(
+      it => (it as any).status !== 'PICKED' && (it.pickedQuantity || 0) < ((it as any).requestedQuantity || it.quantity || 1)
+    );
+    const first = pendingIot[0] || iotItems[0];
+    if (!first) {
+      showFeedback('info', `Đơn ${order.orderCode} không có sản phẩm thuộc 3 kệ demo IoT (A1, A2, A3).`);
+      return;
+    }
+    const stepIdx = iotItems.findIndex(it => it.id === first.id);
+    await triggerProductShelfIot(order, first, stepIdx >= 0 ? stepIdx + 1 : 1, iotItems.length);
+  };
+
+  const advanceOrderIotStep = useCallback(
+    async (manualStop = false) => {
+      const session = guidedStepRef.current;
+      if (!session || isAdvancingRef.current) return;
+      isAdvancingRef.current = true;
+      guidedStepRef.current = null;
+      setGuidedStep(null);
+
+      try {
+        if (manualStop) {
+          await stopShelfIotApi({ warehouseCode: 'WH-006', shelfCode: session.shelfCode }).catch(() => {});
+        }
+        const currentOrd = iotOrdersRef.current.find(o => o.id === session.orderId);
+        if (!currentOrd) {
+          isAdvancingRef.current = false;
+          return;
+        }
+        const updatedItems = (currentOrd.items || []).map(it =>
+          it.id === session.itemId
+            ? { ...it, status: 'PICKED', pickedQuantity: (it as any).requestedQuantity || it.quantity || 1 }
+            : it
+        );
+        const updatedOrd: ApiOutboundOrder = {
+          ...currentOrd,
+          items: updatedItems,
+        };
+        setIotOrders(prev => prev.map(o => (o.id === currentOrd.id ? updatedOrd : o)));
+        await updatePickedItemsApi(currentOrd.id, [
+          { id: session.itemId, pickedQuantity: session.qty, status: 'PICKED' },
+        ]).catch(() => {});
+
+        const iotItems = updatedItems.filter(it => extractDemoIotShelf(it.slotId || it.location) !== null);
+        const remainingIot = iotItems.filter(
+          it => (it as any).status !== 'PICKED' && (it.pickedQuantity || 0) < ((it as any).requestedQuantity || it.quantity || 1)
+        );
+        if (remainingIot.length > 0) {
+          const nextItem = remainingIot[0];
+          const nextStep = iotItems.length - remainingIot.length + 1;
+          setTimeout(() => {
+            isAdvancingRef.current = false;
+            triggerProductShelfIot(updatedOrd, nextItem, nextStep, iotItems.length);
+          }, 650);
+        } else {
+          isAdvancingRef.current = false;
+          showFeedback('success', `Đã hoàn thành lấy toàn bộ sản phẩm trong đơn ${session.orderCode}!`);
+          await refreshAll();
+        }
+      } catch {
+        isAdvancingRef.current = false;
+      }
+    },
+    [triggerProductShelfIot, refreshAll]
+  );
+
+  useEffect(() => {
+    if (!guidedStep) return;
+    const poll = setInterval(async () => {
+      const session = guidedStepRef.current;
+      if (!session || isAdvancingRef.current) return;
+      try {
+        const res = await getIotShelvesStatusApi();
+        const sh = res?.shelves?.[session.shelfCode];
+        if (!sh) return;
+        const stopPressed =
+          (typeof sh.stopSeq === 'number' && sh.stopSeq > session.baselineStopSeq) ||
+          (sh.status === 'ARRIVED' && sh.arrivedAt && new Date(sh.arrivedAt).getTime() >= session.startedAt - 1500);
+        if (stopPressed) {
+          await advanceOrderIotStep(false);
+        }
+      } catch {}
+    }, 800);
+    return () => clearInterval(poll);
+  }, [guidedStep, advanceOrderIotStep]);
   const handleLocateShelf = async (code: string) => {
     setActionLoading(`locate-${code}`);
     try {
@@ -103,7 +269,12 @@ export const IoTTestCenter: React.FC = () => {
         qty: 1,
       });
       if (res?.success) {
-        showFeedback('success', `Đã kích hoạt đèn và còi định vị kệ ${code}.`);
+        showFeedback(
+          'success',
+          res?.buzzerEnabled === false
+            ? `Đã bật đèn định vị kệ ${code} (chế độ chỉ sáng đèn).`
+            : `Đã kích hoạt đèn và còi định vị kệ ${code}.`,
+        );
       } else {
         showFeedback('error', res?.message || `Không thể kích hoạt kệ ${code}`);
       }
@@ -259,9 +430,6 @@ export const IoTTestCenter: React.FC = () => {
             <h1 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
               Trung Tâm Kiểm Thử IoT
             </h1>
-            <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#64748b' }}>
-              Điều khiển Pick-to-Light & Giám sát Kho Mát (A1, A2, A3)
-            </p>
           </div>
         </div>
 
@@ -379,6 +547,180 @@ export const IoTTestCenter: React.FC = () => {
           >
             {esp32Online ? <Wifi size={13} /> : <WifiOff size={13} />}
             <span>{esp32Online ? 'ĐANG KẾT NỐI' : 'MẤT TÍN HIỆU'}</span>
+          </div>
+        </div>
+
+        {/* SECTION 0: INTERACTIVE ORDERS & PRODUCTS PICK-TO-LIGHT (KỆ A1, A2, A3) */}
+        <div
+          style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '8px',
+            padding: '14px',
+            border: '1px solid #cbd5e1',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
+              <Layers size={16} color="#0f766e" />
+              <span>Đơn Hàng &amp; Sản Phẩm (Kệ A1–A3)</span>
+            </div>
+          </div>
+
+          {guidedStep && (
+            <div
+              style={{
+                backgroundColor: '#fffbeb',
+                border: '1px solid #fde68a',
+                borderRadius: '8px',
+                padding: '10px 12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#92400e', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Radio size={14} color="#92400e" />
+                  {guidedStep.orderCode} • Bước {guidedStep.step}/{guidedStep.totalSteps} • Kệ {guidedStep.shelfCode}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => advanceOrderIotStep(true)}
+                  style={{
+                    backgroundColor: '#0f766e',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '5px 10px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Xác nhận STOP &amp; Qua món kế
+                </button>
+              </div>
+              <div style={{ fontSize: '12px', color: '#0f172a', fontWeight: 600 }}>
+                <b>{guidedStep.productName}</b> (x{guidedStep.qty})
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {iotOrders
+              .filter(o => Array.isArray(o.items) && o.items.length > 0 && o.status !== 'CANCELLED')
+              .slice(0, 5)
+              .map(ord => {
+                const isSelected = selectedOrderId === ord.id || guidedStep?.orderId === ord.id;
+                const iotItems = (ord.items || []).filter(it => extractDemoIotShelf(it.slotId || it.location) !== null);
+                const pendingIot = iotItems.filter(
+                  it => (it as any).status !== 'PICKED' && (it.pickedQuantity || 0) < ((it as any).requestedQuantity || it.quantity || 1)
+                );
+
+                return (
+                  <div
+                    key={ord.id}
+                    style={{
+                      border: `1px solid ${isSelected ? '#0f766e' : '#e2e8f0'}`,
+                      borderRadius: '8px',
+                      backgroundColor: '#f8fafc',
+                      padding: '10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px',
+                    }}
+                  >
+                    <div
+                      onClick={() => handleClickOrderIot(ord)}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <span
+                        style={{
+                          backgroundColor: '#0f766e',
+                          color: '#ffffff',
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <Play size={11} />
+                        {ord.orderCode}
+                      </span>
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: '#075985' }}>
+                        {pendingIot.length > 0 ? `Bấm đơn để chạy (${pendingIot.length} kệ IoT)` : 'Đã hoàn tất'}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {(ord.items || []).map((it, idx) => {
+                        const shelfCode = extractDemoIotShelf(it.slotId || it.location);
+                        const isPicked = (it as any).status === 'PICKED' || (it.pickedQuantity || 0) >= ((it as any).requestedQuantity || it.quantity || 1);
+                        const isGuidedThis = guidedStep?.itemId === it.id;
+                        const stepIdx = iotItems.findIndex(x => x.id === it.id);
+
+                        return (
+                          <div
+                            key={it.id || `${ord.id}-${idx}`}
+                            onClick={() => {
+                              setSelectedOrderId(ord.id);
+                              triggerProductShelfIot(
+                                ord,
+                                it,
+                                stepIdx >= 0 ? stepIdx + 1 : 1,
+                                Math.max(1, iotItems.length)
+                              );
+                            }}
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              gap: '8px',
+                              padding: '6px 8px',
+                              borderRadius: '6px',
+                              backgroundColor: isGuidedThis ? '#fffbeb' : isPicked ? '#f0fdf4' : '#ffffff',
+                              border: `1px solid ${isGuidedThis ? '#d97706' : isPicked ? '#bbf7d0' : '#e2e8f0'}`,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                              <span
+                                style={{
+                                  fontSize: '10.5px',
+                                  fontWeight: 700,
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  backgroundColor: isGuidedThis ? '#d97706' : shelfCode ? '#0f766e' : '#64748b',
+                                  color: '#ffffff',
+                                }}
+                              >
+                                {shelfCode ? `Kệ ${shelfCode}` : it.slotId}
+                              </span>
+                              <span style={{ fontSize: '12px', fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {idx + 1}. {it.productName}
+                              </span>
+                            </div>
+                            <span style={{ fontSize: '10.5px', fontWeight: 600, color: isGuidedThis ? '#92400e' : isPicked ? '#166534' : '#0f766e' }}>
+                              {isGuidedThis ? 'Đang sáng đèn' : isPicked ? 'Đã lấy' : shelfCode ? 'Bấm bật đèn' : 'Ngoài IoT'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </div>
 
@@ -932,9 +1274,6 @@ export const IoTTestCenter: React.FC = () => {
                 <div style={{ fontWeight: 600, color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <ShieldCheck size={15} />
                   <span>Hệ thống vận hành bình thường</span>
-                </div>
-                <div style={{ marginTop: '2px', fontSize: '11px', color: '#64748b' }}>
-                  Nhiệt độ và độ ẩm trong ngưỡng quy chuẩn kho mát. 3 kệ hàng hoạt động ổn định.
                 </div>
               </div>
             )}

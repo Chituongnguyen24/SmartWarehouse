@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Patch, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Body, Param, Query, Headers } from '@nestjs/common';
 import { OutboundOrderService } from './outbound-order.service';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 
@@ -44,27 +44,39 @@ export class OutboundOrderController {
   }
 
   @Post('iot/locate-shelf')
-  @ApiOperation({ summary: 'IoT: Phát lệnh tìm vị trí kệ hàng (Nháy đèn)' })
-  locateShelf(@Body() body: { warehouseCode?: string; shelfCode: string; slotCode?: string; productName?: string; qty?: number; step?: number }) {
-    return this.service.triggerIotLocateShelf(body);
+  @ApiOperation({ summary: 'IoT: Phát lệnh tìm vị trí kệ hàng (Nháy đèn & Còi)' })
+  locateShelf(
+    @Body() body: { warehouseCode?: string; shelfCode: string; slotCode?: string; productName?: string; qty?: number; step?: number; totalSteps?: number; orderId?: string },
+    @Headers('authorization') authHeader?: string,
+  ) {
+    return this.service.triggerIotLocateShelf(body, authHeader);
   }
 
   @Post('iot/chirp-shelf')
   @ApiOperation({ summary: 'IoT: Bóp còi Smartkey tìm kệ (như Smartkey xe máy/ô tô)' })
-  chirpShelf(@Body() body: { warehouseCode?: string; shelfCode: string }) {
-    return this.service.triggerIotChirpShelf(body);
+  chirpShelf(
+    @Body() body: { warehouseCode?: string; shelfCode: string },
+    @Headers('authorization') authHeader?: string,
+  ) {
+    return this.service.triggerIotChirpShelf(body, authHeader);
   }
 
   @Post('iot/complete-shelf')
-  @ApiOperation({ summary: 'IoT: Quét xong mã sản phẩm -> Tự động tắt đèn kệ' })
-  completeShelf(@Body() body: { warehouseCode?: string; shelfCode: string }) {
-    return this.service.triggerIotCompleteShelf(body);
+  @ApiOperation({ summary: 'IoT: Hoàn tất lấy hàng tại kệ -> Tự động tắt đèn kệ' })
+  completeShelf(
+    @Body() body: { warehouseCode?: string; shelfCode: string; orderId?: string },
+    @Headers('authorization') authHeader?: string,
+  ) {
+    return this.service.triggerIotCompleteShelf(body, authHeader);
   }
 
   @Post('iot/stop-shelf')
   @ApiOperation({ summary: 'IoT: Tắt đèn và còi kệ (Dừng định vị / hoàn tất kiểm kê)' })
-  stopShelf(@Body() body: { warehouseCode?: string; shelfCode: string }) {
-    return this.service.triggerIotStopShelf(body);
+  stopShelf(
+    @Body() body: { warehouseCode?: string; shelfCode: string },
+    @Headers('authorization') authHeader?: string,
+  ) {
+    return this.service.triggerIotStopShelf(body, authHeader);
   }
 
   @Get()

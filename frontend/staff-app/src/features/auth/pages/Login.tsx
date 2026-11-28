@@ -280,9 +280,6 @@ export const Login: React.FC = () => {
                 STAFF APP
               </span>
             </div>
-            <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#64748b', fontWeight: 400 }}>
-              Hệ thống Quản lý Vận hành & Xuất Nhập Kho Thực phẩm
-            </p>
           </div>
         </div>
 
@@ -522,34 +519,8 @@ export const Login: React.FC = () => {
           </button>
         </form>
 
-        {/* Helpful Note for Staff */}
-        <div
-          style={{
-            backgroundColor: '#f8fafc',
-            border: '1px solid #e2e8f0',
-            borderRadius: '6px',
-            padding: '10px 12px',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '8px',
-            fontSize: '11px',
-            color: '#64748b',
-            lineHeight: 1.45,
-          }}
-        >
-          <Info size={14} color="#008848" style={{ flexShrink: 0, marginTop: '2px' }} />
-          <span>
-            Tài khoản nhân viên được cấp và phân quyền từ Web Quản trị. Hệ thống hỗ trợ tự đặt lại mật khẩu nhanh chóng qua mã xác thực bảo mật.
-          </span>
-        </div>
-
-        {/* Security & Server Connection Config Switcher */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
-            <ShieldCheck size={14} color="#008848" />
-            <span>Bảo mật JWT chuẩn phiên 24h & Khóa kho vận hành</span>
-          </div>
-
+        {/* Server Connection Config Switcher */}
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
           <button
             type="button"
             onClick={() => setShowServerModal(true)}
